@@ -165,6 +165,7 @@ object Settings extends StrictLogging {
     */
   final case class Connection(
     `type`: ConnectionType,
+    loader: Option[String] = None,
     sparkFormat: Option[String] = None,
     quote: Option[String] = None,
     separator: Option[String] = None,
@@ -202,7 +203,7 @@ object Settings extends StrictLogging {
 
     }
 
-    def this() = this(ConnectionType.JDBC, None, None, None, Map.empty)
+    def this() = this(ConnectionType.JDBC, None, None, None, None, Map.empty)
 
     def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]

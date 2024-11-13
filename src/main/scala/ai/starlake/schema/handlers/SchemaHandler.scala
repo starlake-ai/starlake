@@ -1608,4 +1608,46 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     sqlWithParametersTranspiledIfInTest
   }
 
+  def addFK(
+    domainName: String,
+    tableName: String,
+    columnName: String,
+    targetDomainName: String,
+    targetTableName: String,
+    targetColumnName: String
+  ): Try[Unit] =
+    updateFK(
+      domainName,
+      tableName,
+      columnName,
+      Some(s"${targetDomainName}.${targetTableName}.${targetColumnName}")
+    )
+
+  def deleteFK(
+    domainName: String,
+    tableName: String,
+    columnName: String
+  ): Try[Unit] =
+    updateFK(domainName, tableName, columnName, None)
+
+  def updateFK(
+    domainName: String,
+    tableName: String,
+    columnName: String,
+    fk: Option[String]
+  ): Try[Unit] = Try {
+    val path = new Path(DatasetArea.load, domainName + "/" + tableName + ".sl.yml")
+    val content = storage.read(path)
+    val tableDesc = YamlSerde.deserializeYamlTables(content, path.toString).head
+    val table = tableDesc.table
+    val tableWithFK = table.attributes.map { col =>
+      if (col.name == columnName)
+        col.copy(foreignKey = fk)
+      else
+        col
+    }
+    val updatedTable = table.copy(attributes = tableWithFK)
+    val updatedTableDesc = tableDesc.copy(table = updatedTable)
+    YamlSerde.serializeToPath(path, updatedTableDesc)(settings.storageHandler())
+  }
 }
