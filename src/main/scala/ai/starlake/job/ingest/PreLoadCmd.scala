@@ -38,6 +38,11 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
         .action((x, c) => c.copy(strategy = PreLoadStrategy.fromString(x)))
         .text("pre load strategy"),
       builder
+        .opt[String]("globalAckFilePath")
+        .optional()
+        .action((x, c) => c.copy(globalAckFilePath = Some(x)))
+        .text("Global ack file path"),
+      builder
         .opt[String]("accessToken")
         .action((x, c) => c.copy(accessToken = Some(x)))
         .text(s"Access token to use for authentication")
