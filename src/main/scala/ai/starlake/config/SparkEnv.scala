@@ -32,13 +32,16 @@ import org.apache.spark.sql.SparkSession
   *   : Cusom spark application name prefix. The current datetime is appended this the Spark Job
   *   name
   */
-class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)(implicit
-  settings: Settings
+class SparkEnv private (
+  name: String,
+  jobConf: SparkConf,
+  datasetsArea: String,
+  confTransformer: SparkConf => SparkConf = identity
 ) extends StrictLogging {
 
   /** Load spark.* properties from the loaded application conf file
     */
-  val config: SparkConf = confTransformer(settings.jobConf)
+  val config: SparkConf = confTransformer(jobConf)
 
   /** Creates a Spark Session with the spark.* keys defined the application conf file.
     */
@@ -51,12 +54,11 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     ) {
       // We need to avoid in-memory catalog implementation otherwise delta will fail to work
       // through subsequent spark sessions since the metastore is not present anywhere.
-      sysProps.setProperty("derby.system.home", settings.appConfig.datasets)
-      config.set("spark.sql.warehouse.dir", settings.appConfig.datasets)
+      sysProps.setProperty("derby.system.home", datasetsArea)
+      config.set("spark.sql.warehouse.dir", datasetsArea)
     }
     import org.apache.spark.sql.SparkSession
     val master = config.get("spark.master", sys.env.get("SPARK_MASTER_URL").getOrElse("local[*]"))
-    val builder = SparkSession.builder()
 
     if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
       config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
@@ -74,9 +76,9 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
         sys.env.getOrElse("SL_SPARK_NO_CATALOG", "false").toBoolean &&
         config.getOption("spark.sql.catalogImplementation").isEmpty
       ) {
-        builder.config(config).master(master).enableHiveSupport().getOrCreate()
+        SparkSession.builder().config(config).master(master).enableHiveSupport().getOrCreate()
       } else
-        builder.config(config).master(master).getOrCreate()
+        SparkSession.builder().config(config).master(master).getOrCreate()
 
     /*
     val catalogs = settings.sparkConfig.getString("sql.catalogKeys").split(",").toList
@@ -101,11 +103,13 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
 
 object SparkEnv {
   var sparkEnv: SparkEnv = _
-  def get(name: String, confTransformer: SparkConf => SparkConf = identity)(implicit
+  def get(
+    name: String,
+    confTransformer: SparkConf => SparkConf = identity,
     settings: Settings
   ): SparkEnv = {
     if (sparkEnv == null) {
-      sparkEnv = new SparkEnv(name, confTransformer)
+      sparkEnv = new SparkEnv(name, settings.jobConf, settings.appConfig.datasets, confTransformer)
     }
     sparkEnv
   }

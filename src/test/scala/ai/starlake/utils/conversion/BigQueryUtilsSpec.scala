@@ -8,7 +8,7 @@ import org.apache.spark.sql.types._
 
 class BigQueryUtilsSpec extends TestHelper {
   new WithSettings() {
-    val sparkEnv: SparkEnv = new SparkEnv("test")
+    val sparkEnv: SparkEnv = SparkEnv.get("test", identity, settings)
     val session: SparkSession = sparkEnv.session
 
     "Spark Types" should "be converted to corresponding BQ Types" in {

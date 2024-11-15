@@ -42,7 +42,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
 
   def name: String = "InferSchema"
 
-  private val sparkEnv: SparkEnv = new SparkEnv(name)
+  private val sparkEnv: SparkEnv = SparkEnv.get(name, identity, settings)
   private val session: SparkSession = sparkEnv.session
 
   /** Read file without specifying the format

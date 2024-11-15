@@ -51,10 +51,8 @@ import pureconfig.generic.{FieldCoproductHint, ProductHint}
 import java.io.ObjectStreamException
 import java.net.URI
 import java.sql.DriverManager
-import java.util.concurrent.TimeUnit
 import java.util.{Locale, Properties, TimeZone, UUID}
 import scala.annotation.nowarn
-import scala.concurrent.duration.FiniteDuration
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
