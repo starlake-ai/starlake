@@ -2,6 +2,7 @@ import os
 
 import uuid
 
+from ai.starlake.common import MissingEnvironmentVariable
 from ai.starlake.job import StarlakeOptions
 
 class StarlakeDataprocMachineConfig():
@@ -74,6 +75,11 @@ class StarlakeDataprocClusterConfig(StarlakeOptions):
         }, **kwargs)
         self.cluster_id = str(uuid.uuid4())[:8] if not cluster_id else cluster_id
         self.dataproc_name = __class__.get_context_var("dataproc_name", "dataproc-cluster", options) if not dataproc_name else dataproc_name
+        try:
+            import json
+            self.metadata = json.loads(__class__.get_context_var("dataproc_cluster_metadata", options))
+        except MissingEnvironmentVariable:
+            self.metadata = {}
 
     def __config__(self, **kwargs):
         cluster_properties = dict(self.cluster_properties, **kwargs)
@@ -85,7 +91,10 @@ class StarlakeDataprocClusterConfig(StarlakeOptions):
                 "service_account": self.service_account,
                 "subnetwork_uri": f"projects/{self.project_id}/regions/{self.region}/subnetworks/{self.subnet}",
                 "internal_ip_only": True,
-                "tags": ["dataproc"]
+                "tags": ["dataproc"],
+                "metadata": {
+                    **self.metadata
+                }
             },
             "software_config": {
                 "image_version": self.image_version,
