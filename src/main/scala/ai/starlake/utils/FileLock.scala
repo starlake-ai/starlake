@@ -30,8 +30,8 @@ import scala.util.{Failure, Success, Try}
   *   Filesystem Handler
   */
 class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging {
-  def checkinPeriod: Long = storageHandler.lockAcquisitionPollTime.toMillis
-  def refreshPeriod: Long = storageHandler.lockRefreshPollTime.toMillis
+  def checkinPeriod: Long = storageHandler.lockAcquisitionPollTime
+  def refreshPeriod: Long = storageHandler.lockRefreshPollTime
 
   private val fileWatcher = new FileLock.LockWatcher(path, storageHandler, refreshPeriod)
 

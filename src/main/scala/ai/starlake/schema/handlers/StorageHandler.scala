@@ -32,7 +32,6 @@ import java.nio.charset.Charset.defaultCharset
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.LocalDateTime
 import java.util.regex.Pattern
-import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /** Interface required by any filesystem manager
@@ -114,8 +113,8 @@ trait StorageHandler extends StrictLogging {
 
   def touch(path: Path): Try[Unit]
 
-  def lockAcquisitionPollTime: FiniteDuration
-  def lockRefreshPollTime: FiniteDuration
+  def lockAcquisitionPollTime: Long
+  def lockRefreshPollTime: Long
 
   def getScheme(): String
 

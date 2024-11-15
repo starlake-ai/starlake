@@ -31,7 +31,6 @@ import java.io._
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{Instant, LocalDateTime, ZoneId}
 import java.util.regex.Pattern
-import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try, Using}
 
 /** HDFS Filesystem Handler
@@ -204,8 +203,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
   private lazy val defaultNormalizedFileSystem = normalizedFileSystem(fileSystem)
 
-  def lockAcquisitionPollTime: FiniteDuration = settings.appConfig.lock.pollTime
-  def lockRefreshPollTime: FiniteDuration = settings.appConfig.lock.refreshTime
+  def lockAcquisitionPollTime: Long = settings.appConfig.lock.pollTime
+  def lockRefreshPollTime: Long = settings.appConfig.lock.refreshTime
 
   conf.set("fs.defaultFS", defaultNormalizedFileSystem)
 
