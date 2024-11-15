@@ -74,7 +74,7 @@ object FlatRowValidator extends GenericRowValidator {
           }
           RowResult(
             colResults,
-            false,
+            isAccepted = false,
             row.getAs[String](CometColumns.cometInputFileNameColumn),
             Some(toOriginalFormat(row, format, separator))
           )
