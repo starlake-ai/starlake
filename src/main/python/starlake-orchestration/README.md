@@ -1,8 +1,8 @@
 # starlake-orchestration
 
-**starlake-orchestration** is the **[Starlake](https://starlake-ai.github.io/starlake/index.html)** Python Distribution for **orchestration**.
+**starlake-orchestration** is the **[Starlake](https://starlake.ai)** Python Distribution for **orchestration**.
 
-It is recommended to use it in combinaison with **[starlake dag generation](https://starlake-ai.github.io/starlake/docs/concepts/orchestration)**, but can be used directly as is in your **DAGs**.
+It is recommended to use it in combinaison with **[starlake dag generation](https://starlake.ai/starlake/docs/guides/orchestrate/customization)**, but can be used directly as is in your **DAGs**.
 
 ## IStarlakeJob
 
@@ -17,18 +17,20 @@ def sl_import(
     self, 
     task_id: str, 
     domain: str, 
+    tables: set=set(),
     **kwargs) -> BaseOperator:
     #...
 ```
 
-| name    | type | description                                         |
-| ------- | ---- | --------------------------------------------------- |
+| name    | type | description                                           |
+| ------- | ---- | ----------------------------------------------------- |
 | task_id | str  | the optional task id (`{domain}_import` by default) |
-| domain  | str  | the required domain to import                       |
+| domain  | str  | the required domain to import                         |
+| tables  | set  | the optional tables to import                         |
 
 ### sl_load
 
-It will generate the task that will run the starlake [load](https://starlake-ai.github.io/starlake/docs/cli/load) command.
+It will generate the task that will run the starlake [load](https://starlake.ai/starlake/docs/category/load) command.
 
 ```python
 def sl_load(
@@ -41,11 +43,11 @@ def sl_load(
     #...
 ```
 
-| name         | type                | description                                               |
-| ------------ | ------------------- | --------------------------------------------------------- |
+| name         | type                | description                                                 |
+| ------------ | ------------------- | ----------------------------------------------------------- |
 | task_id      | str                 | the optional task id (`{domain}_{table}_load` by default) |
-| domain       | str                 | the required domain of the table to load                  |
-| table        | str                 | the required table to load                                |
+| domain       | str                 | the required domain of the table to load                    |
+| table        | str                 | the required table to load                                  |
 | spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`        |
 
 ### sl_transform
@@ -62,11 +64,11 @@ def sl_transform(
     #...
 ```
 
-| name              | type                | description                                          |
-| ----------------- | ------------------- | ---------------------------------------------------- |
+| name              | type                | description                                            |
+| ----------------- | ------------------- | ------------------------------------------------------ |
 | task_id           | str                 | the optional task id (`{transform_name}` by default) |
-| transform_name    | str                 | the transform to run                                 |
-| transform_options | str                 | the optional transform options                       |
+| transform_name    | str                 | the transform to run                                   |
+| transform_options | str                 | the optional transform options                         |
 | spark_config      | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`   |
 
 ### sl_job
@@ -87,7 +89,7 @@ def sl_job(
 | ------------ | ------------------- | ----------------------------------------------------- |
 | task_id      | str                 | the required task id                                  |
 | arguments    | list                | The required arguments of the starlake command to run |
-| spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`    |
+| spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`  |
 
 ### Init
 
@@ -114,6 +116,7 @@ The pre-load strategy is implemented by `sl_pre_load` method that will generate 
 def sl_pre_load(
     self, 
     domain: str, 
+    tables: set=set(),
     pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None,
     **kwargs) -> BaseOperator:
     #...
@@ -121,7 +124,8 @@ def sl_pre_load(
 
 | name              | type | description                                                        |
 | ----------------- | ---- | ------------------------------------------------------------------ |
-| domain            | str  | the domain to load                                                 |
+| domain            | str  | the domain to pre-load                                                 |
+| tables            | set  | the optional tables to pre-load                                                 |
 | pre_load_strategy | str  | the optional pre load strategy (self.pre_load_strategy by default) |
 
 ##### NONE
@@ -130,16 +134,15 @@ The load of the domain will not be conditionned and no pre-load tasks / ops will
 
 ![none strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/none.png)
 
-
 ##### IMPORTED
 
-This strategy implies that at least one file is present in the landing area (`SL_ROOT/importing/{domain}` by default, if option `incoming_path` has not been specified). If there is one or more files to load, the method `sl_import` will be called to import the domain before loading it, otherwise the loading of the domain will be skipped.
+This strategy implies that at least one file is present in the landing area (`SL_ROOT/datasets/importing/{domain}` by default). If there is one or more files to load, the method `sl_import` will be called to import the domain before loading it, otherwise the loading of the domain will be skipped.
 
 ![imported strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/imported.png)
 
 ##### PENDING
 
-This strategy implies that at least one file is present in the pending datasets area of the domain (`SL_ROOT/datasets/pending/{domain}` by default if option `pending_path` has not been specified), otherwise the loading of the domain will be skipped.
+This strategy implies that at least one file is present in the pending datasets area of the domain (`SL_ROOT/datasets/pending/{domain}` by default), otherwise the loading of the domain will be skipped.
 
 ![pending strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/pending.png)
 
@@ -153,13 +156,13 @@ This strategy implies that an **ack file** is present at the specified path (opt
 
 The following options can be specified in all concrete factory classes:
 
-| name                     | type | description                                                                               |
-| ------------------------ | ---- | ----------------------------------------------------------------------------------------- |
+| name                           | type | description                                                                                 |
+| ------------------------------ | ---- | ------------------------------------------------------------------------------------------- |
 | **default_pool**         | str  | pool of slots to use (`default_pool` by default)                                          |
-| **sl_env_var**           | str  | optional starlake environment variables passed as an encoded json string                  |
-| **pre_load_strategy**    | str  | one of `none` (default), `imported`, `pending` or `ack`                                   |
-| **incoming_path**        | str  | path to the landing area for the domain to load (`{SL_ROOT}/incoming` by default)         |
-| **pending_path**         | str  | path to the pending datastets for the domain to load (`{SL_DATASETS}/pending` by default) |
+| **sl_env_var**           | str  | optional starlake environment variables passed as an encoded json string                    |
+| **retries**           | int  | optional number of retries to attempt before failing a task (`1` by default)                    |
+| **retry_delay**           | int  | optional delay between retries in seconds (`300` by default)                    |
+| **pre_load_strategy**    | str  | one of `none` (default), `imported`, `pending` or `ack`                             |
 | **global_ack_file_path** | str  | path to the ack file (`{SL_DATASETS}/pending/{domain}/{{{{ds}}}}.ack` by default)         |
 | **ack_wait_timeout**     | int  | timeout in seconds to wait for the ack file(`1 hour` by default)                          |
 
