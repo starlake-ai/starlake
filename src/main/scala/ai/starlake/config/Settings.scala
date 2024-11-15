@@ -545,8 +545,8 @@ object Settings extends StrictLogging {
   final case class Lock(
     path: String,
     timeout: Long,
-    pollTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS),
-    refreshTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
+    pollTime: Long = 5000L,
+    refreshTime: Long = 5000L
   )
 
   final case class Internal(

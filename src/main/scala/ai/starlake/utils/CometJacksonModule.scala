@@ -1,7 +1,5 @@
 package ai.starlake.utils
 
-import java.util.concurrent.TimeUnit
-
 import com.fasterxml.jackson.annotation.{JsonAnySetter, JsonIgnoreType}
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind._
@@ -10,10 +8,9 @@ import com.fasterxml.jackson.databind.deser.Deserializers
 import com.fasterxml.jackson.databind.ser.Serializers
 import com.fasterxml.jackson.module.scala.JacksonModule
 import org.apache.spark.storage.StorageLevel
+import org.apache.spark.storage.StorageLevel._
 
-import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
-import StorageLevel._
 
 /** This module handles some specific type serializers in a central way (so we don't need to pepper
   * the model code with annotations)
@@ -150,32 +147,10 @@ private object CometJacksonModuleContents {
     }
   }
 
-  object FiniteDurationSerializer extends JsonSerializer[FiniteDuration] {
-
-    override def handledType(): Class[FiniteDuration] = classOf[FiniteDuration]
-
-    override def serialize(
-      value: FiniteDuration,
-      gen: JsonGenerator,
-      serializers: SerializerProvider
-    ): Unit = {
-      gen.writeNumber(value.toMillis)
-    }
-  }
-
-  object FiniteDurationDeserializer extends JsonDeserializer[FiniteDuration] {
-    override def handledType(): Class[FiniteDuration] = classOf[FiniteDuration]
-
-    override def deserialize(p: JsonParser, ctxt: DeserializationContext): FiniteDuration = {
-      val milliseconds = ctxt.readValue(p, classOf[Long])
-      FiniteDuration.apply(milliseconds, TimeUnit.MILLISECONDS)
-    }
-  }
-
   object CometSerializers extends Serializers.Base {
 
     private val serializers: Map[Class[_], JsonSerializer[_]] =
-      (FiniteDurationSerializer :: StorageLevelSerializer :: Nil)
+      (StorageLevelSerializer :: Nil)
         .map(ser => ser.handledType() -> ser)
         .toMap
 
@@ -193,7 +168,7 @@ private object CometJacksonModuleContents {
   object CometDeserializers extends Deserializers.Base {
 
     private val deserializers: Map[Class[_], JsonDeserializer[_]] =
-      (FiniteDurationDeserializer :: StorageLevelDeserializer :: Nil)
+      (StorageLevelDeserializer :: Nil)
         .map(ser => ser.handledType() -> ser)
         .toMap
 

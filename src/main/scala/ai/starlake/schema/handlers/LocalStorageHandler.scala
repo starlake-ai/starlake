@@ -32,7 +32,6 @@ import java.io.{IOException, InputStream, InputStreamReader, OutputStream}
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
-import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
 /** HDFS Filesystem Handler
@@ -43,9 +42,9 @@ class LocalStorageHandler(implicit
 
   import StorageHandler._
 
-  def lockAcquisitionPollTime: FiniteDuration = settings.appConfig.lock.pollTime
+  def lockAcquisitionPollTime: Long = settings.appConfig.lock.pollTime
 
-  def lockRefreshPollTime: FiniteDuration = settings.appConfig.lock.refreshTime
+  def lockRefreshPollTime: Long = settings.appConfig.lock.refreshTime
 
   /** Gets the outputstream given a path
     *
