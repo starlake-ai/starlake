@@ -40,7 +40,6 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import java.util.TimeZone
 import java.util.regex.Pattern
 import scala.jdk.CollectionConverters._
-import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
 
 class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryValues {
@@ -888,8 +887,8 @@ object YamlConfigGenerators {
     for {
       path        <- arbitrary[String]
       timeout     <- arbitrary[Long]
-      pollTime    <- arbitrary[FiniteDuration]
-      refreshTime <- arbitrary[FiniteDuration]
+      pollTime    <- arbitrary[Long]
+      refreshTime <- arbitrary[Long]
     } yield Lock(path = path, timeout = timeout, pollTime = pollTime, refreshTime = refreshTime)
   }
 
