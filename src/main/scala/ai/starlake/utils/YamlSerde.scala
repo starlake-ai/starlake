@@ -1,6 +1,6 @@
 package ai.starlake.utils
 
-import ai.starlake.config.{ApplicationDesc, Settings}
+import ai.starlake.config.Settings
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.exceptions.SchemaValidationException
 import ai.starlake.extract.{ExtractDesc, JDBCSchemas}
@@ -22,24 +22,18 @@ import ai.starlake.schema.model.{
   Type,
   TypesDesc
 }
+import ai.starlake.utils.ImplicitRichPath._
+import ai.starlake.utils.YamlMigrator.V1.TableForExtractConfig
 import com.fasterxml.jackson.databind.node.{ArrayNode, BooleanNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
-import com.networknt.schema.{
-  ApplyDefaultsStrategy,
-  JsonSchemaFactory,
-  PathType,
-  SchemaValidatorsConfig,
-  ValidationResult
-}
 import com.networknt.schema.SpecVersion.VersionFlag
+import com.networknt.schema._
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
-import ImplicitRichPath._
-import ai.starlake.utils.YamlMigrator.V1.TableForExtractConfig
 
 import java.util.Locale
-import scala.util.{Failure, Success, Try}
 import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success, Try}
 
 object YamlSerde extends LazyLogging with YamlUtils {
   val mapper: ObjectMapper = Utils.newYamlMapper()
