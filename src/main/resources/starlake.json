@@ -1204,47 +1204,6 @@
       },
       "required": []
     },
-    "DurationUnit": {
-      "$ref": "#/definitions/ConvertibleToString",
-      "oneOf": [
-        {
-          "const": "NANOSECONDS"
-        },
-        {
-          "const": "MICROSECONDS"
-        },
-        {
-          "const": "MILLISECONDS"
-        },
-        {
-          "const": "SECONDS"
-        },
-        {
-          "const": "MINUTES"
-        },
-        {
-          "const": "HOURS"
-        },
-        {
-          "const": "DAYS"
-        }
-      ]
-    },
-    "Duration": {
-      "type": "object",
-      "properties": {
-        "length": {
-          "type": "integer"
-        },
-        "unit": {
-          "$ref": "#/definitions/DurationUnit"
-        },
-        "finite": {
-          "type": "boolean",
-          "default": true
-        }
-      }
-    },
     "LockV1": {
       "type": "object",
       "properties": {
@@ -1257,11 +1216,11 @@
           "description": "TODO"
         },
         "pollTime": {
-          "$ref": "#/definitions/Duration",
+          "type": "integer",
           "description": "TODO. Default 5 seconds"
         },
         "refreshTime": {
-          "$ref": "#/definitions/Duration",
+          "type": "integer",
           "description": "TODO. Default 5 seconds"
         }
       }
