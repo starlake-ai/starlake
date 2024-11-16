@@ -1,6 +1,5 @@
 from ai.starlake.common import sanitize_id, sort_crons_by_frequency, sl_cron_start_end_dates
 from ai.starlake.job import StarlakeSparkConfig
-from ai.starlake.airflow import DEFAULT_DAG_ARGS
 
 import json
 import os
@@ -82,26 +81,6 @@ _user_defined_macros["ts_as_datetime"] = ts_as_datetime
 
 catchup: bool = _cron is not None and sl_job.get_context_var(var_name='catchup', default_value='False', options=options).lower() == 'true'
 
-def to_datetime(date_str: str):
-  from datetime import datetime
-  import re
-  pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
-  if pattern.fullmatch(date_str):
-      from airflow.utils import timezone
-      dt = timezone.make_aware(datetime.strptime(date_str, "%Y-%m-%d"))
-  else:
-      from airflow.utils.dates import days_ago
-      dt = days_ago(1)
-  return datetime.fromtimestamp(dt.timestamp())
-
-start_date = to_datetime(sl_job.get_context_var(var_name='start_date', default_value="", options=options))
-
-end_date = sl_job.get_context_var(var_name='end_date', default_value="", options=options)
-if end_date.__len__() == 10:
-    end_date = to_datetime(end_date)
-else:
-    end_date = None
-
 # [START instantiate_dag]
 with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower(),
          schedule=_load_schedule(),
@@ -111,8 +90,8 @@ with DAG(dag_id=os.path.basename(__file__).replace(".py", "").replace(".pyc", ""
          user_defined_filters=sys.modules[__name__].__dict__.get('user_defined_filters', None),
          tags=list(set([tag.upper() for tag in tags])),
          description=description,
-         start_date=start_date,
-         end_date=end_date) as dag:
+         start_date=sl_job.start_date,
+         end_date=sl_job.end_date) as dag:
 
     start = sl_job.dummy_op(task_id="start")
 

@@ -43,9 +43,28 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
 
         command = __class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}"
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
+
+        if kwargs.get('do_xcom_push', False):
+            bash_command=f"""
+            set -e
+            bash -c '
+            {command}
+            return_code=$?
+
+            # Push the return code to XCom
+            echo $return_code
+
+            # Exit with the captured return code if non-zero
+            if [ $return_code -ne 0 ]; then
+                exit $return_code
+            fi
+            '
+            """
+        else:
+            bash_command=command
         return BashOperator(
             task_id=task_id,
-            bash_command=command,
+            bash_command=bash_command,
             cwd=self.sl_root,
             **kwargs
         )

@@ -109,17 +109,17 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         if pre_load_strategy == StarlakePreLoadStrategy.NONE:
             return None
         else:
-            task_id = f"{domain}_preload" if not task_id else task_id
+            task_id = kwargs.get("task_id", f"{domain}_pre_load")
             arguments = ["preload", "--domain", domain, "--tables", ",".join(tables), "--strategy", pre_load_strategy.value, "--options", "SL_RUN_MODE=main"]
             if pre_load_strategy == StarlakePreLoadStrategy.ACK:
                 def current_dt():
                     from datetime import datetime
                     return datetime.today().strftime('%Y-%m-%d')
-                ack_file = kwargs.get("ack_file", __class__.get_context_var(
+                ack_file = __class__.get_context_var(
                     var_name='global_ack_file_path',
                     default_value=f'{self.sl_datasets}/pending/{domain}/{current_dt()}.ack',
                     options=self.options
-                ))
+                )
                 arguments.extend(["--globalAckFilePath", f"{ack_file}"])
             return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
