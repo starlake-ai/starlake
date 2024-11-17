@@ -91,6 +91,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         Returns:
             BaseOperator: The Airflow task.
         """
+        kwargs.update({'doc': kwargs.get('doc', f'Import tables {",".join(list(tables or []))} within {domain}.')})
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         outlets = self.sl_outlets(domain, **kwargs)
         self.outlets += outlets
@@ -139,10 +140,12 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
                     tables=tables, 
                     pre_load_strategy=pre_load_strategy, 
                     do_xcom_push=True, 
+                    doc = f'Pre-load for tables {",".join(list(tables or []))} within {domain} using {pre_load_strategy.value} strategy.',
                     **kwargs
                 )
 
                 skip_or_start = ShortCircuitOperator(
+                    doc = f"Skip or start loading tables {','.join(list(tables or []))} within {domain} domain.",
                     task_id = sanitize_id(f'{domain}_skip_or_start'),
                     python_callable = self.skip_or_start,
                     op_args=[pre_load],
@@ -280,6 +283,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         Returns:
             BaseOperator: The Airflow task.
         """
+        kwargs.update({'doc': kwargs.get('doc', f'Load table {table} within {domain} domain.')})
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         outlets = self.sl_outlets(f'{domain}.{table}', **kwargs)
         self.outlets += outlets
@@ -299,6 +303,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         Returns:
             BaseOperator: The Airflow task.
         """
+        kwargs.update({'doc': kwargs.get('doc', f'Run {transform_name} transform.')})
         outlets = self.sl_outlets(transform_name, **kwargs)
         self.outlets += outlets
         kwargs.update({'outlets': outlets})
