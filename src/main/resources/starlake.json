@@ -711,7 +711,7 @@
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "#/definitions/WriteStrategyTypeV1",
+          "$ref": "#/definitions/OpenWriteStrategyTypeV1",
           "description": "TODO"
         },
         "types": {
