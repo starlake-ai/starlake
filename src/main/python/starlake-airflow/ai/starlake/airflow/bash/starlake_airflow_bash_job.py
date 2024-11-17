@@ -8,6 +8,8 @@ from airflow.models.baseoperator import BaseOperator
 
 from airflow.operators.bash import BashOperator
 
+from airflow.operators.python import PythonOperator
+
 class StarlakeAirflowBashJob(StarlakeAirflowJob):
     """Airflow Starlake Bash Job."""
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs):
@@ -45,26 +47,18 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
 
         if kwargs.get('do_xcom_push', False):
-            bash_command=f"""
-            set -e
-            bash -c '
-            {command}
-            return_code=$?
-
-            # Push the return code to XCom
-            echo $return_code
-
-            # Exit with the captured return code if non-zero
-            if [ $return_code -ne 0 ]; then
-                exit $return_code
-            fi
-            '
-            """
+            return PythonOperator(
+                task_id=task_id,
+                python_callable=self.execute_command,
+                op_args=[command],
+                op_kwargs=kwargs,
+                provide_context=True,
+                **kwargs
+            )
         else:
-            bash_command=command
-        return BashOperator(
-            task_id=task_id,
-            bash_command=bash_command,
-            cwd=self.sl_root,
-            **kwargs
-        )
+            return BashOperator(
+                task_id=task_id,
+                bash_command=command,
+                cwd=self.sl_root,
+                **kwargs
+            )

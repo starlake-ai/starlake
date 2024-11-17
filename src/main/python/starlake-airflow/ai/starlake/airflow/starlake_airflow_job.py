@@ -1,4 +1,3 @@
-import re
 from datetime import timedelta, datetime
 
 from typing import Union, List
@@ -14,17 +13,11 @@ from airflow.datasets import Dataset
 
 from airflow.models.baseoperator import BaseOperator
 
-from airflow.operators.bash import BashOperator
-
-from airflow.sensors.bash import BashSensor
-
 from airflow.operators.dummy import DummyOperator
 
 from airflow.operators.python import ShortCircuitOperator
 
 from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
-
-from airflow.sensors.filesystem import FileSensor
 
 from airflow.utils.task_group import TaskGroup
 
@@ -151,7 +144,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
 
                 skip_or_start = ShortCircuitOperator(
                     task_id = sanitize_id(f'{domain}_skip_or_start'),
-                    python_callable = self.f_skip_or_start,
+                    python_callable = self.skip_or_start,
                     op_args=[pre_load],
                     op_kwargs=kwargs,
                     provide_context = True,
@@ -177,7 +170,42 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
 
             return pre_load_tasks
 
-    def f_skip_or_start(self, upstream_task: BaseOperator, **kwargs):
+    def execute_command(self, command: str, **kwargs) -> int:
+        """
+        Execute the command and capture the return code.
+
+        Args:
+            command (str): The command to run.
+            **kwargs: The optional keyword arguments.
+
+        Returns:
+            int: The return code.
+        """
+        import os
+        env = os.environ.copy()          # Copy the current environment variables
+        env.update(self.sl_env_vars)     # Add/overwrite with sl env variables
+        import subprocess
+        try:
+            # Run the command and capture the return code
+            result = subprocess.run(
+                args=command.split(' '), 
+                env=env,
+                check=True, 
+                stderr=subprocess.STDOUT, 
+                stdout=subprocess.PIPE,
+            )
+            return_code = result.returncode
+            print(str(result.stdout, 'utf-8'))
+            return return_code
+        except subprocess.CalledProcessError as e:
+            # Capture the return code in case of failure
+            return_code = e.returncode
+            # Push the return code to XCom
+            kwargs['ti'].xcom_push(key='return_value', value=return_code)
+            print(str(e.stdout, 'utf-8'))
+            raise # Re-raise the exception to mark the task as failed
+
+    def skip_or_start(self, upstream_task: BaseOperator, **kwargs) -> bool:
         """
         Args:
             upstream_task (BaseOperator): The upstream task.
@@ -186,7 +214,27 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         Returns:
             bool: True if the task should be started, False otherwise.
         """
-        if isinstance(upstream_task, BashOperator) or isinstance(upstream_task, BashSensor):
+        if isinstance(upstream_task, DataprocSubmitJobOperator):
+            job = upstream_task.hook.get_job(
+                job_id=upstream_task.job_id, 
+                project_id=upstream_task.project_id, 
+                region=upstream_task.region
+            )
+            state = job.status.state
+            from google.cloud.dataproc_v1 import JobStatus
+            if state == JobStatus.State.DONE:
+                failed = False
+            elif state == JobStatus.State.ERROR:
+                failed = True
+                print(f"Job failed:\n{job}")
+            elif state == JobStatus.State.CANCELLED:
+                failed = True
+                print(f"Job was cancelled:\n{job}")
+            else:
+                from airflow.exceptions import AirflowException
+                raise AirflowException(f"Job is still running:\n{job}")
+
+        else:
             return_value = kwargs['ti'].xcom_pull(task_ids=upstream_task.task_id, key='return_value')
 
             print(f"Upstream task {upstream_task.task_id} return value: {return_value}[{type(return_value)}]")
@@ -216,26 +264,6 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
             else:
                 failed = True
                 print("Return value is not a valid integer or string.")
-
-        elif isinstance(upstream_task, DataprocSubmitJobOperator):
-            job = upstream_task.hook.get_job(project_id=upstream_task.project_id, region=upstream_task.region, job_id=upstream_task.job_id)
-            state = job.status.state
-            from google.cloud.dataproc_v1 import JobStatus
-            if state == JobStatus.State.DONE:
-                failed = False
-            elif state == JobStatus.State.ERROR:
-                failed = True
-                print(f"Job failed:\n{job}")
-            elif state == JobStatus.State.CANCELLED:
-                failed = True
-                print(f"Job was cancelled:\n{job}")
-            else:
-                from airflow.exceptions import AirflowException
-                raise AirflowException(f"Job is still running:\n{job}")
-
-        else:
-            failed = True
-            print(f"Upstream task {upstream_task.task_id} is not a BashOperator or BashSensor or DataprocSubmitJobOperator.")
 
         return not failed
 
