@@ -74,7 +74,7 @@ def load_domain(domain: dict, cron: Union[str, None]) -> GraphDefinition:
         output_mappings=ld_output_mappings,
     )
 
-    pld = sl_job.sl_pre_load(domain=domain["name"], cron=cron)
+    pld = sl_job.sl_pre_load(domain=domain["name"], tables=set(tables), cron=cron)
 
     @op(
         name=f"{domain['name']}_load_result",

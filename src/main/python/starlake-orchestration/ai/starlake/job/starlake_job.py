@@ -84,6 +84,7 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
             T: The scheduler task.
         """
         task_id = f"{domain}_import" if not task_id else task_id
+        kwargs.pop("task_id", None)
         arguments = ["import", "--domains", domain, "--tables", ",".join(tables), "--options", "SL_RUN_MODE=main"]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
@@ -110,6 +111,7 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
             return None
         else:
             task_id = kwargs.get("task_id", f"{domain}_pre_load")
+            kwargs.pop("task_id", None)
             arguments = ["preload", "--domain", domain, "--tables", ",".join(tables), "--strategy", pre_load_strategy.value, "--options", "SL_RUN_MODE=main"]
             if pre_load_strategy == StarlakePreLoadStrategy.ACK:
                 def current_dt():
@@ -136,7 +138,8 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         Returns:
             T: The scheduler task.
         """
-        task_id = f"{domain}_{table}_load" if not task_id else task_id
+        task_id = kwargs.get("task_id", f"{domain}_{table}_load") if not task_id else task_id
+        kwargs.pop("task_id", None)
         arguments = ["load", "--domains", domain, "--tables", table]
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
@@ -153,7 +156,8 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         Returns:
             T: The scheduler task.
         """
-        task_id = f"{transform_name}" if not task_id else task_id
+        task_id = kwargs.get("task_id", f"{transform_name}") if not task_id else task_id
+        kwargs.pop("task_id", None)
         arguments = ["transform", "--name", transform_name]
         options = list()
         if transform_options:

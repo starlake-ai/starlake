@@ -6,7 +6,7 @@ from ai.starlake.dagster import StarlakeDagsterJob
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
 
-from dagster import Failure, Output, AssetMaterialization, AssetKey, Out, op
+from dagster import Failure, Output, AssetMaterialization, AssetKey, Out, op, RetryPolicy
 
 from dagster._core.definitions import NodeDefinition
 
@@ -58,10 +58,24 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
 
         asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 
+        ins=kwargs.get("ins", {})
+
+        out:str=kwargs.get("out", "result")
+        failure:str=kwargs.get("failure", None)
+        outs=kwargs.get("outs", {out: Out(str, is_required=failure is None)})
+        if failure:
+            outs.update({failure: Out(str, is_required=False)})
+
+        if self.retries:
+            retry_policy = RetryPolicy(max_retries=self.retries, delay=self.retry_delay)
+        else:
+            retry_policy = None
+
         @op(
             name=task_id,
-            ins=kwargs.get("ins", {}),
-            out={kwargs.get("out", "result"): Out(str)},
+            ins=ins,
+            out=outs,
+            retry_policy=retry_policy,
         )
         def job(context, **kwargs):
             output, return_code = execute_shell_command(
@@ -74,11 +88,22 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
             )
 
             if return_code:
-                raise Failure(description=f"Starlake command {command} execution failed with output: {output}")
+                value=f"Starlake command {command} execution failed with output: {output}"
+                if failure:
+                    if retry_policy:
+                        retry_count = context.retry_number
+                        if retry_count < retry_policy.max_retries:
+                            raise Failure(description=value)
+                        else:
+                            yield Output(value=value, output_name=failure)
+                    else:
+                        yield Output(value=value, output_name=failure)
+                else:
+                    raise Failure(description=value)
+            else:
+                if asset_key:
+                    yield AssetMaterialization(asset_key=asset_key.path, description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
 
-            if asset_key:
-                yield AssetMaterialization(asset_key=asset_key.path, description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
-
-            yield Output(value=output, output_name="result")
+                yield Output(value=output, output_name=out)
 
         return job
