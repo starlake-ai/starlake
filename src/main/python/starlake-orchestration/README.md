@@ -6,11 +6,11 @@ It is recommended to use it in combinaison with **[starlake dag generation](http
 
 ## IStarlakeJob
 
-`ai.starlake.job.IStarlakeJob` is the **generic factory interface** responsible for **generating** the **tasks** that will run the [import](https://starlake-ai.github.io/starlake/docs/user-guide/load#import-step), [load](https://starlake-ai.github.io/starlake/docs/concepts/load) and [transform](https://starlake-ai.github.io/starlake/docs/concepts/transform) starlake commands.
+`ai.starlake.job.IStarlakeJob` is the **generic factory interface** responsible for **generating** the **tasks** that will run the [import](https://starlake.ai/starlake/docs/user-guide/load#import-step), [load](https://starlake.ai/starlake/docs/concepts/load) and [transform](https://starlake.ai/starlake/docs/concepts/transform) starlake commands.
 
 ### sl_import
 
-It will generate the task that will run the starlake [import](https://starlake-ai.github.io/starlake/docs/cli/import) command.
+It will generate the task that will run the starlake [import](https://starlake.ai/starlake/docs/cli/import) command.
 
 ```python
 def sl_import(
@@ -30,7 +30,7 @@ def sl_import(
 
 ### sl_load
 
-It will generate the task that will run the starlake [load](https://starlake.ai/starlake/docs/category/load) command.
+It will generate the task that will run the starlake [load](https://starlake.ai/starlake/docs/cli/load) command.
 
 ```python
 def sl_load(
@@ -52,7 +52,7 @@ def sl_load(
 
 ### sl_transform
 
-It will generate the task that will run the starlake [transform](https://starlake-ai.github.io/starlake/docs/cli/transform) command.
+It will generate the task that will run the starlake [transform](https://starlake.ai/starlake/docs/cli/transform) command.
 
 ```python
 def sl_transform(
@@ -168,7 +168,7 @@ The following options can be specified in all concrete factory classes:
 
 ## Airflow
 
-**[Starlake Airflow](https://pypi.org/project/starlake-airflow/)** is the **[Starlake](https://starlake-ai.github.io/starlake/index.html)** Python Distribution for **orchestration** using **[Airflow](https://airflow.apache.org/)**.
+**[Starlake Airflow](https://pypi.org/project/starlake-airflow/)** is the **[Starlake](https://starlake.ai)** Python Distribution for **orchestration** using **[Airflow](https://airflow.apache.org/)**.
 
 ### Starlake Airflow Installation
 
@@ -178,7 +178,7 @@ pip install starlake-orchestration[airflow] --upgrade
 
 ## Dagster
 
-**[Starlake Dagster](https://pypi.org/project/starlake-dagster/)** is the **[Starlake](https://starlake-ai.github.io/starlake/index.html)** Python Distribution for **orchestration** using **[Dagster](https://dagster.io/)**.
+**[Starlake Dagster](https://pypi.org/project/starlake-dagster/)** is the **[Starlake](https://starlake.ai)** Python Distribution for **orchestration** using **[Dagster](https://dagster.io/)**.
 
 ### Starlake Dagster Installation
 
