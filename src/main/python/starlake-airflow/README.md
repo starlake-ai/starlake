@@ -8,7 +8,7 @@ It is recommended to use it in combinaison with **[starlake dag generation](http
 
 Before installing starlake-airflow, ensure the following minimum versions are installed on your system:
 
-- starlake: 1.3.0 or higher
+- starlake: 1.3.1 or higher
 - python: 3.8 or higher
 - Apache Airflow: 2.4.0 or higher (2.6.0 or higher is recommanded with cloud-run)
 
@@ -20,7 +20,7 @@ pip install starlake-orchestration[airflow] --upgrade
 
 ## StarlakeAirflowJob
 
-`ai.starlake.airflow.StarlakeAirflowJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Airflow tasks** that will run the import, [load](https://starlake.ai/starlake/docs/category/load) and [transform](https://starlake.ai/starlake/docs/category/transform) starlake commands.
+`ai.starlake.airflow.StarlakeAirflowJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Airflow tasks** that will run the [import](https://starlake.ai/starlake/docs/cli/import), [load](https://starlake.ai/starlake/docs/category/load) and [transform](https://starlake.ai/starlake/docs/category/transform) starlake commands.
 
 ### sl_import
 
@@ -122,7 +122,7 @@ To initialize this class, you may specify the optional **pre load strategy** and
 
 #### StarlakePreLoadStrategy
 
-`ai.starlake.job.StarlakePreLoadStrategy` is an enum that defines the different **pre load strategies** that can be used to conditionaly load a domain.
+`ai.starlake.job.StarlakePreLoadStrategy` is an enum that defines the different **pre load strategies** that can be used to conditionaly load tables within a domain.
 
 The pre-load strategy is implemented by `sl_pre_load` method that will generate the Airflow group of tasks corresponding to the choosen strategy.
 

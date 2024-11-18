@@ -6,7 +6,7 @@ It is recommended to use it in combinaison with **[starlake dag generation](http
 
 ## IStarlakeJob
 
-`ai.starlake.job.IStarlakeJob` is the **generic factory interface** responsible for **generating** the **tasks** that will run the [import](https://starlake.ai/starlake/docs/user-guide/load#import-step), [load](https://starlake.ai/starlake/docs/concepts/load) and [transform](https://starlake.ai/starlake/docs/concepts/transform) starlake commands.
+`ai.starlake.job.IStarlakeJob` is the **generic factory interface** responsible for **generating** the **tasks** that will run the [import](https://starlake.ai/starlake/docs/cli/import), [load](https://starlake.ai/starlake/docs/concepts/load) and [transform](https://starlake.ai/starlake/docs/concepts/transform) starlake commands.
 
 ### sl_import
 
