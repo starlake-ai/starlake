@@ -57,6 +57,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
         )
         bucketName
     }
+    // https://github.com/GoogleCloudDataproc/hadoop-connectors/blob/master/gcs/CONFIGURATION.md
     val authType = connectionOptions.getOrElse("authType", "APPLICATION_DEFAULT")
     val authConf = authType match {
       case "APPLICATION_DEFAULT" =>
