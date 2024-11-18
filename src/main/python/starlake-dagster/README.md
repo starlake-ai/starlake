@@ -1,14 +1,14 @@
 # starlake-dagster
 
-**starlake-dagster** is the **[Starlake](https://starlake-ai.github.io/starlake/index.html)** Python Distribution for **Dagster**.
+**starlake-dagster** is the **[Starlake](https://starlake.ai)** Python Distribution for **Dagster**.
 
-It is recommended to use it in combinaison with **[starlake dag generation](https://starlake-ai.github.io/starlake/docs/concepts/orchestration)**, but can be used directly as is in your **DAGs**.
+It is recommended to use it in combinaison with **[starlake dag generation](https://starlake.ai/starlake/docs/guides/orchestrate/customization)**, but can be used directly as is in your **DAGs**.
 
 ## Prerequisites
 
 Before installing starlake-dagster, ensure the following minimum versions are installed on your system:
 
-- starlake: 1.0.0 or higher
+- starlake: 1.3.1 or higher
 - python: 3.8 or higher
 
 ## Installation
@@ -19,17 +19,18 @@ pip install starlake-orchestration[dagster] --upgrade
 
 ## StarlakeDagsterJob
 
-`ai.starlake.dagster.StarlakeDagsterJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Dagster node** that will run the [import](https://starlake-ai.github.io/starlake/docs/user-guide/load#import-step), [load](https://starlake-ai.github.io/starlake/docs/concepts/load) and [transform](https://starlake-ai.github.io/starlake/docs/concepts/transform) starlake commands.
+`ai.starlake.dagster.StarlakeDagsterJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Dagster node** that will run the [import](https://starlake.ai/starlake/docs/cli/import), [load](https://starlake.ai/starlake/docs/category/load) and [transform](https://starlake.ai/starlake/docs/category/transform) starlake commands.
 
 ### sl_import
 
-It generates the Dagster node that will run the starlake [import](https://starlake-ai.github.io/starlake/docs/cli/import) command.
+It generates the Dagster node that will run the starlake [import](https://starlake.ai/starlake/docs/cli/import) command.
 
 ```python
 def sl_import(
     self, 
     task_id: str, 
     domain: str, 
+    tables: set=set(),
     **kwargs) -> op:
     #...
 ```
@@ -38,10 +39,11 @@ def sl_import(
 | ------- | ---- | --------------------------------------------------- |
 | task_id | str  | the optional task id (`{domain}_import` by default) |
 | domain  | str  | the required domain to import                       |
+| tables  | set  | the optional tables to import                       |
 
 ### sl_load
 
-It generates the Dagster node that will run the starlake [load](https://starlake-ai.github.io/starlake/docs/cli/load) command.
+It generates the Dagster node that will run the starlake [load](https://starlake.ai/starlake/docs/cli/load) command.
 
 ```python
 def sl_load(
@@ -63,7 +65,7 @@ def sl_load(
 
 ### sl_transform
 
-It generates the Dagster node that will run the starlake [transform](https://starlake-ai.github.io/starlake/docs/cli/transform) command.
+It generates the Dagster node that will run the starlake [transform](https://starlake.ai/starlake/docs/cli/transform) command.
 
 ```python
 def sl_transform(
@@ -119,7 +121,7 @@ To initialize this class, you may specify the optional **pre load strategy** and
 
 #### StarlakePreLoadStrategy
 
-`ai.starlake.job.StarlakePreLoadStrategy` is an enum that defines the different **pre load strategies** that can be used to conditionaly load a domain.
+`ai.starlake.job.StarlakePreLoadStrategy` is an enum that defines the different **pre load strategies** that can be used to conditionaly load tables within a domain.
 
 The pre-load strategy is implemented by `sl_pre_load` method that will generate the Dagster node corresponding to the choosen strategy.
 
@@ -127,6 +129,7 @@ The pre-load strategy is implemented by `sl_pre_load` method that will generate 
 def sl_pre_load(
     self, 
     domain: str, 
+    tables: set=set(),
     pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None,
     **kwargs) -> op:
     #...
@@ -135,6 +138,7 @@ def sl_pre_load(
 | name              | type | description                                                        |
 | ----------------- | ---- | ------------------------------------------------------------------ |
 | domain            | str  | the domain to load                                                 |
+| tables            | set  | the optional tables to pre-load                                                 |
 | pre_load_strategy | str  | the optional pre load strategy (self.pre_load_strategy by default) |
 
 ##### NONE
@@ -145,13 +149,13 @@ The load of the domain will not be conditionned and no pre-load op will be execu
 
 ##### IMPORTED
 
-This strategy implies that at least one file is present in the landing area (`SL_ROOT/importing/{domain}` by default, if option `incoming_path` has not been specified). If there is one or more files to load, the method `sl_import` will be called to import the domain before loading it, otherwise the loading of the domain will be skipped.
+This strategy implies that at least one file is present in the landing area (`SL_ROOT/datasets/importing/{domain}` by default). If there is one or more files to load, the method `sl_import` will be called to import the domain before loading it, otherwise the loading of the domain will be skipped.
 
 ![imported strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagster/imported.png)
 
 ##### PENDING
 
-This strategy implies that at least one file is present in the pending datasets area of the domain (`SL_ROOT/datasets/pending/{domain}` by default if option `pending_path` has not been specified), otherwise the loading of the domain will be skipped.
+This strategy implies that at least one file is present in the pending datasets area of the domain (`SL_ROOT/datasets/pending/{domain}` by default), otherwise the loading of the domain will be skipped.
 
 ![pending strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagster/pending.png)
 
@@ -168,9 +172,9 @@ The following options can be specified in all concrete factory classes:
 | name                     | type | description                                                                               |
 | ------------------------ | ---- | ----------------------------------------------------------------------------------------- |
 | **sl_env_var**           | str  | optional starlake environment variables passed as an encoded json string                  |
+| **retries**           | int  | optional number of retries to attempt before failing an op (`1` by default)                    |
+| **retry_delay**           | int  | optional delay between retries in seconds (`300` by default)                    |
 | **pre_load_strategy**    | str  | one of `none` (default), `imported`, `pending` or `ack`                                   |
-| **incoming_path**        | str  | path to the landing area for the domain to load (`{SL_ROOT}/incoming` by default)         |
-| **pending_path**         | str  | path to the pending datastets for the domain to load (`{SL_DATASETS}/pending` by default) |
 | **global_ack_file_path** | str  | path to the ack file (`{SL_DATASETS}/pending/{domain}/{{{{ds}}}}.ack` by default)         |
 | **ack_wait_timeout**     | int  | timeout in seconds to wait for the ack file(`1 hour` by default)                          |
 
@@ -192,6 +196,7 @@ description="""example to load domain(s) using dagster starlake shell job"""
 options = {
     # General options
     'sl_env_var':'{"SL_ROOT": "/starlake/samples/starbake"}', 
+    'retry_delay': '10',
     'pre_load_strategy':'ack', 
     # Bash options
     'SL_STARLAKE_PATH':'/starlake/starlake.sh', 
@@ -203,7 +208,7 @@ sl_job = StarlakeDagsterShellJob(options=options)
 
 import os
 
-from dagster import ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping, Out, Output, OutputMapping, graph, op
+from dagster import AssetKey, ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping, Out, Output, OutputMapping, graph, op, DefaultScheduleStatus
 
 from dagster._core.definitions.input import InputDefinition
 
@@ -238,14 +243,20 @@ schedules= [
     }
 ]
 
-start = sl_job.dummy_op(task_id="start")
+crons = []
 
-def load_domain(domain: dict) -> GraphDefinition:
+pre_tasks = sl_job.pre_tasks()
+
+start = sl_job.dummy_op(task_id="start", ins={"start": In(str)} if pre_tasks else {})
+
+from typing import Union
+
+def load_domain(domain: dict, cron: Union[str, None]) -> GraphDefinition:
     tables = [table["name"] for table in domain["tables"]]
 
     ins = {"domain": In(str)}
 
-    op_tables = [sl_job.sl_load(task_id=None, domain=domain["name"], table=table, ins=ins) for table in tables]
+    op_tables = [sl_job.sl_load(task_id=None, domain=domain["name"], table=table, ins=ins, cron=cron) for table in tables]
 
     ld_end = sl_job.dummy_op(task_id=f"{domain['name']}_load_ended", ins={f"{op_table._name}": In(str) for op_table in op_tables}, out="domain_loaded")
 
@@ -283,7 +294,7 @@ def load_domain(domain: dict) -> GraphDefinition:
         output_mappings=ld_output_mappings,
     )
 
-    pld = sl_job.sl_pre_load(domain=domain["name"])
+    pld = sl_job.sl_pre_load(domain=domain["name"], tables=set(tables), cron=cron)
 
     @op(
         name=f"{domain['name']}_load_result",
@@ -307,13 +318,16 @@ def load_domain(domain: dict) -> GraphDefinition:
 
     return domain_graph
 
-def load_domains(schedule: dict, index) -> GraphDefinition:
+def load_domains(schedule: dict) -> GraphDefinition:
+    cron = schedule['cron']
+    if(cron):
+        crons.append(ScheduleDefinition(job_name = job_name(schedule), cron_schedule = cron, default_status=DefaultScheduleStatus.RUNNING))
+
     dependencies = dict()
 
     nodes = [start]
 
-    pre_tasks = sl_job.pre_tasks()
-    if pre_tasks:
+    if pre_tasks and pre_tasks.output_dict.keys().__len__() > 0:
         result = list(pre_tasks.output_dict.keys())[0]
         if result:
             dependencies[start._name] = {
@@ -321,7 +335,7 @@ def load_domains(schedule: dict, index) -> GraphDefinition:
             }
             nodes.append(pre_tasks)
 
-    node_defs = [load_domain(domain) for domain in schedule["domains"]]
+    node_defs = [load_domain(domain, cron) for domain in schedule["domains"]]
 
     ins = dict()
 
@@ -336,12 +350,12 @@ def load_domains(schedule: dict, index) -> GraphDefinition:
         ins[result] = In(dagster_type=str)
         end_dependencies[result] = DependencyDefinition(node_def._name, 'result')
 
-    end = sl_job.dummy_op(task_id="end", ins=ins)
+    end = sl_job.dummy_op(task_id="end", ins=ins, assets=[AssetKey(sl_job.sl_dataset(job_name(schedule), cron=cron))])
     nodes.append(end)
     dependencies[end._name] = end_dependencies
 
-    post_tasks = sl_job.post_tasks()
-    if post_tasks:
+    post_tasks = sl_job.post_tasks(ins = {"start": In(str)})
+    if post_tasks and post_tasks.input_dict.keys().__len__() > 0:
         input = list(post_tasks.input_dict.keys())[0]
         if input:
             dependencies[post_tasks._name] = {
@@ -350,30 +364,24 @@ def load_domains(schedule: dict, index) -> GraphDefinition:
             nodes.append(post_tasks)
 
     return GraphDefinition(
-        name=f'schedule_{index}' if len(schedules) > 1 else 'schedule',
+        name=f"schedule_{schedule.get('schedule')}" if len(schedules) > 1 else 'schedule',
         node_defs=nodes,
         dependencies=dependencies,
     )
 
-def job_name(index) -> str:
+def job_name(schedule: dict) -> str:
     job_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
-    return (f"{job_name}_{index}" if len(schedules) > 1 else job_name)
+    return (f"{job_name}_{schedule['schedule']}" if len(schedules) > 1 else job_name)
 
-def generate_job(schedule: dict, index) -> JobDefinition:
+def generate_job(schedule: dict) -> JobDefinition:
     return JobDefinition(
-        name=job_name(index),
+        name=job_name(schedule),
         description=description,
-        graph_def=load_domains(schedule, index),
+        graph_def=load_domains(schedule),
     )
 
-crons = []
-for index, schedule in enumerate(schedules):
-    cron = schedule['cron']
-    if(cron):
-        crons.append(ScheduleDefinition(job_name = job_name(index), cron_schedule = cron))
-
 defs = Definitions(
-   jobs=[generate_job(schedule, index) for index, schedule in enumerate(schedules)],
+   jobs=[generate_job(schedule) for schedule in schedules],
    schedules=crons,
 )
 
@@ -395,6 +403,7 @@ description="""example of transform using dagster starlake shell job"""
 options = {
     # General options
     'sl_env_var':'{"SL_ROOT": "/starlake/samples/starbake"}', 
+    'retry_delay': '10',
     # Bash options
     'SL_STARLAKE_PATH':'/starlake/starlake.sh', 
 }
@@ -403,8 +412,7 @@ from ai.starlake.dagster.shell import StarlakeDagsterShellJob
 
 sl_job = StarlakeDagsterShellJob(options=options)
 
-from ai.starlake.common import sanitize_id
-from ai.starlake.job import StarlakeSparkConfig
+from ai.starlake.common import sanitize_id, sort_crons_by_frequency, sl_cron_start_end_dates
 
 import json
 import os
@@ -412,11 +420,11 @@ import sys
 from typing import Set, List
 
 
-from ai.starlake.dagster import StarlakeDagsterJob
-
-from dagster import AssetKey, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, Nothing, In, DependencyDefinition, JobDefinition, GraphDefinition, Definitions, ScheduleDefinition
+from dagster import AssetKey, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, Nothing, In, DependencyDefinition, JobDefinition, GraphDefinition, Definitions, ScheduleDefinition, DefaultScheduleStatus
 
 cron = "None"
+
+_cron = None if cron == "None" else cron
 
 task_deps=json.loads("""[ {
   "data" : {
@@ -459,19 +467,47 @@ task_deps=json.loads("""[ {
 job_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
 
 # if you want to load dependencies, set load_dependencies to True in the options
-load_dependencies: bool = StarlakeDagsterJob.get_context_var(var_name='load_dependencies', default_value='False', options=options).lower() == 'true'
+load_dependencies: bool = sl_job.get_context_var(var_name='load_dependencies', default_value='False', options=options).lower() == 'true'
 
 sensor = None
 
+assets: Set[str] = set()
+
+cronAssets: dict = dict()
+
+all_dependencies: set = set()
+
+_filtered_assets: Set[str] = sys.modules[__name__].__dict__.get('filtered_assets', set())
+
+first_level_tasks: set = set()
+
+def load_task_dependencies(task):
+    if 'children' in task:
+        for subtask in task['children']:
+            all_dependencies.add(subtask['data']['name'])
+            load_task_dependencies(subtask)
+
+for task in task_deps:
+    first_level_tasks.add(task['data']['name'])
+    _filtered_assets.add(sanitize_id(task['data']['name']).lower())
+    load_task_dependencies(task)
+
 # if you choose to not load the dependencies, a sensor will be created to check if the dependencies are met
 if not load_dependencies:
-    assets: Set[str] = []
 
     def load_assets(task: dict):
         if 'children' in task:
             for child in task['children']:
-                assets.append(sanitize_id(child['data']['name']))
-                load_assets(child)
+                asset = sanitize_id(child['data']['name']).lower()
+                if asset not in assets and asset not in _filtered_assets:
+                    childCron = None if child['data'].get('cron') == 'None' else child['data'].get('cron')
+                    if childCron :
+                        cronAsset = sl_job.sl_dataset(asset, cron=childCron)
+                        assets.add(cronAsset)
+                        cronAssets[cronAsset] = childCron
+                    else :
+                        assets.add(asset)
+#                load_assets(child)
 
     for task in task_deps:
         load_assets(task)
@@ -514,14 +550,28 @@ def compute_task_id(task) -> str:
         task_id = task_id + "_table"
     return task_id
 
+if _cron:
+    cron_expr = _cron
+elif assets.__len__() == cronAssets.__len__() and set(cronAssets.values()).__len__() > 0:
+    sorted_crons = sort_crons_by_frequency(set(cronAssets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
+    cron_expr = sorted_crons[0][0]
+else:
+    cron_expr = None
+
 def create_task(task_id: str, task_name: str, task_type: str, ins: dict={"start": In(Nothing)}):
-    spark_config_name=StarlakeDagsterJob.get_context_var('spark_config_name', task_name.lower(), options)
+    spark_config_name=sl_job.get_context_var('spark_config_name', task_name.lower(), options)
     if (task_type == 'task'):
+        if cron_expr:
+            transform_options = sl_cron_start_end_dates(cron_expr) #FIXME using execution date from context
+        else:
+            transform_options = None
         return sl_job.sl_transform(
             task_id=task_id, 
             transform_name=task_name,
+            transform_options=transform_options,
             spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
             ins=ins,
+            cron=_cron
         )
     else:
         load_domain_and_table = task_name.split(".",1)
@@ -533,18 +583,29 @@ def create_task(task_id: str, task_name: str, task_type: str, ins: dict={"start"
             table=table,
             spark_config=spark_config(spark_config_name, **sys.modules[__name__].__dict__.get('spark_properties', {})),
             ins=ins,
+            cron=_cron
         )
 
 from dagster._core.definitions import NodeDefinition
 
-start = sl_job.dummy_op(task_id="start")
+pre_tasks = sl_job.pre_tasks()
 
-def generate_node_for_task(task, dependencies: dict, nodes: List[NodeDefinition]) -> NodeDefinition :
+start = sl_job.dummy_op(task_id="start", ins={"start": In(str)} if pre_tasks else {})
+
+def generate_node_for_task(task, dependencies: dict, nodes: List[NodeDefinition], snodes: set) -> NodeDefinition :
     task_name = task['data']['name']
     task_type = task['data']['typ']
     task_id = compute_task_id(task)
 
-    if (load_dependencies and 'children' in task):
+    children = []
+    if load_dependencies and 'children' in task: 
+        children = task['children']
+    else:
+        for child in task.get('children', []):
+            if child['data']['name'] in first_level_tasks:
+                children.append(child)
+
+    if children.__len__() > 0:
 
         parent_dependencies = dict()
 
@@ -552,9 +613,11 @@ def generate_node_for_task(task, dependencies: dict, nodes: List[NodeDefinition]
 
         for child in task['children']:
             child_task_id = compute_task_id(child)
-            ins[child_task_id] = In(Nothing)
-            parent_dependencies[child_task_id] = DependencyDefinition(child_task_id, 'result')
-            nodes.append(generate_node_for_task(child, dependencies, nodes))
+            if child_task_id not in snodes:
+              ins[child_task_id] = In(Nothing)
+              parent_dependencies[child_task_id] = DependencyDefinition(child_task_id, 'result')
+              nodes.append(generate_node_for_task(child, dependencies, nodes, snodes))
+              snodes.add(child_task_id)
 
         dependencies[task_id] = parent_dependencies
 
@@ -574,9 +637,9 @@ def generate_node_for_task(task, dependencies: dict, nodes: List[NodeDefinition]
 def generate_job():
     dependencies = dict()
     nodes = [start]
+    snodes = set()
 
-    pre_tasks = sl_job.pre_tasks()
-    if pre_tasks:
+    if pre_tasks and pre_tasks.output_dict.keys().__len__() > 0:
         result = list(pre_tasks.output_dict.keys())[0]
         if result:
             dependencies[start._name] = {
@@ -587,15 +650,27 @@ def generate_job():
     ins = dict()
     end_dependencies = dict()
     for task in task_deps:
-        node = generate_node_for_task(task, dependencies, nodes)
-        ins[node._name] = In(Nothing)
-        end_dependencies[node._name] = DependencyDefinition(node._name, 'result')
-    end = sl_job.dummy_op(task_id="end", ins=ins)
+        if task['data']['name'] not in all_dependencies:
+            node = generate_node_for_task(task, dependencies, nodes, snodes)
+            ins[node._name] = In(Nothing)
+            end_dependencies[node._name] = DependencyDefinition(node._name, 'result')
+
+    asset_events: List[AssetKey] = [AssetKey(sl_job.sl_dataset(job_name, cron=_cron))]
+    if set(cronAssets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
+        # we sort the cron assets by frequency (most frequent first)
+        sorted_assets = sort_crons_by_frequency(set(cronAssets.values()), period=sl_job.get_context_var(var_name='cron_period_frequency', default_value='week', options=options))
+        # we exclude the most frequent cron asset
+        least_frequent_crons = set([expr for expr, _ in sorted_assets[1:sorted_assets.__len__()]])
+        for cronAsset, cron in cronAssets.items() :
+          # we republish the least frequent scheduled assets
+          if cron in least_frequent_crons:
+              asset_events.append(AssetKey(cronAsset))
+    end = sl_job.dummy_op(task_id="end", ins=ins, assets=asset_events)
     nodes.append(end)
     dependencies[end._name] = end_dependencies
 
     post_tasks = sl_job.post_tasks(ins={"start": In(Nothing)})
-    if post_tasks:
+    if post_tasks and post_tasks.input_dict.keys().__len__() > 0:
         input = list(post_tasks.input_dict.keys())[0]
         if input:
             dependencies[post_tasks._name] = {
@@ -615,8 +690,8 @@ def generate_job():
 
 crons = []
 
-if cron.lower() != 'none':
-    crons.append(ScheduleDefinition(job_name = job_name, cron_schedule = cron))
+if _cron:
+    crons.append(ScheduleDefinition(job_name = job_name, cron_schedule = _cron, default_status=DefaultScheduleStatus.RUNNING))
 
 defs = Definitions(
    jobs=[generate_job()],
@@ -670,6 +745,7 @@ Additional options may be specified to configure the **Dataproc cluster**.
 | **dataproc_worker_disk_type**    | str  | the optional worker disk size (`pd-standard` by default)             |
 | **dataproc_worker_disk_size**    | int  | the optional worker disk size (`1024` by default)                    |
 | **dataproc_num_workers**         | int  | the optional number of workers (`4` by default)                      |
+| **dataproc_cluster_metadata**         | str  | the metadata to add to the dataproc cluster specified as a map in json format                                                                                 |
 
 All of these options will be used by default if no **StarlakeDataprocClusterConfig** was defined when instantiating **StarlakeDagsterDataprocJob**.
 
@@ -728,3 +804,7 @@ Additional options may be specified to configure the **Cloud Run job**.
 | **cloud_run_job_name**       | str  | the required name of the cloud run job                                       |
 | **cloud_run_region**         | str  | the optional region (`europe-west1` by default)                              |
 | **cloud_run_service_account** | str  | the optional cloud run service account                                                                    |
+
+## Amazon Web Services
+
+## Azure
