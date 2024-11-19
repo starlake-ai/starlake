@@ -16,8 +16,6 @@ from airflow.models.baseoperator import BaseOperator
 
 from airflow.operators.bash import BashOperator
 
-from airflow.operators.python import PythonOperator
-
 from airflow.providers.google.cloud.hooks.cloud_run import CloudRunHook
 from airflow.providers.google.cloud.operators.cloud_run import  CloudRunExecuteJobOperator
 
@@ -113,12 +111,25 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                         get_completion_status_id = task_id + '_get_completion_status'
                         source_task_id=job_task.task_id
                         bash_command = (f"value=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids='{source_task_id}')}}}} --region {self.cloud_run_job_region} --project {self.project_id} --format='value(status.failedCount, status.cancelledCounts)' {self.impersonate_service_account}| sed 's/[[:blank:]]//g'`; test -z \"$value\"")
-                        job_status = PythonOperator(
+                        if kwargs.get('do_xcom_push', False):
+                            bash_command=f"""
+                            set -e
+                            bash -c '
+                            {bash_command}
+                            return_code=$?
+
+                            # Push the return code to XCom
+                            echo $return_code
+
+                            # Exit with the captured return code if non-zero
+                            if [ $return_code -ne 0 ]; then
+                                exit $return_code
+                            fi
+                            '
+                            """
+                        job_status = BashOperator(
                             task_id=get_completion_status_id,
-                            python_callable=self.execute_command,
-                            op_args=[bash_command],
-                            op_kwargs=kwargs,
-                            provide_context=True,
+                            bash_command=bash_command,
                             **kwargs
                         )
                         job_task >> completion_sensor >> job_status
@@ -161,12 +172,25 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                     f"{self.update_env_vars} "
                     f"--wait --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)' {self.impersonate_service_account}" #--task-timeout 300 
                 )
-                return PythonOperator(
+                if kwargs.get('do_xcom_push', False):
+                    bash_command=f"""
+                    set -e
+                    bash -c '
+                    {bash_command}
+                    return_code=$?
+
+                    # Push the return code to XCom
+                    echo $return_code
+
+                    # Exit with the captured return code if non-zero
+                    if [ $return_code -ne 0 ]; then
+                        exit $return_code
+                    fi
+                    '
+                    """
+                return BashOperator(
                     task_id=task_id,
-                    python_callable=self.execute_command,
-                    op_args=[bash_command],
-                    op_kwargs=kwargs,
-                    provide_context=True,
+                    bash_command=bash_command,
                     **kwargs
                 )
             else:
