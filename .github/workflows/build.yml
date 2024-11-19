@@ -104,7 +104,7 @@ jobs:
         if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" sbt ++2.13.14! coverage "testOnly ai.starlake.job.load.*" coverageReport
       - name: Run tests(job.metrics)  & Coverage Report On Push
-        if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}
+        if: ${{ github.event_name != 'pull_request' }}
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" sbt ++2.13.14! coverage "testOnly ai.starlake.job.metrics.*" coverageReport
       - name: Run tests(job.sink)  & Coverage Report On Push
         if: ${{ github.event_name != 'pull_request' || github.event.action == 'ready_for_review' }}

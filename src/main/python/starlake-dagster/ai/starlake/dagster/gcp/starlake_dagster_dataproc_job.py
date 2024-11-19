@@ -12,7 +12,7 @@ from ai.starlake.common import TODAY
 
 from ai.starlake.gcp import StarlakeDataprocClusterConfig
 
-from dagster import Failure, Output, AssetMaterialization, AssetKey, Out, op
+from dagster import Failure, Output, AssetMaterialization, AssetKey, Out, op, RetryPolicy
 
 from dagster._core.definitions import NodeDefinition
 
@@ -149,18 +149,44 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
 
         asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 
+        ins=kwargs.get("ins", {})
+
+        out:str=kwargs.get("out", "result")
+        failure:str=kwargs.get("failure", None)
+        outs=kwargs.get("outs", {out: Out(str, is_required=failure is None)})
+        if failure:
+            outs.update({failure: Out(str, is_required=False)})
+
+        if self.retries:
+            retry_policy = RetryPolicy(max_retries=self.retries, delay=self.retry_delay)
+        else:
+            retry_policy = None
+
         @op(
             name=task_id,
-            ins=kwargs.get("ins", {}),
-            out={kwargs.get("out", "result"): Out(str)},
+            ins=ins,
+            out=outs,
+            retry_policy=retry_policy,
         )
         def submit_dataproc_job(context, **kwargs):
             context.log.info(f"Submitting Spark job {job_id} to Dataproc cluster {self.__dataproc__.cluster_name} with job details: \n{json.dumps(job_details, indent=2)}")
             result = self.__client__().submit_job(job_details=job_details)
             if result.get("status", {}).get("state") != "DONE":
-                raise Failure(description=f"Spark job {job_id} submission failed with result: {result}")
-            if asset_key:
-                yield AssetMaterialization(asset_key=asset_key.path, description=f"Spark job {job_id} submitted to Dataproc cluster {self.__dataproc__.cluster_name}")
-            yield Output(value=job_id, output_name="result")
+                value=f"Spark job {job_id} submission failed with result: {result}"
+                if failure:
+                    if retry_policy:
+                        retry_count = context.retry_number
+                        if retry_count < retry_policy.max_retries:
+                            raise Failure(description=value)
+                        else:
+                            yield Output(value=value, output_name=failure)
+                    else:
+                        yield Output(value=value, output_name=failure)
+                else:
+                    raise Failure(description=value)
+            else:
+                if asset_key:
+                    yield AssetMaterialization(asset_key=asset_key.path, description=f"Spark job {job_id} submitted to Dataproc cluster {self.__dataproc__.cluster_name}")
+                yield Output(value=job_id, output_name=out)
 
         return submit_dataproc_job

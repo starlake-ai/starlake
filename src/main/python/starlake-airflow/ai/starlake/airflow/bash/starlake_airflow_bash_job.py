@@ -8,6 +8,8 @@ from airflow.models.baseoperator import BaseOperator
 
 from airflow.operators.bash import BashOperator
 
+from airflow.operators.python import PythonOperator
+
 class StarlakeAirflowBashJob(StarlakeAirflowJob):
     """Airflow Starlake Bash Job."""
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs):
@@ -26,26 +28,50 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
         """
         found = False
 
+        import os
+        env = os.environ.copy() # Copy the current os environment variables
+
         for index, arg in enumerate(arguments):
             if arg == "--options" and arguments.__len__() > index + 1:
                 opts = arguments[index+1]
-                if opts.__len__() > 0:
-                    options = opts + "," + ",".join([f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())])
+                if opts.strip().__len__() > 0:
+                    temp = self.sl_env_vars.copy() # Copy the current sl env variables
+                    temp.update({
+                        key: value
+                        for opt in opts.split(",")
+                        if "=" in opt  # Only process valid key=value pairs
+                        for key, value in [opt.split("=")]
+                    })
+                    options = ",".join([f"{key}={value}" for i, (key, value) in enumerate(temp.items())])
                 else:
-                    options = ",".join([f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())])
+                    options = ",".join([f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())]) # Add/overwrite with sl env variables
+                    env.update(self.sl_env_vars) # Add/overwrite with sl env variables
                 arguments[index+1] = options
                 found = True
                 break
 
         if not found:
             arguments.append("--options")
-            arguments.append(",".join([f"{key}={value}" for key, value in self.sl_env_vars.items()]))
+            arguments.append(",".join([f"{key}={value}" for key, value in self.sl_env_vars.items()])) # Add/overwrite with sl env variables
+            env.update(self.sl_env_vars) # Add/overwrite with sl env variables
 
         command = __class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}"
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        return BashOperator(
-            task_id=task_id,
-            bash_command=command,
-            cwd=self.sl_root,
-            **kwargs
-        )
+
+        if kwargs.get('do_xcom_push', False):
+            return PythonOperator(
+                task_id=task_id,
+                python_callable=self.execute_command,
+                op_args=[command],
+                op_kwargs=kwargs,
+                provide_context=True,
+                **kwargs
+            )
+        else:
+            return BashOperator(
+                task_id=task_id,
+                bash_command=command,
+                cwd=self.sl_root,
+                env=env,
+                **kwargs
+            )

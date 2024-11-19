@@ -118,6 +118,24 @@ object JobResult {
 }
 case object EmptyJobResult extends JobResult
 case object FailedJobResult extends JobResult
+case class PreLoadJobResult(domain: String, tables: Map[String, Int]) extends JobResult {
+  val headers: List[String] = List("domain", "table", "loadable")
+  val rows: List[List[String]] = tables.map { case (k, v) => List(domain, k, v.toString) }.toList
+  override def asMap(): List[Map[String, Any]] = {
+    rows.map { value => headers.zip(value).toMap }
+  }
+  override def prettyPrint(format: String, dryRun: Boolean = false): String = {
+    prettyPrint(format, headers, rows)
+  }
+  def show(format: String): Unit = {
+    val result = prettyPrint(format, headers, rows)
+    println(result)
+  }
+  val full: Boolean = tables.values.forall(_ > 0)
+  val loadable: Boolean = tables.values.exists(_ > 0)
+  val partial: Boolean = !full && loadable
+  val empty: Boolean = !full && !loadable
+}
 
 /** All Spark Job extend this trait. Build Spark session using spark variables from
   * application.conf.
