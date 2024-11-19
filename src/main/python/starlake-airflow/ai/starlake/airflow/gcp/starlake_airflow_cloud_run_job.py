@@ -247,7 +247,7 @@ class CloudRunJobOperator(CloudRunExecuteJobOperator):
         self,
         mode: CloudRunMode = CloudRunMode.SYNC,
         gcp_conn_id: str = "google_cloud_default",
-        impersonation_chain: str | Sequence[str] | None = None,
+        impersonation_chain: Union[str, Sequence[str], None] = None,
         **kwargs,
     ):
         super().__init__(  # type: ignore
@@ -288,7 +288,7 @@ class CloudRunJobCompletionSensor(BaseSensorOperator):
         *,
         source_task_id: str,
         gcp_conn_id: str = "google_cloud_default",
-        impersonation_chain: str | Sequence[str] | None = None,
+        impersonation_chain: Union[str, Sequence[str], None] = None,
         **kwargs,
     ):
         super().__init__(mode="reschedule", **kwargs)
