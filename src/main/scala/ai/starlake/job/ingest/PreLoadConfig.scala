@@ -5,6 +5,5 @@ case class PreLoadConfig(
   tables: Seq[String] = Seq.empty,
   strategy: Option[PreLoadStrategy] = None,
   globalAckFilePath: Option[String] = None,
-  options: Map[String, String] = Map.empty,
-  accessToken: Option[String]
+  options: Map[String, String] = Map.empty
 )

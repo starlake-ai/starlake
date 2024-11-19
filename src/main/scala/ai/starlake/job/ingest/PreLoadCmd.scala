@@ -43,11 +43,6 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
         .action((x, c) => c.copy(globalAckFilePath = Some(x)))
         .text("Global ack file path"),
       builder
-        .opt[String]("accessToken")
-        .action((x, c) => c.copy(accessToken = Some(x)))
-        .text(s"Access token to use for authentication")
-        .optional(),
-      builder
         .opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")
         .optional()
@@ -57,7 +52,7 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
   }
 
   def parse(args: Seq[String]): Option[PreLoadConfig] =
-    OParser.parse(parser, args, PreLoadConfig(domain = "", accessToken = None))
+    OParser.parse(parser, args, PreLoadConfig(domain = ""))
 
   override def run(config: PreLoadConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
