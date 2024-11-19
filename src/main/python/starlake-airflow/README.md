@@ -749,8 +749,9 @@ Additional options may be specified to configure the **Cloud Run job**.
 | **cloud_run_async**           | bool | the optional flag to run the cloud run job asynchronously (`True` by default)                           |
 | **retry_on_failure**          | bool | the optional flag to retry the cloud run job on failure (`False` by default)                            |
 | **retry_delay_in_seconds**    | int  | the optional delay in seconds to wait before retrying the cloud run job (`10` by default)               |
+| **use_gcloud**    | bool  | whether to use the gcloud command or the google cloud run python operator (the gcloud command by default)               |
 
-If the execution has been parameterized to be **asynchronous**, an `airflow.sensors.bash.BashSensor` will be instantiated to wait for the completion of the **Cloud Run job** execution.
+If the execution has been parameterized to be **asynchronous**, an `airflow.sensors.base.BaseSensorOperator` will be instantiated to wait for the completion of the **Cloud Run job** execution.
 
 #### StarlakeAirflowCloudRunJob load Examples
 
@@ -794,7 +795,7 @@ options = {
     # Cloud run options
     'cloud_run_job_name':'starlake', 
     'cloud_run_project_id':'starbake',
-#    'cloud_run_async':'True'
+    'cloud_run_async':'True'
     'retry_on_failure':'True', 
 }
 
