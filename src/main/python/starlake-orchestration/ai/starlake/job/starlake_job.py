@@ -6,7 +6,7 @@ from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 from ai.starlake.job.starlake_options import StarlakeOptions
 from ai.starlake.job.spark_config import StarlakeSparkConfig
 
-from typing import Generic, TypeVar, Union
+from typing import Generic, List, TypeVar, Union
 
 T = TypeVar("T")
 
@@ -85,7 +85,7 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         """
         task_id = f"{domain}_import" if not task_id else task_id
         kwargs.pop("task_id", None)
-        arguments = ["import", "--domains", domain, "--tables", ",".join(tables), "--options", "SL_RUN_MODE=main"]
+        arguments = ["import", "--domains", domain, "--tables", ",".join(tables), "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_pre_load(self, domain: str, tables: set=set(), pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[T, None]:
@@ -112,7 +112,7 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         else:
             task_id = kwargs.get("task_id", f"{domain}_pre_load")
             kwargs.pop("task_id", None)
-            arguments = ["preload", "--domain", domain, "--tables", ",".join(tables), "--strategy", pre_load_strategy.value, "--options", "SL_RUN_MODE=main"]
+            arguments = ["preload", "--domain", domain, "--tables", ",".join(tables), "--strategy", pre_load_strategy.value, "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
             if pre_load_strategy == StarlakePreLoadStrategy.ACK:
                 def current_dt():
                     from datetime import datetime
@@ -191,3 +191,44 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         """
         pass
 
+    def sl_env(self, args: Union[str, List[str], None] = None) -> dict:
+        """Returns the environment variables to use.
+
+        Args:
+            args(str | List[str] | None): The optional arguments to use. Defaults to None.
+
+        Returns:
+            dict: The environment variables.
+        """
+        import os
+        env = os.environ.copy() # Copy the current environment variables
+
+        if args is None:
+            return env.update(self.sl_env_vars) # Add/overwrite with sl env variables
+        elif isinstance(args, str):
+            arguments = args.split(" ")
+        else:
+            arguments = args
+
+        found = False
+
+        for index, arg in enumerate(arguments):
+            if arg == "--options" and arguments.__len__() > index + 1:
+                opts = arguments[index+1]
+                if opts.strip().__len__() > 0:
+                    temp = self.sl_env_vars.copy() # Copy the current sl env variables
+                    temp.update({
+                        key: value
+                        for opt in opts.split(",")
+                        if "=" in opt  # Only process valid key=value pairs
+                        for key, value in [opt.split("=")]
+                    })
+                    env.update(temp)
+                else:
+                    env.update(self.sl_env_vars) # Add/overwrite with sl env variables
+                found = True
+                break
+
+        if not found:
+            env.update(self.sl_env_vars) # Add/overwrite with sl env variables
+        return env

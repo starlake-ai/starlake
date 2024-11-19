@@ -48,6 +48,8 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
         Returns:
             NodeDefinition: The Dagster node.
         """
+        env = self.sl_env(args=arguments)
+
         args = f'^{self.separator}^' + self.separator.join(arguments)
         command = (
             f"{self.__class__.get_context_var('GOOGLE_CLOUD_SDK', '/usr/local/google-cloud-sdk', self.options)}/bin/gcloud beta run jobs execute {self.cloud_run_job_name} "
@@ -83,7 +85,7 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
                 output_logging="STREAM",
                 log=context.log,
 #                cwd=self.sl_root,
-                env=self.sl_env_vars,
+                env=env,
                 log_shell_command=True,
             )
 

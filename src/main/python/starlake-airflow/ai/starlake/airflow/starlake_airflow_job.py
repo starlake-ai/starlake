@@ -184,9 +184,8 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         Returns:
             int: The return code.
         """
-        import os
-        env = os.environ.copy()          # Copy the current environment variables
-        env.update(self.sl_env_vars)     # Add/overwrite with sl env variables
+        env = self.sl_env(command)
+
         import subprocess
         try:
             # Run the command and capture the return code
