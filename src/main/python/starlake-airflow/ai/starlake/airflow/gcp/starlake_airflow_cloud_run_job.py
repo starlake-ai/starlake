@@ -259,7 +259,6 @@ class GCloudRunJobCompletionSensor(BashSensor):
             **kwargs
         )
 
-
 class CloudRunJobOperator(CloudRunExecuteJobOperator):
     """
     This extends official CloudRunExecuteJobOperator in order to implement asynchronous job.
