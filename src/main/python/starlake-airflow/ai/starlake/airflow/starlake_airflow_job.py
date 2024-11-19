@@ -1,4 +1,3 @@
-import re
 from datetime import timedelta, datetime
 
 from typing import Union, List
@@ -14,16 +13,11 @@ from airflow.datasets import Dataset
 
 from airflow.models.baseoperator import BaseOperator
 
-from airflow.providers.google.cloud.operators.gcs import GCSDeleteObjectsOperator
-from airflow.providers.google.cloud.sensors.gcs import GCSObjectExistenceSensor
-
-from airflow.operators.bash import BashOperator
-
 from airflow.operators.dummy import DummyOperator
 
 from airflow.operators.python import ShortCircuitOperator
 
-from airflow.sensors.filesystem import FileSensor
+from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
 
 from airflow.utils.task_group import TaskGroup
 
@@ -58,9 +52,14 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
             from airflow.utils.dates import days_ago
             self.start_date = days_ago(1)
         try:
-            self.retry_delay = int(__class__.get_context_var(var_name='retry_delay', options=self.options))
-        except (MissingEnvironmentVariable, ValueError):
-            self.retry_delay = 300
+            ed = __class__.get_context_var(var_name='end_date', options=self.options)
+        except MissingEnvironmentVariable:
+            ed = ""
+        if pattern.fullmatch(ed):
+            from airflow.utils import timezone
+            self.end_date = timezone.make_aware(datetime.strptime(ed, "%Y-%m-%d"))
+        else:
+            self.end_date = None
 
     def sl_outlets(self, uri: str, **kwargs) -> List[Dataset]:
         """Returns a list of Airflow datasets from the specified uri.
@@ -80,29 +79,32 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
 
         return kwargs.get('outlets', []) + [dataset]
 
-    def sl_import(self, task_id: str, domain: str, **kwargs) -> BaseOperator:
+    def sl_import(self, task_id: str, domain: str, tables: set=set(), **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_import()
         Generate the Airflow task that will run the starlake `import` command.
 
         Args:
             task_id (str): The optional task id ({domain}_import by default).
             domain (str): The required domain to import.
+            tables (set): The optional tables to import.
 
         Returns:
             BaseOperator: The Airflow task.
         """
+        kwargs.update({'doc': kwargs.get('doc', f'Import tables {",".join(list(tables or []))} within {domain}.')})
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         outlets = self.sl_outlets(domain, **kwargs)
         self.outlets += outlets
         kwargs.update({'outlets': outlets})
-        return super().sl_import(task_id=task_id, domain=domain, **kwargs)
+        return super().sl_import(task_id=task_id, domain=domain, tables=tables, **kwargs)
 
-    def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[BaseOperator, None]:
+    def sl_pre_load(self, domain: str, tables: set=set(), pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[BaseOperator, None]:
         """Overrides IStarlakeJob.sl_pre_load()
         Generate the Airflow group of tasks that will check if the conditions are met to load the specified domain according to the pre-load strategy choosen.
 
         Args:
-            domain (str): The required domain to load.
+            domain (str): The required domain to pre-load.
+            tables (set): The optional tables to pre-load.
             pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The optional pre-load strategy to use.
         
         Returns:
@@ -117,157 +119,155 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
 
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
 
-        if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
-
-            with TaskGroup(group_id=sanitize_id(f'{domain}_pre_load_tasks')) as pre_load_tasks:
-                pre_tasks = self.pre_tasks(**kwargs)
-
-                incoming_path = __class__.get_context_var(
-                    var_name='incoming_path',
-                    default_value=f'{self.sl_root}/incoming',
-                    options=self.options
-                )
-                list_files_command = f'ls {incoming_path}/{domain}/* | wc -l'
-                if incoming_path.startswith('gs://'):
-                    list_files_command = "gsutil " + list_files_command
-                list_files = BashOperator(
-                    task_id=sanitize_id(f'{domain}_list_files'),
-                    bash_command=list_files_command,
-                    do_xcom_push=True,
-                    **kwargs
-                )
-
-                def f_skip_or_start(**kwargs):
-                    task_instance = kwargs['ti']
-                    files_tuple = task_instance.xcom_pull(key=None, task_ids=[list_files.task_id])
-                    print('Number of files found: {}'.format(files_tuple))
-                    files_number = files_tuple[0]
-                    return int(files_number) > 1
-
-                skip_or_start = ShortCircuitOperator(
-                    task_id = sanitize_id(f'{domain}_skip_or_start'),
-                    python_callable = f_skip_or_start,
-                    provide_context = True,
-                    **kwargs
-                )
-
-                list_files >> skip_or_start
-
-                import_task = self.sl_import(
-                    task_id=sanitize_id(f'{domain}_import'),
-                    domain=domain,
-                    **kwargs
-                )
-
-                if pre_tasks:
-                    skip_or_start >> pre_tasks >> import_task
-                else:
-                    skip_or_start >> import_task
-
-
-            return pre_load_tasks
-
-        elif pre_load_strategy == StarlakePreLoadStrategy.PENDING:
-            with TaskGroup(group_id=sanitize_id(f'{domain}_pre_load_tasks')) as pre_load_tasks:
-                pre_tasks = self.pre_tasks(**kwargs)
-
-                pending_path = __class__.get_context_var(
-                    var_name='pending_path',
-                    default_value=f'{self.sl_datasets}/pending',
-                    options=self.options
-                )
-                list_files_command = f'ls {pending_path}/{domain}/* | wc -l'
-                if pending_path.startswith('gs://'):
-                    list_files_command = "gsutil " + list_files_command
-                list_files = BashOperator(
-                    task_id=sanitize_id(f'{domain}_list_files'),
-                    bash_command=list_files_command,
-                    do_xcom_push=True,
-                    **kwargs
-                )
-
-                def f_skip_or_start(**kwargs):
-                    task_instance = kwargs['ti']
-                    files_tuple = task_instance.xcom_pull(key=None, task_ids=[list_files.task_id])
-                    files_number = int(str(files_tuple[0]).strip())
-                    print('Number of files found: {}'.format(files_number))
-                    return files_number > 1
-
-                skip_or_start = ShortCircuitOperator(
-                    task_id = sanitize_id(f'{domain}_skip_or_start'),
-                    python_callable = f_skip_or_start,
-                    provide_context = True,
-                    **kwargs
-                )
-
-                if pre_tasks:
-                    list_files >> skip_or_start >> pre_tasks
-                else:
-                    list_files >> skip_or_start
-
-            return pre_load_tasks
-
-        elif pre_load_strategy == StarlakePreLoadStrategy.ACK:
-            with TaskGroup(group_id=sanitize_id(f'{domain}_pre_load_tasks')) as pre_load_tasks:
-                pre_tasks = self.pre_tasks(**kwargs)
-
+        if pre_load_strategy == StarlakePreLoadStrategy.NONE:
+            return self.pre_tasks(**kwargs)
+        else:
+            if pre_load_strategy == StarlakePreLoadStrategy.ACK:
                 ack_wait_timeout = int(__class__.get_context_var(
                     var_name='ack_wait_timeout',
                     default_value=60*60, # 1 hour
                     options=self.options
                 ))
 
-                ack_file = __class__.get_context_var(
-                    var_name='global_ack_file_path',
-                    default_value=f'{self.sl_datasets}/pending/{domain}/{{{{ds}}}}.ack',
-                    options=self.options
+                kwargs.update({'retry_delay': timedelta(seconds=ack_wait_timeout)})
+
+            with TaskGroup(group_id=sanitize_id(f'{domain}_pre_load_tasks')) as pre_load_tasks:
+
+                pre_tasks = self.pre_tasks(**kwargs)
+
+                pre_load = super().sl_pre_load(
+                    domain=domain, 
+                    tables=tables, 
+                    pre_load_strategy=pre_load_strategy, 
+                    do_xcom_push=True, 
+                    doc = f'Pre-load for tables {",".join(list(tables or []))} within {domain} using {pre_load_strategy.value} strategy.',
+                    **kwargs
                 )
 
-                gcs_result = re.search(r"gs://(.+?)/(.+)", ack_file)
-                gcs_ack_bucket = gcs_result.group(1) if gcs_result else None
-                gcs_ack_file = gcs_result.group(2) if gcs_result else None
-
-                wait_for_ack = GCSObjectExistenceSensor(
-                    task_id=sanitize_id(f'{domain}_wait_for_ack'),
-                    bucket=gcs_ack_bucket,
-                    object=gcs_ack_file,
-                    timeout=ack_wait_timeout,
-                    poke_interval=60,
-                    mode='reschedule',
-                    soft_fail=True,
+                skip_or_start = ShortCircuitOperator(
+                    doc = f"Skip or start loading tables {','.join(list(tables or []))} within {domain} domain.",
+                    task_id = sanitize_id(f'{domain}_skip_or_start'),
+                    python_callable = self.skip_or_start,
+                    op_args=[pre_load],
+                    op_kwargs=kwargs,
+                    provide_context = True,
+                    trigger_rule = 'all_done',
                     **kwargs
-                ) if gcs_result \
-                    else FileSensor(
-                            task_id=sanitize_id(f'{domain}_wait_for_ack'),
-                            filepath=ack_file,
-                            timeout=ack_wait_timeout,
-                            poke_interval=60,
-                            mode='reschedule',
-                            soft_fail=True,
-                            **kwargs
-                        )
+                )
 
-                delete_ack = GCSDeleteObjectsOperator(
-                    task_id=sanitize_id(f'{domain}_delete_ack'),
-                    bucket_name=gcs_ack_bucket,
-                    objects=[gcs_ack_file],
-                    **kwargs
-                ) if gcs_result \
-                    else BashOperator(
-                        task_id=sanitize_id(f'{domain}_delete_ack'),
-                        bash_command=f'rm {ack_file}',
+                if pre_tasks:
+                    pre_tasks >> pre_load
+
+                pre_load >> skip_or_start
+
+                if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
+
+                    import_task = self.sl_import(
+                        task_id=sanitize_id(f'{domain}_import'),
+                        domain=domain,
+                        tables=tables,
                         **kwargs
                     )
 
-                if pre_tasks:
-                    wait_for_ack >> delete_ack >> pre_tasks
-                else:
-                    wait_for_ack >> delete_ack
+                    skip_or_start >> import_task
 
             return pre_load_tasks
 
+    def execute_command(self, command: str, **kwargs) -> int:
+        """
+        Execute the command and capture the return code.
+
+        Args:
+            command (str): The command to run.
+            **kwargs: The optional keyword arguments.
+
+        Returns:
+            int: The return code.
+        """
+        env = self.sl_env(command)
+
+        import subprocess
+        try:
+            # Run the command and capture the return code
+            result = subprocess.run(
+                args=command.split(' '), 
+                env=env,
+                check=True, 
+                stderr=subprocess.STDOUT, 
+                stdout=subprocess.PIPE,
+            )
+            return_code = result.returncode
+            print(str(result.stdout, 'utf-8'))
+            return return_code
+        except subprocess.CalledProcessError as e:
+            # Capture the return code in case of failure
+            return_code = e.returncode
+            # Push the return code to XCom
+            kwargs['ti'].xcom_push(key='return_value', value=return_code)
+            print(str(e.stdout, 'utf-8'))
+            raise # Re-raise the exception to mark the task as failed
+
+    def skip_or_start(self, upstream_task: BaseOperator, **kwargs) -> bool:
+        """
+        Args:
+            upstream_task (BaseOperator): The upstream task.
+            **kwargs: The optional keyword arguments.
+
+        Returns:
+            bool: True if the task should be started, False otherwise.
+        """
+        if isinstance(upstream_task, DataprocSubmitJobOperator):
+            job = upstream_task.hook.get_job(
+                job_id=upstream_task.job_id, 
+                project_id=upstream_task.project_id, 
+                region=upstream_task.region
+            )
+            state = job.status.state
+            from google.cloud.dataproc_v1 import JobStatus
+            if state == JobStatus.State.DONE:
+                failed = False
+            elif state == JobStatus.State.ERROR:
+                failed = True
+                print(f"Job failed:\n{job}")
+            elif state == JobStatus.State.CANCELLED:
+                failed = True
+                print(f"Job was cancelled:\n{job}")
+            else:
+                from airflow.exceptions import AirflowException
+                raise AirflowException(f"Job is still running:\n{job}")
+
         else:
-            return self.pre_tasks(**kwargs)
+            return_value = kwargs['ti'].xcom_pull(task_ids=upstream_task.task_id, key='return_value')
+
+            print(f"Upstream task {upstream_task.task_id} return value: {return_value}[{type(return_value)}]")
+
+            if return_value is None:
+                failed = True
+                print("No return value found in XCom.")
+            elif isinstance(return_value, int):
+                failed = return_value
+                print(f"Return value: {failed}")
+            elif isinstance(return_value, str):
+                try:
+                    import ast
+                    parsed_return_value = ast.literal_eval(return_value)
+                    if isinstance(parsed_return_value, int):
+                        failed = parsed_return_value
+                        print(f"Parsed return value: {failed}")
+                    elif isinstance(parsed_return_value, str) and parsed_return_value:
+                        failed = int(parsed_return_value.strip())
+                        print(f"Parsed return value: {failed}")
+                    else:
+                        failed = True
+                        print(f"Parsed return value {parsed_return_value}[{type(parsed_return_value)}] is not a valid integer or is empty.")
+                except (ValueError, SyntaxError) as e:
+                    failed = True
+                    print(f"Error parsing return value: {e}")
+            else:
+                failed = True
+                print("Return value is not a valid integer or string.")
+
+        return not failed
 
     def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_load()
@@ -282,6 +282,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         Returns:
             BaseOperator: The Airflow task.
         """
+        kwargs.update({'doc': kwargs.get('doc', f'Load table {table} within {domain} domain.')})
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         outlets = self.sl_outlets(f'{domain}.{table}', **kwargs)
         self.outlets += outlets
@@ -301,6 +302,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         Returns:
             BaseOperator: The Airflow task.
         """
+        kwargs.update({'doc': kwargs.get('doc', f'Run {transform_name} transform.')})
         outlets = self.sl_outlets(transform_name, **kwargs)
         self.outlets += outlets
         kwargs.update({'outlets': outlets})
@@ -319,5 +321,5 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
             dag_args.update(json.loads(__class__.get_context_var(var_name="default_dag_args", options=self.options)))
         except (MissingEnvironmentVariable, JSONDecodeError):
             pass
-        dag_args.update({'start_date': self.start_date, 'retry_delay': timedelta(seconds=self.retry_delay)})
+        dag_args.update({'start_date': self.start_date, 'retry_delay': timedelta(seconds=self.retry_delay), 'retries': self.retries})
         return dag_args

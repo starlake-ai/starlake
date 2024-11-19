@@ -712,7 +712,8 @@ object Settings extends StrictLogging {
     duckdbMode: Boolean,
     testCsvNullString: String,
     maxInteractiveRecords: Int,
-    duckdbPath: Option[String]
+    duckdbPath: Option[String],
+    ack: Option[String]
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 

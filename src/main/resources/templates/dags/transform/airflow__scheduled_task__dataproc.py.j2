@@ -12,6 +12,7 @@
 # - dataproc_worker_disk_size(1024): the worker disk size of the dataproc cluster (if not set, 1024 will be used) [OPTIONAL]
 # - dataproc_worker_disk_type(pd-standard): the worker disk type of the dataproc cluster (if not set, pd-standard will be used) [OPTIONAL]
 # - dataproc_num_workers(4): the number of workers of the dataproc cluster (if not set, 4 will be used) [OPTIONAL]
+# - dataproc_cluster_metadata: the metadata to add to the dataproc cluster specified as a map in json format [OPTIONAL]
 # - spark_jar_list: the list of spark jars to be used [REQUIRED]
 # - spark_bucket: the bucket to use for spark and biqquery temporary storage [REQUIRED]
 # - spark_job_main_class(ai.starlake.job.Main): the main class of the spark job (if not set, the main class ai.starlake.job.Main will be used) [OPTIONAL]
@@ -22,9 +23,10 @@
 # - load_dependencies(False): whereas the dependencies should be added for each transformation that has to be performed within the dag (if not set, the dependencies are not added) [OPTIONAL]
 # - tags: a list of tags to be applied to the dag [OPTIONAL]
 # Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
-# - catchup(True): whether to catch up the missed runs or not [OPTIONAL]
+# - catchup(False): whether to catch up the missed runs or not [OPTIONAL]
 # - start_date: the start date of the dag (eg. 2022-01-01) [OPTIONAL]
 # - end_date: the end date of the dag (eg. 2024-12-31) [OPTIONAL]
+# - retries(1): the number of retries to attempt before failing the task [OPTIONAL]
 # - retry_delay(300): the delay between retries in seconds [OPTIONAL]
 # - default_dag_args: the default dag arguments specified as a map in json format [OPTIONAL]
 {% include 'templates/dags/__starlake_airflow_dataproc_job.py.j2' %}

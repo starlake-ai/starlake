@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from ai.starlake.common import asQueryParameters, sanitize_id, sl_schedule, sl_schedule_format
+from ai.starlake.common import asQueryParameters, MissingEnvironmentVariable, sanitize_id, sl_schedule, sl_schedule_format
 
 from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 from ai.starlake.job.starlake_options import StarlakeOptions
 from ai.starlake.job.spark_config import StarlakeSparkConfig
 
-from typing import Generic, TypeVar, Union
+from typing import Generic, List, TypeVar, Union
 
 T = TypeVar("T")
 
@@ -45,6 +45,14 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
             default_value=sl_schedule_format,
             options=self.options
         )
+        try:
+            self.retries = int(__class__.get_context_var(var_name='retries', options=self.options))
+        except (MissingEnvironmentVariable, ValueError):
+            self.retries = 1
+        try:
+            self.retry_delay = int(__class__.get_context_var(var_name='retry_delay', options=self.options))
+        except (MissingEnvironmentVariable, ValueError):
+            self.retry_delay = 300
 
     def sl_dataset(self, uri: str, **kwargs) -> str:
         """Returns the dataset from the specified uri.
@@ -63,33 +71,59 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
 
         return sanitize_id(uri).lower() + asQueryParameters(parameters)
 
-    def sl_import(self, task_id: str, domain: str, **kwargs) -> T:
+    def sl_import(self, task_id: str, domain: str, tables: set=set(), **kwargs) -> T:
         """Import job.
         Generate the scheduler task that will run the starlake `import` command.
 
         Args:
             task_id (str): The optional task id.
             domain (str): The required domain to import.
+            tables (set): The optional tables to import.
 
         Returns:
             T: The scheduler task.
         """
         task_id = f"{domain}_import" if not task_id else task_id
-        arguments = ["import", "--domains", domain]
+        kwargs.pop("task_id", None)
+        arguments = ["import", "--domains", domain, "--tables", ",".join(tables), "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
-    def sl_pre_load(self, domain: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[T, None]:
+    def sl_pre_load(self, domain: str, tables: set=set(), pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[T, None]:
         """Pre-load job.
         Generate the scheduler task that will check if the conditions are met to load the specified domain according to the pre-load strategy choosen.
 
         Args:
-            domain (str): The required domain to load.
+            domain (str): The required domain to pre-load.
+            tables (set): The optional tables to pre-load.
             pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The optional pre-load strategy to use.
         
         Returns:
             Union[T, None]: The scheduler task or None.
         """
-        pass
+        if isinstance(pre_load_strategy, str):
+            pre_load_strategy = \
+                StarlakePreLoadStrategy(pre_load_strategy) if StarlakePreLoadStrategy.is_valid(pre_load_strategy) \
+                    else self.pre_load_strategy
+
+        pre_load_strategy = self.pre_load_strategy if not pre_load_strategy else pre_load_strategy
+
+        if pre_load_strategy == StarlakePreLoadStrategy.NONE:
+            return None
+        else:
+            task_id = kwargs.get("task_id", f"{domain}_pre_load")
+            kwargs.pop("task_id", None)
+            arguments = ["preload", "--domain", domain, "--tables", ",".join(tables), "--strategy", pre_load_strategy.value, "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
+            if pre_load_strategy == StarlakePreLoadStrategy.ACK:
+                def current_dt():
+                    from datetime import datetime
+                    return datetime.today().strftime('%Y-%m-%d')
+                ack_file = __class__.get_context_var(
+                    var_name='global_ack_file_path',
+                    default_value=f'{self.sl_datasets}/pending/{domain}/{current_dt()}.ack',
+                    options=self.options
+                )
+                arguments.extend(["--globalAckFilePath", f"{ack_file}"])
+            return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
     def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None, **kwargs) -> T:
         """Load job.
@@ -104,7 +138,8 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         Returns:
             T: The scheduler task.
         """
-        task_id = f"{domain}_{table}_load" if not task_id else task_id
+        task_id = kwargs.get("task_id", f"{domain}_{table}_load") if not task_id else task_id
+        kwargs.pop("task_id", None)
         arguments = ["load", "--domains", domain, "--tables", table]
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
@@ -121,7 +156,8 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         Returns:
             T: The scheduler task.
         """
-        task_id = f"{transform_name}" if not task_id else task_id
+        task_id = kwargs.get("task_id", f"{transform_name}") if not task_id else task_id
+        kwargs.pop("task_id", None)
         arguments = ["transform", "--name", transform_name]
         options = list()
         if transform_options:
@@ -155,3 +191,44 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         """
         pass
 
+    def sl_env(self, args: Union[str, List[str], None] = None) -> dict:
+        """Returns the environment variables to use.
+
+        Args:
+            args(str | List[str] | None): The optional arguments to use. Defaults to None.
+
+        Returns:
+            dict: The environment variables.
+        """
+        import os
+        env = os.environ.copy() # Copy the current environment variables
+
+        if args is None:
+            return env.update(self.sl_env_vars) # Add/overwrite with sl env variables
+        elif isinstance(args, str):
+            arguments = args.split(" ")
+        else:
+            arguments = args
+
+        found = False
+
+        for index, arg in enumerate(arguments):
+            if arg == "--options" and arguments.__len__() > index + 1:
+                opts = arguments[index+1]
+                if opts.strip().__len__() > 0:
+                    temp = self.sl_env_vars.copy() # Copy the current sl env variables
+                    temp.update({
+                        key: value
+                        for opt in opts.split(",")
+                        if "=" in opt  # Only process valid key=value pairs
+                        for key, value in [opt.split("=")]
+                    })
+                    env.update(temp)
+                else:
+                    env.update(self.sl_env_vars) # Add/overwrite with sl env variables
+                found = True
+                break
+
+        if not found:
+            env.update(self.sl_env_vars) # Add/overwrite with sl env variables
+        return env
