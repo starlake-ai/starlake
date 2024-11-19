@@ -2,11 +2,15 @@ import os
 
 from datetime import timedelta
 
-from typing import Union
+import logging
+
+from typing import Any, Dict, Sequence, Union
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
 
 from ai.starlake.airflow import StarlakeAirflowJob
+
+from airflow.exceptions import AirflowException
 
 from airflow.models.baseoperator import BaseOperator
 
@@ -14,9 +18,20 @@ from airflow.operators.bash import BashOperator
 
 from airflow.operators.python import PythonOperator
 
+from airflow.providers.google.cloud.hooks.cloud_run import CloudRunHook
+from airflow.providers.google.cloud.operators.cloud_run import  CloudRunExecuteJobOperator
+
+from airflow.sensors.base import BaseSensorOperator
 from airflow.sensors.bash import BashSensor
 
+from airflow.utils.context import Context
 from airflow.utils.task_group import TaskGroup
+
+from google.cloud.run_v2.types import Execution
+from google.longrunning import operations_pb2
+
+from enum import Enum
+CloudRunMode = Enum("CloudRunMode", ["SYNC", "DEFER", "ASYNC"])
 
 class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
     """Airflow Starlake Cloud Run Job."""
@@ -49,49 +64,7 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
         self.update_env_vars = self.separator.join([(f"--update-env-vars \"^{self.separator}^" if i == 0 else "") + f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())]) + "\""
         self.retry_on_failure = __class__.get_context_var("retry_on_failure", "False", self.options).lower() == 'true' if retry_on_failure is None else retry_on_failure
         self.retry_delay_in_seconds = float(__class__.get_context_var("retry_delay_in_seconds", "10", self.options)) if retry_delay_in_seconds is None else retry_delay_in_seconds
-
-    def __job_with_completion_sensors__(self, task_id: str, command: str, spark_config: StarlakeSparkConfig=None, **kwargs) -> TaskGroup:
-        kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        with TaskGroup(group_id=f'{task_id}_wait') as task_completion_sensors:
-            # asynchronous job
-            job_task = BashOperator(
-                task_id=task_id,
-                bash_command=(
-                    f"gcloud beta run jobs execute {self.cloud_run_job_name} "
-                    f"--args \"{command}\" "
-                    f"{self.update_env_vars} "
-                    f"--async --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)' {self.impersonate_service_account}" #--task-timeout 300
-                ),
-                do_xcom_push=True,
-                **kwargs
-            )
-            # check job completion
-            check_completion_id = task_id + '_check_completion'
-            completion_sensor = CloudRunJobCompletionSensor(
-                task_id=check_completion_id,
-                project_id=self.project_id,
-                cloud_run_job_region=self.cloud_run_job_region,
-                source_task_id=job_task.task_id,
-                retry_on_failure=self.retry_on_failure,
-                poke_interval=self.cloud_run_async_poke_interval,
-                impersonate_service_account = self.impersonate_service_account,
-                **kwargs
-            )
-            if self.retry_on_failure:
-                job_task >> completion_sensor
-            else:
-                # check job status
-                get_completion_status_id = task_id + '_get_completion_status'
-                job_status = CloudRunJobCheckStatusOperator(
-                    task_id=get_completion_status_id,
-                    project_id=self.project_id,
-                    cloud_run_job_region=self.cloud_run_job_region,
-                    source_task_id=job_task.task_id,
-                    impersonate_service_account = self.impersonate_service_account,
-                    **kwargs
-                )
-                job_task >> completion_sensor >> job_status
-        return task_completion_sensors
+        self.use_gcloud = __class__.get_context_var("use_gcloud", "True", self.options).lower() == 'true'
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides StarlakeAirflowJob.sl_job()
@@ -104,30 +77,119 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
         Returns:
             BaseOperator: The Airflow task.
         """
+        kwargs.update({'pool': kwargs.get('pool', self.pool)})
         command = f'^{self.separator}^' + self.separator.join(arguments)
-        if self.cloud_run_async:
-            return self.__job_with_completion_sensors__(task_id=task_id, command=command, spark_config=spark_config, **dict(kwargs, **{'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)}))
-        else:
-            # synchronous job
-            bash_command = (
-                f"gcloud beta run jobs execute {self.cloud_run_job_name} "
-                f"--args \"{command}\" "
-                f"{self.update_env_vars} "
-                f"--wait --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)' {self.impersonate_service_account}" #--task-timeout 300 
-            )
-            return PythonOperator(
-                task_id=task_id,
-                python_callable=self.execute_command,
-                op_args=[bash_command],
-                op_kwargs=kwargs,
-                provide_context=True,
-                do_xcom_push=True,
-                **dict(kwargs, **{'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)})
-            )
+        if self.cloud_run_async: # asynchronous job
+            with TaskGroup(group_id=f'{task_id}_wait') as task_completion_sensors:
+                if self.use_gcloud: # use gcloud
+                    kwargs.update({'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)})
+                    kwargs.update({'do_xcom_push': True})
+                    job_task = BashOperator(
+                        task_id=task_id,
+                        bash_command=(
+                            f"gcloud beta run jobs execute {self.cloud_run_job_name} "
+                            f"--args \"{command}\" "
+                            f"{self.update_env_vars} "
+                            f"--async --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)' {self.impersonate_service_account}" #--task-timeout 300
+                        ),
+                        **kwargs
+                    )
+                    # check job completion
+                    check_completion_id = task_id + '_check_completion'
+                    completion_sensor = GCloudRunJobCompletionSensor(
+                        task_id=check_completion_id,
+                        project_id=self.project_id,
+                        cloud_run_job_region=self.cloud_run_job_region,
+                        source_task_id=job_task.task_id,
+                        retry_on_failure=self.retry_on_failure,
+                        poke_interval=self.cloud_run_async_poke_interval,
+                        impersonate_service_account = self.impersonate_service_account,
+                        **kwargs
+                    )
+                    if self.retry_on_failure:
+                        job_task >> completion_sensor
+                    else:
+                        # check job status
+                        get_completion_status_id = task_id + '_get_completion_status'
+                        source_task_id=job_task.task_id
+                        bash_command = (f"value=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids='{source_task_id}')}}}} --region {self.cloud_run_job_region} --project {self.project_id} --format='value(status.failedCount, status.cancelledCounts)' {self.impersonate_service_account}| sed 's/[[:blank:]]//g'`; test -z \"$value\"")
+                        job_status = PythonOperator(
+                            task_id=get_completion_status_id,
+                            python_callable=self.execute_command,
+                            op_args=[bash_command],
+                            op_kwargs=kwargs,
+                            provide_context=True,
+                            **kwargs
+                        )
+                        job_task >> completion_sensor >> job_status
 
-class CloudRunJobCompletionSensor(BashSensor):
+                else:
+                    container_overrides: Dict[str, Any] = {
+                        "env": [
+                            {"name": key, "value": value} for key, value in self.sl_env_vars.items()
+                        ]
+                    }
+                    container_overrides["args"] = arguments
+                    job_overrides = {"container_overrides": [container_overrides]}
+                    job_task = CloudRunJobOperator(
+                        task_id=task_id,
+                        project_id=self.project_id,
+                        job_name=self.cloud_run_job_name,
+                        region=self.cloud_run_job_region,
+                        overrides=job_overrides,
+                        mode=CloudRunMode.ASYNC,
+                        **kwargs
+                    )
+                    check_completion_id = task_id + '_check_completion'
+                    completion_sensor = CloudRunJobCompletionSensor(
+                        task_id=check_completion_id,
+                        source_task_id=job_task.task_id,
+                        impersonate_service_account=self.impersonate_service_account,
+                        **kwargs
+                    )
+
+                    job_task >> completion_sensor
+
+                return task_completion_sensors
+
+        else: # synchronous job
+            if self.use_gcloud:
+                kwargs.update({'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)})
+                bash_command = (
+                    f"gcloud beta run jobs execute {self.cloud_run_job_name} "
+                    f"--args \"{command}\" "
+                    f"{self.update_env_vars} "
+                    f"--wait --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)' {self.impersonate_service_account}" #--task-timeout 300 
+                )
+                return PythonOperator(
+                    task_id=task_id,
+                    python_callable=self.execute_command,
+                    op_args=[bash_command],
+                    op_kwargs=kwargs,
+                    provide_context=True,
+                    **kwargs
+                )
+            else:
+                container_overrides: Dict[str, Any] = {
+                    "env": [
+                        {"name": key, "value": value} for key, value in self.sl_env_vars.items()
+                    ]
+                }
+                container_overrides["args"] = arguments
+                job_overrides = {"container_overrides": [container_overrides]}
+                return CloudRunJobOperator(
+                    task_id=task_id,
+                    project_id=self.project_id,
+                    job_name=self.cloud_run_job_name,
+                    region=self.cloud_run_job_region,
+                    overrides=job_overrides,
+                    mode=CloudRunMode.SYNC,
+                    **kwargs
+                )
+
+class GCloudRunJobCompletionSensor(BashSensor):
     '''
-    This sensor checks the completion of a cloud run job.
+    This sensor checks the completion of a cloud run job using gcloud.
     '''
     def __init__(self, *, project_id: str, cloud_run_job_region: str, source_task_id: str, retry_on_failure: bool=None, impersonate_service_account: str=None, **kwargs) -> None:
         if retry_on_failure:
@@ -147,24 +209,24 @@ class CloudRunJobCompletionSensor(BashSensor):
                 "| sed 's/[[:blank:]]//g'`; "
                 "test -z \"$check_status\" && exit 0 || exit 1; fi"
             )
-            bash_command=f"""
-            set -e
-            bash -c '
-            {bash_command}
-            return_code=$?
+            if kwargs.get('do_xcom_push', False):
+                bash_command=f"""
+                set -e
+                bash -c '
+                {bash_command}
+                return_code=$?
 
-            # Push the return code to XCom
-            echo $return_code
+                # Push the return code to XCom
+                echo $return_code
 
-            # Exit with the captured return code if non-zero
-            if [ $return_code -ne 0 ]; then
-                exit $return_code
-            fi
-            '
-            """
+                # Exit with the captured return code if non-zero
+                if [ $return_code -ne 0 ]; then
+                    exit $return_code
+                fi
+                '
+                """
             super().__init__(
                 bash_command=bash_command,
-                do_xcom_push=True,
                 mode="reschedule",
                 retry_exit_code=2, #retry_exit_code requires airflow v2.6
                 **kwargs
@@ -176,17 +238,80 @@ class CloudRunJobCompletionSensor(BashSensor):
                 **kwargs
             )
 
-class CloudRunJobCheckStatusOperator(PythonOperator):
-    '''
-    This operator checks the status of a cloud run job and fails if it is not successful.
-    '''
-    def __init__(self, *, project_id: str, cloud_run_job_region: str, source_task_id: str, impersonate_service_account: str=None, **kwargs) -> None:
-        bash_command = (f"value=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key=None, task_ids='{source_task_id}')}}}} --region {cloud_run_job_region} --project {project_id} --format='value(status.failedCount, status.cancelledCounts)' {impersonate_service_account}| sed 's/[[:blank:]]//g'`; test -z \"$value\"")
-        super().__init__(
-            python_callable=self.execute_command,
-            op_args=[bash_command],
-            op_kwargs=kwargs,
-            provide_context=True,
-            do_xcom_push=True,
-            **kwargs
+class CloudRunJobOperator(CloudRunExecuteJobOperator):
+    """
+    This extends official CloudRunExecuteJobOperator in order to implement asynchronous job.
+    """
+
+    def __init__(
+        self,
+        mode: CloudRunMode = CloudRunMode.SYNC,
+        gcp_conn_id: str = "google_cloud_default",
+        impersonation_chain: str | Sequence[str] | None = None,
+        **kwargs,
+    ):
+        super().__init__(  # type: ignore
+            gcp_conn_id=gcp_conn_id, impersonation_chain=impersonation_chain, **kwargs
         )
+        self.mode = mode
+
+    def execute(self, context: Context):
+        logger = logging.getLogger(__name__)
+        if self.mode == CloudRunMode.ASYNC:
+            hook: CloudRunHook = CloudRunHook(
+                gcp_conn_id=self.gcp_conn_id,
+                impersonation_chain=self.impersonation_chain,
+            )
+            self.operation = hook.execute_job(
+                region=self.region,
+                project_id=self.project_id,
+                job_name=self.job_name,
+                overrides=self.overrides,
+            )
+            execution = Execution.deserialize(self.operation.operation.metadata.value)
+            job_id = execution.name.split("/")[-1]
+            logger.info(
+                f"https://console.cloud.google.com/run/jobs/executions/details/{self.region}/{job_id}/tasks?project={self.project_id}"
+            )
+            logger.info(execution.log_uri)
+            return self.operation.operation.name
+
+        else:
+            return super(CloudRunJobOperator, self).execute(context)
+
+class CloudRunJobCompletionSensor(BaseSensorOperator):
+
+    template_fields = ("gcp_conn_id", "impersonation_chain")
+
+    def __init__(
+        self,
+        *,
+        source_task_id: str,
+        gcp_conn_id: str = "google_cloud_default",
+        impersonation_chain: str | Sequence[str] | None = None,
+        **kwargs,
+    ):
+        super().__init__(mode="reschedule", **kwargs)
+        self.source_task_id = source_task_id
+        self.gcp_conn_id = gcp_conn_id
+        self.impersonation_chain = impersonation_chain
+
+    def poke(self, context: Context):
+        hook = CloudRunHook(
+            gcp_conn_id=self.gcp_conn_id,
+            impersonation_chain=self.impersonation_chain,
+        )
+        operation_name = self.xcom_pull(context, task_ids=self.source_task_id)
+        operation_request = operations_pb2.GetOperationRequest(name=operation_name)
+        operation: operations_pb2.Operation = hook.get_conn().get_operation(
+            operation_request
+        )
+        if operation.done:
+            # An operation can only have one of those two combinations: if it is failed, then
+            # the error field will be populated, else, then the response field will be.
+            if operation.error.SerializeToString():
+                raise AirflowException(
+                    f"{operation.error.message} [{operation.error.code}]"
+                )
+            return True
+        return False
