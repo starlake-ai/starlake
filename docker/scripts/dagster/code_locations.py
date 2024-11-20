@@ -46,7 +46,8 @@ print(modules)
 
 with open("pyproject.toml", "w") as f:
     f.write("[tool.dagster]\n")
-    f.write("modules = [" + ",".join([f'{{ type = "module", name = "{module}" }}' for module in modules]) + "]\n")
+    if modules:
+        f.write("modules = [" + ",".join([f'{{ type = "module", name = "{module}" }}' for module in modules]) + "]\n")
 
 with open("workspace.yaml", "w") as f:
     f.write("load_from:\n")
