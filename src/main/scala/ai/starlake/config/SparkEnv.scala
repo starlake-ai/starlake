@@ -97,6 +97,16 @@ class SparkEnv private (
     logger.info("Spark Version -> " + session.version)
     logger.debug(session.conf.getAll.mkString("\n"))
 
+    val hadoopConf = session.sparkContext.hadoopConfiguration
+    sys.env.get("SL_STORAGE_CONF").foreach { value =>
+      value
+        .split(',')
+        .map { x =>
+          val t = x.split('=')
+          t(0).trim -> t(1).trim
+        }
+        .foreach { case (k, v) => hadoopConf.set(k, v) }
+    }
     session
   }
 }
