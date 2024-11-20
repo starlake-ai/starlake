@@ -42,7 +42,7 @@ object StageCmd extends Cmd[StageConfig] {
         .text("Domains to stage"),
       builder
         .opt[Seq[String]]("tables")
-        .action((x, c) => c.copy(domains = x))
+        .action((x, c) => c.copy(tables = x))
         .valueName("table1,table2...")
         .optional()
         .text("Tables to stage"),
