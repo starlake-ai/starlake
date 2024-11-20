@@ -76,11 +76,11 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
             BaseOperator: The Airflow task.
         """
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
+        kwargs.update({'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)})
         command = f'^{self.separator}^' + self.separator.join(arguments)
         if self.cloud_run_async: # asynchronous job
             with TaskGroup(group_id=f'{task_id}_wait') as task_completion_sensors:
                 if self.use_gcloud: # use gcloud
-                    kwargs.update({'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)})
                     kwargs.update({'do_xcom_push': True})
                     job_task = BashOperator(
                         task_id=task_id,
@@ -149,13 +149,14 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                         region=self.cloud_run_job_region,
                         overrides=job_overrides,
                         mode=CloudRunMode.ASYNC,
+                        impersonation_chain=self.impersonate_service_account,
                         **kwargs
                     )
                     check_completion_id = task_id + '_check_completion'
                     completion_sensor = CloudRunJobCompletionSensor(
                         task_id=check_completion_id,
                         source_task_id=job_task.task_id,
-                        impersonate_service_account=self.impersonate_service_account,
+                        impersonation_chain=self.impersonate_service_account,
                         **kwargs
                     )
 
@@ -165,7 +166,6 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
 
         else: # synchronous job
             if self.use_gcloud:
-                kwargs.update({'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)})
                 bash_command = (
                     f"gcloud beta run jobs execute {self.cloud_run_job_name} "
                     f"--args \"{command}\" "
@@ -208,6 +208,7 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                     region=self.cloud_run_job_region,
                     overrides=job_overrides,
                     mode=CloudRunMode.SYNC,
+                    impersonation_chain=self.impersonate_service_account,
                     **kwargs
                 )
 
