@@ -31,14 +31,26 @@ start = sl_job.dummy_op(task_id="start", ins={"start": In(str)} if pre_tasks els
 
 from typing import Union
 
-def load_domain(domain: dict, cron: Union[str, None]) -> GraphDefinition:
+def load_domain(domain: dict, schedule: dict) -> GraphDefinition:
+    cron: Union[str, None] = schedule['cron']
+
+    if cron:
+        schedule_name = schedule['schedule']
+    else:
+        schedule_name = None
+
+    if schedule_name:
+        name=f"{domain['name']}_{schedule_name}"
+    else:
+        name=f"{domain['name']}"
+
     tables = [table["name"] for table in domain["tables"]]
 
     ins = {"domain": In(str)}
 
     op_tables = [sl_job.sl_load(task_id=None, domain=domain["name"], table=table, ins=ins, cron=cron) for table in tables]
 
-    ld_end = sl_job.dummy_op(task_id=f"{domain['name']}_load_ended", ins={f"{op_table._name}": In(str) for op_table in op_tables}, out="domain_loaded")
+    ld_end = sl_job.dummy_op(task_id=f"{name}_load_ended", ins={f"{op_table._name}": In(str) for op_table in op_tables}, out="domain_loaded")
 
     ld_end_dependencies = dict()
 
@@ -67,17 +79,17 @@ def load_domain(domain: dict, cron: Union[str, None]) -> GraphDefinition:
     ]
 
     ld = GraphDefinition(
-        name=f"{domain['name']}_load",
+        name=f"{name}_load",
         node_defs=op_tables + [ld_end],
         dependencies=ld_dependencies,
         input_mappings=ld_input_mappings,
         output_mappings=ld_output_mappings,
     )
 
-    pld = sl_job.sl_pre_load(domain=domain["name"], tables=set(tables), cron=cron)
+    pld = sl_job.sl_pre_load(domain=domain["name"], tables=set(tables), cron=cron, schedule=schedule_name)
 
     @op(
-        name=f"{domain['name']}_load_result",
+        name=f"{name}_load_result",
         ins={"inputs": In()},
         out={"result": Out(str)},
     )
@@ -86,7 +98,7 @@ def load_domain(domain: dict, cron: Union[str, None]) -> GraphDefinition:
         yield Output(str(inputs), "result")
 
     @graph(
-        name=f"{domain['name']}",
+        name=name,
         input_defs=[InputDefinition(name="domain", dagster_type=str)],
     )
     def domain_graph(domain):
@@ -102,6 +114,14 @@ def load_domains(schedule: dict) -> GraphDefinition:
     cron = schedule['cron']
     if(cron):
         crons.append(ScheduleDefinition(job_name = job_name(schedule), cron_schedule = cron, default_status=DefaultScheduleStatus.RUNNING))
+        schedule_name = schedule['schedule']
+    else:
+        schedule_name = None
+
+    if schedule_name:
+        task_id=f"end_{schedule_name}"
+    else:
+        task_id="end"
 
     dependencies = dict()
 
@@ -115,7 +135,7 @@ def load_domains(schedule: dict) -> GraphDefinition:
             }
             nodes.append(pre_tasks)
 
-    node_defs = [load_domain(domain, cron) for domain in schedule["domains"]]
+    node_defs = [load_domain(domain, schedule) for domain in schedule["domains"]]
 
     ins = dict()
 
@@ -130,7 +150,7 @@ def load_domains(schedule: dict) -> GraphDefinition:
         ins[result] = In(dagster_type=str)
         end_dependencies[result] = DependencyDefinition(node_def._name, 'result')
 
-    end = sl_job.dummy_op(task_id="end", ins=ins, assets=[AssetKey(sl_job.sl_dataset(job_name(schedule), cron=cron))])
+    end = sl_job.dummy_op(task_id=task_id, ins=ins, assets=[AssetKey(sl_job.sl_dataset(job_name(schedule), cron=cron))])
     nodes.append(end)
     dependencies[end._name] = end_dependencies
 
