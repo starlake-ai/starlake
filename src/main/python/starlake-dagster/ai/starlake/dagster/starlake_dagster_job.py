@@ -42,10 +42,16 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
         else:
             kwargs.update({"ins": {"domain": In(str)}})
 
+            schedule=kwargs.get("schedule", None)
+            if schedule:
+                name=f"{domain}_{schedule}"
+            else:
+                name=domain
+
             if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
-                kwargs.update({'out': 'incoming_files', 'failure': 'no_incoming_files', 'task_id': f'{domain}_check_incoming_files'})
+                kwargs.update({'out': 'incoming_files', 'failure': 'no_incoming_files', 'task_id': f'{name}_check_incoming_files'})
                 import_node = self.sl_import(
-                    task_id=None, 
+                    task_id=f"{name}_import", 
                     domain=domain, 
                     tables=tables, 
                     ins={"incoming_files": In(str)}, 
@@ -54,10 +60,10 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
                 )
 
             elif pre_load_strategy == StarlakePreLoadStrategy.PENDING:
-                kwargs.update({'out': 'pending_files', 'failure': 'no_pending_files', 'task_id': f'{domain}_check_pending_files'})
+                kwargs.update({'out': 'pending_files', 'failure': 'no_pending_files', 'task_id': f'{name}_check_pending_files'})
 
             elif pre_load_strategy == StarlakePreLoadStrategy.ACK:
-                kwargs.update({'out': 'ack_file', 'failure': 'no_ack_file', 'task_id': f'{domain}_check_ack_file'})
+                kwargs.update({'out': 'ack_file', 'failure': 'no_ack_file', 'task_id': f'{name}_check_ack_file'})
 
                 def current_dt():
                     return datetime.today().strftime('%Y-%m-%d')
@@ -79,7 +85,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition], StarlakeOptions):
             pre_load = super().sl_pre_load(domain=domain, tables=tables, pre_load_strategy=pre_load_strategy, **kwargs)
 
             @graph(
-                name=f"{domain}_pre_load",
+                name=f"{name}_pre_load",
                 description=f"Check if domain '{domain}' can be loaded by applying {pre_load_strategy} strategy",
                 input_defs=pre_load.input_defs,
                 output_defs=[OutputDefinition(name="load_domain", dagster_type=str, is_required=False), OutputDefinition(name="skipped", dagster_type=str, is_required=False)]
