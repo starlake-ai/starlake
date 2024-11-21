@@ -16,7 +16,7 @@ object Versions {
   val betterFiles = "3.9.2"
   val jackson212ForSpark3 = "2.15.2"
   val pureConfig212ForSpark3 = "0.14.0"
-  val esSpark212 = "8.15.4"
+  val esSpark212 = "8.16.1"
   val jsonSchemaValidator = "1.4.0"
   val scopt = "4.1.0"
   val bigquery = "2.43.3"
@@ -30,8 +30,8 @@ object Versions {
   val confluentVersion = "7.7.1"
   val kafkaClients = "7.7.1-ce"
   val testContainers = "0.41.4"
-  val gcpCloudLogging = "3.20.6"
   val gcpDataCatalog = "1.60.0"
+  val gcpCloudLogging = "3.20.7"
   val jinja = "2.7.2" // forces dependency override on guava
   val snowflakeJDBC = "3.20.0"
   val snowflakeSpark: String = "3.0.0"
