@@ -7,17 +7,17 @@ from enum import Enum
 StarlakeDependencyType = Enum("StarlakeDependencyType", ["task", "table"])
 
 class StarlakeDependency():
-    def __init__(self, name: str, type: StarlakeDependencyType, cron: Union[str, None]= None, dependencies: List[StarlakeDependency]= [], **kwargs):
+    def __init__(self, name: str, dependency_type: StarlakeDependencyType, cron: Union[str, None]= None, dependencies: List[StarlakeDependency]= [], **kwargs):
         """Initializes a new StarlakeDependency instance.
 
         Args:
             name (str): The required dependency name.
-            type (StarlakeDependencyType): The required dependency type.
+            dependency_type (StarlakeDependencyType): The required dependency dependency_type.
             cron (str): The optional cron.
             dependencies (List[StarlakeDependency]): The optional dependencies.
         """
         self.name = name
-        self.type = type
+        self.dependency_type = dependency_type
         self.cron = cron
         self.dependencies = dependencies
 
@@ -35,9 +35,9 @@ class StarlakeDependencies():
                 data: dict = task['data']
 
                 if data.get('typ', None) == 'task':
-                    _type = StarlakeDependencyType.task
+                    dependency_type = StarlakeDependencyType.task
                 else:
-                    _type = StarlakeDependencyType.table
+                    dependency_type = StarlakeDependencyType.table
 
                 _cron: Union[str, None] = data.get('cron', None)
 
@@ -46,8 +46,22 @@ class StarlakeDependencies():
                 else:
                     cron = _cron
 
-                return StarlakeDependency(name=data["name"], type=_type, cron=cron, dependencies=[generate_dependency(subtask) for subtask in data.get('children', [])])
+                return StarlakeDependency(name=data["name"], dependency_type=dependency_type, cron=cron, dependencies=[generate_dependency(subtask) for subtask in data.get('children', [])])
             self.dependencies = [generate_dependency(task) for task in task_deps]
         else:
             self.dependencies = dependencies
 
+    def __repr__(self) -> str:
+        return f"StarlakeDependencies(dependencies={self.dependencies})"
+
+    def __str__(self) -> str:
+        return f"StarlakeDependencies(dependencies={self.dependencies})"
+
+    def __iter__(self):
+        return iter(self.dependencies)
+
+    def __getitem__(self, index):
+        return self.dependencies[index]
+
+    def __len__(self):
+        return len(self.dependencies)

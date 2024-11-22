@@ -1,8 +1,6 @@
-from ai.starlake.orchestration import StarlakeDependencies
+from ai.starlake.orchestration import StarlakeDependencies, IStarlakeOrchestration
 
 cron = "{{ context.cron }}"
-
-import ai.starlake.orchestration.IStarlakeOrchestration
 
 import sys
 
@@ -12,4 +10,4 @@ if not orchestration:
     raise Exception("Orchestration not found")
 
 dag=orchestration.sl_generate_scheduled_tasks(dependencies=StarlakeDependencies(dependencies="""{{ context.dependencies }}"""))
-defs=dags #Dagster JobDefinitions should be exposed as defs
+defs=dag #Dagster JobDefinitions should be exposed as defs

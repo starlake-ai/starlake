@@ -14,11 +14,12 @@ class StarlakeTable():
         self.final_name = name if final_name is None else final_name
 
 class StarlakeDomain():
-    def __init__(self, name: str, tables: List[StarlakeTable], **kwargs):
+    def __init__(self, name: str, final_name: str, tables: List[StarlakeTable], **kwargs):
         """Initializes a new StarlakeDomain instance.
 
         Args:
             name (str): The required domain name.
+            final_name (str): The required final domain name.
             tables (List[StarlakeTable]): The required tables.
         """
         self.name = name
@@ -33,7 +34,7 @@ class StarlakeSchedule():
             cron (str): The optional cron.
             domains (List[StarlakeDomain]): The required domains.
         """
-        self.name = name
+        self.name = None if name is None or name.lower().strip() == 'none' else name
         self.cron = cron
         self.domains = domains
 
@@ -60,9 +61,3 @@ class StarlakeSchedules():
 
     def __len__(self):
         return len(self.schedules)
-
-    def __contains__(self, item):
-        return item in self.schedules
-
-    def __add__(self, other):
-        return StarlakeSchedules(schedules=self.schedules + other.schedules)
