@@ -22,35 +22,32 @@ class StarlakeDependency():
         self.dependencies = dependencies
 
 class StarlakeDependencies():
-    def __init__(self, dependencies: List[StarlakeDependency], **kwargs):
+    def __init__(self, dependencies: Union[str, List[StarlakeDependency]], **kwargs):
         """Initializes a new StarlakeDependencies instance.
 
         Args:
             dependencies (List[StarlakeDependency]): The required dependencies.
         """
-        self.dependencies = dependencies
+        if isinstance(dependencies, str):
+            import json
+            task_deps: List[dict] = json.loads(str)
+            def generate_dependency(task) -> StarlakeDependency:
+                data: dict = task['data']
 
-    def __repr__(self) -> str:
-        return f"StarlakeDependencies(dependencies={self.dependencies})"
+                if data.get('typ', None) == 'task':
+                    _type = StarlakeDependencyType.task
+                else:
+                    _type = StarlakeDependencyType.table
 
-    def __str__(self) -> str:
-        return f"StarlakeDependencies(dependencies={self.dependencies})"
+                _cron: Union[str, None] = data.get('cron', None)
 
-    def __iter__(self):
-        return iter(self.dependencies)
+                if _cron is None or _cron.lower().strip() == 'none':
+                    cron = None
+                else:
+                    cron = _cron
 
-    def __getitem__(self, index):
-        return self.dependencies[index]
-    
-    def __len__(self):
-        return len(self.dependencies)
-    
-    def __contains__(self, item):
-        return item in self.dependencies
-    
-    def __add__(self, other):
-        return StarlakeDependencies(self.dependencies + other.dependencies)
-    
-    def __iadd__(self, other):
-        self.dependencies += other.dependencies
-        return self
+                return StarlakeDependency(name=data["name"], type=_type, cron=cron, dependencies=[generate_dependency(subtask) for subtask in data.get('children', [])])
+            self.dependencies = [generate_dependency(task) for task in task_deps]
+        else:
+            self.dependencies = dependencies
+
