@@ -14,10 +14,11 @@ from airflow.datasets import Dataset
 
 from airflow.utils.task_group import TaskGroup
 
-from typing import Union, List
+from typing import Generic, List, TypeVar, Union
 
+U = TypeVar("U")
 
-class StarlakeAirflowOrchestration(IStarlakeOrchestration[DAG], StarlakeAirflowJob):
+class StarlakeAirflowOrchestration(Generic[U], IStarlakeOrchestration[DAG], StarlakeAirflowJob):
     def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict=None, **kwargs) -> None:
         """Overrides IStarlakeJob.__init__()
         Args:
