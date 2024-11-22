@@ -1,0 +1,31 @@
+from ai.starlake.orchestration import StarlakeSchedules, StarlakeSchedule, StarlakeDomain, StarlakeTable
+
+schedules= [{% for schedule in context.schedules %}
+    StarlakeSchedule(
+        schedule='{{ schedule.schedule }}', 
+        cron={% if schedule.cron is not none %}'{{ schedule.cron }}'{% else %}None{% endif %}, 
+        domains=[{% for domain in schedule.domains %}
+            StarlakeDomain(
+                name='{{ domain.final_name }}', 
+                final_name='{{ domain.final_name }}', 
+                tables=[{% for table in domain.tables %}
+                    StarlakeTable(
+                        name='{{ table.final_name }}', 
+                        final_name='{{ table.final_name }}'
+                    ){% if not loop.last  %},{% endif %}{% endfor %}
+                ]
+            ){% if not loop.last  %},{% endif %}{% endfor %}
+    ]){% if not loop.last  %},{% endif %}{% endfor %}
+]
+
+import ai.starlake.orchestration.IStarlakeOrchestration
+
+import sys
+
+orchestration: IStarlakeOrchestration = sys.modules[__name__].__dict__.get('sl_orchestration', None)
+
+if not orchestration:
+    raise Exception("Orchestration not found")
+
+dags=orchestration.sl_generate_scheduled_tables(StarlakeSchedules(schedules=schedules))
+defs=dags #Dagster JobDefinitions should be exposed as defs
