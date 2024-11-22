@@ -4,15 +4,15 @@ from typing import List, Union
 
 from enum import Enum
 
-DependencyType = Enum("DependencyType", ["task", "table"])
+StarlakeDependencyType = Enum("StarlakeDependencyType", ["task", "table"])
 
 class StarlakeDependency():
-    def __init__(self, name: str, type: DependencyType, cron: Union[str, None]= None, dependencies: List[StarlakeDependency]= [], **kwargs):
+    def __init__(self, name: str, type: StarlakeDependencyType, cron: Union[str, None]= None, dependencies: List[StarlakeDependency]= [], **kwargs):
         """Initializes a new StarlakeDependency instance.
 
         Args:
             name (str): The required dependency name.
-            type (DependencyType): The required dependency type.
+            type (StarlakeDependencyType): The required dependency type.
             cron (str): The optional cron.
             dependencies (List[StarlakeDependency]): The optional dependencies.
         """
