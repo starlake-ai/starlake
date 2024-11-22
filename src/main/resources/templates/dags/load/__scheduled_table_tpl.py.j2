@@ -1,8 +1,8 @@
-from ai.starlake.orchestration import StarlakeSchedules, StarlakeSchedule, StarlakeDomain, StarlakeTable
+from ai.starlake.orchestration import StarlakeSchedules, StarlakeSchedule, StarlakeDomain, StarlakeTable, IStarlakeOrchestration
 
 schedules= [{% for schedule in context.schedules %}
     StarlakeSchedule(
-        schedule='{{ schedule.schedule }}', 
+        name='{{ schedule.schedule }}', 
         cron={% if schedule.cron is not none %}'{{ schedule.cron }}'{% else %}None{% endif %}, 
         domains=[{% for domain in schedule.domains %}
             StarlakeDomain(
@@ -17,8 +17,6 @@ schedules= [{% for schedule in context.schedules %}
             ){% if not loop.last  %},{% endif %}{% endfor %}
     ]){% if not loop.last  %},{% endif %}{% endfor %}
 ]
-
-import ai.starlake.orchestration.IStarlakeOrchestration
 
 import sys
 

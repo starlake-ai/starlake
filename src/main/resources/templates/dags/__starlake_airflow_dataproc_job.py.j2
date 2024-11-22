@@ -37,7 +37,7 @@ cluster_config_name = StarlakeAirflowOptions.get_context_var("cluster_config_nam
 
 #optional variable jobs as a dict of all options to apply by job
 #eg jobs = {"task1 domain.task1 name": {"options": "task1 transform options"}, "task2 domain.task2 name": {"options": "task2 transform options"}}
-sl_orchestration = StarlakeAirflowOrchestration[StarlakeAirflowDataprocJob](
+sl_job = StarlakeAirflowDataprocJob(
     cluster = StarlakeAirflowDataprocCluster(
         cluster_config=StarlakeAirflowDataprocClusterConfig(
             cluster_id=sys.modules[__name__].__dict__.get('cluster_id', cluster_config_name),
@@ -55,3 +55,4 @@ sl_orchestration = StarlakeAirflowOrchestration[StarlakeAirflowDataprocJob](
     ),
     options=dict(options, **sys.modules[__name__].__dict__.get('jobs', {}))
 )
+sl_orchestration = StarlakeAirflowOrchestration(filename=os.path.basename(__file__), module_name=f"{__name__}", job=sl_job)
