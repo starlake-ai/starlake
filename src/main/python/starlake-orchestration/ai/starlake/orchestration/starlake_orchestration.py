@@ -11,31 +11,30 @@ T = TypeVar("T")
 U = TypeVar("U")
 
 class IStarlakeOrchestration(Generic[U], IStarlakeJob[T], StarlakeOptions):
-    def __init__(self, job: IStarlakeJob[T], sparkConfig: StarlakeSparkConfig, options: StarlakeOptions, **kwargs) -> None:
+    def __init__(self, job: IStarlakeJob[T], sparkConfig: StarlakeSparkConfig, **kwargs) -> None:
         """Initializes a new IStarlakeOrchestration instance.
             args:
                 job (IStarlakeJob[T]): The required starlake job.
                 sparkConfig (StarlakeSparkConfig): The required spark config.
-                options (StarlakeOptions): The required options.
         """
-        super().__init__(**kwargs)
+        self.job = job
+        self.sparkConfig = sparkConfig
+        self.options = job.options
 
     def sl_generate_scheduled_tables(self, schedules: StarlakeSchedules, **kwargs) -> List[U]:
-        """Overrides IStarlakeJob.sl_schedule()
-        Generate the Starlake dags that will orchestrate the specified schedules.
+        """Generate the Starlake dags that will orchestrate the load of the specified domains.
 
         Args:
             schedules (StarlakeSchedules): The required schedules
         
         Returns:
-            List[U: The generated dags, one for each schedule.
+            List[U]: The generated dags, one for each schedule.
         """
 
         pass
 
     def sl_generate_scheduled_tasks(self, dependencies: StarlakeDependencies, **kwargs) -> U:
-        """Overrides IStarlakeJob.sl_orchestrate()
-        Generate the Starlake dag that will orchestrate the specified tasks.
+        """Generate the Starlake dag that will orchestrate the specified tasks.
 
         Args:
             dependencies (StarlakeDependencies): The required dependencies
