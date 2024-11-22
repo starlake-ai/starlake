@@ -1,0 +1,20 @@
+from ai.starlake.orchestration import StarlakeDependencies
+
+cron = "{{ context.cron }}"
+
+task_deps=json.loads("""{{ context.dependencies }}""")
+
+#TODO
+dependencies: StarlakeDependencies = StarlakeDependencies.from_dict(task_deps)
+
+import ai.starlake.orchestration.IStarlakeOrchestration
+
+import sys
+
+orchestration: IStarlakeOrchestration = sys.modules[__name__].__dict__.get('sl_orchestration', None)
+
+if not orchestration:
+    raise Exception("Orchestration not found")
+
+dag=orchestration.sl_generate_scheduled_tasks(dependencies=dependencies)
+defs=dags #Dagster JobDefinitions should be exposed as defs
