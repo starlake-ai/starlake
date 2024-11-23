@@ -241,7 +241,7 @@ class StarlakeAirflowOrchestration(Generic[U], IStarlakeOrchestration[DAG, BaseO
                 task_name = task.name
                 airflow_task_group_id = sanitize_id(task_name)
                 airflow_task_id = airflow_task_group_id
-                task_type = task.type
+                task_type = task.dependency_type
                 if (task_type == StarlakeDependencyType.task):
                     airflow_task_id = airflow_task_group_id + "_task"
                 else:
