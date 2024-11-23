@@ -9,5 +9,5 @@ orchestration: IStarlakeOrchestration = sys.modules[__name__].__dict__.get('sl_o
 if not orchestration:
     raise Exception("Orchestration not found")
 
-dag=orchestration.sl_generate_scheduled_tasks(dependencies=StarlakeDependencies(dependencies="""{{ context.dependencies }}"""))
-defs=dag #Dagster JobDefinitions should be exposed as defs
+#Dagster JobDefinitions should be exposed as defs
+defs=orchestration.sl_generate_scheduled_tasks(dependencies=StarlakeDependencies(dependencies="""{{ context.dependencies }}"""))

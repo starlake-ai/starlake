@@ -1,3 +1,5 @@
+from ai.starlake.airflow.starlake_airflow_job import StarlakeAirflowJob
+
 from ai.starlake.airflow.starlake_airflow_options import StarlakeAirflowOptions
 
 from ai.starlake.common import sanitize_id, sort_crons_by_frequency, sl_cron_start_end_dates
@@ -14,14 +16,15 @@ from airflow.utils.task_group import TaskGroup
 
 from typing import Generic, List, Set, TypeVar, Union
 
-U = TypeVar("U")
+U = TypeVar("U", bound=StarlakeAirflowJob)
 
 class StarlakeAirflowOrchestration(Generic[U], IStarlakeOrchestration[DAG, BaseOperator]):
     def __init__(self, filename: str, module_name: str, job: U, **kwargs) -> None:
-        """Overrides IStarlakeJob.__init__()
+        """Overrides IStarlakeOrchestration.__init__()
         Args:
-            pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The pre-load strategy to use.
-            options (dict): The options to use.
+            filename (str): The filename of the orchestration.
+            module_name (str): The module name of the orchestration.
+            job (U): The job to orchestrate.
         """
         super().__init__(filename, module_name, job, **kwargs) 
 

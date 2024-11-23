@@ -7,7 +7,7 @@ from ai.starlake.orchestration.starlake_dependencies import StarlakeDependencies
 
 import sys
 
-from typing import Generic, List, TypeVar
+from typing import Generic, List, TypeVar, Union
 
 U = TypeVar("U")
 
@@ -43,7 +43,7 @@ class IStarlakeOrchestration(Generic[U, T]):
         self.spark_config: StarlakeSparkConfig = getattr(self.caller_module_name, "get_spark_config", default_spark_config)
 
 
-    def sl_generate_scheduled_tables(self, schedules: StarlakeSchedules, **kwargs) -> List[U]:
+    def sl_generate_scheduled_tables(self, schedules: StarlakeSchedules, **kwargs) -> Union[U, List[U]]:
         """Generate the Starlake dags that will orchestrate the load of the specified domains.
 
         Args:
