@@ -1,3 +1,4 @@
+{% include 'templates/dags/__common_dagster.py.j2' %}
 import os
 
 from dagster import AssetKey, ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping, Out, Output, OutputMapping, graph, op, DefaultScheduleStatus
