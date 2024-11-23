@@ -50,7 +50,7 @@ class IStarlakeOrchestration(Generic[U, T]):
             schedules (StarlakeSchedules): The required schedules
         
         Returns:
-            List[U]: The generated dags, one for each schedule.
+            Union[U, List[U]]: The generated dags, one for each schedule.
         """
 
         pass
