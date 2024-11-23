@@ -4,6 +4,8 @@ import sys
 
 from ai.starlake.job import StarlakeOptions
 
+from ai.starlake.dagster import StarlakeDagsterOrchestration
+
 from ai.starlake.dagster.gcp import StarlakeDagsterDataprocJob
 
 from ai.starlake.gcp import StarlakeDataprocClusterConfig, StarlakeDataprocMasterConfig, StarlakeDataprocWorkerConfig
@@ -53,3 +55,5 @@ sl_job = StarlakeDagsterDataprocJob(
     pool=sys.modules[__name__].__dict__.get('pool', None),
     options=dict(options, **sys.modules[__name__].__dict__.get('jobs', {}))
 )
+import os
+sl_orchestration = StarlakeDagsterOrchestration(filename=os.path.basename(__file__), module_name=f"{__name__}", job=sl_job)

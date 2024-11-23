@@ -28,26 +28,32 @@ class StarlakeDependencies():
         Args:
             dependencies (List[StarlakeDependency]): The required dependencies.
         """
+        def generate_dependency(task: dict) -> StarlakeDependency:
+            data: dict = task.get('data', {})
+
+            if data.get('typ', None) == 'task':
+                dependency_type = StarlakeDependencyType.task
+            else:
+                dependency_type = StarlakeDependencyType.table
+
+            _cron: Union[str, None] = data.get('cron', None)
+
+            if _cron is None or _cron.lower().strip() == 'none':
+                cron = None
+            else:
+                cron = _cron
+
+            return StarlakeDependency(
+                name=data["name"], 
+                dependency_type=dependency_type, 
+                cron=cron, 
+                dependencies=[generate_dependency(subtask) for subtask in task.get('children', [])]
+            )
+
         if isinstance(dependencies, str):
             import json
-            task_deps: List[dict] = json.loads(str)
-            def generate_dependency(task) -> StarlakeDependency:
-                data: dict = task['data']
-
-                if data.get('typ', None) == 'task':
-                    dependency_type = StarlakeDependencyType.task
-                else:
-                    dependency_type = StarlakeDependencyType.table
-
-                _cron: Union[str, None] = data.get('cron', None)
-
-                if _cron is None or _cron.lower().strip() == 'none':
-                    cron = None
-                else:
-                    cron = _cron
-
-                return StarlakeDependency(name=data["name"], dependency_type=dependency_type, cron=cron, dependencies=[generate_dependency(subtask) for subtask in data.get('children', [])])
-            self.dependencies = [generate_dependency(task) for task in task_deps]
+            tasks: List[dict] = json.loads(dependencies)
+            self.dependencies = [generate_dependency(task) for task in tasks]
         else:
             self.dependencies = dependencies
 

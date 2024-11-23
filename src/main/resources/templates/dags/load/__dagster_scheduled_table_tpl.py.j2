@@ -34,7 +34,7 @@ from typing import Union
 def load_domain(domain: dict, schedule: dict) -> GraphDefinition:
     cron: Union[str, None] = schedule['cron']
 
-    if cron:
+    if cron and len(schedules) > 1:
         schedule_name = schedule['schedule']
     else:
         schedule_name = None
@@ -112,11 +112,11 @@ def load_domain(domain: dict, schedule: dict) -> GraphDefinition:
 
 def load_domains(schedule: dict) -> GraphDefinition:
     cron = schedule['cron']
-    if(cron):
+    schedule_name = None
+    if cron:
         crons.append(ScheduleDefinition(job_name = job_name(schedule), cron_schedule = cron, default_status=DefaultScheduleStatus.RUNNING))
-        schedule_name = schedule['schedule']
-    else:
-        schedule_name = None
+        if len(schedules) > 1:
+            schedule_name = schedule['schedule']
 
     if schedule_name:
         task_id=f"end_{schedule_name}"

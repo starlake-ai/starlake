@@ -25,5 +25,5 @@ orchestration: IStarlakeOrchestration = sys.modules[__name__].__dict__.get('sl_o
 if not orchestration:
     raise Exception("Orchestration not found")
 
-dags=orchestration.sl_generate_scheduled_tables(StarlakeSchedules(schedules=schedules))
-defs=dags #Dagster JobDefinitions should be exposed as defs
+#Dagster JobDefinitions should be exposed as defs
+defs=orchestration.sl_generate_scheduled_tables(StarlakeSchedules(schedules=schedules))
