@@ -67,29 +67,29 @@ class StarlakeAirflowOrchestration(Generic[U], IStarlakeOrchestration[DAG, BaseO
 
                 post_tasks = sl_job.post_tasks(dag=dag)
 
-                pre_load_tasks = sl_job.sl_pre_load(domain=domain.name, tables=set([table.name for table in domain.tables]), params={'cron':_cron}, dag=dag)
-
                 def generate_task_group_for_domain(domain: StarlakeDomain):
+                    pre_load_tasks = sl_job.sl_pre_load(domain=domain.name, tables=set([table.name for table in domain.tables]), params={'cron':_cron}, dag=dag)
+
                     with TaskGroup(group_id=sanitize_id(f'{domain.name}_load_tasks')) as domain_load_tasks:
                         for table in domain.tables:
-                            load_task_id = sanitize_id(f'{domain.name}_{table.name}_load')
-                            spark_config_name=StarlakeAirflowOptions.get_context_var('spark_config_name', f'{domain.name}.{table.name}'.lower(), options)
                             sl_job.sl_load(
-                                task_id=load_task_id, 
+                                task_id=sanitize_id(f'{domain.name}_{table.name}_load'), 
                                 domain=domain.name, 
                                 table=table.name,
-                                spark_config=spark_config(spark_config_name, **self.caller_globals.get('spark_properties', {})),
+                                spark_config=spark_config(
+                                    sl_job.get_context_var('spark_config_name', f'{domain.name}.{table.name}'.lower(), options), 
+                                    **self.caller_globals.get('spark_properties', {})
+                                ),
                                 params={'cron':_cron},
                                 dag=dag
                             )
-                    return domain_load_tasks
+
+                    if pre_load_tasks:
+                        return start >> pre_load_tasks >> domain_load_tasks
+                    else :
+                        return start >> domain_load_tasks
 
                 all_load_tasks = [generate_task_group_for_domain(domain) for domain in schedule.domains]
-
-                if pre_load_tasks:
-                    start >> pre_load_tasks >> all_load_tasks
-                else:
-                    start >> all_load_tasks
 
                 end = sl_job.dummy_op(task_id="end", outlets=[Dataset(sl_job.sl_dataset(dag.dag_id, cron=_cron), {"source": dag.dag_id})])
 
