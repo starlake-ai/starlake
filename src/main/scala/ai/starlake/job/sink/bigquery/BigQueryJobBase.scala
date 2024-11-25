@@ -39,6 +39,7 @@ import org.apache.spark.sql.DataFrame
 import java.io.ByteArrayInputStream
 import java.security.SecureRandom
 import java.util
+import java.util.concurrent.TimeoutException
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 import scala.collection.mutable
@@ -410,32 +411,6 @@ trait BigQueryJobBase extends StrictLogging {
 
   protected lazy val bqNativeTable: String = BigQueryJobBase.getBqTableForNative(tableId)
 
-  /** Retry on retryable bigquery exception.
-    */
-  protected def recoverBigqueryException[T](bigqueryProcess: => T): Try[T] = {
-    def processWithRetry(retry: Int = 0, bigqueryProcess: => T): Try[T] = {
-      Try {
-        bigqueryProcess
-      }.recoverWith {
-        case be: BigQueryException
-            if retry < 3 && scala
-              .Option(be.getError)
-              .exists(e =>
-                e.getReason() == "rateLimitExceeded" || e.getReason == "jobRateLimitExceeded"
-              ) =>
-          val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
-          logger.error(s"Retry in $sleepTime. ${be.getMessage}")
-          Thread.sleep(sleepTime)
-          processWithRetry(retry + 1, bigqueryProcess)
-        case be: BigQueryException
-            if retry < 3 && scala.Option(be.getError).exists(_.getReason() == "duplicate") =>
-          logger.error(be.getMessage)
-          processWithRetry(retry + 1, bigqueryProcess)
-      }
-    }
-    processWithRetry(bigqueryProcess = bigqueryProcess)
-  }
-
   def tableExists(tableId: TableId)(implicit settings: Settings): Boolean = {
     try {
       val table = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
@@ -509,7 +484,7 @@ trait BigQueryJobBase extends StrictLogging {
     domainDescription: scala.Option[String],
     datasetName: scala.Option[String] = None
   )(implicit settings: Settings): Try[Dataset] = {
-    val tryResult = recoverBigqueryException {
+    val tryResult = BigQueryJobBase.recoverBigqueryException {
       val datasetId = datasetName match {
         case Some(name) =>
           DatasetId.of(
@@ -567,7 +542,7 @@ trait BigQueryJobBase extends StrictLogging {
     dataFrame: scala.Option[DataFrame]
   )(implicit settings: Settings): Try[(Table, StandardTableDefinition)] = {
     getOrCreateDataset(domainDescription).flatMap { _ =>
-      val tryResult = recoverBigqueryException {
+      val tryResult = BigQueryJobBase.recoverBigqueryException {
 
         val table =
           if (tableExists(tableId)) {
@@ -612,7 +587,7 @@ trait BigQueryJobBase extends StrictLogging {
 
   protected def setTagsOnTable(table: Table): Unit = {
     cliConfig.starlakeSchema.foreach { schema =>
-      recoverBigqueryException {
+      BigQueryJobBase.recoverBigqueryException {
         val tags = Utils.extractTags(schema.tags)
         val tableTagPairs = tags map { case (k, v) => (k.toLowerCase, v.toLowerCase) }
         if (table.getLabels.asScala.toSet != tableTagPairs) {
@@ -631,7 +606,7 @@ trait BigQueryJobBase extends StrictLogging {
   protected def updateTableDescription(bqTable: Table, description: String)(implicit
     settings: Settings
   ): Table = {
-    recoverBigqueryException {
+    BigQueryJobBase.recoverBigqueryException {
       if (scala.Option(bqTable.getDescription) != scala.Option(description)) {
         // Update dataset description only when description is explicitly set
         logger.info("Table's description has changed")
@@ -748,7 +723,7 @@ trait BigQueryJobBase extends StrictLogging {
   def updateColumnsDescription(
     schema: BQSchema
   )(implicit settings: Settings): Table = {
-    recoverBigqueryException {
+    BigQueryJobBase.recoverBigqueryException {
       val tableTarget = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
       val tableSchema = tableTarget.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
       def buildSchema(
@@ -1268,5 +1243,36 @@ object BigQueryJobBase extends StrictLogging {
     )
     val _ = bq.query(QueryJobConfiguration.of(sql))
     true
+  }
+
+  /** Retry on retryable bigquery exception.
+    */
+  def recoverBigqueryException[T](bigqueryProcess: => T): Try[T] = {
+    def processWithRetry(retry: Int = 0, bigqueryProcess: => T): Try[T] = {
+      Try {
+        bigqueryProcess
+      }.recoverWith {
+        case be: BigQueryException
+            if retry < 3 && scala
+              .Option(be.getError)
+              .exists(e =>
+                e.getReason() == "rateLimitExceeded" || e.getReason == "jobRateLimitExceeded"
+              ) =>
+          val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
+          logger.error(s"Retry in $sleepTime. ${be.getMessage}")
+          Thread.sleep(sleepTime)
+          processWithRetry(retry + 1, bigqueryProcess)
+        case be: BigQueryException
+            if retry < 3 && scala.Option(be.getError).exists(_.getReason() == "duplicate") =>
+          logger.error(be.getMessage)
+          processWithRetry(retry + 1, bigqueryProcess)
+        case te: TimeoutException if retry < 3 =>
+          val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
+          logger.error(s"Retry in $sleepTime. ${te.getMessage}")
+          Thread.sleep(sleepTime)
+          processWithRetry(retry + 1, bigqueryProcess)
+      }
+    }
+    processWithRetry(bigqueryProcess = bigqueryProcess)
   }
 }
