@@ -9,6 +9,7 @@ import com.google.cloud.logging.{LogEntry, LoggingOptions}
 
 import java.util.{Collections, Locale}
 import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success}
 
 object GcpUtils {
   private val WELL_KNOWN_CREDENTIALS_FILE = "application_default_credentials.json"
@@ -93,7 +94,10 @@ object GcpUtils {
       // Writes the log entry asynchronously
       logging.write(Collections.singleton(entry))
       // Optional - flush any pending log entries just before Logging is closed
-      logging.flush()
+      BigQueryJobBase.recoverBigqueryException(logging.flush()) match {
+        case Failure(exception) => throw exception
+        case Success(_)         => //
+      }
     } finally if (logging != null) logging.close()
   }
 
