@@ -44,4 +44,5 @@ object Versions {
   val scalaParallelCollections = "1.0.4"
   val derbyVersion = "10.14.2.0" // last version compatible with Java 8
   val jSqlFormatter = "5.1-SNAPSHOT"
+  val gcpPubsub = "1.131.0"
 }
