@@ -293,8 +293,14 @@ case class Metadata(
   }
 
   @JsonIgnore
-  def getSinkConnectionRef()(implicit settings: Settings): String =
-    getSink().connectionRef.getOrElse(settings.appConfig.connectionRef)
+  def getSinkConnectionRef()(implicit settings: Settings): String = {
+    val loadConnectionRef =
+      if (settings.appConfig.loadConnectionRef.isEmpty)
+        settings.appConfig.connectionRef
+      else
+        settings.appConfig.loadConnectionRef
+    getSink().connectionRef.getOrElse(loadConnectionRef)
+  }
 
   @JsonIgnore
   def getSinkConnection()(implicit settings: Settings): Settings.Connection =
