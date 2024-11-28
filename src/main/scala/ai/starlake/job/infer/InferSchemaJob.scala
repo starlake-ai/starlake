@@ -105,8 +105,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     *   the file separator
     */
   def getSeparator(lines: List[String]): String = {
-    val linesWithoutHeader = lines.drop(1)
-    val firstLine = linesWithoutHeader.head
+    val firstLine = lines.head
     val (separator, count) =
       firstLine
         .replaceAll("[A-Za-z0-9 \"'()@?!éèîàÀÉÈç+\\-_]", "")
