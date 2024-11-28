@@ -1,7 +1,10 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
+import ai.starlake.job.infer.InferSchemaJob
 import ai.starlake.schema.model.{Attribute, Format}
+
+import scala.io.Source
 
 class InferSchemaHandlerSpec extends TestHelper {
 
