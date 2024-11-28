@@ -64,6 +64,7 @@ import ai.starlake.schema.model.Severity._
   * @param script
   *   : Scripted field : SQL request on renamed column
   */
+
 case class Attribute(
   name: String,
   `type`: String = "string",

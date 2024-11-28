@@ -184,13 +184,12 @@ case class AutoTaskDesc(
   }
 
   def getRunConnectionRef()(implicit settings: Settings): String = {
-    val connectionRef = this.connectionRef.getOrElse(settings.appConfig.connectionRef)
-    if (connectionRef.isEmpty) {
-      throw new Exception(
-        "Connection ref is empty. Please define a default connection ref in application.sl.yml"
-      )
-    }
-    connectionRef
+    val transformConnectionRef =
+      if (settings.appConfig.transformConnectionRef.isEmpty)
+        settings.appConfig.connectionRef
+      else
+        settings.appConfig.transformConnectionRef
+    this.connectionRef.getOrElse(transformConnectionRef)
   }
 
   def getRunConnection()(implicit settings: Settings): Connection = {

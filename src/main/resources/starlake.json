@@ -1936,6 +1936,14 @@
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Default connection to use when loading / transforming data"
         },
+        "loadConnectionRef": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Default connection to use when loading / transforming data"
+        },
+        "transformConnectionRef": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Default connection to use when loading / transforming data"
+        },
         "schedulePresets": {
           "$ref": "#/definitions/MapString",
           "description": "Default connection to use when loading / transforming data"

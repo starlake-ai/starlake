@@ -196,7 +196,8 @@ class MetricsJob(
               postsql = Nil,
               sink = Some(settings.appConfig.audit.sink),
               parseSQL = Some(true),
-              _auditTableName = Some(table.toString)
+              _auditTableName = Some(table.toString),
+              connectionRef = settings.appConfig.audit.sink.connectionRef
             )
           val autoTask = new SparkAutoTask(
             Option(applicationId()),

@@ -87,7 +87,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           comment = schema.comment,
           tags = schema.tags,
           writeStrategy = mergedMetadata.writeStrategy,
-          parseSQL = Some(true)
+          parseSQL = Some(true),
+          connectionRef = Option(mergedMetadata.getSinkConnectionRef())
         )
 
         val job =
