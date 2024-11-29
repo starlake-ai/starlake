@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from abc import abstractmethod
+
 from ai.starlake.common import sanitize_id, sort_crons_by_frequency
 
 from ai.starlake.job import StarlakeSparkConfig, IStarlakeJob
@@ -135,15 +137,18 @@ class StarlakePipeline(Generic[U, T, E, J], StarlakeEvent[E]):
     def get_sl_resources(self) -> Optional[List[StarlakeResource]]:
         return self.sl_resources
 
+    @abstractmethod
     def get_sl_transform_options(self, cron_expr: Optional[str] = None) -> Optional[str]:
         pass
 
+    @abstractmethod
     def sl_create_task_group(self, group_id: str, **kwargs) -> StarlakeTaskGroup[T]:
         pass
 
     def sl_dummy_op(self, task_id: str, **kwargs) -> T:
         return self.sl_job.dummy_op(task_id=task_id, **kwargs)
 
+    @abstractmethod
     def sl_start(self, **kwargs) -> T:
         pass
 
@@ -174,9 +179,11 @@ class StarlakePipeline(Generic[U, T, E, J], StarlakeEvent[E]):
     def sl_post_tasks(self, *args, **kwargs) -> T:
         return self.sl_job.post_tasks()
 
+    @abstractmethod
     def sl_end(self, output_resources: Optional[List[StarlakeResource]] = None, **kwargs) -> T:
         pass
 
+    @abstractmethod
     def sl_add_dependency(self, pipeline_upstream: T, pipeline_downstream: T, **kwargs) -> T:
         pass
 
@@ -417,9 +424,11 @@ class StarlakeOrchestration(Generic[U, T, E, J]):
     def __exit__(self, exc_type, exc_value, traceback):
         return False
 
+    @abstractmethod
     def sl_create_schedule_pipeline(self, schedule: StarlakeSchedule, nb_schedules: int = 1, **kwargs) -> StarlakePipeline[U, T, E, J]:
         pass
 
+    @abstractmethod
     def sl_create_dependencies_pipeline(self, dependencies: StarlakeDependencies, **kwargs) -> StarlakePipeline[U, T, E, J]:
         pass
 
