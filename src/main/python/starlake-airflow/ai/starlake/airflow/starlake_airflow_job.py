@@ -1,12 +1,19 @@
+from __future__ import annotations
+
 from datetime import timedelta, datetime
 
-from typing import Union, List
+from typing import Optional, List, Union, overload
 
-from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig
+from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOrchestrator
 
 from ai.starlake.airflow.starlake_airflow_options import StarlakeAirflowOptions
 
 from ai.starlake.common import MissingEnvironmentVariable, sanitize_id
+
+from ai.starlake.job.starlake_job import StarlakeOrchestrator
+
+from ai.starlake.resource import StarlakeResource
+
 from airflow import DAG
 
 from airflow.datasets import Dataset
@@ -32,14 +39,14 @@ DEFAULT_DAG_ARGS = {
     'retry_delay': timedelta(minutes=5)
 }
 
-class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
-    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict=None, **kwargs) -> None:
+class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOptions):
+    def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict=None, **kwargs) -> None:
         """Overrides IStarlakeJob.__init__()
         Args:
             pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The pre-load strategy to use.
             options (dict): The options to use.
         """
-        super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
+        super().__init__(filename, module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
         self.outlets: List[Dataset] = kwargs.get('outlets', [])
         sd = __class__.get_context_var(var_name='start_date', default_value="2024-11-1", options=self.options)
@@ -61,7 +68,17 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         else:
             self.end_date = None
 
-    def sl_outlets(self, uri: str, **kwargs) -> List[Dataset]:
+    def sl_orchestrator(self) -> StarlakeOrchestrator:
+        return StarlakeOrchestrator.airflow
+
+    @classmethod
+    def to_event(cls, resource: StarlakeResource, source: Optional[str] = None) -> Dataset:
+        extra = {}
+        if source:
+            extra["source"] = source
+        return Dataset(resource.url, extra)
+
+    def sl_events(self, uri: str, **kwargs) -> List[Dataset]:
         """Returns a list of Airflow datasets from the specified uri.
 
         Args:
@@ -70,13 +87,11 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         Returns:
             List[Dataset]: The list of datasets.
         """
-        dag: Union[DAG,None] = kwargs.get('dag', None)
-        extra: dict = dict()
+        dag: Optional[DAG] = kwargs.get('dag', None)
+        source: Optional[str] = None
         if dag is not None:
-            extra['source']= dag.dag_id
-
-        dataset = Dataset(self.sl_dataset(uri, **kwargs), extra=extra)
-
+            source = dag.dag_id
+        dataset = self.to_event(StarlakeResource(uri, **kwargs), source=source)
         return kwargs.get('outlets', []) + [dataset]
 
     def sl_import(self, task_id: str, domain: str, tables: set=set(), **kwargs) -> BaseOperator:
@@ -93,12 +108,12 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         """
         kwargs.update({'doc': kwargs.get('doc', f'Import tables {",".join(list(tables or []))} within {domain}.')})
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        outlets = self.sl_outlets(domain, **kwargs)
+        outlets = self.sl_events(domain, **kwargs)
         self.outlets += outlets
         kwargs.update({'outlets': outlets})
         return super().sl_import(task_id=task_id, domain=domain, tables=tables, **kwargs)
 
-    def sl_pre_load(self, domain: str, tables: set=set(), pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[BaseOperator, None]:
+    def sl_pre_load(self, domain: str, tables: set=set(), pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Optional[BaseOperator]:
         """Overrides IStarlakeJob.sl_pre_load()
         Generate the Airflow group of tasks that will check if the conditions are met to load the specified domain according to the pre-load strategy choosen.
 
@@ -108,7 +123,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
             pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The optional pre-load strategy to use.
         
         Returns:
-            Union[BaseOperator, None]: The Airflow group of tasks or None.
+            Optional[BaseOperator]: The Airflow group of tasks or None.
         """
         if isinstance(pre_load_strategy, str):
             pre_load_strategy = \
@@ -122,18 +137,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         if pre_load_strategy == StarlakePreLoadStrategy.NONE:
             return self.pre_tasks(**kwargs)
         else:
-            if pre_load_strategy == StarlakePreLoadStrategy.ACK:
-                ack_wait_timeout = int(__class__.get_context_var(
-                    var_name='ack_wait_timeout',
-                    default_value=60*60, # 1 hour
-                    options=self.options
-                ))
-
-                kwargs.update({'retry_delay': timedelta(seconds=ack_wait_timeout)})
-
-            with TaskGroup(group_id=sanitize_id(f'{domain}_pre_load_tasks')) as pre_load_tasks:
-
-                pre_tasks = self.pre_tasks(**kwargs)
+            with TaskGroup(group_id=sanitize_id(f'pre_load_{domain}')) as pre_load_domain:
 
                 pre_load = super().sl_pre_load(
                     domain=domain, 
@@ -144,9 +148,12 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
                     **kwargs
                 )
 
+                task_id = kwargs.get('task_id', f'skip_or_start_loading_{domain}')
+                kwargs.pop('task_id', None)
+
                 skip_or_start = ShortCircuitOperator(
+                    task_id = task_id,
                     doc = f"Skip or start loading tables {','.join(list(tables or []))} within {domain} domain.",
-                    task_id = sanitize_id(f'{domain}_skip_or_start'),
                     python_callable = self.skip_or_start,
                     op_args=[pre_load],
                     op_kwargs=kwargs,
@@ -155,23 +162,17 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
                     **kwargs
                 )
 
-                if pre_tasks:
-                    pre_tasks >> pre_load
-
                 pre_load >> skip_or_start
 
                 if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
-
                     import_task = self.sl_import(
-                        task_id=sanitize_id(f'{domain}_import'),
-                        domain=domain,
-                        tables=tables,
-                        **kwargs
+                        task_id=f"import_{domain}",
+                        domain=domain, 
+                        tables=tables, 
                     )
-
                     skip_or_start >> import_task
 
-            return pre_load_tasks
+            return pre_load_domain
 
     def execute_command(self, command: str, **kwargs) -> int:
         """
@@ -284,7 +285,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
         """
         kwargs.update({'doc': kwargs.get('doc', f'Load table {table} within {domain} domain.')})
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        outlets = self.sl_outlets(f'{domain}.{table}', **kwargs)
+        outlets = self.sl_events(f'{domain}.{table}', **kwargs)
         self.outlets += outlets
         kwargs.update({'outlets': outlets})
         return super().sl_load(task_id=task_id, domain=domain, table=table, spark_config=spark_config, **kwargs)
@@ -303,7 +304,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
             BaseOperator: The Airflow task.
         """
         kwargs.update({'doc': kwargs.get('doc', f'Run {transform_name} transform.')})
-        outlets = self.sl_outlets(transform_name, **kwargs)
+        outlets = self.sl_events(transform_name, **kwargs)
         self.outlets += outlets
         kwargs.update({'outlets': outlets})
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
@@ -323,3 +324,4 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator], StarlakeAirflowOptions):
             pass
         dag_args.update({'start_date': self.start_date, 'retry_delay': timedelta(seconds=self.retry_delay), 'retries': self.retries})
         return dag_args
+

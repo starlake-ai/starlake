@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import List, Union
+from ai.starlake.common import is_valid_cron
+
+from typing import List, Optional
 
 class StarlakeTable():
-    def __init__(self, name: str, final_name: Union[str, None] = None, **kwargs):
+    def __init__(self, name: str, final_name: Optional[str] = None, **kwargs):
         """Initializes a new StarlakeTable instance.
 
         Args:
@@ -26,7 +28,7 @@ class StarlakeDomain():
         self.tables = tables
 
 class StarlakeSchedule():
-    def __init__(self, name: Union[str, None], cron: Union[str, None], domains: List[StarlakeDomain], **kwargs):
+    def __init__(self, name: Optional[str], cron: Optional[str], domains: List[StarlakeDomain], **kwargs):
         """Initializes a new StarlakeSchedule instance.
 
         Args:
@@ -35,6 +37,11 @@ class StarlakeSchedule():
             domains (List[StarlakeDomain]): The required domains.
         """
         self.name = None if name is None or name.lower().strip() == 'none' else name
+        if cron is not None:
+            if cron.lower().strip() == "none":
+                cron = None
+            elif not is_valid_cron(cron):
+                raise ValueError(f"Invalid cron expression: {cron} for schedule {name}")
         self.cron = cron
         self.domains = domains
 

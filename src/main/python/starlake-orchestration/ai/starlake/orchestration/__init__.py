@@ -4,4 +4,4 @@ from .starlake_dependencies import StarlakeDependencies, StarlakeDependency, Sta
 
 from .starlake_schedules import StarlakeSchedules, StarlakeSchedule, StarlakeDomain, StarlakeTable
 
-from .starlake_orchestration import IStarlakeOrchestration
+from .starlake_orchestration import StarlakeOrchestration, StarlakePipeline, StarlakeTaskGroup, StarlakeOrchestrationFactory

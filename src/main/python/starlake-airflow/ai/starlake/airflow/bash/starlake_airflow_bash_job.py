@@ -12,8 +12,8 @@ from airflow.operators.python import PythonOperator
 
 class StarlakeAirflowBashJob(StarlakeAirflowJob):
     """Airflow Starlake Bash Job."""
-    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs):
-        super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
+    def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs):
+        super().__init__(filename, module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides StarlakeAirflowJob.sl_job()
@@ -28,8 +28,7 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
         """
         found = False
 
-        import os
-        env = os.environ.copy() # Copy the current os environment variables
+        env = dict()
 
         for index, arg in enumerate(arguments):
             if arg == "--options" and arguments.__len__() > index + 1:
