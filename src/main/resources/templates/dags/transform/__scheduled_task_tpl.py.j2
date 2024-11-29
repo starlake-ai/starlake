@@ -1,13 +1,139 @@
-from ai.starlake.orchestration import StarlakeDependencies, IStarlakeOrchestration
-
 cron = "{{ context.cron }}"
 
-import sys
+from ai.starlake.common import sanitize_id, sort_crons_by_frequency
 
-orchestration: IStarlakeOrchestration = sys.modules[__name__].__dict__.get('sl_orchestration', None)
+from ai.starlake.resource import StarlakeResource
 
-if not orchestration:
-    raise Exception("Orchestration not found")
+from ai.starlake.orchestration import StarlakeDependencies, StarlakeDependency, StarlakeDependencyType, StarlakeOrchestrationFactory
 
-#Dagster JobDefinitions should be exposed as defs
-defs=orchestration.sl_generate_scheduled_tasks(dependencies=StarlakeDependencies(dependencies="""{{ context.dependencies }}"""))
+from typing import List, Optional, Set
+
+dependencies=StarlakeDependencies(dependencies="""{{ context.dependencies }}""")
+
+#generate the pipeline
+def generate_pipeline():
+    with StarlakeOrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
+
+        with orchestration.sl_create_dependencies_pipeline(dependencies) as pipeline:
+
+            pipeline_id=pipeline.get_sl_pipeline_id()
+
+            resources = pipeline.get_sl_resources()
+
+            cron = pipeline.get_sl_cron()
+
+            datasets: Set[str] = set(map(lambda resource: sanitize_id(resource.uri).lower(), resources or []))
+
+            cron_datasets: dict = {resource.uri: resource.cron for resource in resources or [] if resource.cron is not None and resource.uri is not None}
+
+            first_level_tasks: Set[str] = dependencies.first_level_tasks
+
+            all_dependencies: Set[str] = dependencies.all_dependencies
+
+            load_dependencies: Optional[bool] = pipeline.is_sl_load_dependencies()
+
+            start = pipeline.sl_start()
+
+            pre_tasks = pipeline.sl_pre_tasks()
+
+            if cron:
+                cron_expr = cron
+            elif datasets.__len__() == cron_datasets.__len__() and set(cron_datasets.values()).__len__() > 0:
+                sorted_crons = sort_crons_by_frequency(set(
+                    cron_datasets.values()), 
+                    period=pipeline.get_sl_context_var(var_name='cron_period_frequency', default_value='week')
+                )
+                cron_expr = sorted_crons[0][0]
+            else:
+                cron_expr = None
+
+            transform_options = pipeline.get_sl_transform_options(cron_expr) #FIXME
+
+            # create a task
+            def create_task(task_id: str, task_name: str, task_type: StarlakeDependencyType):
+                if (task_type == StarlakeDependencyType.task):
+                    return pipeline.sl_transform(
+                        task_id=task_id, 
+                        transform_name=task_name,
+                        transform_options=transform_options,
+                        spark_config=pipeline.get_sl_spark_config(task_name.lower()),
+                        params={'cron':cron, 'cron_expr':cron_expr},
+                    )
+                else:
+                    load_domain_and_table = task_name.split(".", 1)
+                    domain = load_domain_and_table[0]
+                    table = load_domain_and_table[1]
+                    return pipeline.sl_load(
+                        task_id=task_id, 
+                        domain=domain, 
+                        table=table,
+                        spark_config=pipeline.get_sl_spark_config(task_name.lower()),
+                        params={'cron':cron},
+                    )
+
+            # build group of tasks recursively
+            def generate_task_group_for_task(task: StarlakeDependency):
+                task_name = task.name
+                task_group_id = sanitize_id(task_name)
+                task_type = task.dependency_type
+                if (task_type == StarlakeDependencyType.task):
+                    task_id = task_group_id + "_task"
+                else:
+                    task_id = task_group_id + "_table"
+
+                children: List[StarlakeDependency] = []
+                if load_dependencies and len(task.dependencies) > 0: 
+                    children = task.dependencies
+                else:
+                    for child in task.dependencies:
+                        if child.name in first_level_tasks:
+                            children.append(child)
+
+                if children.__len__() > 0:
+                    with pipeline.sl_create_task_group(group_id=task_group_id) as task_group:
+                        for child in children:
+                            task_group.sl_add_task(generate_task_group_for_task(child))
+                        upstream_tasks = list(task_group.get_sl_tasks())
+                        task = create_task(task_id, task_name, task_type)
+                        pipeline.sl_add_dependency(upstream_tasks, task)
+                    return task_group
+                else:
+                    task = create_task(task_id=task_id, task_name=task_name, task_type=task_type)
+                    return task
+
+            all_transform_tasks = [generate_task_group_for_task(task) for task in dependencies if task.name not in all_dependencies]
+
+            if pre_tasks:
+                pipeline.sl_add_dependency(start, pre_tasks)
+                pipeline.sl_add_dependency(pre_tasks, all_transform_tasks)
+            else:
+                pipeline.sl_add_dependency(start, all_transform_tasks)
+
+            output_resources: List[StarlakeResource] = [
+                StarlakeResource(uri=pipeline_id, cron=cron)
+            ]
+            if set(cron_datasets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
+                # we sort the cron datasets by frequency (most frequent first)
+                sorted_crons = sort_crons_by_frequency(set(cron_datasets.values()), period=pipeline.get_sl_context_var(var_name='cron_period_frequency', default_value='week'))
+                # we exclude the most frequent cron dataset
+                least_frequent_crons = set([expr for expr, _ in sorted_crons[1:sorted_crons.__len__()]])
+                for dataset, cron in cron_datasets.items() :
+                    # we republish the least frequent scheduled datasets
+                    if cron in least_frequent_crons:
+                        output_resources.append(StarlakeResource(uri=dataset, cron=cron))
+
+            end = pipeline.sl_end(output_resources=output_resources)
+
+            all_transform_tasks >> end
+
+            post_tasks = pipeline.sl_post_tasks()
+
+            if post_tasks:
+                all_done = pipeline.sl_dummy_op(task_id="all_done")
+                pipeline.sl_add_dependency(all_transform_tasks, all_done)
+                pipeline.sl_add_dependency(all_done, post_tasks)
+                pipeline.sl_add_dependency(post_tasks, end)
+
+    return pipeline
+
+generate_pipeline()
