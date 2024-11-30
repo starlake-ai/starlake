@@ -693,6 +693,8 @@ object Settings extends StrictLogging {
     database: String,
     tenant: String,
     connectionRef: String,
+    loadConnectionRef: String,
+    transformConnectionRef: String,
     schedulePresets: Map[String, String],
     maxParTask: Int,
     refs: List[Ref],

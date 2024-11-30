@@ -485,9 +485,11 @@ object YamlConfigGenerators {
       default <- Gen.option(
         arbitrary[JDBCSchema].map(_.copy(tables = Nil, exclude = Nil))
       )
-      output             <- Gen.option(arbitrary[FileFormat])
-      connectionRef      <- Gen.option(arbitrary[String])
-      auditConnectionRef <- Gen.option(arbitrary[String])
+      output                 <- Gen.option(arbitrary[FileFormat])
+      connectionRef          <- Gen.option(arbitrary[String])
+      loadConnectionRef      <- Gen.option(arbitrary[String])
+      transformConnectionRef <- Gen.option(arbitrary[String])
+      auditConnectionRef     <- Gen.option(arbitrary[String])
     } yield JDBCSchemas(
       jdbcSchemas = jdbcSchemas,
       default = default,
@@ -1222,6 +1224,8 @@ object YamlConfigGenerators {
       database = database,
       tenant = tenant,
       connectionRef = connectionRef,
+      transformConnectionRef = connectionRef,
+      loadConnectionRef = connectionRef,
       schedulePresets = schedulePresets,
       maxParTask = maxParTask,
       refs = refs,
