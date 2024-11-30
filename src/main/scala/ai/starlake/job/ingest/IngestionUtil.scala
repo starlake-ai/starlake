@@ -88,7 +88,8 @@ object IngestionUtil {
             presql = Nil,
             postsql = Nil,
             sink = Some(settings.appConfig.audit.sink),
-            _auditTableName = Some("rejected")
+            _auditTableName = Some("rejected"),
+            connectionRef = settings.appConfig.audit.sink.connectionRef
           )
 
         val autoTask = new SparkAutoTask(

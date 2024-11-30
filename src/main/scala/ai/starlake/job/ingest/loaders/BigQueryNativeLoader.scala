@@ -227,7 +227,8 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
         database = archiveDatabaseName,
         archiveDomainName,
         archiveTableName,
-        sink = Some(mergedMetadata.getSink().toAllSinks())
+        sink = Some(mergedMetadata.getSink().toAllSinks()),
+        connectionRef = Option(mergedMetadata.getSinkConnectionRef())
       )
 
       val autoTask = AutoTask.task(
@@ -406,7 +407,8 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
       comment = schema.comment,
       tags = schema.tags,
       writeStrategy = mergedMetadata.writeStrategy,
-      parseSQL = Some(true)
+      parseSQL = Some(true),
+      connectionRef = Option(mergedMetadata.getSinkConnectionRef())
     )
     val job =
       new BigQueryAutoTask(

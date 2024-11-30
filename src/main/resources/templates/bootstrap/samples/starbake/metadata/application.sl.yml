@@ -17,7 +17,7 @@ application:
       type: "bigquery"
       options:
         location: "{{BIGQUERY_LOCATION}}"
-        authType: "APPLICATION_DEFAULT"
+        authType: "APPLICATION_DEFAULT" #reference to the application default credentials in the GOOGLE_APPLICATION_CREDENTIALS env variable
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
     postgresql:
