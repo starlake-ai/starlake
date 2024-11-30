@@ -39,25 +39,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   settings: Settings
 ) extends StorageHandler {
 
-  private def loadGCPExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
-    val bucket = connectionOptions.getOrElse(
-      "gcsBucket",
-      throw new Exception("bucket attribute is required for Google Storage")
-    )
-    val index = bucket.indexOf("://")
-    val bucketName = if (index > 0) bucket.substring(index + 3) else bucket
-    val tempBucketName = connectionOptions.get("temporaryGcsBucket") match {
-      case Some(tempBucket) =>
-        val index = tempBucket.indexOf("://")
-        if (index > 0) tempBucket.substring(index + 3) else tempBucket
-      case None =>
-        logger.warn(
-          s"temporaryGcsBucket is not set, using $bucket as temporary bucket. " +
-          s"Please set temporaryGcsBucket to a different bucket if you want to use a different one."
-        )
-        bucketName
-    }
-    // https://github.com/GoogleCloudDataproc/hadoop-connectors/blob/master/gcs/CONFIGURATION.md
+  private def loadGCPAuthConf(connectionOptions: Map[String, String]): Map[String, String] = {
     val authType = connectionOptions.getOrElse("authType", "APPLICATION_DEFAULT")
     val authConf = authType match {
       case "APPLICATION_DEFAULT" =>
@@ -108,14 +90,43 @@ class HdfsStorageHandler(fileSystem: String)(implicit
           "google.cloud.auth.refresh.token"          -> refreshToken
         )
       case _ =>
-        Map.empty
+        Map.empty[String, String]
     }
-    Map(
-      "fs.defaultFS"                  -> bucket,
-      "temporaryGcsBucket"            -> tempBucketName,
-      "fs.AbstractFileSystem.gs.impl" -> "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS",
-      "fs.gs.impl"                    -> "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem"
-    ) ++ authConf
+    authConf
+  }
+
+  private def loadGCPExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
+    val fsConfig =
+      if (settings.appConfig.fileSystem.startsWith("file:")) {
+        Map.empty[String, String]
+      } else {
+        val bucket = connectionOptions.getOrElse(
+          "gcsBucket",
+          throw new Exception("bucket attribute is required for Google Storage")
+        )
+        val index = bucket.indexOf("://")
+        val bucketName = if (index > 0) bucket.substring(index + 3) else bucket
+        val tempBucketName = connectionOptions.get("temporaryGcsBucket") match {
+          case Some(tempBucket) =>
+            val index = tempBucket.indexOf("://")
+            if (index > 0) tempBucket.substring(index + 3) else tempBucket
+          case None =>
+            logger.warn(
+              s"temporaryGcsBucket is not set, using $bucket as temporary bucket. " +
+              s"Please set temporaryGcsBucket to a different bucket if you want to use a different one."
+            )
+            bucketName
+        }
+        // https://github.com/GoogleCloudDataproc/hadoop-connectors/blob/master/gcs/CONFIGURATION.md
+        Map(
+          "fs.defaultFS"                  -> bucket,
+          "temporaryGcsBucket"            -> tempBucketName,
+          "fs.AbstractFileSystem.gs.impl" -> "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS",
+          "fs.gs.impl"                    -> "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem"
+        )
+      }
+    val authConf = loadGCPAuthConf(connectionOptions)
+    fsConfig ++ authConf
   }
 
   private def loadAzureExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
@@ -143,23 +154,20 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   override def loadExtraConf(): Map[String, String] = {
-    if (settings.appConfig.fileSystem.startsWith("file:")) {
-      Map.empty
-    } else {
-      val options = settings.appConfig.connections
-        .get(settings.appConfig.connectionRef)
-        .map(_.options)
-        .getOrElse(Map.empty)
 
-      if (options.contains("gcsBucket"))
-        loadGCPExtraConf(options)
-      else if (options.contains("s3Bucket"))
-        loadS3ExtraConf(options)
-      else if (options.contains("azureStorageContainer"))
-        loadAzureExtraConf(options)
-      else
-        Map.empty
-    }
+    val options = settings.appConfig.connections
+      .get(settings.appConfig.connectionRef)
+      .map(_.options)
+      .getOrElse(Map.empty)
+
+    if (options.contains("authType") || options.contains("gcsBucket"))
+      loadGCPExtraConf(options)
+    else if (options.contains("s3Bucket"))
+      loadS3ExtraConf(options)
+    else if (options.contains("azureStorageContainer"))
+      loadAzureExtraConf(options)
+    else
+      Map.empty
   }
 
   lazy val conf = {
