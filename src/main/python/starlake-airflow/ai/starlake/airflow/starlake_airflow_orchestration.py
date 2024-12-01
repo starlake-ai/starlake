@@ -74,30 +74,14 @@ class StarlakeAirflowPipeline(Generic[J], StarlakePipeline[DAG, BaseOperator, Da
     def __exit__(self, exc_type, exc_value, traceback):
         DagContext.pop_context_managed_dag()
 
+    def sl_create_internal_task_group(self, group_id: str, **kwargs) -> StarlakeTaskGroup[BaseOperator]:
+        return TaskGroup(group_id=group_id, **kwargs)
+
+    def is_sl_task_group(self, task: BaseOperator) -> bool:
+        return isinstance(task, TaskGroup)
+
     def sl_create_task_group(self, group_id: str, **kwargs) -> StarlakeTaskGroup[BaseOperator]:
         return StarlakeAirflowTaskGroup(group_id, dag=self.dag, **kwargs)
-
-    def sl_start(self, **kwargs) -> BaseOperator:
-        start = self.sl_job.dummy_op(task_id="start", dag=self.dag)
-        schedule = self.sl_schedule
-        schedule_name = self.sl_schedule_name
-        if schedule:
-            start.sl_outputs = [f"{domain.name}_{schedule_name}" if schedule_name else domain.name for domain in schedule.domains]
-        return start
-
-    def sl_end(self, output_resources: Optional[List[StarlakeResource]] = None, **kwargs) -> BaseOperator:
-        pipeline_id = self.sl_pipeline_id
-        outlets = list(map(lambda resource: self.to_event(resource=resource, source=pipeline_id), output_resources or []))
-        end = self.sl_job.dummy_op(
-            task_id="end", 
-            outlets=outlets, 
-            dag=self.dag
-        )
-        schedule = self.sl_schedule
-        schedule_name = self.sl_schedule_name
-        if schedule:
-            end.sl_inputs = [f"{domain.name}_{schedule_name}" if schedule_name else domain.name for domain in schedule.domains]
-        return end
 
     def sl_add_dependency(self, pipeline_upstream: Union[TaskGroup, BaseOperator], pipeline_downstream: Union[TaskGroup, BaseOperator], **kwargs) -> BaseOperator:
         return pipeline_upstream >> pipeline_downstream
@@ -154,8 +138,8 @@ class StarlakeAirflowOrchestration(Generic[J], StarlakeOrchestration[DAG, BaseOp
         pipeline_name = sl_job.caller_filename.replace(".py", "").replace(".pyc", "").lower()
 
         if nb_schedules > 1:
-            sl_pipeline_id = f"{pipeline_name}_{schedule.name}"
-            sl_schedule_name = schedule.name
+            sl_pipeline_id = f"{pipeline_name}_{sl_schedule.name}"
+            sl_schedule_name = sl_schedule.name
         else:
             sl_pipeline_id = pipeline_name
             sl_schedule_name = None

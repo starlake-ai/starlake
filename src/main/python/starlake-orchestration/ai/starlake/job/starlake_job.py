@@ -12,6 +12,8 @@ from ai.starlake.resource import StarlakeEvent
 
 import sys
 
+from datetime import timedelta
+
 from typing import final, Generic, List, Optional, TypeVar, Union
 
 T = TypeVar("T")
@@ -251,6 +253,10 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, StarlakeEvent[E]):
     def post_tasks(self, *args, **kwargs) -> Optional[T]:
         """Post tasks."""
         return None
+
+    @abstractmethod
+    def dummy_op(self, task_id, events: Optional[List[E]], **kwargs) -> T:
+        pass
 
     @abstractmethod
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> T:

@@ -32,9 +32,9 @@ def generate_pipeline():
 
             load_dependencies: Optional[bool] = pipeline.is_sl_load_dependencies()
 
-            start = pipeline.sl_start()
+            start = pipeline.sl_add_task(pipeline.sl_start())
 
-            pre_tasks = pipeline.sl_pre_tasks()
+            pre_tasks = pipeline.sl_add_task(pipeline.sl_pre_tasks())
 
             if cron:
                 cron_expr = cron
@@ -94,7 +94,7 @@ def generate_pipeline():
                         for child in children:
                             task_group.sl_add_task(generate_task_group_for_task(child))
                         upstream_tasks = list(task_group.get_sl_tasks())
-                        task = create_task(task_id, task_name, task_type)
+                        task = task_group.sl_add_task(create_task(task_id, task_name, task_type))
                         pipeline.sl_add_dependency(upstream_tasks, task)
                     return task_group
                 else:
@@ -102,6 +102,8 @@ def generate_pipeline():
                     return task
 
             all_transform_tasks = [generate_task_group_for_task(task) for task in dependencies if task.name not in all_dependencies]
+            for task in all_transform_tasks:
+                pipeline.sl_add_task(task)
 
             if pre_tasks:
                 pipeline.sl_add_dependency(start, pre_tasks)
@@ -122,11 +124,11 @@ def generate_pipeline():
                     if cron in least_frequent_crons:
                         output_resources.append(StarlakeResource(uri=dataset, cron=cron))
 
-            end = pipeline.sl_end(output_resources=output_resources)
+            end = pipeline.sl_add_task(pipeline.sl_end(output_resources=output_resources))
 
-            all_transform_tasks >> end
+            pipeline.sl_add_dependency(all_transform_tasks, end)
 
-            post_tasks = pipeline.sl_post_tasks()
+            post_tasks = pipeline.sl_add_task(pipeline.sl_post_tasks())
 
             if post_tasks:
                 all_done = pipeline.sl_dummy_op(task_id="all_done")
@@ -134,6 +136,6 @@ def generate_pipeline():
                 pipeline.sl_add_dependency(all_done, post_tasks)
                 pipeline.sl_add_dependency(post_tasks, end)
 
-    return pipeline
+        return pipeline
 
 generate_pipeline()

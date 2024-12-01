@@ -310,8 +310,23 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, **kwargs)
 
-    def dummy_op(self, task_id, **kwargs):
+    def dummy_op(self, task_id, events: Optional[List[Dataset]], **kwargs) -> BaseOperator :
+        """Dummy op.
+        Generate a Airflow dummy op.
+
+        Args:
+            task_id (str): The required task id.
+            events (Optional[List[Dataset]]): The optional events to materialize.
+
+        Returns:
+            BaseOperator: The Airflow task.
+        """
+
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
+        outlets: List[Dataset] = kwargs.get("outlets", [])
+        if events:
+            outlets += events
+        kwargs.update({'outlets': outlets})
         return DummyOperator(task_id=task_id, **kwargs)
 
     def default_dag_args(self) -> dict:
