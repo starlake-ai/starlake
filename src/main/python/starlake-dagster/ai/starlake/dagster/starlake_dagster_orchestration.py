@@ -1,470 +1,392 @@
-from ai.starlake.common import sanitize_id, sort_crons_by_frequency, sl_cron_start_end_dates
+from ai.starlake.common import sanitize_id, sl_cron_start_end_dates
 
 from ai.starlake.dagster.starlake_dagster_job import StarlakeDagsterJob
 
-from ai.starlake.orchestration import IStarlakeOrchestration, StarlakeSchedules, StarlakeSchedule, StarlakeDependencies, StarlakeDomain, StarlakeDependency, StarlakeDependencyType
+from ai.starlake.resource import StarlakeResource
 
-from dagster import AssetKey, ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping, Out, Output, OutputMapping, graph, op, DefaultScheduleStatus, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, Nothing, ScheduleDefinition
+from ai.starlake.orchestration import StarlakeOrchestration, StarlakeSchedule, StarlakeDependencies, StarlakePipeline, StarlakeTaskGroup
 
-from dagster._core.definitions.input import InputDefinition
+from dagster import AssetKey, ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping,OutputMapping, DefaultScheduleStatus, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, ScheduleDefinition, OpDefinition
+
+from dagster._core.definitions.output import OutputDefinition
 
 from dagster._core.definitions import NodeDefinition
 
-from typing import Generic, List, Set, TypeVar, Union
+from typing import Generic, List, Optional, Set, TypeVar
 
-U = TypeVar("U", bound=StarlakeDagsterJob)
+J = TypeVar("J", bound=StarlakeDagsterJob)
 
-class StarlakeDagsterOrchestration(Generic[U], IStarlakeOrchestration[Definitions, NodeDefinition]):
-    def __init__(self, filename: str, module_name: str, job: U, **kwargs) -> None:
+class StarlakeDagsterPipeline(Generic[J], StarlakePipeline[JobDefinition, NodeDefinition, AssetKey, J, GraphDefinition]):
+    def __init__(self, sl_job: J, group_id: str, sl_pipeline_id: str, sl_schedule: Optional[StarlakeSchedule] = None, sl_schedule_name: Optional[str] = None, sl_dependencies: Optional[StarlakeDependencies] = None, **kwargs) -> None:
+        if not isinstance(sl_job, StarlakeDagsterJob):
+            raise TypeError(f"Expected an instance of StarlakeDagsterJob, got {type(sl_job).__name__}")
+        super().__init__(sl_job, sl_pipeline_id, sl_schedule, sl_schedule_name, sl_dependencies, **kwargs)
+
+        self.group_id = group_id
+        task_group: StarlakeTaskGroup[NodeDefinition, GraphDefinition] = self.sl_create_task_group(group_id=group_id)
+        self.task_group = task_group
+
+        # Dynamically bind pipeline methods to GraphDefinition
+        for attr_name in dir(self):
+            if (attr_name == '__enter__' or attr_name == '__exit__' or not attr_name.startswith('__')) and callable(getattr(self, attr_name)):
+                setattr(self.task_group.group, attr_name, getattr(self, attr_name))
+
+    def __enter__(self):
+        return self.task_group.__enter__()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+
+        self.sl_print_pipeline()
+
+        graph_inputs = dict()
+        downstream_input_mappings_dict = dict()
+
+        def update_graph_def(task_group: GraphDefinition) -> GraphDefinition:
+            group_id = task_group.get_sl_group_id()
+            upstream_dependencies: dict = task_group.get_sl_upstream_dependencies()
+            downstream_dependencies: dict = task_group.get_sl_downstream_dependencies()
+            upstream_keys = upstream_dependencies.keys()
+            downstream_keys = downstream_dependencies.keys()
+            roots = upstream_keys - downstream_keys
+            leaves = downstream_keys - upstream_keys
+            tasks_dict: dict = task_group.get_sl_tasks_dict()
+            output_mappings = []
+            graph_dependencies = dict()
+            walked_downstream = set()
+
+            def copy_node_with_new_inputs(existing_node: NodeDefinition, new_inputs: Optional[dict]):
+                """
+                Creates a copy of an existing OpDefinition with new input definitions.
+
+                Args:
+                    existing_node (OpDefinition): The existing node to copy.
+                    new_inputs (dict): A dictionary where keys are input names, and values are `In` objects.
+
+                Returns:
+                    OpDefinition: A new OpDefinition with the modified inputs.
+                """
+                if new_inputs is None or not isinstance(existing_node, OpDefinition):
+                    return existing_node
+                # Create a new OpDefinition with the new inputs
+                return OpDefinition(
+                    compute_fn=existing_node.compute_fn,
+                    name=existing_node.name,
+                    ins=new_inputs,
+                    outs=existing_node.outs,
+                    description=existing_node.description,
+                    config_schema=existing_node.config_schema,
+                    required_resource_keys=existing_node.required_resource_keys,
+                    tags=existing_node.tags,
+                    version=existing_node.version,
+                    retry_policy=existing_node.retry_policy,
+                )
+
+            def update_downstream_input_mappings_and_inputs(downstream: str, downstream_node: NodeDefinition, result: str, output: OutputDefinition):
+                """
+                Updates the input mappings and inputs of a downstream node.
+
+                Args:
+                    downstream (str): The name of the downstream node.  
+                    downstream_node (OpDefinition): The downstream node to update.
+                    result (str): The name of the result of the upstream node.
+                    output (OutputDefinition): The output definition of the upstream node.
+                """
+                if isinstance(downstream_node, GraphDefinition):
+                    downstream_input_mappings = downstream_input_mappings_dict.get(downstream, [])
+                    downstream_roots: List[str] = downstream_node.get_sl_roots()
+                    downstream_tasks_dicts = downstream_node.get_sl_tasks_dict()
+                    for downstream_root in downstream_roots:
+                        downstream_root_node = downstream_tasks_dicts.get(downstream_root, None)
+                        if not downstream_root_node:
+                            raise ValueError(f"Task {downstream_root} not found in task group {downstream}")
+                        if len(downstream_root_node._input_defs) > 0:
+                            downstream_input_mappings.append(
+                                InputMapping(
+                                    graph_input_name=result,
+                                    mapped_node_name=downstream_root,
+                                    mapped_node_input_name=downstream_root_node._input_defs[0].name,
+                                )
+                            )
+                        else:
+                            downstream_inputs = graph_inputs.get(downstream_root, {})
+                            downstream_inputs[f'{downstream_root}_input'] = In(dagster_type=output._dagster_type)
+                            graph_inputs[downstream_root] = downstream_inputs
+                            downstream_input_mappings.append(
+                                InputMapping(
+                                    graph_input_name=result,
+                                    mapped_node_name=downstream_root,
+                                    mapped_node_input_name=f'{downstream_root}_input',
+                                )
+                            )
+                        update_downstream_input_mappings_and_inputs(downstream_root, downstream_root_node, f'{downstream_root}_input', output)
+                    downstream_input_mappings_dict[downstream] = downstream_input_mappings
+
+            def get_leaves_nodes(nodes: list) -> list:
+                tmp = []
+                for node in nodes:
+                    if isinstance(node, GraphDefinition):
+                        leaves: list = get_leaves_nodes(node.get_sl_leaves_tasks()) 
+                        tmp.extend(leaves)
+                    else:
+                        tmp.append(node)
+                return tmp
+
+            def walk_downstream(root_key: str):
+                if root_key in walked_downstream:
+                    return
+                root: NodeDefinition = tasks_dict.get(root_key, None)
+                if not root:
+                    raise ValueError(f"Task {root_key} not found in task group {task_group.group_id}")
+                if root_key in upstream_keys:
+                    for downstream in upstream_dependencies[root_key]:
+                        downstream_node = tasks_dict.get(downstream, None)
+                        if not downstream_node:
+                            raise ValueError(f"Task {downstream} not found in task group {task_group.group_id}")
+                        inputs = graph_inputs.get(downstream, {})
+                        dependencies = graph_dependencies.get(downstream, {})
+                        for output_key, output in root._output_dict.items():
+                            result = f"{root_key}_{output_key}"
+                            inputs[result] = In(dagster_type=output._dagster_type)
+                            graph_inputs[downstream] = inputs
+                            dependencies[result] = DependencyDefinition(root_key, output_key)
+                            graph_dependencies[downstream] = dependencies
+                            update_downstream_input_mappings_and_inputs(downstream, downstream_node, result, output)
+
+                        walk_downstream(downstream)
+
+                elif root_key in downstream_keys:
+                    for upstream in downstream_dependencies[root_key]:
+                        upstream_node = tasks_dict.get(upstream, None)
+                        if not upstream_node:
+                            raise ValueError(f"Task {upstream} not found in task group {task_group.group_id}")
+                        inputs = graph_inputs.get(root_key, {})
+                        dependencies = graph_dependencies.get(root_key, {})
+                        if isinstance(upstream_node, GraphDefinition):
+                            upstream_leaves = get_leaves_nodes(upstream_node.get_sl_leaves_tasks())
+                            for upstream_leaf in upstream_leaves:
+                                for output_key, output in upstream_leaf._output_dict.items():
+                                    result = f"{upstream_leaf.sl_task_id}_{output_key}"
+                                    inputs[result] = In(dagster_type=output._dagster_type)
+                                    graph_inputs[root_key] = inputs
+                                    dependencies[result] = DependencyDefinition(upstream, result)
+                            graph_dependencies[root_key] = dependencies
+                        else:
+                            for output_key, output in upstream_node._output_dict.items():
+                                result = f"{upstream}_{output_key}"
+                                dependencies[result] = DependencyDefinition(upstream, output_key)
+                                graph_dependencies[root_key] = dependencies
+
+
+                if root_key in roots:
+                    if len(root._input_defs) > 0:
+                        input_mappings.append(
+                            InputMapping(
+                                graph_input_name=group_id, 
+                                mapped_node_name=root_key,
+                                mapped_node_input_name=root._input_defs[0].name,
+                            )
+                        )
+
+                if root_key in leaves:
+                    if len(root._output_defs) > 0:
+                        output_mappings.append(
+                            OutputMapping(
+                                graph_output_name=f'{root_key}_result',
+                                mapped_node_name=root_key,
+                                mapped_node_output_name=root._output_defs[0].name,
+                            )
+                        )
+                
+                walked_downstream.add(root_key)
+
+            for root_key in roots:
+                walk_downstream(root_key)
+
+            for task in tasks_dict.values():
+                if isinstance(task, GraphDefinition):
+                    tasks_dict[task.sl_task_id] = update_graph_def(task)
+ 
+            nodes = [copy_node_with_new_inputs(tasks_dict[key], graph_inputs.get(key, None)) for key in tasks_dict.keys()]
+
+            input_mappings = downstream_input_mappings_dict.get(group_id)
+
+#            print(f'Group: {group_id},{graph_dependencies} -> {roots},{input_mappings} -> {leaves},{output_mappings}')
+
+            return GraphDefinition(
+                name=group_id,
+                node_defs=nodes,
+                dependencies=graph_dependencies,
+                input_mappings=input_mappings,
+                output_mappings=output_mappings,
+            )
+
+        self.job_definition = JobDefinition(
+            name=self.sl_pipeline_id,
+            description=self.sl_job.caller_globals.get('description', ""),
+            graph_def=update_graph_def(self.sl_task_groups_dict[self.group_id]),
+        )
+
+        self.sl_task_groups_dict.clear()
+
+        return False
+
+    def sl_create_internal_task_group(self, group_id: str, **kwargs) -> GraphDefinition:
+        return GraphDefinition(name=group_id)
+
+    def is_sl_task_group(self, task: NodeDefinition) -> bool:
+        return isinstance(task, GraphDefinition)
+
+    def get_sl_transform_options(self, cron_expr: Optional[str] = None) -> Optional[str]:
+        if cron_expr:
+            return sl_cron_start_end_dates(cron_expr) #FIXME using execution date from context
+        return None
+
+    @classmethod
+    def to_event(cls, resource: StarlakeResource, source: Optional[str] = None) -> AssetKey:
+        return AssetKey(resource.url)
+
+class StarlakeDagsterTaskGroup(StarlakeTaskGroup[NodeDefinition, GraphDefinition]):
+    def __init__(self, group_id: str, group: GraphDefinition, **kwargs) -> None:
+        super().__init__(group_id, group, **kwargs)
+
+
+class StarlakeDagsterOrchestration(Generic[J], StarlakeOrchestration[Definitions, NodeDefinition, AssetKey, J]):
+    def __init__(self, job: J, **kwargs) -> None:
         """Overrides IStarlakeOrchestration.__init__()
         Args:
             filename (str): The filename of the orchestration.
             module_name (str): The module name of the orchestration.
-            job (U): The job to orchestrate."""
-        super().__init__(filename, module_name, job, **kwargs) 
+            job (J): The job to orchestrate."""
+        super().__init__(job, **kwargs) 
+        self.pipelines: List[StarlakeDagsterPipeline] = []
+        self.definitions: Definitions = Definitions()
 
-    def sl_generate_scheduled_tables(self, schedules: StarlakeSchedules, **kwargs) -> Union[Definitions, List[Definitions]]:
-        """Generate the Starlake dags that will orchestrate the load of the specified domains.
+        # Dynamically bind pipeline methods to GraphDefinition
+        for attr_name in dir(self):
+            if (attr_name == '__enter__' or attr_name == '__exit__' or not attr_name.startswith('__')) and callable(getattr(self, attr_name)):
+                setattr(self.definitions, attr_name, getattr(self, attr_name))
 
-        Args:
-            schedules (StarlakeSchedules): The required schedules
-        
-        Returns:
-            Union[Definitions, List[Definitions]]: The generated dagster Definitions.
-        """
-        sl_job = self.job
-        options: dict = self.options
-        spark_config=self.spark_config
+    def get_sl_definitions(self) -> Definitions: 
+        return self.definitions
 
+    def __enter__(self):
+        return self.definitions
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        def multi_asset_sensor_with_skip_reason(context: MultiAssetSensorEvaluationContext):
+            asset_events = context.latest_materialization_records_by_key()
+            if all(asset_events.values()):
+                context.advance_all_cursors()
+                return RunRequest()
+            elif any(asset_events.values()):
+                materialized_asset_key_strs = [
+                    key.to_user_string() for key, value in asset_events.items() if value
+                ]
+                not_materialized_asset_key_strs = [
+                    key.to_user_string() for key, value in asset_events.items() if not value
+                ]
+                return SkipReason(
+                    f"Observed materializations for {materialized_asset_key_strs}, "
+                    f"but not for {not_materialized_asset_key_strs}"
+                )
+            else:
+                return SkipReason("No materializations observed")
+
+        sensors = []
         crons = []
 
-        pre_tasks = sl_job.pre_tasks()
+        for pipeline in self.pipelines:
 
-        start = sl_job.dummy_op(task_id="start", ins={"start": In(str)} if pre_tasks else {})
+            pipeline_id = pipeline.get_sl_pipeline_id()
 
-        def load_domain(domain: StarlakeDomain, schedule: StarlakeSchedule) -> GraphDefinition:
-            cron: Union[str, None] = schedule.cron
+            resources = pipeline.get_sl_resources()
 
-            if cron and len(schedules) > 1:
-                schedule_name = schedule.name
-            else:
-                schedule_name = None
+            cron = pipeline.get_sl_cron()
 
-            if schedule_name:
-                name=f"{domain.name}_{schedule_name}"
-            else:
-                name=f"{domain.name}"
-
-            tables = [table.name for table in domain.tables]
-
-            ins = {"domain": In(str)}
-
-            op_tables = [sl_job.sl_load(task_id=None, domain=domain.name, table=table, ins=ins, cron=cron) for table in tables]
-
-            ld_end = sl_job.dummy_op(task_id=f"{name}_load_ended", ins={f"{op_table._name}": In(str) for op_table in op_tables}, out="domain_loaded")
-
-            ld_end_dependencies = dict()
-
-            for op_table in op_tables:
-                ld_end_dependencies[f"{op_table._name}"] = DependencyDefinition(op_table._name, 'result')
-
-            ld_dependencies = {
-                ld_end._name: ld_end_dependencies
-            }
-
-            ld_input_mappings=[
-                InputMapping(
-                    graph_input_name="domain", 
-                    mapped_node_name=f"{op_table._name}",
-                    mapped_node_input_name="domain",
+            if resources:
+                assets = [pipeline.to_event(resource) for resource in resources]
+                sensors.append(
+                    MultiAssetSensorDefinition(
+                        name = f'{pipeline_id}_sensor',
+                        monitored_assets = assets,
+                        asset_materialization_fn = multi_asset_sensor_with_skip_reason,
+                        minimum_interval_seconds = 60,
+                        description = f"Sensor for {pipeline_id}",
+                        job_name = pipeline_id,
+                    )
                 )
-                for op_table in op_tables
-            ]
+            elif cron:
+                crons.append(ScheduleDefinition(job_name = pipeline_id, cron_schedule = cron, default_status=DefaultScheduleStatus.RUNNING))
 
-            ld_output_mappings=[
-                OutputMapping(
-                    graph_output_name="domain_loaded",
-                    mapped_node_name=f"{ld_end._name}",
-                    mapped_node_output_name="domain_loaded",
-                )
-            ]
-
-            ld = GraphDefinition(
-                name=f"{name}_load",
-                node_defs=op_tables + [ld_end],
-                dependencies=ld_dependencies,
-                input_mappings=ld_input_mappings,
-                output_mappings=ld_output_mappings,
-            )
-
-            pld = sl_job.sl_pre_load(domain=domain.name, tables=set(tables), cron=cron, schedule=schedule_name)
-
-            @op(
-                name=f"{name}_load_result",
-                ins={"inputs": In()},
-                out={"result": Out(str)},
-            )
-            def load_domain_result(context, inputs):
-                context.log.info(f"inputs: {inputs}")
-                yield Output(str(inputs), "result")
-
-            @graph(
-                name=name,
-                input_defs=[InputDefinition(name="domain", dagster_type=str)],
-            )
-            def domain_graph(domain):
-                if pld:
-                    load_domain, skip = pld(domain)
-                    return load_domain_result([ld(load_domain), skip])
-                else:
-                    return ld(domain)
-
-            return domain_graph
-
-        def load_domains(schedule: StarlakeSchedule) -> GraphDefinition:
-            cron = schedule.cron
-            schedule_name = None
-            if cron:
-                crons.append(ScheduleDefinition(job_name = job_name(schedule), cron_schedule = cron, default_status=DefaultScheduleStatus.RUNNING))
-                if len(schedules) > 1:
-                    schedule_name = schedule.name
-
-            if schedule_name:
-                task_id=f"end_{schedule_name}"
-            else:
-                task_id="end"
-
-            dependencies = dict()
-
-            nodes = [start]
-
-            if pre_tasks and pre_tasks.output_dict.keys().__len__() > 0:
-                result = list(pre_tasks.output_dict.keys())[0]
-                if result:
-                    dependencies[start._name] = {
-                        'start': DependencyDefinition(pre_tasks._name, result)
-                    }
-                    nodes.append(pre_tasks)
-
-            node_defs = [load_domain(domain, schedule) for domain in schedule.domains]
-
-            ins = dict()
-
-            end_dependencies = dict()
-
-            for node_def in node_defs:
-                nodes.append(node_def)
-                dependencies[node_def._name] = {
-                    'domain': DependencyDefinition(start._name, 'result')
-                }
-                result = f"{node_def._name}_result"
-                ins[result] = In(dagster_type=str)
-                end_dependencies[result] = DependencyDefinition(node_def._name, 'result')
-
-            end = sl_job.dummy_op(task_id=task_id, ins=ins, assets=[AssetKey(sl_job.sl_dataset(job_name(schedule), cron=cron))])
-            nodes.append(end)
-            dependencies[end._name] = end_dependencies
-
-            post_tasks = sl_job.post_tasks(ins = {"start": In(str)})
-            if post_tasks and post_tasks.input_dict.keys().__len__() > 0:
-                input = list(post_tasks.input_dict.keys())[0]
-                if input:
-                    dependencies[post_tasks._name] = {
-                        input: DependencyDefinition(end._name, 'result')
-                    }
-                    nodes.append(post_tasks)
-
-            return GraphDefinition(
-                name=f"schedule_{schedule.name}" if len(schedules) > 1 else 'schedule',
-                node_defs=nodes,
-                dependencies=dependencies,
-            )
-
-        def job_name(schedule: StarlakeSchedule) -> str:
-            job_name = self.caller_filename.replace(".py", "").replace(".pyc", "").lower()
-            return (f"{job_name}_{schedule.name}" if len(schedules) > 1 else job_name)
-
-        def generate_job(schedule: StarlakeSchedule) -> JobDefinition:
-            return JobDefinition(
-                name=job_name(schedule),
-                description=self.caller_globals.get('description', ""),
-                graph_def=load_domains(schedule),
-            )
-
-        return Definitions(
-            jobs=[generate_job(schedule) for schedule in schedules],
+        defs = Definitions(
+            jobs=[pipeline.job_definition for pipeline in self.pipelines],
+            sensors=sensors,
             schedules=crons,
         )
 
-    def sl_generate_scheduled_tasks(self, dependencies: StarlakeDependencies, **kwargs) -> Definitions:
-        """Generate the Starlake dag that will orchestrate the specified tasks.
+        import sys
+
+        module = sys.modules[self.job.caller_module_name]
+
+        # Dynamically bind dagster definitions to module
+        self.definitions = defs
+        setattr(module, 'defs', defs)
+
+        return False
+
+    def sl_create_schedule_pipeline(self, sl_schedule: StarlakeSchedule, nb_schedules: int = 1, **kwargs) -> StarlakeDagsterPipeline[J]:
+        """Create the Starlake pipeline that will generate the dag to orchestrate the load of the specified domains.
+
+        Args:
+            schedule (StarlakeSchedule): The required schedule
+        
+        Returns:
+            StarlakePipeline: The pipeline.
+        """
+        sl_job = self.job
+
+        pipeline_name = sl_job.caller_filename.replace(".py", "").replace(".pyc", "").lower()
+
+        if nb_schedules > 1:
+            sl_pipeline_id = f"{pipeline_name}_{sl_schedule.name}"
+            sl_schedule_name = sl_schedule.name
+        else:
+            sl_pipeline_id = pipeline_name
+            sl_schedule_name = None
+
+        pipeline = StarlakeDagsterPipeline(
+            sl_job, 
+            sanitize_id(f"{sl_pipeline_id}_{sl_schedule.name}") if nb_schedules > 1 else sl_pipeline_id,
+            sl_pipeline_id, 
+            sl_schedule, 
+            sl_schedule_name,
+        )
+
+        self.pipelines.append(pipeline)
+
+        return pipeline
+
+    def sl_create_dependencies_pipeline(self, dependencies: StarlakeDependencies, **kwargs) -> StarlakeDagsterPipeline[J]:
+        """Create the Starlake pipeline that will generate the dag to orchestrate the specified tasks.
 
         Args:
             dependencies (StarlakeDependencies): The required dependencies
         
         Returns:
-            Definitions: The generated dagster Definitions.
+            StarlakePipeline: The pipeline.
         """
-
         sl_job = self.job
-        options: dict = self.options
-        spark_config=self.spark_config
 
-        cron: str = self.caller_globals.get('cron', None)
-        _cron = None if cron is None or cron.lower().strip() == "none" else cron
+        sl_pipeline_id = sl_job.caller_filename.replace(".py", "").replace(".pyc", "").lower()
 
-        job_name = self.caller_filename.replace(".py", "").replace(".pyc", "").lower()
-
-        # if you want to load dependencies, set load_dependencies to True in the options
-        load_dependencies: bool = sl_job.get_context_var(var_name='load_dependencies', default_value='False', options=options).lower() == 'true'
-
-        sensor = None
-
-        assets: Set[str] = set()
-
-        cronAssets: dict = dict()
-
-        all_dependencies: set = set()
-
-        _filtered_assets: Set[str] = set(self.caller_globals.get('filtered_assets', []))
-
-        first_level_tasks: set = set()
-
-        def load_task_dependencies(task: StarlakeDependency):
-            if len(task.dependencies) > 0:
-                for subtask in task.dependencies:
-                    all_dependencies.add(subtask.name)
-                    load_task_dependencies(subtask)
-
-        for task in dependencies:
-            task_id = task.name
-            first_level_tasks.add(task_id)
-            _filtered_assets.add(sanitize_id(task_id).lower())
-            load_task_dependencies(task)
-
-        # if you choose to not load the dependencies, a sensor will be created to check if the dependencies are met
-        if not load_dependencies:
-
-            def load_assets(task: StarlakeDependency):
-                if len(task.dependencies) > 0:
-                    for child in task.dependencies:
-                        asset = sanitize_id(child.name).lower()
-                        if asset not in assets and asset not in _filtered_assets:
-                            childCron = None if child.cron == 'None' else child.cron
-                            if childCron :
-                                cronAsset = sl_job.sl_dataset(asset, cron=childCron)
-                                assets.add(cronAsset)
-                                cronAssets[cronAsset] = childCron
-                            else :
-                                assets.add(asset)
-
-            for task in dependencies:
-                load_assets(task)
-
-            def multi_asset_sensor_with_skip_reason(context: MultiAssetSensorEvaluationContext):
-                asset_events = context.latest_materialization_records_by_key()
-                if all(asset_events.values()):
-                    context.advance_all_cursors()
-                    return RunRequest()
-                elif any(asset_events.values()):
-                    materialized_asset_key_strs = [
-                        key.to_user_string() for key, value in asset_events.items() if value
-                    ]
-                    not_materialized_asset_key_strs = [
-                        key.to_user_string() for key, value in asset_events.items() if not value
-                    ]
-                    return SkipReason(
-                        f"Observed materializations for {materialized_asset_key_strs}, "
-                        f"but not for {not_materialized_asset_key_strs}"
-                    )
-                else:
-                    return SkipReason("No materializations observed")
-
-            sensor = MultiAssetSensorDefinition(
-                name = f'{job_name}_sensor',
-                monitored_assets = list(map(lambda asset: AssetKey(asset), assets)),
-                asset_materialization_fn = multi_asset_sensor_with_skip_reason,
-                minimum_interval_seconds = 60,
-                description = f"Sensor for {job_name}",
-                job_name = job_name,
-            )
-
-        def compute_task_id(task: StarlakeDependency) -> str:
-            task_name = task.name
-            task_type = task.dependency_type
-            task_id = sanitize_id(task_name)
-            if task_type == StarlakeDependencyType.task:
-                task_id = task_id + "_task"
-            else:
-                task_id = task_id + "_table"
-            return task_id
-
-        if _cron:
-            cron_expr = _cron
-        elif assets.__len__() == cronAssets.__len__() and set(cronAssets.values()).__len__() > 0:
-            sorted_crons = sort_crons_by_frequency(
-                set(cronAssets.values()), 
-                period=sl_job.get_context_var(
-                    var_name='cron_period_frequency', 
-                    default_value='week', 
-                    options=options
-                )
-            )
-            cron_expr = sorted_crons[0][0]
-        else:
-            cron_expr = None
-
-        def create_task(task_id: str, task_name: str, task_type: StarlakeDependencyType, ins: dict={"start": In(Nothing)}):
-            spark_config_name=sl_job.get_context_var('spark_config_name', task_name.lower(), options)
-            if task_type == StarlakeDependencyType.task:
-                if cron_expr:
-                    transform_options = sl_cron_start_end_dates(cron_expr) #FIXME using execution date from context
-                else:
-                    transform_options = None
-                return sl_job.sl_transform(
-                    task_id=task_id, 
-                    transform_name=task_name,
-                    transform_options=transform_options,
-                    spark_config=spark_config(spark_config_name, **self.caller_globals.get('spark_properties', {})),
-                    ins=ins,
-                    cron=_cron
-                )
-            else:
-                load_domain_and_table = task_name.split(".",1)
-                domain = load_domain_and_table[0]
-                table = load_domain_and_table[1]
-                return sl_job.sl_load(
-                    task_id=task_id, 
-                    domain=domain, 
-                    table=table,
-                    spark_config=spark_config(spark_config_name, self.caller_globals.get('spark_properties', {})),
-                    ins=ins,
-                    cron=_cron
-                )
-
-        pre_tasks = sl_job.pre_tasks()
-
-        start = sl_job.dummy_op(task_id="start", ins={"start": In(str)} if pre_tasks else {})
-
-        def generate_node_for_task(task: StarlakeDependency, computed_dependencies: dict, nodes: List[NodeDefinition], snodes: set) -> NodeDefinition :
-            task_name = task.name
-            task_type = task.dependency_type
-            task_id = compute_task_id(task)
-
-            children = []
-            if load_dependencies and len(task.dependencies) > 0: 
-                children = task.dependencies
-            else:
-                for child in task.dependencies:
-                    if child.name in first_level_tasks:
-                        children.append(child)
-
-            if children.__len__() > 0:
-
-                parent_dependencies = dict()
-
-                ins = dict()
-
-                for child in task.dependencies:
-                    child_task_id = compute_task_id(child)
-                    if child_task_id not in snodes:
-                        ins[child_task_id] = In(Nothing)
-                        parent_dependencies[child_task_id] = DependencyDefinition(child_task_id, 'result')
-                        nodes.append(generate_node_for_task(child, computed_dependencies, nodes, snodes))
-                        snodes.add(child_task_id)
-
-                computed_dependencies[task_id] = parent_dependencies
-
-                parent = create_task(
-                    task_id=task_id, 
-                    task_name=task_name, 
-                    task_type=task_type, 
-                    ins=ins
-                )
-                nodes.append(parent)
-
-                return parent
-
-            else:
-                node = create_task(
-                    task_id=task_id, 
-                    task_name=task_name, 
-                    task_type=task_type
-                )
-                nodes.append(node)
-                computed_dependencies[task_id] = {
-                    'start': DependencyDefinition(start._name, 'result')
-                }
-                return node
-
-        def generate_job():
-            computed_dependencies = dict()
-            nodes = [start]
-            snodes = set()
-
-            if pre_tasks and pre_tasks.output_dict.keys().__len__() > 0:
-                result = list(pre_tasks.output_dict.keys())[0]
-                if result:
-                    computed_dependencies[start._name] = {
-                        'start': DependencyDefinition(pre_tasks._name, result)
-                    }
-                    nodes.append(pre_tasks)
-
-            ins = dict()
-            end_dependencies = dict()
-            for task in dependencies:
-                if task.name not in all_dependencies:
-                    node = generate_node_for_task(task, computed_dependencies, nodes, snodes)
-                    ins[node._name] = In(Nothing)
-                    end_dependencies[node._name] = DependencyDefinition(node._name, 'result')
-
-            asset_events: List[AssetKey] = [AssetKey(sl_job.sl_dataset(job_name, cron=_cron))]
-            if set(cronAssets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
-                # we sort the cron assets by frequency (most frequent first)
-                sorted_assets = sort_crons_by_frequency(
-                    set(cronAssets.values()), 
-                    period=sl_job.get_context_var(
-                        var_name='cron_period_frequency', 
-                        default_value='week', 
-                        options=options
-                    )
-                )
-                # we exclude the most frequent cron asset
-                least_frequent_crons = set([expr for expr, _ in sorted_assets[1:sorted_assets.__len__()]])
-                for cronAsset, cron in cronAssets.items() :
-                    # we republish the least frequent scheduled assets
-                    if cron in least_frequent_crons:
-                        asset_events.append(AssetKey(cronAsset))
-            end = sl_job.dummy_op(task_id="end", ins=ins, assets=asset_events)
-            nodes.append(end)
-            computed_dependencies[end._name] = end_dependencies
-
-            post_tasks = sl_job.post_tasks(ins={"start": In(Nothing)})
-            if post_tasks and post_tasks.input_dict.keys().__len__() > 0:
-                input = list(post_tasks.input_dict.keys())[0]
-                if input:
-                    computed_dependencies[post_tasks._name] = {
-                        input: DependencyDefinition(end._name, 'result')
-                    }
-                    nodes.append(post_tasks)
-
-            return JobDefinition(
-                name=job_name,
-                description=self.caller_globals.get('description', ""),
-                graph_def=GraphDefinition(
-                    name=job_name,
-                    node_defs=nodes,
-                    dependencies=computed_dependencies,
-                ),
-            )
-
-        crons = []
-
-        if _cron:
-            crons.append(ScheduleDefinition(job_name = job_name, cron_schedule = _cron, default_status=DefaultScheduleStatus.RUNNING))
-
-        return Definitions(
-            jobs=[generate_job()],
-            schedules=crons,
-            sensors=[sensor] if sensor else [],
+        pipeline = StarlakeDagsterPipeline(
+            sl_job, 
+            sl_pipeline_id,
+            sl_pipeline_id = sl_pipeline_id, 
+            sl_dependencies = dependencies, 
+            **kwargs
         )
+
+        self.pipelines.append(pipeline)
+
+        return pipeline
