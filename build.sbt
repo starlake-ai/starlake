@@ -65,9 +65,9 @@ libraryDependencies ++= {
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark_3d0_forScala_2d12 ++
-    jackson212ForSpark3 ++ esSpark212 ++
-    pureConfig212 ++ scalaReflection(scalaVersion.value) ++
+  dependencies ++ spark3 ++
+    jacksonForSpark3 ++ esSpark212 ++
+    pureConfig ++ scalaReflection(scalaVersion.value) ++
     versionSpecificLibs
 }
 
@@ -77,7 +77,7 @@ dependencyOverrides := Seq(
   "org.scala-lang"                    % "scala-reflect"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-compiler"            % scalaVersion.value,
   "com.google.guava"                  %  "guava"                    % "31.1-jre", // required by jinjava 2.7.3
-  "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jackson212ForSpark3
+  "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jacksonForSpark3
 )
 
 name := {
@@ -205,10 +205,10 @@ assembly / assemblyShadeRules := Seq(
   ShadeRule.rename("pureconfig.**" -> "shadepureconfig.@0").inAll,
   ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.chuusai" % "shapeless_2.12" % "2.3.3"),
   ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.chuusai" % "shapeless_2.13" % "2.3.3"),
-  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig_2.12" % Versions.pureConfig212ForSpark3),
-  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig_2.13" % Versions.pureConfig212ForSpark3),
-  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig-generic_2.12" % Versions.pureConfig212ForSpark3),
-  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig-generic_2.13" % Versions.pureConfig212ForSpark3)
+  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig_2.12" % Versions.pureConfig),
+  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig_2.13" % Versions.pureConfig),
+  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig-generic_2.12" % Versions.pureConfig),
+  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig-generic_2.13" % Versions.pureConfig)
   .inProject
 )
 
