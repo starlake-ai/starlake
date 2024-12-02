@@ -1,6 +1,6 @@
 object Versions {
   val curator = "2.6.0"
-  val spark3d0 = "3.5.3"
+  val spark3 = "3.5.3"
   val deltaSpark3d0 = "3.2.1"
   val scalatest = "3.2.19"
   val scalacheckForScalatest = "3.2.18.0"
@@ -14,8 +14,8 @@ object Versions {
   val hive = "3.1.0"
   val log4s = "1.3.3"
   val betterFiles = "3.9.2"
-  val jackson212ForSpark3 = "2.15.2"
-  val pureConfig212ForSpark3 = "0.14.0"
+  val jacksonForSpark3 = "2.15.2"
+  val pureConfig = "0.14.0"
   val esSpark212 = "8.16.1"
   val jsonSchemaValidator = "1.4.0"
   val scopt = "4.1.0"
