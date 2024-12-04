@@ -41,7 +41,7 @@ object SQLUtils extends StrictLogging {
     * JOIN identifier
     */
   //
-  def extractRefsInFromAndJoin(sql: String): List[String] = {
+  def extractTableNamesUsingRegEx(sql: String): List[String] = {
     val froms =
       fromsRegex
         .findAllMatchIn(sql)
@@ -72,7 +72,7 @@ object SQLUtils extends StrictLogging {
     (froms ++ joins).map(_.replaceAll("`", ""))
   }
 
-  def extractRefsInFromCTEs(sql: String): List[String] = {
+  def extractTableNamesFromCTEsUsingRegEx(sql: String): List[String] = {
     val cteRegex = "(?i)\\s+WITH\\s+([_\\-a-z0-9`./(]+\\s*[ _,a-z0-9`./(]*)".r
     val ctes = cteRegex.findAllMatchIn(sql).map(_.group(1)).toList
     ctes
@@ -133,8 +133,10 @@ object SQLUtils extends StrictLogging {
   def jsqlParse(sql: String): Statement = {
     val parseable =
       sql
+    /*
         .replaceAll("(?i)WHEN NOT MATCHED AND (.*) THEN ", "WHEN NOT MATCHED THEN ")
         .replaceAll("(?i)WHEN MATCHED (.*) THEN ", "WHEN MATCHED THEN ")
+     */
     val features = new Consumer[CCJSqlParser] {
       override def accept(t: CCJSqlParser): Unit = {
         t.withTimeOut(60 * 1000)
