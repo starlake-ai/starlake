@@ -1425,13 +1425,20 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   // SL_DATABASE
   // default database
 
+  def objects(): List[Domain] = domains() ++ externals() ++ List(auditTables)
+
+  def findTable(domain: String, table: String): Option[Schema] =
+    objects()
+      .find(_.name.equalsIgnoreCase(domain))
+      .flatMap(_.tables.find(_.name.equalsIgnoreCase(table)))
+
   def objectDefinitions(): JdbcMetaData = {
     val jdbcMetadata = new JdbcMetaData("", "")
     objectNames().foreach(_.asSchemaDefinition(jdbcMetadata))
     jdbcMetadata
   }
   def objectNames(): List[DomainWithNameOnly] = {
-    val domains = this.domains() ++ this.externals() ++ List(this.auditTables)
+    val domains = objects()
     val tableNames =
       domains.map { domain =>
         DomainWithNameOnly(

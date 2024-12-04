@@ -667,7 +667,7 @@ trait BigQueryJobBase extends StrictLogging {
     */
   def getFieldsDescriptionSource(sql: String)(implicit settings: Settings): Map[String, String] = {
     val tableIds = SQLUtils
-      .extractRefsInFromAndJoin(sql)
+      .extractTableNamesUsingRegEx(sql)
       .flatMap(table => {
         val infos = table.split("\\.").toList
         infos match {
