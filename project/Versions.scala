@@ -14,7 +14,7 @@ object Versions {
   val hive = "3.1.0"
   val log4s = "1.3.3"
   val betterFiles = "3.9.2"
-  val jacksonForSpark3 = "2.15.2"
+  val jacksonForSpark3 = "2.15.4"
   val pureConfig = "0.14.0"
   val esSpark212 = "8.16.1"
   val jsonSchemaValidator = "1.4.0"
