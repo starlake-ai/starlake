@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from datetime import timedelta, datetime
 
-from typing import Optional, List, Union, overload
+from typing import Optional, List, Union
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOrchestrator
 
 from ai.starlake.airflow.starlake_airflow_options import StarlakeAirflowOptions
 
-from ai.starlake.common import MissingEnvironmentVariable, sanitize_id
+from ai.starlake.common import MissingEnvironmentVariable
 
 from ai.starlake.job.starlake_job import StarlakeOrchestrator
 
@@ -25,8 +25,6 @@ from airflow.operators.dummy import DummyOperator
 from airflow.operators.python import ShortCircuitOperator
 
 from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
-
-from airflow.utils.task_group import TaskGroup
 
 DEFAULT_POOL:str ="default_pool"
 
@@ -113,67 +111,6 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         kwargs.update({'outlets': outlets})
         return super().sl_import(task_id=task_id, domain=domain, tables=tables, **kwargs)
 
-    def sl_pre_load(self, domain: str, tables: set=set(), pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Optional[BaseOperator]:
-        """Overrides IStarlakeJob.sl_pre_load()
-        Generate the Airflow group of tasks that will check if the conditions are met to load the specified domain according to the pre-load strategy choosen.
-
-        Args:
-            domain (str): The required domain to pre-load.
-            tables (set): The optional tables to pre-load.
-            pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The optional pre-load strategy to use.
-        
-        Returns:
-            Optional[BaseOperator]: The Airflow group of tasks or None.
-        """
-        if isinstance(pre_load_strategy, str):
-            pre_load_strategy = \
-                StarlakePreLoadStrategy(pre_load_strategy) if StarlakePreLoadStrategy.is_valid(pre_load_strategy) \
-                    else self.pre_load_strategy
-
-        pre_load_strategy = self.pre_load_strategy if not pre_load_strategy else pre_load_strategy
-
-        kwargs.update({'pool': kwargs.get('pool', self.pool)})
-
-        if pre_load_strategy == StarlakePreLoadStrategy.NONE:
-            return self.pre_tasks(**kwargs)
-        else:
-            with TaskGroup(group_id=sanitize_id(f'pre_load_{domain}')) as pre_load_domain:
-
-                pre_load = super().sl_pre_load(
-                    domain=domain, 
-                    tables=tables, 
-                    pre_load_strategy=pre_load_strategy, 
-                    do_xcom_push=True, 
-                    doc = f'Pre-load for tables {",".join(list(tables or []))} within {domain} using {pre_load_strategy.value} strategy.',
-                    **kwargs
-                )
-
-                task_id = kwargs.get('task_id', f'skip_or_start_loading_{domain}')
-                kwargs.pop('task_id', None)
-
-                skip_or_start = ShortCircuitOperator(
-                    task_id = task_id,
-                    doc = f"Skip or start loading tables {','.join(list(tables or []))} within {domain} domain.",
-                    python_callable = self.skip_or_start,
-                    op_args=[pre_load],
-                    op_kwargs=kwargs,
-                    provide_context = True,
-                    trigger_rule = 'all_done',
-                    **kwargs
-                )
-
-                pre_load >> skip_or_start
-
-                if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
-                    import_task = self.sl_import(
-                        task_id=f"import_{domain}",
-                        domain=domain, 
-                        tables=tables, 
-                    )
-                    skip_or_start >> import_task
-
-            return pre_load_domain
-
     def execute_command(self, command: str, **kwargs) -> int:
         """
         Execute the command and capture the return code.
@@ -208,69 +145,87 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
             print(str(e.stdout, 'utf-8'))
             raise # Re-raise the exception to mark the task as failed
 
-    def skip_or_start(self, upstream_task: BaseOperator, **kwargs) -> bool:
+    def skip_or_start_op(self, task_id: str, upstream_task: BaseOperator, **kwargs) -> Optional[BaseOperator]:
         """
         Args:
+            task_id (str): The required task id.
             upstream_task (BaseOperator): The upstream task.
             **kwargs: The optional keyword arguments.
 
         Returns:
-            bool: True if the task should be started, False otherwise.
+            Optional[BaseOperator]: The Airflow task or None.
         """
-        if isinstance(upstream_task, DataprocSubmitJobOperator):
-            job = upstream_task.hook.get_job(
-                job_id=upstream_task.job_id, 
-                project_id=upstream_task.project_id, 
-                region=upstream_task.region
-            )
-            state = job.status.state
-            from google.cloud.dataproc_v1 import JobStatus
-            if state == JobStatus.State.DONE:
-                failed = False
-            elif state == JobStatus.State.ERROR:
-                failed = True
-                print(f"Job failed:\n{job}")
-            elif state == JobStatus.State.CANCELLED:
-                failed = True
-                print(f"Job was cancelled:\n{job}")
-            else:
-                from airflow.exceptions import AirflowException
-                raise AirflowException(f"Job is still running:\n{job}")
-
-        else:
-            return_value = kwargs['ti'].xcom_pull(task_ids=upstream_task.task_id, key='return_value')
-
-            print(f"Upstream task {upstream_task.task_id} return value: {return_value}[{type(return_value)}]")
-
-            if return_value is None:
-                failed = True
-                print("No return value found in XCom.")
-            elif isinstance(return_value, int):
-                failed = return_value
-                print(f"Return value: {failed}")
-            elif isinstance(return_value, str):
-                try:
-                    import ast
-                    parsed_return_value = ast.literal_eval(return_value)
-                    if isinstance(parsed_return_value, int):
-                        failed = parsed_return_value
-                        print(f"Parsed return value: {failed}")
-                    elif isinstance(parsed_return_value, str) and parsed_return_value:
-                        failed = int(parsed_return_value.strip())
-                        print(f"Parsed return value: {failed}")
-                    else:
-                        failed = True
-                        print(f"Parsed return value {parsed_return_value}[{type(parsed_return_value)}] is not a valid integer or is empty.")
-                except (ValueError, SyntaxError) as e:
+        def skip_or_start(upstream_task: BaseOperator, **kwargs) -> bool:
+            if isinstance(upstream_task, DataprocSubmitJobOperator):
+                job = upstream_task.hook.get_job(
+                    job_id=upstream_task.job_id, 
+                    project_id=upstream_task.project_id, 
+                    region=upstream_task.region
+                )
+                state = job.status.state
+                from google.cloud.dataproc_v1 import JobStatus
+                if state == JobStatus.State.DONE:
+                    failed = False
+                elif state == JobStatus.State.ERROR:
                     failed = True
-                    print(f"Error parsing return value: {e}")
+                    print(f"Job failed:\n{job}")
+                elif state == JobStatus.State.CANCELLED:
+                    failed = True
+                    print(f"Job was cancelled:\n{job}")
+                else:
+                    from airflow.exceptions import AirflowException
+                    raise AirflowException(f"Job is still running:\n{job}")
+
             else:
-                failed = True
-                print("Return value is not a valid integer or string.")
+                return_value = kwargs['ti'].xcom_pull(task_ids=upstream_task.task_id, key='return_value')
 
-        return not failed
+                print(f"Upstream task {upstream_task.task_id} return value: {return_value}[{type(return_value)}]")
 
-    def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
+                if return_value is None:
+                    failed = True
+                    print("No return value found in XCom.")
+                elif isinstance(return_value, int):
+                    failed = return_value
+                    print(f"Return value: {failed}")
+                elif isinstance(return_value, str):
+                    try:
+                        import ast
+                        parsed_return_value = ast.literal_eval(return_value)
+                        if isinstance(parsed_return_value, int):
+                            failed = parsed_return_value
+                            print(f"Parsed return value: {failed}")
+                        elif isinstance(parsed_return_value, str) and parsed_return_value:
+                            failed = int(parsed_return_value.strip())
+                            print(f"Parsed return value: {failed}")
+                        else:
+                            failed = True
+                            print(f"Parsed return value {parsed_return_value}[{type(parsed_return_value)}] is not a valid integer or is empty.")
+                    except (ValueError, SyntaxError) as e:
+                        failed = True
+                        print(f"Error parsing return value: {e}")
+                else:
+                    failed = True
+                    print("Return value is not a valid integer or string.")
+
+            return not failed
+
+        kwargs.update({'pool': kwargs.get('pool', self.pool)})
+
+        upstream_task_id = upstream_task.task_id.split('.')[-1]
+        task_id = f"validating_{upstream_task_id}" if not task_id else task_id
+        kwargs.pop("task_id", None)
+
+        return ShortCircuitOperator(
+            task_id = task_id,
+            python_callable = skip_or_start,
+            op_args=[upstream_task],
+            op_kwargs=kwargs,
+            provide_context = True,
+            trigger_rule = 'all_done',
+            **kwargs
+        )
+
+    def sl_load(self, task_id: str, domain: str, table: str, spark_config: Optional[StarlakeSparkConfig] = None, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_load()
         Generate the Airflow task that will run the starlake `load` command.
 
@@ -290,7 +245,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         kwargs.update({'outlets': outlets})
         return super().sl_load(task_id=task_id, domain=domain, table=table, spark_config=spark_config, **kwargs)
 
-    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
+    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: Optional[StarlakeSparkConfig] = None, **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_transform()
         Generate the Airflow task that will run the starlake `transform` command.
 
@@ -310,7 +265,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, **kwargs)
 
-    def dummy_op(self, task_id, events: Optional[List[Dataset]], **kwargs) -> BaseOperator :
+    def dummy_op(self, task_id, events: Optional[List[Dataset]] = None, **kwargs) -> BaseOperator :
         """Dummy op.
         Generate a Airflow dummy op.
 
