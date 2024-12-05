@@ -1,16 +1,12 @@
-from datetime import datetime
-
 from typing import List, Optional, Union
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions, StarlakeOrchestrator
 
 from ai.starlake.resource import StarlakeResource
 
-from dagster import AssetKey, Output, In, Out, op, graph, AssetMaterialization
+from dagster import AssetKey, Output, In, Out, op, AssetMaterialization
 
 from dagster._core.definitions import NodeDefinition
-
-from dagster._core.definitions.output import OutputDefinition
 
 class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions):
     def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs) -> None:
@@ -56,64 +52,9 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
         if pre_load_strategy == StarlakePreLoadStrategy.NONE:
             return None
         else:
-            schedule=kwargs.get("schedule", None)
-            if schedule:
-                name=f"{domain}_{schedule}"
-            else:
-                name=domain
+            kwargs.update({'out': 'succeeded', 'failure': 'failed',})
 
-            kwargs.update({"ins": {"domain": In(str)}}) #f"check_pre_load_{name}"
-
-            if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
-                kwargs.update({'out': 'incoming_files', 'failure': 'no_incoming_files', 'task_id': f'check_{name}_incoming_files'})
-                import_node = self.sl_import(
-                    task_id=f"import_{name}", 
-                    domain=domain, 
-                    tables=tables, 
-                    ins={"incoming_files": In(str)}, 
-                    out=f"{name}_imported", 
-                    required=False
-                )
-
-            elif pre_load_strategy == StarlakePreLoadStrategy.PENDING:
-                kwargs.update({'out': 'pending_files', 'failure': 'no_pending_files', 'task_id': f'check_{name}_pending_files'})
-
-            elif pre_load_strategy == StarlakePreLoadStrategy.ACK:
-                kwargs.update({'out': 'ack_file', 'failure': 'no_ack_file', 'task_id': f'check_{name}_ack_file'})
-
-                def current_dt():
-                    return datetime.today().strftime('%Y-%m-%d')
-
-                ack_wait_timeout = int(__class__.get_context_var(
-                    var_name='ack_wait_timeout',
-                    default_value=60*60, # 1 hour
-                    options=self.options
-                ))
-
-                ack_file = __class__.get_context_var(
-                    var_name='global_ack_file_path',
-                    default_value=f'{self.sl_datasets}/pending/{domain}/{current_dt()}.ack',
-                    options=self.options
-                )
-
-                kwargs.update({'retry_delay': ack_wait_timeout, 'ack_file': ack_file})
-
-            pre_load = super().sl_pre_load(domain=domain, tables=tables, pre_load_strategy=pre_load_strategy, **kwargs)
-
-            @graph(
-                name=f"pre_load_{name}",
-                description=f"Check if domain '{domain}' can be loaded by applying {pre_load_strategy} strategy",
-                input_defs=pre_load.input_defs,
-                output_defs=[OutputDefinition(name=f"load_{name}", dagster_type=str, is_required=False), OutputDefinition(name="skipped", dagster_type=str, is_required=False)]
-            )
-            def pre_load_graph(domain, **kwargs):
-                checked, skipped = pre_load(domain, **kwargs)
-                if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
-                    return {f"load_{name}": import_node(checked), "skipped": skipped}
-                else:
-                    return {f"load_{name}": checked, "skipped": skipped}
-
-            return pre_load_graph
+            return super().sl_pre_load(domain=domain, tables=tables, pre_load_strategy=pre_load_strategy, **kwargs)
 
     def sl_import(self, task_id: str, domain: str, tables: set=set(), **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_import()
@@ -188,7 +129,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
             NodeDefinition: The Dagster node.
         """
 
-        out:str=kwargs.get("out", "result")
+        out:str = kwargs.get("out", "result")
 
         assets: List[AssetKey] = kwargs.get("assets", [])
         if events:

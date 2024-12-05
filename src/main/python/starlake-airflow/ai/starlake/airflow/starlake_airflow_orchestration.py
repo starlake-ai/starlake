@@ -6,7 +6,7 @@ from ai.starlake.common import sl_cron_start_end_dates
 
 from ai.starlake.resource import StarlakeResource
 
-from ai.starlake.orchestration import StarlakeOrchestration, StarlakeSchedule, StarlakeDependencies, StarlakePipeline, StarlakeTaskGroup
+from ai.starlake.orchestration import AbstractOrchestration, StarlakeSchedule, StarlakeDependencies, AbstractPipeline, AbstractTaskGroup, AbstractTask, AbstractDependency
 
 from airflow import DAG
 
@@ -22,69 +22,87 @@ from typing import Generic, List, Optional, Set, TypeVar, Union
 
 J = TypeVar("J", bound=StarlakeAirflowJob)
 
-class StarlakeAirflowPipeline(Generic[J], StarlakePipeline[DAG, BaseOperator, Dataset, J]):
-    def __init__(self, sl_job: J, sl_pipeline_id: str, sl_schedule: Optional[StarlakeSchedule] = None, sl_schedule_name: Optional[str] = None, sl_dependencies: Optional[StarlakeDependencies] = None, **kwargs) -> None:
-        if not isinstance(sl_job, StarlakeAirflowJob):
-            raise TypeError(f"Expected an instance of StarlakeAirflowJob, got {type(sl_job).__name__}")
-        super().__init__(sl_job, sl_pipeline_id, sl_schedule, sl_schedule_name, sl_dependencies, **kwargs)
+class AirflowPipeline(AbstractPipeline[DAG, Dataset]):
+    def __init__(self, job: J, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[DAG, BaseOperator, TaskGroup, Dataset]] = None, **kwargs) -> None:
+        super().__init__(job, None, schedule, dependencies, orchestration, **kwargs)
 
-        schedule: Union[str, List[Dataset], None] = None
+        airflow_schedule: Union[str, List[Dataset], None] = None
 
-        if self.sl_cron is not None:
-            schedule = self.sl_cron
-        elif self.sl_events is not None:
-            schedule = self.sl_events
+        if self.cron is not None:
+            airflow_schedule = self.cron
+        elif self.events is not None:
+            airflow_schedule = self.events
 
         def ts_as_datetime(ts):
             # Convert ts to a datetime object
             from datetime import datetime
             return datetime.fromisoformat(ts)
 
-        user_defined_macros = kwargs.get('user_defined_macros', sl_job.caller_globals.get('user_defined_macros', dict()))
+        user_defined_macros = kwargs.get('user_defined_macros', job.caller_globals.get('user_defined_macros', dict()))
         kwargs.pop('user_defined_macros', None)
         user_defined_macros["sl_dates"] = sl_cron_start_end_dates
         user_defined_macros["ts_as_datetime"] = ts_as_datetime
 
-        user_defined_filters = kwargs.get('user_defined_filters', sl_job.caller_globals.get('user_defined_filters', None))
+        user_defined_filters = kwargs.get('user_defined_filters', job.caller_globals.get('user_defined_filters', None))
         kwargs.pop('user_defined_filters', None)
 
         self.dag = DAG(
-            dag_id=sl_pipeline_id, 
-            schedule=schedule,
-            catchup=self.sl_catchup,
-            tags=list(set([tag.upper() for tag in self.sl_tags])), 
-            default_args=sl_job.caller_globals.get('default_dag_args', sl_job.default_dag_args()),
-            description=sl_job.caller_globals.get('description', ""),
-            start_date=sl_job.start_date,
-            end_date=sl_job.end_date,
+            dag_id=self.pipeline_id, 
+            schedule=airflow_schedule,
+            catchup=self.catchup,
+            tags=list(set([tag.upper() for tag in self.tags])), 
+            default_args=job.caller_globals.get('default_dag_args', job.default_dag_args()),
+            description=job.caller_globals.get('description', ""),
+            start_date=job.start_date,
+            end_date=job.end_date,
             user_defined_macros=user_defined_macros,
             user_defined_filters=user_defined_filters,
             **kwargs
         )
 
-        # Dynamically bind pipeline methods to DAG
-        for attr_name in dir(self):
-            if (attr_name == '__enter__' or attr_name == '__exit__' or not attr_name.startswith('__')) and callable(getattr(self, attr_name)):
-                setattr(self.dag, attr_name, getattr(self, attr_name))
-
     def __enter__(self):
         DagContext.push_context_managed_dag(self.dag)
-        return self.dag
+        return super().__enter__()
     
     def __exit__(self, exc_type, exc_value, traceback):
         DagContext.pop_context_managed_dag()
 
-    def sl_create_internal_task_group(self, group_id: str, **kwargs) -> StarlakeTaskGroup[BaseOperator]:
-        return TaskGroup(group_id=group_id, **kwargs)
+        # walk throw the dag to add the dependencies
 
-    def is_sl_task_group(self, task: BaseOperator) -> bool:
-        return isinstance(task, TaskGroup)
+        def get_node(dependency: AbstractDependency) -> BaseOperator:
+            if isinstance(dependency, AbstractTaskGroup):
+                return dependency.group
+            return dependency.task
 
-    def sl_create_task_group(self, group_id: str, **kwargs) -> StarlakeTaskGroup[BaseOperator]:
-        return StarlakeAirflowTaskGroup(group_id, dag=self.dag, **kwargs)
+        def update_group_dependencies(group: AbstractTaskGroup):
+            def update_dependencies(upstream_dependencies, root_key):
+                root = group.get_dependency(root_key)
+                root_node: BaseOperator = get_node(root)
+                if isinstance(root, AbstractTaskGroup) and root_key != group.group_id:
+                    update_group_dependencies(root)
+                if root_key in upstream_dependencies:
+                    for key in upstream_dependencies[root_key]:
+                        downstream = group.get_dependency(key)
+                        downstream_node: BaseOperator = get_node(downstream)
+                        if isinstance(downstream, AbstractTaskGroup) and key != group.group_id:
+                            update_group_dependencies(downstream)
+                        downstream_node.set_upstream(root_node)
+                        update_dependencies(upstream_dependencies, key)
 
-    def sl_add_dependency(self, pipeline_upstream: Union[TaskGroup, BaseOperator], pipeline_downstream: Union[TaskGroup, BaseOperator], **kwargs) -> BaseOperator:
-        return pipeline_upstream >> pipeline_downstream
+            upstream_dependencies = group.upstream_dependencies
+            upstream_keys = upstream_dependencies.keys()
+            downstream_keys = group.downstream_dependencies.keys()
+            root_keys = upstream_keys - downstream_keys
+
+            if not root_keys and len(upstream_keys) == 0 and len(downstream_keys) == 0:
+                root_keys = group.dependencies_dict.keys()
+
+            for root_key in root_keys:
+                update_dependencies(upstream_dependencies, root_key)
+
+        update_group_dependencies(self)
+
+        return super().__exit__(exc_type, exc_value, traceback)
 
     def get_sl_transform_options(self, cron_expr: Optional[str] = None) -> Optional[str]:
         if cron_expr:
@@ -98,73 +116,54 @@ class StarlakeAirflowPipeline(Generic[J], StarlakePipeline[DAG, BaseOperator, Da
             extra["source"] = source
         return Dataset(resource.url, extra)
 
-class StarlakeAirflowTaskGroup(StarlakeTaskGroup[BaseOperator]):
-    def __init__(self, group_id: str, **kwargs) -> None:
-        super().__init__(group_id, **kwargs)
-        self.task_group = TaskGroup(group_id=group_id, **kwargs)
-        # Dynamically bind task group methods to TaskGroup
-        for attr_name in dir(self):
-            if (attr_name == '__enter__' or attr_name == '__exit__' or not attr_name.startswith('__')) and callable(getattr(self, attr_name)):
-                setattr(self.task_group, attr_name, getattr(self, attr_name))
+class AirflowTaskGroup(AbstractTaskGroup[TaskGroup]):
+    def __init__(self, group_id: str, group: TaskGroup, **kwargs) -> None:
+        super().__init__(group_id, group, **kwargs)
 
     def __enter__(self):
-        TaskGroupContext.push_context_managed_task_group(self.task_group)
-        return self.task_group
+        TaskGroupContext.push_context_managed_task_group(self.group)
+        return super().__enter__()
 
     def __exit__(self, exc_type, exc_value, traceback):
         TaskGroupContext.pop_context_managed_task_group()
+        return super().__exit__(exc_type, exc_value, traceback)
 
-class StarlakeAirflowOrchestration(Generic[J], StarlakeOrchestration[DAG, BaseOperator, Dataset, J]):
+class AirflowOrchestration(AbstractOrchestration[DAG, BaseOperator, TaskGroup, Dataset]):
     def __init__(self, job: J, **kwargs) -> None:
-        """Overrides StarlakeOrchestration.__init__()
+        """Overrides AbstractOrchestration.__init__()
         Args:
-            job (J): The job to orchestrate.
+            job (J): The job that will generate the tasks within the pipeline.
         """
-        if not isinstance(job, StarlakeAirflowJob):
-            raise TypeError(f"Expected an instance of StarlakeAirflowJob, got {type(job).__name__}")
         super().__init__(job, **kwargs) 
 
-    def sl_create_schedule_pipeline(self, sl_schedule: StarlakeSchedule, nb_schedules: int = 1, **kwargs) -> StarlakePipeline[DAG, BaseOperator, Dataset]:
-        """Create the Starlake pipeline that will generate the DAG to orchestrate the load of the specified domains.
+    def sl_create_pipeline(self, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, **kwargs) -> AbstractPipeline[DAG, Dataset]:
+        """Create the Starlake pipeline to orchestrate.
 
         Args:
-            schedule (StarlakeSchedule): The required schedule
+            schedule (Optional[StarlakeSchedule]): The optional schedule
+            dependencies (Optional[StarlakeDependencies]): The optional dependencies
         
         Returns:
-            DAG: The generated dag.
+            AbstractPipeline[DAG, Dataset]: The pipeline to orchestrate.
         """
-        sl_job = self.job
-
-        pipeline_name = sl_job.caller_filename.replace(".py", "").replace(".pyc", "").lower()
-
-        if nb_schedules > 1:
-            sl_pipeline_id = f"{pipeline_name}_{sl_schedule.name}"
-            sl_schedule_name = sl_schedule.name
-        else:
-            sl_pipeline_id = pipeline_name
-            sl_schedule_name = None
-
-        return StarlakeAirflowPipeline(
-            sl_job, 
-            sl_pipeline_id, 
-            sl_schedule, 
-            sl_schedule_name,
+        return AirflowPipeline(
+            self.job, 
+            schedule, 
+            dependencies, 
+            self
         )
 
-    def sl_create_dependencies_pipeline(self, dependencies: StarlakeDependencies, **kwargs) -> StarlakePipeline[DAG, BaseOperator, Dataset]:
-        """Create the Starlake pipeline that will generate the dag to orchestrate the specified tasks.
+    def sl_create_task(self, task_id: str, task: Optional[BaseOperator], pipeline: AbstractPipeline[DAG, Dataset]) -> Optional[AbstractTask[BaseOperator]]:
+        if task is None:
+            return None
+        task.dag = pipeline.dag
+        return AbstractTask(task_id, task)
 
-        Args:
-            dependencies (StarlakeDependencies): The required dependencies
-        
-        Returns:
-            DAG: The generated dag.
-        """
-        sl_job = self.job
-
-        return StarlakeAirflowPipeline(
-            sl_job, 
-            sl_pipeline_id = sl_job.caller_filename.replace(".py", "").replace(".pyc", "").lower(), 
-            sl_dependencies = dependencies, 
+    def sl_create_task_group(self, group_id: str, pipeline: AbstractPipeline[DAG, Dataset], **kwargs) -> AbstractTaskGroup[TaskGroup]:
+        return AirflowTaskGroup(
+            group_id, 
+            group=TaskGroup(group_id=group_id, **kwargs),
+            dag=pipeline.dag, 
             **kwargs
         )
+
