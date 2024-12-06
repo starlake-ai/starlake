@@ -6,9 +6,9 @@ from ai.starlake.common import asQueryParameters, sanitize_id, sl_schedule, sl_s
 
 from typing import Generic, List, Optional, TypeVar
 
-class StarlakeResource():
+class StarlakeDataset():
     def __init__(self, uri: str, parameters: Optional[dict] = None, cron: Optional[str] = None, **kwargs):
-        """Initializes a new StarlakeResource instance.
+        """Initializes a new StarlakeDataset instance.
 
         Args:
             uri (str): The required resource uri.
@@ -59,7 +59,7 @@ class StarlakeResource():
         return self._url
 
     @staticmethod
-    def cron_resources(resources: Optional[List[StarlakeResource]]) -> Optional[List[StarlakeResource]]:
+    def cron_resources(resources: Optional[List[StarlakeDataset]]) -> Optional[List[StarlakeDataset]]:
         if resources is not None:
             return [resource for resource in resources if resource.cron is not None]
         else:
@@ -70,5 +70,5 @@ E = TypeVar("E")
 class AbstractEvent(Generic[E]):
     @classmethod
     @abstractmethod
-    def to_event(cls, resource: StarlakeResource, source: Optional[str] = None, **kwargs) -> E:
+    def to_event(cls, resource: StarlakeDataset, source: Optional[str] = None, **kwargs) -> E:
         pass

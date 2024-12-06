@@ -8,7 +8,7 @@ from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 from ai.starlake.job.starlake_options import StarlakeOptions
 from ai.starlake.job.spark_config import StarlakeSparkConfig
 
-from ai.starlake.resource import AbstractEvent, StarlakeResource
+from ai.starlake.resource import AbstractEvent, StarlakeDataset
 
 import sys
 
@@ -128,7 +128,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
 
     @final
     def __add_event(self, uri: str, **kwargs) -> E:
-        event = self.to_event(StarlakeResource(uri, **kwargs), source=kwargs.get('source', self.source))
+        event = self.to_event(StarlakeDataset(uri, **kwargs), source=kwargs.get('source', self.source))
         events = self.events
         events.append(event)
         self.events = events

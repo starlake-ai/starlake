@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ai.starlake.common import sanitize_id, is_valid_cron
 
-from ai.starlake.resource import StarlakeResource
+from ai.starlake.resource import StarlakeDataset
 
 from typing import List, Optional, Set, Union
 
@@ -81,7 +81,7 @@ class StarlakeDependencies():
         self.first_level_tasks = first_level_tasks
         self.filtered_resources = filtered_resources
 
-    def get_schedule(self, cron: Optional[str], load_dependencies: bool, filtered_resources: Optional[Set[str]] = None, sl_schedule_parameter_name: Optional[str] = None, sl_schedule_format: Optional[str] = None) -> Union[str, List[StarlakeResource], None]:
+    def get_schedule(self, cron: Optional[str], load_dependencies: bool, filtered_resources: Optional[Set[str]] = None, sl_schedule_parameter_name: Optional[str] = None, sl_schedule_format: Optional[str] = None) -> Union[str, List[StarlakeDataset], None]:
 
         cron_expr = cron
 
@@ -97,7 +97,7 @@ class StarlakeDependencies():
         elif not load_dependencies:
             uris: Set[str] = set()
 
-            resources: List[StarlakeResource] = []
+            resources: List[StarlakeDataset] = []
 
             temp_filtered_resources: Set[str] = self.filtered_resources.copy()
 
@@ -116,7 +116,7 @@ class StarlakeDependencies():
                                 kw['sl_schedule_parameter_name'] = sl_schedule_parameter_name
                             if sl_schedule_format is not None:
                                 kw['sl_schedule_format'] = sl_schedule_format
-                            resource = StarlakeResource(uri, **kw)
+                            resource = StarlakeDataset(uri, **kw)
                             uris.add(resource.uri)
                             resources.append(resource)
 
