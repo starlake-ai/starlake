@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ai.starlake.airflow.starlake_airflow_job import StarlakeAirflowJob
+from ai.starlake.airflow.starlake_airflow_job import StarlakeAirflowJob, AirflowDataset
 
 from ai.starlake.common import sl_cron_start_end_dates
 
@@ -22,7 +22,7 @@ from typing import List, Optional, Set, TypeVar, Union
 
 J = TypeVar("J", bound=StarlakeAirflowJob)
 
-class AirflowPipeline(AbstractPipeline[DAG, Dataset]):
+class AirflowPipeline(AbstractPipeline[DAG, Dataset], AirflowDataset):
     def __init__(self, job: J, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[DAG, BaseOperator, TaskGroup, Dataset]] = None, **kwargs) -> None:
         super().__init__(job, None, schedule, dependencies, orchestration, **kwargs)
 
@@ -108,13 +108,6 @@ class AirflowPipeline(AbstractPipeline[DAG, Dataset]):
         if cron_expr:
             return "{{sl_dates(params.cron_expr, ts_as_datetime(data_interval_end | ts))}}"
         return None
-
-    @classmethod
-    def to_event(cls, dataset: StarlakeDataset, source: Optional[str] = None) -> Dataset:
-        extra = {}
-        if source:
-            extra["source"] = source
-        return Dataset(dataset.url, extra)
 
 class AirflowTaskGroup(AbstractTaskGroup[TaskGroup]):
     def __init__(self, group_id: str, group: TaskGroup, **kwargs) -> None:

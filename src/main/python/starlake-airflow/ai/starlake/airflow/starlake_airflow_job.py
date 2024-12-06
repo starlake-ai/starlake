@@ -12,7 +12,7 @@ from ai.starlake.common import MissingEnvironmentVariable
 
 from ai.starlake.job.starlake_job import StarlakeOrchestrator
 
-from ai.starlake.dataset import StarlakeDataset
+from ai.starlake.dataset import StarlakeDataset, AbstractEvent
 
 from airflow import DAG
 
@@ -37,7 +37,15 @@ DEFAULT_DAG_ARGS = {
     'retry_delay': timedelta(minutes=5)
 }
 
-class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOptions):
+class AirflowDataset(AbstractEvent[Dataset]):
+    @classmethod
+    def to_event(cls, dataset: StarlakeDataset, source: Optional[str] = None) -> Dataset:
+        extra = {}
+        if source:
+            extra["source"] = source
+        return Dataset(dataset.refresh().url, extra)
+
+class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOptions, AirflowDataset):
     def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict=None, **kwargs) -> None:
         """Overrides IStarlakeJob.__init__()
         Args:
@@ -68,13 +76,6 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
 
     def sl_orchestrator(self) -> StarlakeOrchestrator:
         return StarlakeOrchestrator.airflow
-
-    @classmethod
-    def to_event(cls, dataset: StarlakeDataset, source: Optional[str] = None) -> Dataset:
-        extra = {}
-        if source:
-            extra["source"] = source
-        return Dataset(dataset.url, extra)
 
     def update_events(self, event: Dataset, **kwargs) -> Tuple[(str, List[Dataset])]:
         """Add the event to the list of Airflow datasets that will be triggered.
