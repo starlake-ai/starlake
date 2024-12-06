@@ -11,8 +11,8 @@ class StarlakeDataset():
         """Initializes a new StarlakeDataset instance.
 
         Args:
-            uri (str): The required resource uri.
-            parameters (dict, optional): The optional resource parameters. Defaults to None.
+            uri (str): The required dataset uri.
+            parameters (dict, optional): The optional dataset parameters. Defaults to None.
         """
         if cron is None:
             if parameters is not None and 'cron' in parameters:
@@ -24,7 +24,7 @@ class StarlakeDataset():
             if cron.lower().strip() == 'none':
                 cron = None
             elif not is_valid_cron(cron):
-                raise ValueError(f"Invalid cron expression: {cron} for resource {uri}")
+                raise ValueError(f"Invalid cron expression: {cron} for dataset {uri}")
         temp_parameters: dict = dict()
         if parameters is not None:
             temp_parameters.update(parameters)
@@ -59,9 +59,9 @@ class StarlakeDataset():
         return self._url
 
     @staticmethod
-    def cron_resources(resources: Optional[List[StarlakeDataset]]) -> Optional[List[StarlakeDataset]]:
-        if resources is not None:
-            return [resource for resource in resources if resource.cron is not None]
+    def cron_datasets(datasets: Optional[List[StarlakeDataset]]) -> Optional[List[StarlakeDataset]]:
+        if datasets is not None:
+            return [dataset for dataset in datasets if dataset.cron is not None]
         else:
             return None
 
@@ -70,5 +70,5 @@ E = TypeVar("E")
 class AbstractEvent(Generic[E]):
     @classmethod
     @abstractmethod
-    def to_event(cls, resource: StarlakeDataset, source: Optional[str] = None, **kwargs) -> E:
+    def to_event(cls, dataset: StarlakeDataset, source: Optional[str] = None, **kwargs) -> E:
         pass
