@@ -17,7 +17,6 @@ class StarlakeDataset():
         if cron is None:
             if parameters is not None and 'cron' in parameters:
                 cron = parameters['cron']
-                parameters.pop('cron')
             elif 'params' in kwargs:
                 cron = kwargs['params'].get('cron', None)
         if cron:
@@ -25,6 +24,8 @@ class StarlakeDataset():
                 cron = None
             elif not is_valid_cron(cron):
                 raise ValueError(f"Invalid cron expression: {cron} for dataset {uri}")
+        if cron is not None and parameters is not None:
+            parameters.pop('cron', None)
         temp_parameters: dict = dict()
         if parameters is not None:
             temp_parameters.update(parameters)
@@ -35,9 +36,7 @@ class StarlakeDataset():
         self._cron = cron
         self._uri = sanitize_id(uri).lower()
         self._queryParameters = asQueryParameters(temp_parameters)
-        if cron:
-            temp_parameters['cron'] = cron
-        self._parameters = temp_parameters
+        self._parameters = parameters
         self._url = self.uri + self.queryParameters
 
     @property
