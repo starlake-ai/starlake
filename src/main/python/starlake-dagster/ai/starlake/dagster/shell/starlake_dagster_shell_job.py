@@ -107,8 +107,8 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
                 else:
                     raise Failure(description=value)
             else:
-                if assets:
-                    yield AssetMaterialization(asset_key=[asset.path for asset in assets], description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
+                for asset in assets:
+                    yield AssetMaterialization(asset_key=asset.path, description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
 
                 yield Output(value=output, output_name=out)
 

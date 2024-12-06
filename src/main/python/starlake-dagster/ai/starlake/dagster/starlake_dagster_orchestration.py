@@ -1,4 +1,4 @@
-from ai.starlake.dagster.starlake_dagster_job import StarlakeDagsterJob
+from ai.starlake.dagster.starlake_dagster_job import StarlakeDagsterJob, DagsterDataset
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies
 
@@ -8,7 +8,7 @@ from dagster._core.definitions.output import OutputDefinition
 
 from dagster._core.definitions import NodeDefinition
 
-from typing import List, Optional, Set, TypeVar
+from typing import List, Optional, TypeVar
 
 J = TypeVar("J", bound=StarlakeDagsterJob)
 
@@ -49,12 +49,14 @@ class DagsterOrchestration(AbstractOrchestration[JobDefinition, OpDefinition, Gr
 
             cron = pipeline.cron
 
-            if datasets:
-                assets = [pipeline.to_event(dataset) for dataset in datasets]
+            if datasets and len(datasets) > 0:
+                def get_monitored_assets():
+                    return [pipeline.to_event(dataset) for dataset in datasets]
+
                 sensors.append(
                     MultiAssetSensorDefinition(
                         name = f'{pipeline_id}_sensor',
-                        monitored_assets = assets,
+                        monitored_assets = get_monitored_assets(),
                         asset_materialization_fn = multi_asset_sensor_with_skip_reason,
                         minimum_interval_seconds = 60,
                         description = f"Sensor for {pipeline_id}",
@@ -86,7 +88,7 @@ class DagsterOrchestration(AbstractOrchestration[JobDefinition, OpDefinition, Gr
     def sl_create_task_group(self, group_id: str, **kwargs) -> AbstractTaskGroup[GraphDefinition]:
         return AbstractTaskGroup(group_id, GraphDefinition(name=group_id), **kwargs)
 
-class DagsterPipeline(AbstractPipeline[JobDefinition, AssetKey]):
+class DagsterPipeline(AbstractPipeline[JobDefinition, AssetKey], DagsterDataset):
     def __init__(self, sl_job: J, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None,  orchestration: Optional[DagsterOrchestration] = None, **kwargs) -> None:
         super().__init__(sl_job, schedule = schedule, dependencies = dependencies, orchestration = orchestration, **kwargs)
 

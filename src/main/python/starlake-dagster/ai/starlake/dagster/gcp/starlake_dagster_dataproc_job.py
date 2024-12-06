@@ -193,8 +193,8 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
                 else:
                     raise Failure(description=value)
             else:
-                if assets:
-                    yield AssetMaterialization(asset_key=[asset.path for asset in assets], description=f"Spark job {job_id} submitted to Dataproc cluster {self.__dataproc__.cluster_name}")
+                for asset in assets:
+                    yield AssetMaterialization(asset_key=asset.path, description=f"Spark job {job_id} submitted to Dataproc cluster {self.__dataproc__.cluster_name}")
 
                 yield Output(value=job_id, output_name=out)
 
