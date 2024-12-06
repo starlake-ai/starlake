@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ai.starlake.common import sanitize_id, is_valid_cron
 
-from ai.starlake.resource import StarlakeDataset
+from ai.starlake.dataset import StarlakeDataset
 
 from typing import List, Optional, Set, Union
 
@@ -63,7 +63,7 @@ class StarlakeDependencies():
 
         all_dependencies: Set[str] = set()
         first_level_tasks: Set[str] = set()
-        filtered_resources: Set[str] = set()
+        filtered_datasets: Set[str] = set()
 
         def load_task_dependencies(task: StarlakeDependency):
             if len(task.dependencies) > 0:
@@ -74,14 +74,14 @@ class StarlakeDependencies():
         for task in self.dependencies:
             name = task.name
             first_level_tasks.add(name)
-            filtered_resources.add(sanitize_id(name).lower())
+            filtered_datasets.add(sanitize_id(name).lower())
             load_task_dependencies(task)
 
         self.all_dependencies = all_dependencies
         self.first_level_tasks = first_level_tasks
-        self.filtered_resources = filtered_resources
+        self.filtered_datasets = filtered_datasets
 
-    def get_schedule(self, cron: Optional[str], load_dependencies: bool, filtered_resources: Optional[Set[str]] = None, sl_schedule_parameter_name: Optional[str] = None, sl_schedule_format: Optional[str] = None) -> Union[str, List[StarlakeDataset], None]:
+    def get_schedule(self, cron: Optional[str], load_dependencies: bool, filtered_datasets: Optional[Set[str]] = None, sl_schedule_parameter_name: Optional[str] = None, sl_schedule_format: Optional[str] = None) -> Union[str, List[StarlakeDataset], None]:
 
         cron_expr = cron
 
@@ -97,18 +97,18 @@ class StarlakeDependencies():
         elif not load_dependencies:
             uris: Set[str] = set()
 
-            resources: List[StarlakeDataset] = []
+            datasets: List[StarlakeDataset] = []
 
-            temp_filtered_resources: Set[str] = self.filtered_resources.copy()
+            temp_filtered_datasets: Set[str] = self.filtered_datasets.copy()
 
-            if filtered_resources:
-                temp_filtered_resources.update(filtered_resources)
+            if filtered_datasets:
+                temp_filtered_datasets.update(filtered_datasets)
 
-            def load_resources(task: StarlakeDependency):
+            def load_datasets(task: StarlakeDependency):
                 if len(task.dependencies) > 0:
                     for child in task.dependencies:
                         uri = sanitize_id(child.name).lower()
-                        if uri not in uris and uri not in temp_filtered_resources:
+                        if uri not in uris and uri not in temp_filtered_datasets:
                             kw = dict()
                             if child.cron is not None:
                                 kw['cron'] = child.cron
@@ -116,14 +116,14 @@ class StarlakeDependencies():
                                 kw['sl_schedule_parameter_name'] = sl_schedule_parameter_name
                             if sl_schedule_format is not None:
                                 kw['sl_schedule_format'] = sl_schedule_format
-                            resource = StarlakeDataset(uri, **kw)
-                            uris.add(resource.uri)
-                            resources.append(resource)
+                            dataset = StarlakeDataset(uri, **kw)
+                            uris.add(dataset.uri)
+                            datasets.append(dataset)
 
             for task in self.dependencies:
-                load_resources(task)
+                load_datasets(task)
 
-            return resources # return the resources
+            return datasets # return the datasets
 
         else:
             return None # return None

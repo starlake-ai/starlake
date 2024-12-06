@@ -8,7 +8,7 @@ from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 from ai.starlake.job.starlake_options import StarlakeOptions
 from ai.starlake.job.spark_config import StarlakeSparkConfig
 
-from ai.starlake.resource import AbstractEvent, StarlakeDataset
+from ai.starlake.dataset import AbstractEvent, StarlakeDataset
 
 import sys
 

@@ -18,7 +18,7 @@ from dagster._core.definitions import NodeDefinition
 
 from dagster_gcp import DataprocResource
 
-from dagster_gcp.dataproc.resources import DataprocClient
+from dagster_gcp.dataproc.datasets import DataprocClient
 
 class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
     """A StarlakeDagsterJob that runs a starlake command on Google Cloud Dataproc."""

@@ -4,7 +4,7 @@ from ai.starlake.airflow.starlake_airflow_job import StarlakeAirflowJob
 
 from ai.starlake.common import sl_cron_start_end_dates
 
-from ai.starlake.resource import StarlakeDataset
+from ai.starlake.dataset import StarlakeDataset
 
 from ai.starlake.orchestration import AbstractOrchestration, StarlakeSchedule, StarlakeDependencies, AbstractPipeline, AbstractTaskGroup, AbstractTask, AbstractDependency
 
@@ -110,11 +110,11 @@ class AirflowPipeline(AbstractPipeline[DAG, Dataset]):
         return None
 
     @classmethod
-    def to_event(cls, resource: StarlakeDataset, source: Optional[str] = None) -> Dataset:
+    def to_event(cls, dataset: StarlakeDataset, source: Optional[str] = None) -> Dataset:
         extra = {}
         if source:
             extra["source"] = source
-        return Dataset(resource.url, extra)
+        return Dataset(dataset.url, extra)
 
 class AirflowTaskGroup(AbstractTaskGroup[TaskGroup]):
     def __init__(self, group_id: str, group: TaskGroup, **kwargs) -> None:

@@ -2,7 +2,7 @@ cron = "{{ context.cron }}"
 
 from ai.starlake.common import sanitize_id, sort_crons_by_frequency
 
-from ai.starlake.resource import StarlakeResource
+from ai.starlake.dataset import StarlakeDataset
 
 from ai.starlake.orchestration import StarlakeDependencies, StarlakeDependency, StarlakeDependencyType, OrchestrationFactory, AbstractTaskGroup, AbstractTask
 
@@ -15,15 +15,15 @@ def generate_pipeline():
     with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
         with orchestration.sl_create_pipeline(dependencies=dependencies) as pipeline:
 
-            pipeline_id=pipeline.pipeline_id
+            pipeline_id = pipeline.pipeline_id
 
-            resources = pipeline.resources
+            datasets = pipeline.datasets
 
             cron = pipeline.cron
 
-            datasets: Set[str] = set(map(lambda resource: sanitize_id(resource.uri).lower(), resources or []))
+            uris: Set[str] = set(map(lambda dataset: sanitize_id(dataset.uri).lower(), datasets or []))
 
-            cron_datasets: dict = {resource.uri: resource.cron for resource in resources or [] if resource.cron is not None and resource.uri is not None}
+            scheduled_datasets: dict = {dataset.uri: dataset.cron for dataset in datasets or [] if dataset.cron is not None and dataset.uri is not None}
 
             first_level_tasks: Set[str] = dependencies.first_level_tasks
 
@@ -37,9 +37,9 @@ def generate_pipeline():
 
             if cron:
                 cron_expr = cron
-            elif datasets.__len__() == cron_datasets.__len__() and set(cron_datasets.values()).__len__() > 0:
+            elif uris.__len__() == scheduled_datasets.__len__() and set(scheduled_datasets.values()).__len__() > 0:
                 sorted_crons = sort_crons_by_frequency(set(
-                    cron_datasets.values()), 
+                    scheduled_datasets.values()), 
                     period=pipeline.get_context_var(var_name='cron_period_frequency', default_value='week')
                 )
                 cron_expr = sorted_crons[0][0]
@@ -105,20 +105,20 @@ def generate_pipeline():
             else:
                 start >> all_transform_tasks
 
-            output_resources: List[StarlakeResource] = [
-                StarlakeResource(uri=pipeline_id, cron=cron)
+            output_datasets: List[StarlakeDataset] = [
+                StarlakeDataset(uri=pipeline_id, cron=cron)
             ]
-            if set(cron_datasets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
+            if set(scheduled_datasets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
                 # we sort the cron datasets by frequency (most frequent first)
-                sorted_crons = sort_crons_by_frequency(set(cron_datasets.values()), period=pipeline.get_context_var(var_name='cron_period_frequency', default_value='week'))
+                sorted_crons = sort_crons_by_frequency(set(scheduled_datasets.values()), period=pipeline.get_context_var(var_name='cron_period_frequency', default_value='week'))
                 # we exclude the most frequent cron dataset
                 least_frequent_crons = set([expr for expr, _ in sorted_crons[1:sorted_crons.__len__()]])
-                for dataset, cron in cron_datasets.items() :
+                for dataset, cron in scheduled_datasets.items() :
                     # we republish the least frequent scheduled datasets
                     if cron in least_frequent_crons:
-                        output_resources.append(StarlakeResource(uri=dataset, cron=cron))
+                        output_datasets.append(StarlakeDataset(uri=dataset, cron=cron))
 
-            end = pipeline.end_task(output_resources=output_resources)
+            end = pipeline.end_task(output_datasets=output_datasets)
 
             for task in all_transform_tasks:
                 task >> end
