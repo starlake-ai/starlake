@@ -12,7 +12,7 @@ from ai.starlake.common import MissingEnvironmentVariable
 
 from ai.starlake.job.starlake_job import StarlakeOrchestrator
 
-from ai.starlake.resource import StarlakeResource
+from ai.starlake.resource import StarlakeDataset
 
 from airflow import DAG
 
@@ -70,7 +70,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         return StarlakeOrchestrator.airflow
 
     @classmethod
-    def to_event(cls, resource: StarlakeResource, source: Optional[str] = None) -> Dataset:
+    def to_event(cls, resource: StarlakeDataset, source: Optional[str] = None) -> Dataset:
         extra = {}
         if source:
             extra["source"] = source

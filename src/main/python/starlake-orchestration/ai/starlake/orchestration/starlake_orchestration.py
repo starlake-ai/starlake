@@ -7,7 +7,7 @@ from ai.starlake.common import sl_cron_start_end_dates
 
 from ai.starlake.job import StarlakeSparkConfig, IStarlakeJob, StarlakePreLoadStrategy
 
-from ai.starlake.resource import StarlakeResource, AbstractEvent
+from ai.starlake.resource import StarlakeDataset, AbstractEvent
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies
 
@@ -275,7 +275,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
 
         load_dependencies: Optional[bool] = None
  
-        resources: Optional[List[StarlakeResource]] = None
+        resources: Optional[List[StarlakeDataset]] = None
 
         events: Optional[List[E]] = None
 
@@ -402,7 +402,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
 
     @final
     @property
-    def resources(self) -> Optional[List[StarlakeResource]]:
+    def resources(self) -> Optional[List[StarlakeDataset]]:
         return self._resources
 
     @final
@@ -540,7 +540,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def end_task(self, output_resources: Optional[List[StarlakeResource]] = None, **kwargs) -> AbstractTask:
+    def end_task(self, output_resources: Optional[List[StarlakeDataset]] = None, **kwargs) -> AbstractTask:
         pipeline_id = self.pipeline_id
         events = list(map(lambda resource: self.to_event(resource=resource, source=pipeline_id), output_resources or []))
         task_id = kwargs.get('task_id', 'end')
