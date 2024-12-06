@@ -131,7 +131,7 @@ case class Metadata(
   ): Either[List[ValidationMessage], Boolean] = {
     val tableName = table.map(_.name).getOrElse("")
     val sinkErrors =
-      sink.map(_.checkValidity(tableName)).getOrElse(Right(true))
+      sink.map(_.checkValidity(tableName, table)).getOrElse(Right(true))
     val freshnessErrors = freshness.map(_.checkValidity(tableName)).getOrElse(Right(true))
     val scheduleErrors = schedule
       .map { schedule =>
@@ -186,6 +186,13 @@ case class Metadata(
         "Table metadata",
         "format: When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"
       )
+
+    this.dagRef.foreach { dagRef =>
+      settings.schemaHandler().checkDagNameValidity(dagRef) match {
+        case Left(err) => errorList ++= err
+        case _         =>
+      }
+    }
 
     import Format._
     if (

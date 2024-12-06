@@ -204,7 +204,8 @@ case class AllSinks(
   }
 
   def checkValidity(
-    tableName: String
+    tableName: String,
+    table: Option[Schema]
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
     var errors = List.empty[ValidationMessage]
     connectionRef match {
@@ -229,6 +230,27 @@ case class AllSinks(
             }
           }
         }
+    }
+    table.foreach { table =>
+      this.clustering.getOrElse(Nil).foreach {
+        case column if table.attributes.exists(_.getFinalName() == column) =>
+        case column =>
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            s"clustering in $tableName",
+            s"Column $column not found in the table"
+          )
+      }
+
+      this.partition.getOrElse(Nil).foreach {
+        case column if table.attributes.exists(_.getFinalName() == column) =>
+        case column =>
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            s"partition in $tableName",
+            s"Column $column not found in the table"
+          )
+      }
     }
 
     if (errors.isEmpty) {

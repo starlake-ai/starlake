@@ -728,6 +728,15 @@ object Settings extends StrictLogging {
         .getOrElse(Nil)
         .filter(_.nonEmpty)
 
+    def bucketName(): String = {
+      val uri = new URI(root)
+      uri.getScheme match {
+        case "file" => throw new Exception("Cannot get bucket name from file system")
+        case scheme =>
+          root.substring(scheme.length + "://".length).takeWhile(_ != '/')
+      }
+    }
+
     @JsonIgnore
     lazy val fileSystem: String = {
       val protocolSeparator = "://"

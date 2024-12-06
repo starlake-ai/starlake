@@ -679,6 +679,31 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       Nil
     _externals
   }
+
+  def listDagNames(): List[String] = {
+    val dags = storage.list(DatasetArea.dags, ".sl.yml", recursive = false)
+    dags.map(_.path.getName().dropRight(".sl.yml".length))
+  }
+
+  def checkDagNameValidity(dagRef: String): Either[List[ValidationMessage], Boolean] = {
+    val dagName =
+      if (dagRef.endsWith(".sl.yml")) dagRef.dropRight(".sl.yml".length) else dagRef
+    if (listDagNames().contains(dagName)) {
+      Left(
+        List(
+          ValidationMessage(
+            Error,
+            "Table metadata",
+            s"dagRef: $dagRef is not a valid DAG reference. Valid DAG references are ${settings.appConfig.dags
+                .mkString(", ")}"
+          )
+        )
+      )
+    } else {
+      Right(true)
+    }
+  }
+
   def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
     val dagsConfigsPaths =
       storage

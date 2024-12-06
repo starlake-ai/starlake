@@ -107,7 +107,7 @@ case class AutoTaskDesc(
 
    */
   def checkValidity()(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
-    val sinkErrors = sink.map(_.checkValidity(this.name)).getOrElse(Right(true))
+    val sinkErrors = sink.map(_.checkValidity(this.name, None)).getOrElse(Right(true))
     val freshnessErrors = freshness.map(_.checkValidity(this.name)).getOrElse(Right(true))
     val emptySchema = new Schema()
     val writeStrategyErrors = writeStrategy
@@ -140,8 +140,16 @@ case class AutoTaskDesc(
 
     // TODO dag errors
 
+    val dagRefErrors =
+      this.dagRef
+        .map { dagRef =>
+          settings.schemaHandler().checkDagNameValidity(dagRef)
+        }
+        .getOrElse(Right(true))
+
     // merge all errors
-    val allErrors = List(sinkErrors, freshnessErrors, writeStrategyErrors, scheduleErrors)
+    val allErrors =
+      List(sinkErrors, freshnessErrors, writeStrategyErrors, scheduleErrors, dagRefErrors)
     val errorList = allErrors.collect { case Left(errors) => errors }.flatten
     if (errorList.isEmpty)
       Right(true)

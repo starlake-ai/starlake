@@ -33,7 +33,7 @@ case class WriteStrategy(
   def checkValidity(
     domainName: String,
     table: Option[Schema]
-  ): Either[List[ValidationMessage], Boolean] = {
+  )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
     val tableName = table.map(_.name).getOrElse("")
     val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
     table match {
@@ -52,9 +52,14 @@ case class WriteStrategy(
         }
         timestamp.foreach { timestamp =>
           if (
-            table.attributes.nonEmpty && !table.attributes.exists(
-              _.getFinalName().equalsIgnoreCase(timestamp)
-            )
+            table.attributes.nonEmpty && !table.attributes.exists { attr =>
+              val primitiveType = attr.primitiveType(settings.schemaHandler())
+              primitiveType match {
+                case Some(PrimitiveType.timestamp) | Some(PrimitiveType.date) =>
+                  attr.getFinalName().equalsIgnoreCase(timestamp)
+                case _ => false
+              }
+            }
           )
             errorList += ValidationMessage(
               Error,
