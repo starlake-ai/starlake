@@ -131,8 +131,13 @@ object SQLUtils extends StrictLogging {
   }
 
   def jsqlParse(sql: String): Statement = {
+    // remove TABLE keyword in order for sqlparser to be able to parse it
     val parseable =
       sql
+        .replaceAll("(?i)APPENDS\\s*\\(\\s*TABLE", "APPENDS(")
+        .replaceAll("(?i)CHANGES\\s*\\(\\s*TABLE", "CHANGES(")
+        .replaceAll("(?i)GAP_FILL\\s*\\(\\s*TABLE", "GAP_FILL(")
+
     /*
         .replaceAll("(?i)WHEN NOT MATCHED AND (.*) THEN ", "WHEN NOT MATCHED THEN ")
         .replaceAll("(?i)WHEN MATCHED (.*) THEN ", "WHEN MATCHED THEN ")
