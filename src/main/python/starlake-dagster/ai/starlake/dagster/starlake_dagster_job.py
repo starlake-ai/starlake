@@ -1,10 +1,10 @@
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions, StarlakeOrchestrator
 
 from ai.starlake.resource import StarlakeResource
 
-from dagster import AssetKey, Output, In, Out, op, AssetMaterialization
+from dagster import AssetKey, Output, Out, op, AssetMaterialization
 
 from dagster._core.definitions import NodeDefinition
 
@@ -19,15 +19,18 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
     def to_event(cls, resource: StarlakeResource, source: Optional[str] = None) -> AssetKey:
         return AssetKey(resource.url)
 
-    def sl_events(self, uri: str, **kwargs) -> List[AssetKey]:
-         """Returns a list of Dagster assets from the specified uri.
-         Args:
-                uri (str): The uri of the asset.
-         Returns:
-             List[AssetKey]: The list of assets.
-         """
-         asset = self.to_event(StarlakeResource(uri, **kwargs))
-         return kwargs.get('assets', []) + [asset]
+    def update_events(self, event: AssetKey, **kwargs) -> Tuple[(str, List[AssetKey])]:
+        """Add the event to the list of Dagster assets that will be triggered.
+
+        Args:
+            event (AssetKey): The event to add.
+
+        Returns:
+            Tuple[(str, List[AssetKey]): The tuple containing the list of dagster assets to trigger.
+        """
+        assets: List[AssetKey] = kwargs.get('assets', [])
+        assets.append(event)
+        return 'assets', assets
 
     def sl_pre_load(self, domain: str, tables: set=set(), pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Optional[NodeDefinition]:
         """Overrides IStarlakeJob.sl_pre_load()
@@ -49,12 +52,10 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
 
         pre_load_strategy = self.pre_load_strategy if not pre_load_strategy else pre_load_strategy
 
-        if pre_load_strategy == StarlakePreLoadStrategy.NONE:
-            return None
-        else:
+        if pre_load_strategy != StarlakePreLoadStrategy.NONE:
             kwargs.update({'out': 'succeeded', 'failure': 'failed',})
 
-            return super().sl_pre_load(domain=domain, tables=tables, pre_load_strategy=pre_load_strategy, **kwargs)
+        return super().sl_pre_load(domain=domain, tables=tables, pre_load_strategy=pre_load_strategy, **kwargs)
 
     def sl_import(self, task_id: str, domain: str, tables: set=set(), **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_import()
@@ -68,7 +69,6 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
         Returns:
             NodeDefinition: The Dagster node.
         """
-        kwargs.update({'asset': self.to_event(StarlakeResource(domain, **kwargs))})
         kwargs.update({'description': f"Starlake domain '{domain}' imported"})
         return super().sl_import(task_id=task_id, domain=domain, tables=tables, **kwargs)
 
@@ -84,7 +84,6 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
         Returns:
             NodeDefinition: The Dagster node.        
         """
-        kwargs.update({'asset': self.to_event(StarlakeResource(f"{domain}.{table}", **kwargs))})
         kwargs.update({'description': f"Starlake table '{domain}.{table}' loaded"})
         return super().sl_load(task_id=task_id, domain=domain, table=table, spark_config=spark_config, **kwargs)
 
@@ -100,7 +99,6 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
         Returns:
             NodeDefinition: The Dagster node.
         """
-        kwargs.update({'asset': self.to_event(StarlakeResource(transform_name, **kwargs))})
         kwargs.update({'description': f"Starlake transform '{transform_name}' executed"})
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, **kwargs)
 
@@ -144,6 +142,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
         def dummy(**kwargs):
             yield Output(value=task_id, output_name=out)
 
-            for asset in assets:
-                yield AssetMaterialization(asset_key=asset.path, description=kwargs.get("description", f"Dummy op {task_id} execution succeeded"))
+            if assets:
+                yield AssetMaterialization(asset_key=[asset.path for asset in assets], description=kwargs.get("description", f"Dummy op {task_id} execution succeeded"))
+
         return dummy

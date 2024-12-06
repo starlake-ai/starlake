@@ -18,7 +18,7 @@ from airflow.models.baseoperator import BaseOperator
 
 from airflow.utils.task_group import TaskGroup, TaskGroupContext
 
-from typing import Generic, List, Optional, Set, TypeVar, Union
+from typing import List, Optional, Set, TypeVar, Union
 
 J = TypeVar("J", bound=StarlakeAirflowJob)
 
@@ -166,4 +166,3 @@ class AirflowOrchestration(AbstractOrchestration[DAG, BaseOperator, TaskGroup, D
             dag=pipeline.dag, 
             **kwargs
         )
-

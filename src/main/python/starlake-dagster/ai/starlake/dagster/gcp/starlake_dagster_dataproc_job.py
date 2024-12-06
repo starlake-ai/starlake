@@ -2,7 +2,7 @@ import json
 
 import uuid
 
-from typing import Union
+from typing import List, Optional, Union
 
 from ai.starlake.dagster import StarlakeDagsterJob
 
@@ -152,7 +152,10 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             }
         }
 
-        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
+        assets: List[AssetKey] = kwargs.get("assets", [])
+        asset_key: Optional[AssetKey] = kwargs.get("asset", None)
+        if asset_key:
+            assets.append(asset_key)
 
         ins=kwargs.get("ins", {})
 
@@ -190,8 +193,9 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
                 else:
                     raise Failure(description=value)
             else:
-                if asset_key:
-                    yield AssetMaterialization(asset_key=asset_key.path, description=f"Spark job {job_id} submitted to Dataproc cluster {self.__dataproc__.cluster_name}")
+                if assets:
+                    yield AssetMaterialization(asset_key=[asset.path for asset in assets], description=f"Spark job {job_id} submitted to Dataproc cluster {self.__dataproc__.cluster_name}")
+
                 yield Output(value=job_id, output_name=out)
 
         return submit_dataproc_job

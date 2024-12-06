@@ -1,17 +1,21 @@
 import os
 
+from typing import Optional, TypeVar
+
 from ai.starlake.common import MissingEnvironmentVariable
 
 from ai.starlake.job import StarlakeOptions
 
 from airflow.models import Variable
 
+V = TypeVar("V")
+
 class StarlakeAirflowOptions(StarlakeOptions):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     @classmethod
-    def get_context_var(cls, var_name: str, default_value: any=None, options: dict = None, **kwargs):
+    def get_context_var(cls, var_name: str, default_value: Optional[V] = None, options: dict = None, **kwargs):
         """Overrides StarlakeOptions.get_context_var()
         Get the value of the specified variable from the context.
         The value is searched in the following order:

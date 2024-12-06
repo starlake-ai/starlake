@@ -32,11 +32,31 @@ class StarlakeResource():
             schedule_parameter_name = kwargs.get('sl_schedule_parameter_name', 'sl_schedule')
             schedule_parameter_value = sl_schedule(cron=cron, format=kwargs.get('sl_schedule_format', sl_schedule_format))
             temp_parameters[schedule_parameter_name] = schedule_parameter_value
-        self.cron = cron
-        self.uri = sanitize_id(uri).lower()
-        self.parameters = temp_parameters
-        self.queryParameters = asQueryParameters(temp_parameters)
-        self.url = self.uri + self.queryParameters
+        self._cron = cron
+        self._uri = sanitize_id(uri).lower()
+        self._parameters = temp_parameters
+        self._queryParameters = asQueryParameters(temp_parameters)
+        self._url = self.uri + self.queryParameters
+
+    @property
+    def cron(self) -> Optional[str]:
+        return self._cron
+
+    @property
+    def uri(self) -> str:
+        return self._uri
+
+    @property
+    def parameters(self) -> dict:
+        return self._parameters
+
+    @property
+    def queryParameters(self) -> str:
+        return self._queryParameters
+
+    @property
+    def url(self) -> str:
+        return self._url
 
     @staticmethod
     def cron_resources(resources: Optional[List[StarlakeResource]]) -> Optional[List[StarlakeResource]]:
@@ -47,8 +67,8 @@ class StarlakeResource():
 
 E = TypeVar("E")
 
-class StarlakeEvent(Generic[E]):
+class AbstractDataset(Generic[E]):
     @classmethod
     @abstractmethod
-    def to_event(cls, resource: StarlakeResource, source: Optional[str] = None) -> E:
+    def to_event(cls, resource: StarlakeResource, source: Optional[str] = None, **kwargs) -> E:
         pass
