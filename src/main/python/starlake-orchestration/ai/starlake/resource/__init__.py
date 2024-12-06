@@ -1,3 +1,3 @@
 __all__ = ['starlake_resource']
 
-from .starlake_resource import StarlakeResource, StarlakeEvent
+from .starlake_resource import StarlakeResource, AbstractDataset

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta, datetime
 
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Tuple
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOrchestrator
 
@@ -76,21 +76,22 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
             extra["source"] = source
         return Dataset(resource.url, extra)
 
-    def sl_events(self, uri: str, **kwargs) -> List[Dataset]:
-        """Returns a list of Airflow datasets from the specified uri.
+    def update_events(self, event: Dataset, **kwargs) -> Tuple[(str, List[Dataset])]:
+        """Add the event to the list of Airflow datasets that will be triggered.
 
         Args:
-            uri (str): The uri of the dataset.
+            event (Dataset): The event to add.
 
         Returns:
-            List[Dataset]: The list of datasets.
+            Tuple[(str, List[Dataset]): The tuple containing the list of datasets to trigger.
         """
+        dataset = event
         dag: Optional[DAG] = kwargs.get('dag', None)
-        source: Optional[str] = None
         if dag is not None:
-            source = dag.dag_id
-        dataset = self.to_event(StarlakeResource(uri, **kwargs), source=source)
-        return kwargs.get('outlets', []) + [dataset]
+            dataset.extra['source'] = dag.dag_id
+        outlets = kwargs.get('outlets', [])
+        outlets.append(dataset)
+        return 'outlets', outlets
 
     def sl_import(self, task_id: str, domain: str, tables: set=set(), **kwargs) -> BaseOperator:
         """Overrides IStarlakeJob.sl_import()
@@ -106,9 +107,6 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         """
         kwargs.update({'doc': kwargs.get('doc', f'Import tables {",".join(list(tables or []))} within {domain}.')})
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        outlets = self.sl_events(domain, **kwargs)
-        self.outlets += outlets
-        kwargs.update({'outlets': outlets})
         return super().sl_import(task_id=task_id, domain=domain, tables=tables, **kwargs)
 
     def execute_command(self, command: str, **kwargs) -> int:
@@ -240,9 +238,6 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         """
         kwargs.update({'doc': kwargs.get('doc', f'Load table {table} within {domain} domain.')})
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
-        outlets = self.sl_events(f'{domain}.{table}', **kwargs)
-        self.outlets += outlets
-        kwargs.update({'outlets': outlets})
         return super().sl_load(task_id=task_id, domain=domain, table=table, spark_config=spark_config, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: Optional[StarlakeSparkConfig] = None, **kwargs) -> BaseOperator:
@@ -259,9 +254,6 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
             BaseOperator: The Airflow task.
         """
         kwargs.update({'doc': kwargs.get('doc', f'Run {transform_name} transform.')})
-        outlets = self.sl_events(transform_name, **kwargs)
-        self.outlets += outlets
-        kwargs.update({'outlets': outlets})
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, **kwargs)
 
@@ -294,4 +286,3 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
             pass
         dag_args.update({'start_date': self.start_date, 'retry_delay': timedelta(seconds=self.retry_delay), 'retries': self.retries})
         return dag_args
-

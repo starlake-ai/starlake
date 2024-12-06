@@ -1,4 +1,4 @@
-from typing import Union
+from typing import List, Optional, Union
 
 from ai.starlake.dagster import StarlakeDagsterJob
 
@@ -59,7 +59,10 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
 
         command = self.__class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments or [])}"
 
-        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
+        assets: List[AssetKey] = kwargs.get("assets", [])
+        asset_key: Optional[AssetKey] = kwargs.get("asset", None)
+        if asset_key:
+            assets.append(asset_key)
 
         ins=kwargs.get("ins", {})
 
@@ -104,8 +107,8 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
                 else:
                     raise Failure(description=value)
             else:
-                if asset_key:
-                    yield AssetMaterialization(asset_key=asset_key.path, description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
+                if assets:
+                    yield AssetMaterialization(asset_key=[asset.path for asset in assets], description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
 
                 yield Output(value=output, output_name=out)
 

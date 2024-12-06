@@ -8,13 +8,13 @@ from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 from ai.starlake.job.starlake_options import StarlakeOptions
 from ai.starlake.job.spark_config import StarlakeSparkConfig
 
-from ai.starlake.resource import StarlakeEvent
+from ai.starlake.resource import AbstractDataset, StarlakeResource
 
 import sys
 
 from datetime import timedelta
 
-from typing import final, Generic, List, Optional, TypeVar, Union
+from typing import final, Generic, List, Optional, Tuple, TypeVar, Union
 
 T = TypeVar("T")
 
@@ -24,7 +24,7 @@ from enum import Enum
 
 StarlakeOrchestrator = Enum("StarlakeOrchestrator", ["airflow", "dagster"])
 
-class IStarlakeJob(Generic[T, E], StarlakeOptions, StarlakeEvent[E]):
+class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractDataset[E]):
     def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict, **kwargs) -> None:
         """Init the class.
         Args:
@@ -70,6 +70,9 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, StarlakeEvent[E]):
         except (MissingEnvironmentVariable, ValueError):
             self.retry_delay = 300
 
+        # Define the source
+        self.source = filename.replace(".py", "").replace(".pyc", "").lower()
+
         # Access the caller file name
         self.caller_filename = filename
 
@@ -91,8 +94,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, StarlakeEvent[E]):
 
         self.get_spark_config = getattr(self.caller_module_name, "get_spark_config", default_spark_config)
 
-        events: List[E] = []
-        self.events = events
+        self._events: List[E] = []
 
     @abstractmethod
     def sl_orchestrator(self) -> StarlakeOrchestrator:
@@ -103,9 +105,34 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, StarlakeEvent[E]):
         """
         pass
 
-    @abstractmethod
-    def sl_events(self, uri: str, **kwargs) -> List[E]:
+    @property
+    def events(self) -> List[E]:
+        """Returns the events.
+
+        Returns:
+            List[E]: The events.
+        """
+        return self._events
+
+    @events.setter
+    def events(self, events: List[E]):
+        """Sets the events.
+
+        Args:
+            events (List[E]): The events.
+        """
+        self._events = events
+
+    def update_events(self, event: E, **kwargs) -> Tuple[(str, List[E])]:
         pass
+
+    @final
+    def __add_event(self, uri: str, **kwargs) -> E:
+        event = self.to_event(StarlakeResource(uri, **kwargs), source=kwargs.get('source', self.source))
+        events = self.events
+        events.append(event)
+        self.events = events
+        return event
 
     def sl_import(self, task_id: str, domain: str, tables: set=set(), **kwargs) -> T:
         """Import job.
@@ -119,6 +146,8 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, StarlakeEvent[E]):
         Returns:
             T: The scheduler task.
         """
+        tuple_events = self.update_events(self.__add_event(domain, **kwargs))
+        kwargs.update({tuple_events[0]: tuple_events[1]})
         params = kwargs.get("params", {})
         schedule = params.get('schedule', None)
         if schedule is not None:
@@ -227,6 +256,8 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, StarlakeEvent[E]):
         """
         task_id = kwargs.get("task_id", f"load_{domain}_{table}") if not task_id else task_id
         kwargs.pop("task_id", None)
+        tuple_events = self.update_events(self.__add_event(f'{domain}.{table}', **kwargs))
+        kwargs.update({tuple_events[0]: tuple_events[1]})
         arguments = ["load", "--domains", domain, "--tables", table]
         if spark_config is None:
             spark_config = self.get_spark_config(
@@ -254,6 +285,8 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, StarlakeEvent[E]):
         """
         task_id = kwargs.get("task_id", f"{transform_name}") if not task_id else task_id
         kwargs.pop("task_id", None)
+        tuple_events = self.update_events(self.__add_event(transform_name, **kwargs))
+        kwargs.update({tuple_events[0]: tuple_events[1]})
         arguments = ["transform", "--name", transform_name]
         options = list()
         if transform_options:

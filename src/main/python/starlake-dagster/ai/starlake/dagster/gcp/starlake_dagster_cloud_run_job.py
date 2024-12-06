@@ -1,6 +1,6 @@
 import os
 
-from typing import Union
+from typing import List, Optional, Union
 
 from ai.starlake.dagster import StarlakeDagsterJob
 
@@ -60,7 +60,10 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
             f"--wait --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)' {self.impersonate_service_account}" #--task-timeout 300
         )
 
-        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
+        assets: List[AssetKey] = kwargs.get("assets", [])
+        asset_key: Optional[AssetKey] = kwargs.get("asset", None)
+        if asset_key:
+            assets.append(asset_key)
 
         ins=kwargs.get("ins", {})
 
@@ -105,8 +108,8 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
                 else:
                     raise Failure(description=value)
             else:
-                if asset_key:
-                    yield AssetMaterialization(asset_key=asset_key.path, description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
+                if assets:
+                    yield AssetMaterialization(asset_key=[asset.path for asset in assets], description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
 
                 yield Output(value=output, output_name=out)
 
