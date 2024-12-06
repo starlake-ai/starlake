@@ -144,6 +144,10 @@ assembly / assemblyMergeStrategy := {
 // Required by the Test container framework
 Test / fork := true
 
+excludeDependencies ++= Seq(
+  ExclusionRule("org.javassist", "javassist")
+)
+
 assembly / assemblyExcludedJars := {
   val cp: Classpath = (assembly / fullClasspath).value
   val sortedCp = cp.sortBy(_.data.getName)
