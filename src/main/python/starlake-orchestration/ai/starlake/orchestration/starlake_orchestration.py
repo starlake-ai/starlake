@@ -7,7 +7,7 @@ from ai.starlake.common import sl_cron_start_end_dates
 
 from ai.starlake.job import StarlakeSparkConfig, IStarlakeJob, StarlakePreLoadStrategy
 
-from ai.starlake.resource import StarlakeResource, AbstractDataset
+from ai.starlake.resource import StarlakeResource, AbstractEvent
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies
 
@@ -247,7 +247,7 @@ class AbstractTaskGroup(Generic[GT], TaskGroupContext):
         else:
             return level
 
-class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractDataset[E]):
+class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
     """Abstract interface to define a pipeline."""
     def __init__(self, job: J, dag: Optional[U] = None, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[U, T, GT, E]] = None, **kwargs) -> None:
         if not schedule and not dependencies:

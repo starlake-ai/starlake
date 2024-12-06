@@ -67,7 +67,7 @@ class StarlakeResource():
 
 E = TypeVar("E")
 
-class AbstractDataset(Generic[E]):
+class AbstractEvent(Generic[E]):
     @classmethod
     @abstractmethod
     def to_event(cls, resource: StarlakeResource, source: Optional[str] = None, **kwargs) -> E:
