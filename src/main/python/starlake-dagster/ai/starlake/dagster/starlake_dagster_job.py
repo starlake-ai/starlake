@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple, Union
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions, StarlakeOrchestrator
 
-from ai.starlake.resource import StarlakeDataset
+from ai.starlake.dataset import StarlakeDataset
 
 from dagster import AssetKey, Output, Out, op, AssetMaterialization
 
@@ -16,8 +16,8 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
          return StarlakeOrchestrator.dagster
 
     @classmethod
-    def to_event(cls, resource: StarlakeDataset, source: Optional[str] = None) -> AssetKey:
-        return AssetKey(resource.url)
+    def to_event(cls, dataset: StarlakeDataset, source: Optional[str] = None) -> AssetKey:
+        return AssetKey(dataset.url)
 
     def update_events(self, event: AssetKey, **kwargs) -> Tuple[(str, List[AssetKey])]:
         """Add the event to the list of Dagster assets that will be triggered.

@@ -1,6 +1,6 @@
 from ai.starlake.job import StarlakePreLoadStrategy
 
-from ai.starlake.resource import StarlakeResource
+from ai.starlake.dataset import StarlakeDataset
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDomain, StarlakeTable, OrchestrationFactory
 
@@ -115,10 +115,10 @@ def generate_pipelines():
 
                 load_domains = [generate_load_domain(domain) for domain in schedule.domains]
 
-                output_resources: List[StarlakeResource] = [
-                    StarlakeResource(uri=pipeline_id, cron=schedule.cron)
+                output_datasets: List[StarlakeDataset] = [
+                    StarlakeDataset(uri=pipeline_id, cron=schedule.cron)
                 ]
-                end = pipeline.end_task(output_resources=output_resources)
+                end = pipeline.end_task(output_datasets=output_datasets)
 
                 if pre_tasks:
                     start >> pre_tasks >> load_domains

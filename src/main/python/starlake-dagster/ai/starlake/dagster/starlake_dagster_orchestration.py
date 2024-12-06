@@ -45,12 +45,12 @@ class DagsterOrchestration(AbstractOrchestration[JobDefinition, OpDefinition, Gr
 
             pipeline_id = pipeline.pipeline_id
 
-            resources = pipeline.resources
+            datasets = pipeline.datasets
 
             cron = pipeline.cron
 
-            if resources:
-                assets = [pipeline.to_event(resource) for resource in resources]
+            if datasets:
+                assets = [pipeline.to_event(dataset) for dataset in datasets]
                 sensors.append(
                     MultiAssetSensorDefinition(
                         name = f'{pipeline_id}_sensor',

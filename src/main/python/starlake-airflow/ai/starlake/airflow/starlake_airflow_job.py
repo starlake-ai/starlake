@@ -12,7 +12,7 @@ from ai.starlake.common import MissingEnvironmentVariable
 
 from ai.starlake.job.starlake_job import StarlakeOrchestrator
 
-from ai.starlake.resource import StarlakeDataset
+from ai.starlake.dataset import StarlakeDataset
 
 from airflow import DAG
 
@@ -70,11 +70,11 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         return StarlakeOrchestrator.airflow
 
     @classmethod
-    def to_event(cls, resource: StarlakeDataset, source: Optional[str] = None) -> Dataset:
+    def to_event(cls, dataset: StarlakeDataset, source: Optional[str] = None) -> Dataset:
         extra = {}
         if source:
             extra["source"] = source
-        return Dataset(resource.url, extra)
+        return Dataset(dataset.url, extra)
 
     def update_events(self, event: Dataset, **kwargs) -> Tuple[(str, List[Dataset])]:
         """Add the event to the list of Airflow datasets that will be triggered.

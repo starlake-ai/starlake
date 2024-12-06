@@ -7,7 +7,7 @@ from ai.starlake.common import sl_cron_start_end_dates
 
 from ai.starlake.job import StarlakeSparkConfig, IStarlakeJob, StarlakePreLoadStrategy
 
-from ai.starlake.resource import StarlakeDataset, AbstractEvent
+from ai.starlake.dataset import StarlakeDataset, AbstractEvent
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies
 
@@ -275,7 +275,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
 
         load_dependencies: Optional[bool] = None
  
-        resources: Optional[List[StarlakeDataset]] = None
+        datasets: Optional[List[StarlakeDataset]] = None
 
         events: Optional[List[E]] = None
 
@@ -302,7 +302,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
             computed_schedule = dependencies.get_schedule(
                 cron=cron, 
                 load_dependencies=load_dependencies,
-                filtered_resources=filtered_datasets,
+                filtered_datasets=filtered_datasets,
                 sl_schedule_parameter_name=job.sl_schedule_parameter_name,
                 sl_schedule_format=job.sl_schedule_format
             )
@@ -311,7 +311,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
                 if isinstance(computed_schedule, str):
                     cron = computed_schedule
                 elif isinstance(computed_schedule, list):
-                    resources = computed_schedule
+                    datasets = computed_schedule
 
         self._tags = tags
 
@@ -321,10 +321,10 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
 
         self._load_dependencies = load_dependencies
 
-        self._resources = resources
+        self._datasets = datasets
 
-        if resources:
-            events = list(map(lambda resource: self.to_event(resource=resource), resources))
+        if datasets:
+            events = list(map(lambda dataset: self.to_event(dataset=dataset), datasets))
 
         self._events = events
 
@@ -402,8 +402,8 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
 
     @final
     @property
-    def resources(self) -> Optional[List[StarlakeDataset]]:
-        return self._resources
+    def datasets(self) -> Optional[List[StarlakeDataset]]:
+        return self._datasets
 
     @final
     @property
@@ -540,9 +540,9 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def end_task(self, output_resources: Optional[List[StarlakeDataset]] = None, **kwargs) -> AbstractTask:
+    def end_task(self, output_datasets: Optional[List[StarlakeDataset]] = None, **kwargs) -> AbstractTask:
         pipeline_id = self.pipeline_id
-        events = list(map(lambda resource: self.to_event(resource=resource, source=pipeline_id), output_resources or []))
+        events = list(map(lambda dataset: self.to_event(dataset=dataset, source=pipeline_id), output_datasets or []))
         task_id = kwargs.get('task_id', 'end')
         kwargs.pop('task_id', None)
         end = self.orchestration.sl_create_task(
