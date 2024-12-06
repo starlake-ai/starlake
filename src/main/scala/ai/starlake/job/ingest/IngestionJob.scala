@@ -12,15 +12,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils._
-import ai.starlake.utils.conversion.BigQueryUtils
-import ai.starlake.utils.repackaged.BigQuerySchemaConverters
-import com.google.cloud.bigquery.{
-  Field,
-  LegacySQLTypeName,
-  Schema => BQSchema,
-  StandardTableDefinition,
-  TableId
-}
+import com.google.cloud.bigquery.TableId
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
@@ -29,7 +21,6 @@ import org.apache.spark.sql.types.{StructField, StructType}
 import java.sql.Timestamp
 import java.time.Instant
 import scala.annotation.nowarn
-import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 trait IngestionJob extends SparkJob {
