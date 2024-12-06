@@ -34,8 +34,10 @@ class StarlakeDataset():
             temp_parameters[schedule_parameter_name] = schedule_parameter_value
         self._cron = cron
         self._uri = sanitize_id(uri).lower()
-        self._parameters = temp_parameters
         self._queryParameters = asQueryParameters(temp_parameters)
+        if cron:
+            temp_parameters['cron'] = cron
+        self._parameters = temp_parameters
         self._url = self.uri + self.queryParameters
 
     @property
@@ -58,10 +60,13 @@ class StarlakeDataset():
     def url(self) -> str:
         return self._url
 
+    def refresh(self) -> StarlakeDataset:
+        return StarlakeDataset(self.uri, self.parameters, self.cron)
+
     @staticmethod
-    def cron_datasets(datasets: Optional[List[StarlakeDataset]]) -> Optional[List[StarlakeDataset]]:
+    def refresh_datasets(datasets: Optional[List[StarlakeDataset]]) -> Optional[List[StarlakeDataset]]:
         if datasets is not None:
-            return [dataset for dataset in datasets if dataset.cron is not None]
+            return [dataset.refresh() for dataset in datasets if dataset.cron is not None]
         else:
             return None
 
@@ -70,5 +75,5 @@ E = TypeVar("E")
 class AbstractEvent(Generic[E]):
     @classmethod
     @abstractmethod
-    def to_event(cls, dataset: StarlakeDataset, source: Optional[str] = None, **kwargs) -> E:
+    def to_event(cls, dataset: StarlakeDataset, source: Optional[str] = None) -> E:
         pass
