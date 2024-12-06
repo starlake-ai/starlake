@@ -287,6 +287,15 @@ case class Schema(
         s"name: Table with name $name should respect the pattern ${forceTablePrefixRegex.regex}"
       )
 
+    this.primaryKey.foreach { key =>
+      if (!attributes.exists(_.getFinalName() == key))
+        errorList += ValidationMessage(
+          Error,
+          s"Table $domainName.$name",
+          s"Primary key $key is not defined in the schema"
+        )
+    }
+
     metadata.foreach { metadata =>
       for (errors <- metadata.checkValidity(domainName, Some(this)).left) {
         errorList ++= errors

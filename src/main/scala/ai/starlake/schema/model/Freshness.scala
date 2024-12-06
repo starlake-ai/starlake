@@ -18,16 +18,27 @@ case class Freshness(
     val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
 
     def checkDuration(duration: Option[String]): Unit = {
-      Try {
-        duration.map(Duration(_).toSeconds)
-      } match {
-        case Failure(_) =>
-          errorList += ValidationMessage(
-            Error,
-            s"Freshness in $tableName",
-            s"duration: $duration could not be parsed as a duration"
-          )
-        case Success(_) =>
+      duration match {
+        case None =>
+        case Some(d) =>
+          if (d.contains("second")) {
+            errorList += ValidationMessage(
+              Error,
+              s"Freshness in $tableName",
+              s"duration: $duration should does not support seconds"
+            )
+          }
+          Try {
+            Duration(d).toSeconds
+          } match {
+            case Failure(_) =>
+              errorList += ValidationMessage(
+                Error,
+                s"Freshness in $tableName",
+                s"duration: $duration could not be parsed as a duration"
+              )
+            case Success(_) =>
+          }
       }
     }
 
