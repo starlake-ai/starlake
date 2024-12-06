@@ -8,7 +8,7 @@ from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 from ai.starlake.job.starlake_options import StarlakeOptions
 from ai.starlake.job.spark_config import StarlakeSparkConfig
 
-from ai.starlake.resource import AbstractDataset, StarlakeResource
+from ai.starlake.resource import AbstractEvent, StarlakeResource
 
 import sys
 
@@ -24,7 +24,7 @@ from enum import Enum
 
 StarlakeOrchestrator = Enum("StarlakeOrchestrator", ["airflow", "dagster"])
 
-class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractDataset[E]):
+class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
     def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict, **kwargs) -> None:
         """Init the class.
         Args:
