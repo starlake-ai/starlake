@@ -69,7 +69,7 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
                 )
 
         # build group of tasks recursively
-        def generate_task_group_for_task(task: StarlakeDependency) -> Union[AbstractTaskGroup, AbstractTask]:
+        def generate_task_group_for_task(task: StarlakeDependency, parent_group_id: Optional[str] = None) -> Union[AbstractTaskGroup, AbstractTask]:
             task_name = task.name
             task_group_id = sanitize_id(task_name)
             task_type = task.dependency_type
@@ -77,6 +77,9 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
                 task_id = task_group_id + "_task"
             else:
                 task_id = task_group_id + "_table"
+            
+            if load_dependencies and parent_group_id:
+                task_id = parent_group_id + "_" + task_id # to ensure task_id uniqueness
 
             children: List[StarlakeDependency] = []
             if load_dependencies and len(task.dependencies) > 0: 
@@ -88,7 +91,7 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
 
             if children.__len__() > 0:
                 with orchestration.sl_create_task_group(group_id=task_group_id, pipeline=pipeline) as task_group:
-                    upstream_tasks = [generate_task_group_for_task(child) for child in children]
+                    upstream_tasks = [generate_task_group_for_task(child, parent_group_id=task_group_id) for child in children]
                     task = create_task(task_id, task_name, task_type)
                     task << upstream_tasks
                 return task_group

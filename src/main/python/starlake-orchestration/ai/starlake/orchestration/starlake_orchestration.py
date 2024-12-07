@@ -420,7 +420,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
     @final
     @property
     def events(self) -> Optional[List[E]]:
-        return list(map(lambda dataset: self.to_event(dataset=dataset), self.datasets))
+        return list(map(lambda dataset: self.to_event(dataset=dataset), self.datasets or []))
 
     @final
     @property
