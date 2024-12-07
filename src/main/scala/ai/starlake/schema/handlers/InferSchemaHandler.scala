@@ -45,7 +45,36 @@ object InferSchemaHandler {
     }
   }
 
-  val identifierRegex = "^([a-zA-Z_][a-zA-Z\\d_]*)$".r
+  val identifierRegex = "^([a-zA-Z_][a-zA-Z\\d_:.-]*)$".r
+
+  def convertToValidXMLSchema(
+    currentSchema: DataType
+  ): DataType = {
+    val result =
+      currentSchema match {
+        case st: StructType =>
+          val updatedFields = st.fields.map { originalField =>
+            val updatedField =
+              originalField.copy(name = originalField.name.replaceAll("[:.-]", "_"))
+            updatedField.dataType match {
+              case st: StructType =>
+                updatedField.copy(dataType = convertToValidXMLSchema(st))
+              case dt: ArrayType =>
+                updatedField.copy(dataType =
+                  dt.copy(elementType = convertToValidXMLSchema(dt.elementType))
+                )
+              case _ => updatedField
+            }
+          }
+          st.copy(fields = updatedFields)
+        case dt: ArrayType =>
+          dt.copy(elementType = convertToValidXMLSchema(dt.elementType))
+        // if the datatype is a simple Attribute
+        case simpleType =>
+          simpleType
+      }
+    result
+  }
 
   /** * Traverses the schema and returns a list of attributes.
     *
@@ -91,9 +120,12 @@ object InferSchemaHandler {
               )
             }.toList
 
+            val rename = container.name.replaceAll("[:.-]", "_")
+            val renamedField = if (rename != container.name) Some(rename) else None
             Attribute(
-              container.name,
-              st.typeName,
+              name = container.name,
+              `type` = st.typeName,
+              rename = renamedField,
               required = if (!container.nullable) Some(true) else None,
               array = Some(false),
               attributes = attributes,
@@ -160,9 +192,12 @@ object InferSchemaHandler {
               case _ =>
                 PrimitiveType.from(currentSchema).value
             }
+            val rename = container.name.replaceAll("[:.-]", "_")
+            val renamedField = if (rename != container.name) Some(rename) else None
             Attribute(
               name = container.name,
               `type` = cellType,
+              rename = renamedField,
               array = Some(false),
               required = if (!container.nullable) Some(true) else None,
               sample = currentLines.map(Option(_)).headOption.flatten.map(_.toString)

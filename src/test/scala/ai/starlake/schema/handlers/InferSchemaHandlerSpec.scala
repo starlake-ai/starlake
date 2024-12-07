@@ -2,6 +2,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.schema.model.{Attribute, Format}
+import org.apache.spark.sql.types.StructType
 
 class InferSchemaHandlerSpec extends TestHelper {
 
@@ -130,6 +131,18 @@ class InferSchemaHandlerSpec extends TestHelper {
         Attribute("_c2", "int", Some(false), required = None)
       )
       dsv shouldBe dsv1
+
+    }
+    "CreateXML Attributes with - or : chars" should "create the correct list of attributes for a XML without header" in {
+      val df1 = sparkSession.read
+        .format("com.databricks.spark.xml")
+        .option("inferSchema", value = true)
+        .option("rowTag", "catalog")
+        .option("ignoreNamespace", "true")
+        .load("src/test/resources/sample/SAMPLE-XML-SPECIAL-CHARS.xml")
+      val xml: List[Attribute] = InferSchemaHandler.createAttributes(Nil, df1.schema, Format.DSV)
+
+      df1.schema.printTreeString()
 
     }
   }

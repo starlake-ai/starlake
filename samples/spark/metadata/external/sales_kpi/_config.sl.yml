@@ -1,7 +1,0 @@
----
-version: 1
-load:
-  name: "sales_kpi"
-  metadata:
-    sink: {}
-  database: "starlake-325712"
