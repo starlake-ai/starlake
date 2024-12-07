@@ -728,7 +728,7 @@ object Settings extends StrictLogging {
         .getOrElse(Nil)
         .filter(_.nonEmpty)
 
-    def bucketName(): String = {
+    def rootBucketName(): String = {
       val uri = new URI(root)
       uri.getScheme match {
         case "file" => throw new Exception("Cannot get bucket name from file system")

@@ -28,6 +28,7 @@ import better.files.File
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.json.JSONArray
 
@@ -187,7 +188,9 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
               if (secondXmlTagStart == -1 || closingTag == -1)
                 tableName
               else {
-                val rowTag = contentWithoutXmlHeaderTag.substring(secondXmlTagStart, closingTag)
+                // book-item id="bk101" => book-item
+                val rowTag =
+                  contentWithoutXmlHeaderTag.substring(secondXmlTagStart, closingTag).split(' ')(0)
                 rowTag
               }
             logger.info(s"Using rowTag: $result")
@@ -200,6 +203,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           .option("rowTag", tag)
           .option("inferSchema", value = inferSchema)
           .load(dataPath)
+
         (df, Some(tag))
       case "DSV" =>
         val df = session.read
