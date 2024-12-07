@@ -143,7 +143,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
         def dummy(**kwargs):
             yield Output(value=task_id, output_name=out)
 
-            if assets:
-                yield AssetMaterialization(asset_key=[asset.path for asset in assets], description=kwargs.get("description", f"Dummy op {task_id} execution succeeded"))
+            for asset in assets:
+                yield AssetMaterialization(asset_key=asset.path, description=kwargs.get("description", f"Dummy op {task_id} execution succeeded"))
 
         return dummy
