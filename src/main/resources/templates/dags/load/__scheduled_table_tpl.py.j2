@@ -24,118 +24,115 @@ schedules= [{% for schedule in context.schedules %}
     ]){% if not loop.last  %},{% endif %}{% endfor %}
 ]
 
-def generate_pipelines():
-    with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
+with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
 
-        def generate_pipeline(schedule: StarlakeSchedule):
-            # generate the load pipeline
-            with orchestration.sl_create_pipeline(
-                schedule=schedule,
-            ) as pipeline:
+    def generate_pipeline(schedule: StarlakeSchedule):
+        # generate the load pipeline
+        with orchestration.sl_create_pipeline(
+            schedule=schedule,
+        ) as pipeline:
 
-                pipeline_id    = pipeline.pipeline_id
-                schedule       = pipeline.schedule
-                schedule_name  = pipeline.schedule_name
+            pipeline_id    = pipeline.pipeline_id
+            schedule       = pipeline.schedule
+            schedule_name  = pipeline.schedule_name
 
-                start = pipeline.start_task()
-                if not start:
-                    raise Exception("Start task not defined")
+            start = pipeline.start_task(task_id=f'start_{schedule_name}')
+            if not start:
+                raise Exception("Start task not defined")
 
-                pre_tasks = pipeline.pre_tasks()
+            pre_tasks = pipeline.pre_tasks()
 
-                if pre_tasks:
-                    start >> pre_tasks
+            if pre_tasks:
+                start >> pre_tasks
 
-                def generate_load_domain(domain: StarlakeDomain):
+            def generate_load_domain(domain: StarlakeDomain):
 
-                    from ai.starlake.common import sanitize_id
+                from ai.starlake.common import sanitize_id
 
-                    if schedule_name:
-                        name = f"{domain.name}_{schedule_name}"
-                    else:
-                        name = domain.name
+                if schedule_name:
+                    name = f"{domain.name}_{schedule_name}"
+                else:
+                    name = domain.name
 
-                    with orchestration.sl_create_task_group(group_id=sanitize_id(name), pipeline=pipeline) as ld:
+                with orchestration.sl_create_task_group(group_id=sanitize_id(name), pipeline=pipeline) as ld:
 
-                        pre_load_strategy=pipeline.pre_load_strategy
+                    pre_load_strategy=pipeline.pre_load_strategy
 
-                        def pre_load(pre_load_strategy: StarlakePreLoadStrategy):
-                            if pre_load_strategy != StarlakePreLoadStrategy.NONE:
-                                with orchestration.sl_create_task_group(group_id=sanitize_id(f'pre_load_{name}'), pipeline=pipeline) as pre_load_tasks:
-                                    pre_load = pipeline.sl_pre_load(
+                    def pre_load(pre_load_strategy: StarlakePreLoadStrategy):
+                        if pre_load_strategy != StarlakePreLoadStrategy.NONE:
+                            with orchestration.sl_create_task_group(group_id=sanitize_id(f'pre_load_{name}'), pipeline=pipeline) as pre_load_tasks:
+                                pre_load = pipeline.sl_pre_load(
+                                        domain=domain.name, 
+                                        tables=set([table.name for table in domain.tables]), 
+                                        params={'cron':schedule.cron, 'schedule': schedule_name}, 
+                                    )
+                                skip_or_start = pipeline.skip_or_start(
+                                    task_id=f'skip_or_start_loading_{name}', 
+                                    upstream_task=pre_load
+                                )
+                                if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
+                                    sl_import = pipeline.sl_import(
+                                            task_id=f"import_{name}",
                                             domain=domain.name, 
                                             tables=set([table.name for table in domain.tables]), 
-                                            params={'cron':schedule.cron, 'schedule': schedule_name}, 
                                         )
-                                    skip_or_start = pipeline.skip_or_start(
-                                        task_id=f'skip_or_start_loading_{name}', 
-                                        upstream_task=pre_load
-                                    )
-                                    if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
-                                        sl_import = pipeline.sl_import(
-                                                task_id=f"import_{name}",
-                                                domain=domain.name, 
-                                                tables=set([table.name for table in domain.tables]), 
-                                            )
-                                    else:
-                                        sl_import = None
+                                else:
+                                    sl_import = None
 
-                                    if skip_or_start:
-                                        pre_load >> skip_or_start
-                                        if sl_import:
-                                            skip_or_start >> sl_import
-                                    elif sl_import:
-                                        pre_load >> sl_import
+                                if skip_or_start:
+                                    pre_load >> skip_or_start
+                                    if sl_import:
+                                        skip_or_start >> sl_import
+                                elif sl_import:
+                                    pre_load >> sl_import
 
-                                return pre_load_tasks
-                            else:
-                                return None
+                            return pre_load_tasks
+                        else:
+                            return None
 
-                        pld = pre_load(pre_load_strategy)                              
+                    pld = pre_load(pre_load_strategy)                              
 
-                        def load_domain_tables():
-                            with orchestration.sl_create_task_group(group_id=sanitize_id(f'load_{name}'), pipeline=pipeline) as load_domain_tables:
-                                for table in domain.tables:
-                                    pipeline.sl_load(
-                                        task_id=sanitize_id(f'load_{domain.name}_{table.name}'), 
-                                        domain=domain.name, 
-                                        table=table.name,
-                                        spark_config=pipeline.sl_spark_config(f'{domain.name}.{table.name}'.lower()),
-                                        params={'cron':schedule.cron},
-                                    )
+                    def load_domain_tables():
+                        with orchestration.sl_create_task_group(group_id=sanitize_id(f'load_{name}'), pipeline=pipeline) as load_domain_tables:
+                            for table in domain.tables:
+                                pipeline.sl_load(
+                                    task_id=sanitize_id(f'load_{domain.name}_{table.name}'), 
+                                    domain=domain.name, 
+                                    table=table.name,
+                                    spark_config=pipeline.sl_spark_config(f'{domain.name}.{table.name}'.lower()),
+                                    params={'cron':schedule.cron},
+                                )
 
-                            return load_domain_tables
+                        return load_domain_tables
 
-                        ld_tables=load_domain_tables()
+                    ld_tables=load_domain_tables()
 
-                        if pld:
-                            pld >> ld_tables
+                    if pld:
+                        pld >> ld_tables
 
-                    return ld
+                return ld
 
-                load_domains = [generate_load_domain(domain) for domain in schedule.domains]
+            load_domains = [generate_load_domain(domain) for domain in schedule.domains]
 
-                output_datasets: List[StarlakeDataset] = [
-                    StarlakeDataset(uri=pipeline_id, cron=schedule.cron)
-                ]
-                end = pipeline.end_task(output_datasets=output_datasets)
+            end = pipeline.end_task(
+                task_id=f'end_{schedule_name}', 
+                output_datasets=[StarlakeDataset(uri=pipeline_id, cron=schedule.cron)]
+            )
 
-                if pre_tasks:
-                    start >> pre_tasks >> load_domains
-                else:
-                    start >> load_domains
+            if pre_tasks:
+                start >> pre_tasks >> load_domains
+            else:
+                start >> load_domains
 
-                end << load_domains
+            end << load_domains
 
-                post_tasks = pipeline.post_tasks()
-            
-                if post_tasks:
-                    all_done = pipeline.sl_dummy_op(task_id="all_done")
-                    all_done << load_domains
-                    all_done >> post_tasks >> end
+            post_tasks = pipeline.post_tasks()
+        
+            if post_tasks:
+                all_done = pipeline.sl_dummy_op(task_id="all_done")
+                all_done << load_domains
+                all_done >> post_tasks >> end
 
-            return pipeline
+        return pipeline
 
-        return [generate_pipeline(schedule) for schedule in schedules]
-
-generate_pipelines()
+    [generate_pipeline(schedule) for schedule in schedules]

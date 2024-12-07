@@ -10,126 +10,110 @@ from typing import List, Optional, Set, Union
 
 dependencies=StarlakeDependencies(dependencies="""{{ context.dependencies }}""")
 
-#generate the pipeline
-def generate_pipeline():
-    with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
-        with orchestration.sl_create_pipeline(dependencies=dependencies) as pipeline:
+with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
+    with orchestration.sl_create_pipeline(dependencies=dependencies) as pipeline:
 
-            pipeline_id = pipeline.pipeline_id
+        pipeline_id=pipeline.pipeline_id
 
-            datasets = pipeline.datasets
+        datasets = pipeline.datasets
 
-            cron = pipeline.cron
+        scheduled_datasets = pipeline.scheduled_datasets
 
-            uris: Set[str] = set(map(lambda dataset: sanitize_id(dataset.uri).lower(), datasets or []))
+        cron = pipeline.cron
 
-            scheduled_datasets: dict = {dataset.uri: dataset.cron for dataset in datasets or [] if dataset.cron is not None and dataset.uri is not None}
+        uris: Set[str] = set(map(lambda dataset: sanitize_id(dataset.uri).lower(), datasets or []))
 
-            first_level_tasks: Set[str] = dependencies.first_level_tasks
+        first_level_tasks: Set[str] = dependencies.first_level_tasks
 
-            all_dependencies: Set[str] = dependencies.all_dependencies
+        all_dependencies: Set[str] = dependencies.all_dependencies
 
-            load_dependencies: Optional[bool] = pipeline.load_dependencies
+        load_dependencies: Optional[bool] = pipeline.load_dependencies
 
-            start = pipeline.start_task()
+        start = pipeline.start_task()
 
-            pre_tasks = pipeline.pre_tasks()
+        pre_tasks = pipeline.pre_tasks()
 
-            if cron:
-                cron_expr = cron
-            elif uris.__len__() == scheduled_datasets.__len__() and set(scheduled_datasets.values()).__len__() > 0:
-                sorted_crons = sort_crons_by_frequency(set(
-                    scheduled_datasets.values()), 
-                    period=pipeline.get_context_var(var_name='cron_period_frequency', default_value='week')
+        if cron:
+            cron_expr = cron
+        elif len(uris) == len(scheduled_datasets) and len(set(scheduled_datasets.values())) > 0:
+            sorted_crons = sort_crons_by_frequency(set(
+                scheduled_datasets.values()), 
+                period=pipeline.get_context_var(var_name='cron_period_frequency', default_value='week')
+            )
+            cron_expr = sorted_crons[0][0]
+        else:
+            cron_expr = None
+
+        transform_options = pipeline.sl_transform_options(cron_expr) #FIXME
+
+        # create a task
+        def create_task(task_id: str, task_name: str, task_type: StarlakeDependencyType):
+            if (task_type == StarlakeDependencyType.task):
+                return pipeline.sl_transform(
+                    task_id=task_id, 
+                    transform_name=task_name,
+                    transform_options=transform_options,
+                    spark_config=pipeline.sl_spark_config(task_name.lower()),
+                    params={'cron':cron, 'cron_expr':cron_expr},
                 )
-                cron_expr = sorted_crons[0][0]
             else:
-                cron_expr = None
+                load_domain_and_table = task_name.split(".", 1)
+                domain = load_domain_and_table[0]
+                table = load_domain_and_table[1]
+                return pipeline.sl_load(
+                    task_id=task_id, 
+                    domain=domain, 
+                    table=table,
+                    spark_config=pipeline.sl_spark_config(task_name.lower()),
+                    params={'cron':cron},
+                )
 
-            transform_options = pipeline.sl_transform_options(cron_expr) #FIXME
-
-            # create a task
-            def create_task(task_id: str, task_name: str, task_type: StarlakeDependencyType):
-                if (task_type == StarlakeDependencyType.task):
-                    return pipeline.sl_transform(
-                        task_id=task_id, 
-                        transform_name=task_name,
-                        transform_options=transform_options,
-                        spark_config=pipeline.sl_spark_config(task_name.lower()),
-                        params={'cron':cron, 'cron_expr':cron_expr},
-                    )
-                else:
-                    load_domain_and_table = task_name.split(".", 1)
-                    domain = load_domain_and_table[0]
-                    table = load_domain_and_table[1]
-                    return pipeline.sl_load(
-                        task_id=task_id, 
-                        domain=domain, 
-                        table=table,
-                        spark_config=pipeline.sl_spark_config(task_name.lower()),
-                        params={'cron':cron},
-                    )
-
-            # build group of tasks recursively
-            def generate_task_group_for_task(task: StarlakeDependency) -> Union[AbstractTaskGroup, AbstractTask]:
-                task_name = task.name
-                task_group_id = sanitize_id(task_name)
-                task_type = task.dependency_type
-                if (task_type == StarlakeDependencyType.task):
-                    task_id = task_group_id + "_task"
-                else:
-                    task_id = task_group_id + "_table"
-
-                children: List[StarlakeDependency] = []
-                if load_dependencies and len(task.dependencies) > 0: 
-                    children = task.dependencies
-                else:
-                    for child in task.dependencies:
-                        if child.name in first_level_tasks:
-                            children.append(child)
-
-                if children.__len__() > 0:
-                    with orchestration.sl_create_task_group(group_id=task_group_id, pipeline=pipeline) as task_group:
-                        upstream_tasks = [generate_task_group_for_task(child) for child in children]
-                        task = create_task(task_id, task_name, task_type)
-                        task << upstream_tasks
-                    return task_group
-                else:
-                    task = create_task(task_id=task_id, task_name=task_name, task_type=task_type)
-                    return task
-
-            all_transform_tasks = [generate_task_group_for_task(task) for task in dependencies if task.name not in all_dependencies]
-
-            if pre_tasks:
-                start >> pre_tasks >> all_transform_tasks
+        # build group of tasks recursively
+        def generate_task_group_for_task(task: StarlakeDependency) -> Union[AbstractTaskGroup, AbstractTask]:
+            task_name = task.name
+            task_group_id = sanitize_id(task_name)
+            task_type = task.dependency_type
+            if (task_type == StarlakeDependencyType.task):
+                task_id = task_group_id + "_task"
             else:
-                start >> all_transform_tasks
+                task_id = task_group_id + "_table"
 
-            output_datasets: List[StarlakeDataset] = [
-                StarlakeDataset(uri=pipeline_id, cron=cron)
-            ]
-            if set(scheduled_datasets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
-                # we sort the cron datasets by frequency (most frequent first)
-                sorted_crons = sort_crons_by_frequency(set(scheduled_datasets.values()), period=pipeline.get_context_var(var_name='cron_period_frequency', default_value='week'))
-                # we exclude the most frequent cron dataset
-                least_frequent_crons = set([expr for expr, _ in sorted_crons[1:sorted_crons.__len__()]])
-                for dataset, cron in scheduled_datasets.items() :
-                    # we republish the least frequent scheduled datasets
-                    if cron in least_frequent_crons:
-                        output_datasets.append(StarlakeDataset(uri=dataset, cron=cron))
+            children: List[StarlakeDependency] = []
+            if load_dependencies and len(task.dependencies) > 0: 
+                children = task.dependencies
+            else:
+                for child in task.dependencies:
+                    if child.name in first_level_tasks:
+                        children.append(child)
 
-            end = pipeline.end_task(output_datasets=output_datasets)
+            if children.__len__() > 0:
+                with orchestration.sl_create_task_group(group_id=task_group_id, pipeline=pipeline) as task_group:
+                    upstream_tasks = [generate_task_group_for_task(child) for child in children]
+                    task = create_task(task_id, task_name, task_type)
+                    task << upstream_tasks
+                return task_group
+            else:
+                task = create_task(task_id=task_id, task_name=task_name, task_type=task_type)
+                return task
 
-            for task in all_transform_tasks:
-                task >> end
+        all_transform_tasks = [generate_task_group_for_task(task) for task in dependencies if task.name not in all_dependencies]
 
-            post_tasks = pipeline.post_tasks()
+        if pre_tasks:
+            start >> pre_tasks >> all_transform_tasks
+        else:
+            start >> all_transform_tasks
 
-            if post_tasks:
-                all_done = pipeline.sl_dummy_op(task_id="all_done")
-                all_done << all_transform_tasks
-                all_done >> post_tasks >> end
+        end = pipeline.end_task(output_datasets=[StarlakeDataset(uri=pipeline_id, cron=cron)])
 
-        return pipeline
+        trigger_least_frequent_datasets = pipeline.trigger_least_frequent_datasets_task()
+        if trigger_least_frequent_datasets:
+            start >> trigger_least_frequent_datasets >> end
 
-generate_pipeline()
+        end << all_transform_tasks
+
+        post_tasks = pipeline.post_tasks()
+
+        if post_tasks:
+            all_done = pipeline.sl_dummy_op(task_id="all_done")
+            all_done << all_transform_tasks
+            all_done >> post_tasks >> end
