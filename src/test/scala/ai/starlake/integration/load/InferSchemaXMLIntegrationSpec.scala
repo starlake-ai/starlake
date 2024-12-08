@@ -4,7 +4,6 @@ import ai.starlake.TestHelper
 import ai.starlake.integration.IntegrationTestBase
 import ai.starlake.job.Main
 import better.files.File
-import org.apache.spark.sql.DataFrame
 
 import scala.reflect.io.Directory
 
