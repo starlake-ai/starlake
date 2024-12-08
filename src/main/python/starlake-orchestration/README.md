@@ -2,7 +2,7 @@
 
 ## What is Starlake?
 
-Starlake is a **configuration-only** toolfor **Extract**, **Load**, **Transform** (**ELT**) and **orchestration** of declarative data pipelines. It simplifies data workflows with minimal coding requirements. Below is a typical use case for Starlake:
+Starlake is a **configuration-only** tool for **Extract**, **Load**, **Transform** (**ELT**) and **orchestration** of declarative data pipelines. It simplifies data workflows with minimal coding requirements. Below is a typical use case for Starlake:
 
 1. **Extract**: Gather data from sources such as Fixed Position files, DSV (Delimiter-Separated Values), JSON, or XML formats.
 2. **Define or infer structure**: Use YAML to describe or infer the schema for each data source.
