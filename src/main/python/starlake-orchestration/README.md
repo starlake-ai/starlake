@@ -315,8 +315,8 @@ Create a concrete factory class that implements the `IStarlakeJob` interface. Th
 Extend the `AbstractOrchestration` class to integrate with the orchestrator's API and define the overarching pipeline structure.
 
 * **Key Responsibilities** :
-* Use the `sl_job` method from your `IStarlakeJob` implementation to inject orchestrator-specific tasks into the pipeline.
-* Override abstract methods `sl_create_pipeline` and `sl_create_task_group` to align with orchestrator-specific workflows.
+  * Use the `sl_job` method from your `IStarlakeJob` implementation to inject orchestrator-specific tasks into the pipeline.
+  * Override abstract methods `sl_create_pipeline` and `sl_create_task_group` to align with orchestrator-specific workflows.
 
  **Example** :
 
