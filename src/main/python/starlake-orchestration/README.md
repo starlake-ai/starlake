@@ -565,11 +565,7 @@ pip install starlake-orchestration[dagster] --upgrade
 
 #### Starlake Dagster Load example
 
-The following example demonstrates how to create a Starlake Dagster job for loading data into a domain.
-
-The only difference between the previous example is the instantiation of the `StarlakeDagsterJob` class instead of the `StarlakeAirflowBashJob` class.
-
-Don't forget, with Starlake Orchestration, **Write once, run anywhere**. :)
+The following example demonstrates how to create a Starlake Dagster pipeline for loading data into a domain.
 
 ```python
 from ai.starlake.dagster import StarlakeDagsterJob
@@ -580,3 +576,7 @@ sl_job = StarlakeAirflowBashJob(
     options=dict(options, **sys.modules[__name__].__dict__.get('jobs', {}))
 )
 ```
+
+The only difference with the previous example is the instantiation of the `StarlakeDagsterJob` class instead of the `StarlakeAirflowBashJob` class.
+
+Don't forget, with Starlake Orchestration, **Write once, run anywhere**. :)
