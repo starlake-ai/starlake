@@ -2,7 +2,9 @@
 
 ## What is Starlake?
 
-Starlake is a **configuration-only** tool for **Extract**, **Load**, **Transform** (**ELT**) and **orchestration** of declarative data pipelines. It simplifies data workflows with minimal coding requirements. Below is a typical use case for Starlake:
+Starlake is a **configuration-driven** platform designed to simplify **Extract**, **Load**, and **Transform** (**ELT**) operations while supporting declarative **orchestration** of data pipelines. By minimizing coding requirements, it empowers users to create robust data workflows with YAML-based configurations.
+
+### Typical Use Case
 
 1. **Extract**: Gather data from sources such as Fixed Position files, DSV (Delimiter-Separated Values), JSON, or XML formats.
 2. **Define or infer structure**: Use YAML to describe or infer the schema for each data source.
@@ -10,7 +12,9 @@ Starlake is a **configuration-only** tool for **Extract**, **Load**, **Transform
 4. **Transform**: Build aggregates and join datasets using SQL, Jinja, and YAML configurations.
 5. **Output**: Observe your data becoming available as structured tables in your data warehouse.
 
-Starlake can be used for **any or all** of these steps, providing flexibility to adapt to your workflow.
+### Flexibility Across Workflows
+
+Starlake supports **any or all** steps in your data pipeline, allowing for seamless integration into existing workflows:
 
 * **Extract** : Export selective data from SQL databases into CSV files.
 * **Preload**: Evaluate whether the loading process should proceed, based on a configurable preload strategy.
@@ -19,48 +23,50 @@ Starlake can be used for **any or all** of these steps, providing flexibility to
 
 ## What is Starlake orchestration?
 
-Starlake Orchestration is the **Python-based API** for managing and orchestrating data pipelines in Starlake. It offers a simple yet powerful interface for creating, scheduling, and running pipelines while abstracting the complexity of underlying orchestrators.
+Starlake Orchestration is a **Python-based API** for creating, scheduling and managing data pipelines. It abstracts the complexities of various orchestration platforms (e.g.,  **Apache Airflow** ,  **Dagster**), offering a unified interface for pipeline orchestration.
+
+Starlake Orchestration aligns with Starlake's philosophy by abstracting orchestration complexities into a simple, unified Python-based API.
 
 It is recommended to use it in combinaison with **[starlake dag generation](https://starlake.ai/starlake/docs/guides/orchestrate/customization)**, but can be used directly as is in your **DAGs**.
 
 ### Key Features
 
-#### 1. **Supports Multiple Orchestrators**
+#### 1. **Multi-Orchestrator Support**
 
-Starlake Orchestration integrates with popular orchestration frameworks such as **Apache Airflow** and  **Dagster** , enabling you to choose the platform that best fits your needs.
+Starlake Orchestration integrates seamlessly with frameworks like **Apache Airflow** and  **Dagster**, letting you select the best fit for your requirements.
 
-#### 2. **Write Once, Run Anywhere**
+#### 2. **Write Once, Deploy Anywhere**
 
-The API provides a simple and intuitive way to define pipelines with minimal boilerplate code. Its extensibility ensures pipelines can be reused across different orchestrators.
+Define pipelines with minimal boilerplate code and execute them seamlessly across various orchestrators and execution environments—without any rework.
+Whether you are using **Dagster** or **Airflow** on **Google Cloud Platform** ( **GCP** ), **Amazon Web Services** ( **AWS** ), or on-prem, Starlake ensures consistent pipeline definitions. Execute Starlake jobs via  **GCP Cloud Run** ,  **GCP Dataproc** ,  **AWS Fargate** , or even through  **shell scripts** .
+This adaptability enables teams to transition between execution environments or integrate with diverse cloud-native and on-prem orchestration tools effortlessly.
 
-In alignment with Starlake's philosophy, you can define your data pipelines once and execute them seamlessly across platforms, without rework.
+#### 3. **Data Freshness and Scheduling**
 
-#### 3. **Ensures Data Freshness**
+Starlake Orchestration supports  **flexible scheduling mechanisms**, ensuring your data pipelines deliver up-to-date results:
 
-Starlake Orchestration supports  **flexible scheduling mechanisms** , ensuring your data pipelines deliver up-to-date results:
-
-* **Cron-based scheduling** : Define static schedules, such as "run every day at 2 AM."
-* **Event-driven orchestration** : Trigger workloads dynamically based on events, utilizing **dataset-aware DAGs** to track data lineage.
+* **Cron-based Scheduling** : Automate periodic pipeline runs (e.g., "Run at 2 AM daily").
+* **Event-Driven Orchestration** : Dynamically trigger pipelines using **dataset-aware DAGs**, ensuring dependencies and lineage are respected.
 
 By leveraging data lineage and dependencies, Starlake Orchestration aligns schedules automatically, ensuring the freshness of interconnected datasets.
 
-#### 4. **Simplifies Data Pipeline Management**
+#### 4. **Simplified Management**
 
 With automated schedule alignment and dependency management, Starlake Orchestration eliminates manual adjustments and simplifies pipeline workflows, while maintaining reliability.
 
 ## What are the main components of Starlake Orchestration?
 
-### IStarlakeJob
+Starlake Orchestration provides a modular and extensible framework for creating, scheduling, and managing data pipelines. Below are the primary components and their roles within the orchestration system:
 
-`ai.starlake.job.IStarlakeJob` is the **generic factory interface** for creating orchestration tasks. These tasks invoke the appropriate Starlake CLI commands.
+### 1. IStarlakeJob
 
-Each Starlake command is represented by a factory method.
+`ai.starlake.job.IStarlakeJob` serves as the **generic factory interface** for creating orchestration tasks. These tasks execute the appropriate Starlake CLI commands, allowing seamless integration with orchestration platforms.
 
-#### Abstract Methods
+#### Key Methods
 
 ##### `sl_orchestrator`
 
-The `sl_orchestrator` abstract method should be implemented in all concrete factory classes to return the type of **orchestrator** this implementation is related to (eg `StarlakeOrchestrator.airflow`). This method will be consumed by the `OrchestrationFactory` registry to determine which concrete implementation of `AbstractOrchestration` should be instantiated.
+Returns the orchestrator type (e.g., `StarlakeOrchestrator.airflow`) for a concrete implementation. This is critical for the `OrchestrationFactory` to instantiate the correct `AbstractOrchestration`.
 
 ```python
 @abstractmethod
@@ -70,7 +76,7 @@ def sl_orchestrator(self) -> Union[StarlakeOrchestrator, str]:
 
 ##### `sl_job`
 
-The `sl_job` abstract method must also be implemented in all concrete factory classes to handle the creation of orchestrator-specific tasks (e.g., Dagster `OpDefinition`, Airflow `BaseOperator`, etc.).
+Creates orchestrator-specific tasks (e.g., Airflow `BaseOperator` or Dagster `OpDefinition`).
 
 ```python
 @abstractmethod
@@ -89,9 +95,9 @@ def sl_job(
 | arguments    | list                | The required arguments of the starlake command to run |
 | spark_config | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`  |
 
-#### Factory Methods for Key Starlake Commands
+#### Factory Methods for Core Starlake Commands
 
-These methods generate tasks for the core Starlake commands. Each method corresponds to a specific operation in the pipeline.
+Each method corresponds to a specific Starlake command.
 
 ##### Preload
 
@@ -120,13 +126,13 @@ def sl_pre_load(
 Strategies:
 
 1. **NONE**
-  No condition applied; preload tasks are skipped.![none strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/none.png)
+   No condition applied; preload tasks are skipped.![none strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/none.png)
 2. **IMPORTED**
-  Load only if files exist in the landing area (SL_ROOT/datasets/importing/{domain}).![imported strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/imported.png)
+   Load only if files exist in the landing area (SL_ROOT/datasets/importing/{domain}).![imported strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/imported.png)
 3. **PENDING**
-  Load only if files exist in the pending datasets area (SL_ROOT/datasets/pending/{domain}).![pending strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/pending.png)
+   Load only if files exist in the pending datasets area (SL_ROOT/datasets/pending/{domain}).![pending strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/pending.png)
 4. **ACK**
-  Load only if an acknowledgment file exists at the configured path (global_ack_file_path).![ack strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/ack.png)
+   Load only if an acknowledgment file exists at the configured path (global_ack_file_path).![ack strategy example](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/ack.png)
 
 ##### Import
 
@@ -191,13 +197,15 @@ def sl_transform(
 | transform_options | str                 | the optional transform options                         |
 | spark_config      | StarlakeSparkConfig | the optional `ai.starlake.job.StarlakeSparkConfig`   |
 
-### StarlakeDataset
+### 2. StarlakeDataset
 
-When a task is added to the orchestration pipeline, a corresponding `ai.starlake.dataset.StarlakeDataset` object is created. This object encapsulates metadata about the dataset produced by the task.
+A `ai.starlake.dataset.StarlakeDataset` represents the metadata of a dataset produced by a task.
 
-These dataset objects are collected into a list of events. Each event will be triggered by the orchestrator **only if the corresponding task is completed successfully** during the pipeline's execution.
+Starlake orchestration will collect all datasets produced by each task into a list of events to trigger per task.
 
-### StarlakeOptions
+At run time, the orchestrator will trigger subsequent events only if their corresponding tasks succeed.
+
+### 3. StarlakeOptions
 
 The `ai.starlake.job.StarlakeOptions` class provides methods to manage and retrieve configuration variables used within the context of a Directed Acyclic Graph (DAG). These variables include options passed to the DAG as a dictionary, environment variables, and other runtime configurations.
 
@@ -215,80 +223,52 @@ The following options are available for all concrete factory classes derived fro
 
 These options allow you to customize the behavior of the pipeline and the orchestration tasks it defines, providing flexibility for retries, acknowledgment handling, and preload strategies.
 
-### AbstractDependency
+### 4. Abstract Classes
 
-`ai.starlake.orchestration.AbstractDependency` is an abstract class defining dependencies between tasks or groups of tasks. It is a core part of creating a Directed Acyclic Graph (DAG), ensuring tasks are executed in the correct order.
+#### AbstractDependency
 
-* **Operators** : Provides the `>>` (downstream dependency) and `<<` (upstream dependency) operators for chaining dependencies intuitively.
+Defines task dependencies, ensuring execution order in Directed Acyclic Graphs (DAGs). Operators such as `>>` and `<<` allow intuitive chaining.
 
-### TaskGroupContext
+#### AbstractTask
 
-`ai.starlake.orchestration.TaskGroupContext` is a **context manager** responsible for managing the stack of active task groups or pipelines.
+Wraps concrete orchestration tasks (e.g., Airflow operators) into a unified interface.
 
-* **Key Features** :
-  * Ensures that the current context (pipeline or task group) is always available.
-  * Automatically adds tasks to the appropriate group.
-  * Tracks dependencies within the task group for execution order.
+#### AbstractTaskGroup
 
-### AbstractTask
+Groups related tasks into cohesive units, such as an Airflow `TaskGroup` or a Dagster `GraphDefinition`.
 
-`ai.starlake.orchestration.AbstractTask` is an abstract class that defines a unit task. It wraps the concrete orchestration task (e.g., Airflow BaseOperator, Dagster OpDefinition) for a unified interface.
+#### AbstractPipeline
 
-### AbstractTaskGroup
+Defines an entire pipeline, combining tasks and task groups. It handles:
 
-`ai.starlake.orchestration.AbstractTaskGroup` extends `TaskGroupContext`. It defines a group of related tasks, acting as a wrapper around the orchestration-specific group concepts (e.g., Airflow TaskGroup, Dagster GraphDefinition).
+* **Task management** : Adding and managing orchestrator-specific tasks.
+* **Dependency management** : Ensuring the correct execution order.
 
-### AbstractPipeline
+#### AbstractOrchestration
 
-`ai.starlake.orchestration.AbstractPipeline` extends `AbstractTaskGroup` and defines an entire pipeline. It acts as a wrapper around the orchestrator-specific representation of the pipeline (e.g., an **Airflow DAG** or a **Dagster JobDefinition**).
+The central abstraction for creating pipelines, tasks, and task groups. Orchestrator-specific implementations (e.g., for Airflow or Dagster) extend this class.
 
-Its main responsibilities include:
+##### Critical Methods
 
-* **Task Management** : Managing tasks in the pipeline and adding orchestrator-specific tasks created through the `sl_job` method of the `IStarlakeJob` instance passed to it.
-* **Dependency Management** : Adding tasks and managing their dependencies to ensure correct execution order.
+* **`sl_create_pipeline`** : Creates a pipeline instance, such as an Airflow `DAG` or a Dagster `JobDefinition`.
+* **`sl_create_task_group`** : Defines task groups for organizing related tasks, such as an Airflow `TaskGroup` or a Dagster `GraphDefinition`.
 
-This ensures that the pipeline structure is flexible and can adapt to any orchestrator while maintaining a consistent interface and behavior.
+### 5. TaskGroupContext
 
-The `AbstractPipeline` is instantiated by the concrete `AbstractOrchestration` class via the `sl_create_pipeline` method.
+A context manager responsible for:
 
-### AbstractOrchestration
+* Tracking the current task group or pipeline context.
+* Automatically adding tasks to the active group.
+* Managing dependencies within the group.
 
-`ai.starlake.orchestration.AbstractOrchestration` is the abstract factory class responsible for creating and managing the entire pipeline, task groups, and tasks. It acts as the connection between the Starlake orchestration API and the orchestrator-specific implementation (e.g., Airflow, Dagster).
+### 6. OrchestrationFactory
 
-Two critical abstract methods need to be implemented in concrete orchestration classes:
+Handles the dynamic registration and instantiation of concrete orchestration classes.
 
-* **`sl_create_pipeline`** : This method creates an instance of `AbstractPipeline`, defining the overall pipeline structure.
-* **`sl_create_task_group`** : This method creates a task group (e.g., Airflow TaskGroup or Dagster GraphDefinition), organizing related tasks.
+#### Features
 
-```python
-class MyOrchestration(Generic[U, T, GT, E]):
-    ...
-
-    @abstractmethod
-    def sl_create_pipeline(self, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, **kwargs) -> AbstractPipeline[U, E]:
-        """Create a pipeline."""
-        pass
-
-    def sl_create_task(self, task_id: str, task: Optional[T], pipeline: AbstractPipeline[U, E]) -> Optional[AbstractTask[T]]:
-        """Create a task."""
-        if task is None:
-            return None
-        return AbstractTask(task_id, task)
-
-    @abstractmethod
-    def sl_create_task_group(self, group_id: str, pipeline: AbstractPipeline[U, E], **kwargs) -> AbstractTaskGroup[GT]:
-        """Create a task group."""
-        pass
-
-```
-
-### OrchestrationFactory
-
-`ai.starlake.orchestration.OrchestrationFactory` is responsible for registering and instantiating concrete orchestration classes.
-
-* **Key Features** :
-* Maintains a registry of orchestrators.
-* Creates instances of `AbstractOrchestration` based on the orchestrator type specified in `IStarlakeJob`.
+* Maintains a registry of supported orchestrators.
+* Dynamically creates `AbstractOrchestration` instances based on the orchestrator type.
 
 ```python
 class OrchestrationFactory:
@@ -392,7 +372,7 @@ options={
     'SL_STARLAKE_PATH':'/bin/starlake', 
     'SL_TIMEZONE':'Europe/Paris',
     'tags':'starbake', 
-    'pre_load_strategy':'none', 
+    'pre_load_strategy':'imported', 
     'ack_wait_timeout':'60', 
     'global_ack_file_path':'/demo-starbake/datasets/pending/starbake/GO.ack'
   
@@ -525,7 +505,7 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
                         else:
                             return None
 
-                    pld = pre_load(pre_load_strategy)        
+                    pld = pre_load(pre_load_strategy)  
 
                     def load_domain_tables():
                         with orchestration.sl_create_task_group(group_id=sanitize_id(f'load_{name}'), pipeline=pipeline) as load_domain_tables:
@@ -573,6 +553,10 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
     [generate_pipeline(schedule) for schedule in schedules]
 ```
 
+![load starbake ingredients, products and customers daily with imported preload strategy](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/airflow_preload_imported_daily.png)
+
+![load starbake orders hourly with imported preload strategy](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/airflow_preload_imported_hourly.png)
+
 ### Dagster
 
 **[Starlake Dagster](https://pypi.org/project/starlake-dagster/)** is the **[Starlake](https://starlake.ai)** Python Distribution of Starlake **orchestration** for **[Dagster](https://dagster.io/)**.
@@ -597,6 +581,12 @@ sl_job = StarlakeAirflowBashJob(
 )
 ```
 
+![load starbake ingredients, products and customers daily with imported preload strategy](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagster_preload_imported_daily.png)
+
+![load starbake orders hourly with imported preload strategy](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagster_preload_imported_hourly.png)
+
 The only difference with the previous example is the instantiation of the `StarlakeDagsterJob` class instead of the `StarlakeAirflowBashJob` class.
 
-Don't forget, with Starlake Orchestration, **Write once, run anywhere**. :)
+## Conclusion
+
+Don't forget, with Starlake Orchestration, **Write once, Deploy anywhere**. :)
