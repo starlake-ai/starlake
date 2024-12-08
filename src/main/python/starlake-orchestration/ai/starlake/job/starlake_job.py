@@ -97,7 +97,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         self._events: List[E] = []
 
     @abstractmethod
-    def sl_orchestrator(self) -> StarlakeOrchestrator:
+    def sl_orchestrator(self) -> Union[StarlakeOrchestrator, str]:
         """Returns the orchestrator to use.
 
         Returns:

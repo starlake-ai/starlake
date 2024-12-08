@@ -74,7 +74,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         else:
             self.end_date = None
 
-    def sl_orchestrator(self) -> StarlakeOrchestrator:
+    def sl_orchestrator(self) -> Union[StarlakeOrchestrator, str]:
         return StarlakeOrchestrator.airflow
 
     def update_events(self, event: Dataset, **kwargs) -> Tuple[(str, List[Dataset])]:
