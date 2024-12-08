@@ -1,4 +1,4 @@
-from typing import Union
+from typing import List, Optional, Union
 
 from ai.starlake.dagster import StarlakeDagsterJob
 
@@ -12,8 +12,8 @@ from dagster_shell import execute_shell_command
 
 class StarlakeDagsterShellJob(StarlakeDagsterJob):
 
-    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs) -> None:
-        super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
+    def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs) -> None:
+        super().__init__(filename=filename, module_name=module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_job()
@@ -30,6 +30,7 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
 
         import os
         env = os.environ.copy() # Copy the current environment variables
+        env.update(self.sl_env_vars.copy()) # Copy the current sl env variables
 
         for index, arg in enumerate(arguments):
             if arg == "--options" and arguments.__len__() > index + 1:
@@ -43,9 +44,11 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
                         for key, value in [opt.split("=")]
                     })
                     options = ",".join([f"{key}={value}" for i, (key, value) in enumerate(temp.items())])
+                    for opt in opts.split(","):
+                        if "=" not in opt:
+                            options += f",{opt}"
                 else:
                     options = ",".join([f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())])
-                    env.update(self.sl_env_vars) # Add/overwrite with sl env variables
                 arguments[index+1] = options
                 found = True
                 break
@@ -53,11 +56,13 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
         if not found:
             arguments.append("--options")
             arguments.append(",".join([f"{key}={value}" for key, value in self.sl_env_vars.items()]))
-            env.update(self.sl_env_vars) # Add/overwrite with sl env variables
 
         command = self.__class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments or [])}"
 
-        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
+        assets: List[AssetKey] = kwargs.get("assets", [])
+        asset_key: Optional[AssetKey] = kwargs.get("asset", None)
+        if asset_key:
+            assets.append(asset_key)
 
         ins=kwargs.get("ins", {})
 
@@ -102,8 +107,8 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
                 else:
                     raise Failure(description=value)
             else:
-                if asset_key:
-                    yield AssetMaterialization(asset_key=asset_key.path, description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
+                for asset in assets:
+                    yield AssetMaterialization(asset_key=asset.path, description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
 
                 yield Output(value=output, output_name=out)
 
