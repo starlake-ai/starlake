@@ -1,6 +1,6 @@
 import os
 
-from typing import Union
+from typing import List, Optional, Union
 
 from ai.starlake.dagster import StarlakeDagsterJob
 
@@ -17,6 +17,8 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
 
     def __init__(
             self, 
+            filename: str, 
+            module_name: str,
             pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, 
             project_id: str=None,
             cloud_run_job_name: str=None,
@@ -25,7 +27,7 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
             options: dict=None,
             separator:str = ' ',
             **kwargs) -> None:
-        super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
+        super().__init__(filename=filename, module_name=module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.project_id = __class__.get_context_var(var_name='cloud_run_project_id', default_value=os.getenv("GCP_PROJECT"), options=self.options) if not project_id else project_id
         self.cloud_run_job_name = __class__.get_context_var(var_name='cloud_run_job_name', options=self.options) if not cloud_run_job_name else cloud_run_job_name
         self.cloud_run_job_region = __class__.get_context_var('cloud_run_job_region', "europe-west1", self.options) if not cloud_run_job_region else cloud_run_job_region
@@ -58,7 +60,10 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
             f"--wait --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)' {self.impersonate_service_account}" #--task-timeout 300
         )
 
-        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
+        assets: List[AssetKey] = kwargs.get("assets", [])
+        asset_key: Optional[AssetKey] = kwargs.get("asset", None)
+        if asset_key:
+            assets.append(asset_key)
 
         ins=kwargs.get("ins", {})
 
@@ -103,8 +108,8 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
                 else:
                     raise Failure(description=value)
             else:
-                if asset_key:
-                    yield AssetMaterialization(asset_key=asset_key.path, description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
+                for asset in assets:
+                    yield AssetMaterialization(asset_key=asset.path, description=kwargs.get("description", f"Starlake command {command} execution succeeded"))
 
                 yield Output(value=output, output_name=out)
 
