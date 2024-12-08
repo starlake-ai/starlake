@@ -2,7 +2,6 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.schema.model.{Attribute, Format}
-import org.apache.spark.sql.types.StructType
 
 class InferSchemaHandlerSpec extends TestHelper {
 
