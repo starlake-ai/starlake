@@ -345,7 +345,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             dagSchedules.foreach { schedule =>
               val envVars =
                 schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
-                  "schedule" -> schedule
+                  "schedule" -> schedule.schedule
                 )
               val options = dagConfig.options.map { case (k, v) =>
                 k -> Utils.parseJinja(v, envVars)
