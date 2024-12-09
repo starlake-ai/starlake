@@ -686,16 +686,16 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def checkDagNameValidity(dagRef: String): Either[List[ValidationMessage], Boolean] = {
+    val allDagNames = listDagNames()
     val dagName =
       if (dagRef.endsWith(".sl.yml")) dagRef.dropRight(".sl.yml".length) else dagRef
-    if (listDagNames().contains(dagName)) {
+    if (!allDagNames.contains(dagName)) {
       Left(
         List(
           ValidationMessage(
             Error,
             "Table metadata",
-            s"dagRef: $dagRef is not a valid DAG reference. Valid DAG references are ${settings.appConfig.dags
-                .mkString(", ")}"
+            s"dagRef: $dagRef is not a valid DAG reference. Valid DAG references are ${allDagNames.mkString(",")}"
           )
         )
       )
@@ -1070,23 +1070,35 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         taskFinal
     }
 
+    // apply refs
+    val outputRef =
+      mergedTask.database match {
+        case Some(db) =>
+          refs().getOutputRef(db, mergedTask.domain, mergedTask.table)
+        case None =>
+          refs().getOutputRef(mergedTask.domain, mergedTask.table)
+      }
+    val withRefTask =
+      outputRef match {
+        case Some(ref) =>
+          mergedTask.copy(
+            database = if (ref.database.isEmpty) None else Some(ref.database),
+            domain = ref.domain,
+            table = ref.table
+          )
+        case None =>
+          mergedTask
+      }
+
     // strip comments from SQL
-    val mergedTaskWithStrippedComments =
-      mergedTask.copy(
-        presql = mergedTask.presql.map(sql => SQLUtils.stripComments(sql)),
-        sql = mergedTask.sql.map(sql => SQLUtils.stripComments(sql)),
-        postsql = mergedTask.postsql.map(sql => SQLUtils.stripComments(sql))
+    val taskWithStrippedComments =
+      withRefTask.copy(
+        presql = withRefTask.presql.map(sql => SQLUtils.stripComments(sql)),
+        sql = withRefTask.sql.map(sql => SQLUtils.stripComments(sql)),
+        postsql = withRefTask.postsql.map(sql => SQLUtils.stripComments(sql))
       )
 
-    // set task name / domain / table and load sql/py file if any
-    val jobName = if (jobDesc.name.isEmpty) jobFolder.getName else jobDesc.name
-
-    AutoJobDesc(
-      name = jobName,
-      tasks = Option(jobDesc.tasks).getOrElse(Nil) :+ mergedTaskWithStrippedComments,
-      default = None
-    )
-    mergedTaskWithStrippedComments
+    taskWithStrippedComments
   }
 
   private def loadAutoTaskFiles(
