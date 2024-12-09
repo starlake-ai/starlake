@@ -1,7 +1,7 @@
 package ai.starlake.schema.model
 
-import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.config.Settings.latestSchemaVersion
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.Ref.anyRefPattern
 import ai.starlake.utils.{Utils, YamlSerde}
