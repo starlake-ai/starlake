@@ -1,4 +1,8 @@
 import re
+
+from croniter import croniter
+from croniter.croniter import CroniterBadCronError
+
 from datetime import datetime, timedelta
 from typing import Union
 
@@ -97,3 +101,11 @@ def sl_cron_start_end_dates(cron_expr: str, start_time: datetime = cron_start_ti
         sl_end_date = previous
     sl_start_date = croniter(cron_expr, sl_end_date).get_prev(datetime)
     return f"sl_start_date='{sl_start_date.strftime(format)}',sl_end_date='{sl_end_date.strftime(format)}'"
+
+def is_valid_cron(cron_expr: str) -> bool:
+    try:
+        # Attempt to instantiate a croniter object
+        croniter(cron_expr)
+        return True
+    except (CroniterBadCronError, ValueError):
+        return False

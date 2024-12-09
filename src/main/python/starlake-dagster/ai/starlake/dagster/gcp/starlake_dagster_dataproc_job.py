@@ -2,7 +2,7 @@ import json
 
 import uuid
 
-from typing import Union
+from typing import List, Optional, Union
 
 from ai.starlake.dagster import StarlakeDagsterJob
 
@@ -18,18 +18,20 @@ from dagster._core.definitions import NodeDefinition
 
 from dagster_gcp import DataprocResource
 
-from dagster_gcp.dataproc.resources import DataprocClient
+from dagster_gcp.dataproc.datasets import DataprocClient
 
 class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
     """A StarlakeDagsterJob that runs a starlake command on Google Cloud Dataproc."""
 
     def __init__(
             self, 
+            filename: str, 
+            module_name: str,
             pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, 
             cluster_config: StarlakeDataprocClusterConfig=None, 
             options: dict=None,
             **kwargs) -> None:
-        super().__init__(pre_load_strategy=pre_load_strategy, options=options, **kwargs)
+        super().__init__(filename=filename, module_name=module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.cluster_config = StarlakeDataprocClusterConfig(
             cluster_id="dataproc",
             dataproc_name=None,
@@ -56,7 +58,8 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
 
     def pre_tasks(self, *args, **kwargs) -> NodeDefinition | None:
         """Overrides IStarlakeJob.pre_tasks()"""
-        task_id = f"create_{self.cluster_config.cluster_id.replace('-', '_')}_cluster"
+        task_id = kwargs.get('task_id', f"create_{self.cluster_config.cluster_id.replace('-', '_')}_cluster")
+        kwargs.pop('task_id', None)
 
         asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 
@@ -75,8 +78,10 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
         return create_dataproc_cluster
 
     def post_tasks(self, *args, **kwargs) -> NodeDefinition | None:
-        task_id = f"delete_{self.cluster_config.cluster_id.replace('-', '_')}_cluster"
         """Overrides IStarlakeJob.post_tasks()"""
+
+        task_id = kwargs.get('task_id', f"delete_{self.cluster_config.cluster_id.replace('-', '_')}_cluster")
+        kwargs.pop('task_id', None)
 
         asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
 
@@ -147,7 +152,10 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             }
         }
 
-        asset_key: Union[AssetKey, None] = kwargs.get("asset", None)
+        assets: List[AssetKey] = kwargs.get("assets", [])
+        asset_key: Optional[AssetKey] = kwargs.get("asset", None)
+        if asset_key:
+            assets.append(asset_key)
 
         ins=kwargs.get("ins", {})
 
@@ -185,8 +193,9 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
                 else:
                     raise Failure(description=value)
             else:
-                if asset_key:
-                    yield AssetMaterialization(asset_key=asset_key.path, description=f"Spark job {job_id} submitted to Dataproc cluster {self.__dataproc__.cluster_name}")
+                for asset in assets:
+                    yield AssetMaterialization(asset_key=asset.path, description=f"Spark job {job_id} submitted to Dataproc cluster {self.__dataproc__.cluster_name}")
+
                 yield Output(value=job_id, output_name=out)
 
         return submit_dataproc_job

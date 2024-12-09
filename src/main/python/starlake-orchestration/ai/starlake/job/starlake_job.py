@@ -1,19 +1,35 @@
 from __future__ import annotations
 
-from ai.starlake.common import asQueryParameters, MissingEnvironmentVariable, sanitize_id, sl_schedule, sl_schedule_format
+from abc import abstractmethod
+
+from ai.starlake.common import MissingEnvironmentVariable, sl_schedule_format
 
 from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 from ai.starlake.job.starlake_options import StarlakeOptions
 from ai.starlake.job.spark_config import StarlakeSparkConfig
 
-from typing import Generic, List, TypeVar, Union
+from ai.starlake.dataset import AbstractEvent, StarlakeDataset
+
+import sys
+
+from datetime import timedelta
+
+from typing import final, Generic, List, Optional, Tuple, TypeVar, Union
 
 T = TypeVar("T")
 
-class IStarlakeJob(Generic[T], StarlakeOptions):
-    def __init__(self, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict, **kwargs) -> None:
+E = TypeVar("E")
+
+from enum import Enum
+
+StarlakeOrchestrator = Enum("StarlakeOrchestrator", ["airflow", "dagster"])
+
+class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
+    def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict, **kwargs) -> None:
         """Init the class.
         Args:
+            filename (str): The filename from which the job is called.
+            module_name (str): The module name from which the job is called.
             pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The pre-load strategy to use.
             options (dict): The options to use.
         """
@@ -54,22 +70,69 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         except (MissingEnvironmentVariable, ValueError):
             self.retry_delay = 300
 
-    def sl_dataset(self, uri: str, **kwargs) -> str:
-        """Returns the dataset from the specified uri.
+        # Define the source
+        self.source = filename.replace(".py", "").replace(".pyc", "").lower()
 
-        Args:
-            uri (str): The uri of the dataset.
+        # Access the caller file name
+        self.caller_filename = filename
+
+        # Access the caller module name
+        self.caller_module_name = module_name
+        
+        # Access the caller's global variables
+        self.caller_globals = sys.modules[self.caller_module_name].__dict__
+
+        def default_spark_config(*args, **kwargs) -> StarlakeSparkConfig:
+            return StarlakeSparkConfig(
+                memory=self.caller_globals.get('spark_executor_memory', None),
+                cores=self.caller_globals.get('spark_executor_cores', None),
+                instances=self.caller_globals.get('spark_executor_instances', None),
+                cls_options=self,
+                options=self.options,
+                **kwargs
+            )
+
+        self.get_spark_config = getattr(self.caller_module_name, "get_spark_config", default_spark_config)
+
+        self._events: List[E] = []
+
+    @abstractmethod
+    def sl_orchestrator(self) -> Union[StarlakeOrchestrator, str]:
+        """Returns the orchestrator to use.
 
         Returns:
-            str: The dataset.
+            StarlakeOrchestrator: The orchestrator to use.
         """
+        pass
 
-        cron = kwargs.get('cron', kwargs.get('params', dict()).get('cron', None))
-        parameters: dict = dict()
-        if cron is not None :
-            parameters[self.sl_schedule_parameter_name] = sl_schedule(cron, format=self.sl_schedule_format)
+    @property
+    def events(self) -> List[E]:
+        """Returns the events.
 
-        return sanitize_id(uri).lower() + asQueryParameters(parameters)
+        Returns:
+            List[E]: The events.
+        """
+        return self._events
+
+    @events.setter
+    def events(self, events: List[E]):
+        """Sets the events.
+
+        Args:
+            events (List[E]): The events.
+        """
+        self._events = events
+
+    def update_events(self, event: E, **kwargs) -> Tuple[(str, List[E])]:
+        pass
+
+    @final
+    def __add_event(self, uri: str, **kwargs) -> E:
+        event = self.to_event(StarlakeDataset(uri, **kwargs), source=kwargs.get('source', self.source))
+        events = self.events
+        events.append(event)
+        self.events = events
+        return event
 
     def sl_import(self, task_id: str, domain: str, tables: set=set(), **kwargs) -> T:
         """Import job.
@@ -83,12 +146,40 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         Returns:
             T: The scheduler task.
         """
-        task_id = f"{domain}_import" if not task_id else task_id
+        tuple_events = self.update_events(self.__add_event(domain, **kwargs))
+        kwargs.update({tuple_events[0]: tuple_events[1]})
+        params = kwargs.get("params", {})
+        schedule = params.get('schedule', None)
+        if schedule is not None:
+            domain = f'{domain}_{schedule}'
+        task_id = f"import_{domain}" if not task_id else task_id
         kwargs.pop("task_id", None)
         arguments = ["import", "--domains", domain, "--tables", ",".join(tables), "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
-    def sl_pre_load(self, domain: str, tables: set=set(), pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Union[T, None]:
+    @classmethod
+    def get_sl_pre_load_task_id(cls, domain: str, pre_load_strategy: StarlakePreLoadStrategy, **kwargs) -> Optional[str]:
+        if pre_load_strategy == StarlakePreLoadStrategy.NONE:
+            return None
+        else:
+            from ai.starlake.common import sanitize_id
+
+            params = kwargs.get("params", {})
+            schedule = params.get('schedule', None)
+            if schedule is not None:
+                domain = f'{domain}_{schedule}'
+
+            if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
+                return sanitize_id(f'check_{domain}_incoming_files')
+
+            elif pre_load_strategy == StarlakePreLoadStrategy.PENDING:
+                return sanitize_id(f'check_{domain}_pending_files')
+
+            elif pre_load_strategy == StarlakePreLoadStrategy.ACK:
+                return sanitize_id(f'check_{domain}_ack_file')
+
+
+    def sl_pre_load(self, domain: str, tables: set=set(), pre_load_strategy: Union[StarlakePreLoadStrategy, str, None] = None, **kwargs) -> Optional[T]:
         """Pre-load job.
         Generate the scheduler task that will check if the conditions are met to load the specified domain according to the pre-load strategy choosen.
 
@@ -98,7 +189,7 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
             pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The optional pre-load strategy to use.
         
         Returns:
-            Union[T, None]: The scheduler task or None.
+            Optional[T]: The scheduler task or None.
         """
         if isinstance(pre_load_strategy, str):
             pre_load_strategy = \
@@ -110,22 +201,47 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         if pre_load_strategy == StarlakePreLoadStrategy.NONE:
             return None
         else:
-            task_id = kwargs.get("task_id", f"{domain}_pre_load")
-            kwargs.pop("task_id", None)
             arguments = ["preload", "--domain", domain, "--tables", ",".join(tables), "--strategy", pre_load_strategy.value, "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
+
+            task_id = kwargs.get('task_id', __class__.get_sl_pre_load_task_id(domain, pre_load_strategy, **kwargs))
+
+            kwargs.pop("task_id", None)
+            
             if pre_load_strategy == StarlakePreLoadStrategy.ACK:
+
                 def current_dt():
                     from datetime import datetime
                     return datetime.today().strftime('%Y-%m-%d')
-                ack_file = __class__.get_context_var(
-                    var_name='global_ack_file_path',
-                    default_value=f'{self.sl_datasets}/pending/{domain}/{current_dt()}.ack',
-                    options=self.options
+
+                ack_file = kwargs.get(
+                    'ack_file', 
+                    __class__.get_context_var(
+                        var_name='global_ack_file_path',
+                        default_value=f'{self.sl_datasets}/pending/{domain}/{current_dt()}.ack',
+                        options=self.options
+                    )
                 )
+                kwargs.pop("ack_file", None)
+
                 arguments.extend(["--globalAckFilePath", f"{ack_file}"])
+
+                ack_wait_timeout = int(
+                    kwargs.get(
+                        'ack_wait_timeout',
+                            __class__.get_context_var(
+                            var_name='ack_wait_timeout',
+                            default_value=60*60, # 1 hour
+                            options=self.options
+                        )
+                    )
+                )
+                kwargs.pop("ack_wait_timeout", None)
+
+                kwargs.update({'retry_delay': timedelta(seconds=ack_wait_timeout)})
+
             return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
-    def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None, **kwargs) -> T:
+    def sl_load(self, task_id: str, domain: str, table: str, spark_config: Optional[StarlakeSparkConfig]=None, **kwargs) -> T:
         """Load job.
         Generate the scheduler task that will run the starlake `load` command.
 
@@ -138,12 +254,23 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         Returns:
             T: The scheduler task.
         """
-        task_id = kwargs.get("task_id", f"{domain}_{table}_load") if not task_id else task_id
+        task_id = kwargs.get("task_id", f"load_{domain}_{table}") if not task_id else task_id
         kwargs.pop("task_id", None)
+        tuple_events = self.update_events(self.__add_event(f'{domain}.{table}', **kwargs))
+        kwargs.update({tuple_events[0]: tuple_events[1]})
         arguments = ["load", "--domains", domain, "--tables", table]
+        if spark_config is None:
+            spark_config = self.get_spark_config(
+                self.__class__.get_context_var(
+                    'spark_config_name', 
+                    f'{domain}.{table}'.lower(),
+                    options=self.options
+                ), 
+                **self.caller_globals.get('spark_properties', {})
+            )
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
-    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: StarlakeSparkConfig=None, **kwargs) -> T:
+    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: Optional[StarlakeSparkConfig]=None, **kwargs) -> T:
         """Transform job.
         Generate the scheduler task that will run the starlake `transform` command.
 
@@ -158,6 +285,8 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         """
         task_id = kwargs.get("task_id", f"{transform_name}") if not task_id else task_id
         kwargs.pop("task_id", None)
+        tuple_events = self.update_events(self.__add_event(transform_name, **kwargs))
+        kwargs.update({tuple_events[0]: tuple_events[1]})
         arguments = ["transform", "--name", transform_name]
         options = list()
         if transform_options:
@@ -167,17 +296,35 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
             options.extend(additional_options.split(","))
         if options.__len__() > 0:
             arguments.extend(["--options", ",".join(options)])
+        if spark_config is None:
+            spark_config = self.get_spark_config(
+                self.__class__.get_context_var(
+                    'spark_config_name', 
+                    transform_name.lower(),
+                    options=self.options
+                ), 
+                **self.caller_globals.get('spark_properties', {})
+            )
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
-    def pre_tasks(self, *args, **kwargs) -> Union[T, None]:
+    def pre_tasks(self, *args, **kwargs) -> Optional[T]: #TODO rename to pre_op
         """Pre tasks."""
         return None
 
-    def post_tasks(self, *args, **kwargs) -> Union[T, None]:
+    def post_tasks(self, *args, **kwargs) -> Optional[T]: #TODO rename to post_op
         """Post tasks."""
         return None
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> T:
+    @abstractmethod
+    def dummy_op(self, task_id, events: Optional[List[E]], **kwargs) -> T: 
+        pass
+
+    @abstractmethod
+    def skip_or_start_op(self, task_id: str, upstream_task: T, **kwargs) -> Optional[T]:
+        return None
+
+    @abstractmethod
+    def sl_job(self, task_id: str, arguments: list, spark_config: Optional[StarlakeSparkConfig]=None, **kwargs) -> T:
         """Generic job.
         Generate the scheduler task that will run the starlake command.
 
@@ -191,6 +338,7 @@ class IStarlakeJob(Generic[T], StarlakeOptions):
         """
         pass
 
+    @final
     def sl_env(self, args: Union[str, List[str], None] = None) -> dict:
         """Returns the environment variables to use.
 
