@@ -1,4 +1,4 @@
-{% include 'templates/dags/__common_airflow.py.j2' %}
+{% include 'templates/dags/__common__.py.j2' %}
 import os
 import sys
 
@@ -39,6 +39,8 @@ cluster_config_name = StarlakeOptions.get_context_var("cluster_config_name", os.
 #optional variable jobs as a dict of all options to apply by job
 #eg jobs = {"task1 domain.task1 name": {"options": "task1 transform options"}, "task2 domain.task2 name": {"options": "task2 transform options"}}
 sl_job = StarlakeDagsterDataprocJob(
+    filename=os.path.basename(__file__),
+    module_name=f"{__name__}",
     cluster_config=StarlakeDataprocClusterConfig(
         cluster_id=sys.modules[__name__].__dict__.get('cluster_id', cluster_config_name),
         dataproc_name=sys.modules[__name__].__dict__.get('dataproc_name', None),
