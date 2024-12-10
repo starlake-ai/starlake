@@ -65,7 +65,7 @@ services:
       - starlake-nas
       - starlake-init-airflow-db
     environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor # SequentialExecutor is required to load files sequentially - to use LocalExecutor we have to fix the creation of audit tables concurrently while loading several tables in parallel for the first time 
       AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${SL_POSTGRES_USER:-dbuser}:${SL_POSTGRES_PASSWORD:-dbuser123}@starlake-db:5432/${AIRFLOW_DB:-airflow}
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       INSTALL_MYSQL_CLIENT: 'false'
