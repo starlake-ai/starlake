@@ -144,6 +144,24 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
             print(str(e.stdout, 'utf-8'))
             raise # Re-raise the exception to mark the task as failed
 
+    def sl_pre_load(self, domain: str, tables: set=set(), pre_load_strategy: Union[StarlakePreLoadStrategy, str, None] = None, **kwargs) -> Optional[BaseOperator]:
+        """Overrides IStarlakeJob.sl_pre_load()
+        Generate the Airflow group of tasks that will check if the conditions are met to load the specified domain according to the pre-load strategy choosen.
+
+        Args:
+            domain (str): The required domain to pre-load.
+            tables (set): The optional tables to pre-load.
+            pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The optional pre-load strategy to use.
+        
+        Returns:
+            Optional[BaseOperator]: The Airflow task or None.
+        """
+        pre_load_strategy = self.pre_load_strategy if not pre_load_strategy else pre_load_strategy
+        kwargs.update({'pool': kwargs.get('pool', self.pool)})
+        kwargs.update({'do_xcom_push': True})
+        kwargs.update({'doc': kwargs.get('doc', f'Pre-load for tables {",".join(list(tables or []))} within {domain} using {pre_load_strategy.value} strategy.')})
+        return super().sl_pre_load(domain=domain, tables=tables, pre_load_strategy=pre_load_strategy, **kwargs)
+
     def skip_or_start_op(self, task_id: str, upstream_task: BaseOperator, **kwargs) -> Optional[BaseOperator]:
         """
         Args:
