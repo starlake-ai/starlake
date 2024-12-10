@@ -75,6 +75,7 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
                                             task_id=f"import_{name}",
                                             domain=domain.name, 
                                             tables=set([table.name for table in domain.tables]), 
+                                            params={'cron':schedule.cron, 'schedule': schedule_name}, 
                                         )
                                 else:
                                     sl_import = None
