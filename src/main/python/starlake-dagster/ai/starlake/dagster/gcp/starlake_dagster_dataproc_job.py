@@ -6,7 +6,7 @@ from typing import List, Optional, Union
 
 from ai.starlake.dagster import StarlakeDagsterJob
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
 
 from ai.starlake.common import TODAY
 
