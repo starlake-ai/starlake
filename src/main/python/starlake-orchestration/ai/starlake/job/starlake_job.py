@@ -14,7 +14,7 @@ import sys
 
 from datetime import timedelta
 
-from typing import final, Generic, List, Optional, Tuple, TypeVar, Union
+from typing import final, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
 T = TypeVar("T")
 
@@ -25,6 +25,16 @@ from enum import Enum
 class StarlakeOrchestrator(str, Enum):
     AIRFLOW = "airflow"
     DAGSTER = "dagster"
+
+    def __str__(self):
+        return self.value
+
+class StarlakeExecutionEnvironment(str, Enum):
+
+    CLOUD_RUN = "cloud_run"
+    DATAPROC = "dataproc"
+    FARGATE = "fargate"
+    SHELL = "shell"
 
     def __str__(self):
         return self.value
@@ -107,6 +117,15 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
 
         Returns:
             StarlakeOrchestrator: The orchestrator to use.
+        """
+        return None
+
+    @classmethod
+    def sl_execution_environment(cls) -> Union[StarlakeExecutionEnvironment, str, None]:
+        """Returns the execution environment to use.
+
+        Returns:
+            StarlakeExecutionEnvironment: The execution environment to use.
         """
         return None
 
@@ -387,3 +406,27 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         if not found:
             env.update(self.sl_env_vars) # Add/overwrite with sl env variables
         return env
+
+class StarlakeJobFactory:
+    _registry = {}
+
+    @classmethod
+    def register_job(cls, job_class: Type[IStarlakeJob]) -> None:
+        orchestrator = job_class.sl_orchestrator()
+        if orchestrator is None:
+            return
+        execution_environment = job_class.sl_execution_environment()
+        if execution_environment is None:
+            return
+        executions = cls._registry.get(orchestrator, {})
+        executions.update({execution_environment: job_class})
+        cls._registry.update({orchestrator: executions})
+        print(f"Registered job {job_class} for orchestrator {orchestrator} and execution environment {execution_environment}")
+
+    @classmethod
+    def create_job(cls, filename: str, module_name: str, orchestrator: Union[StarlakeOrchestrator, str], execution_environment: Union[StarlakeExecutionEnvironment, str], options: dict, **kwargs) -> IStarlakeJob:
+        executions: dict = cls._registry.get(orchestrator, {})
+        job: Type[IStarlakeJob] = executions.get(execution_environment, None)
+        if job is None:
+            raise ValueError(f"Execution environment {execution_environment} for orchestrator {orchestrator} not found in registry")
+        return job(filename=filename, module_name=module_name, options=options, **kwargs)

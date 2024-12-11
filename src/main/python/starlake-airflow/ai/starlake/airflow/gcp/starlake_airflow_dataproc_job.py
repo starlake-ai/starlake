@@ -6,7 +6,7 @@ from ai.starlake.common import TODAY
 
 from ai.starlake.gcp import StarlakeDataprocClusterConfig, StarlakeDataprocMasterConfig, StarlakeDataprocWorkerConfig
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
 
 from ai.starlake.airflow import StarlakeAirflowJob, StarlakeAirflowOptions
 
@@ -238,3 +238,12 @@ class StarlakeAirflowDataprocJob(StarlakeAirflowJob):
             *args,
             **kwargs
         )
+
+    @classmethod
+    def sl_execution_environment(self) -> Union[StarlakeExecutionEnvironment, str]:
+        """Returns the execution environment to use.
+
+        Returns:
+            StarlakeExecutionEnvironment: The execution environment to use.
+        """
+        return StarlakeExecutionEnvironment.DATAPROC

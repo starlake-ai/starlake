@@ -52,6 +52,15 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             cluster_config_dict=self.cluster_config.__config__()
         )
 
+    @classmethod
+    def sl_execution_environment(cls) -> Union[StarlakeExecutionEnvironment, str]:
+        """Returns the execution environment to use.
+
+        Returns:
+            StarlakeExecutionEnvironment: The execution environment to use.
+        """
+        return StarlakeExecutionEnvironment.DATAPROC
+
     def __client__(self) -> DataprocClient:
         """Get the Dataproc client."""
         return self.__dataproc__.get_client()
