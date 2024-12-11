@@ -146,13 +146,15 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         Returns:
             T: The scheduler task.
         """
-        tuple_events = self.update_events(self.__add_event(domain, **kwargs))
-        kwargs.update({tuple_events[0]: tuple_events[1]})
         params = kwargs.get("params", {})
         schedule = params.get('schedule', None)
         if schedule is not None:
-            domain = f'{domain}_{schedule}'
-        task_id = f"import_{domain}" if not task_id else task_id
+            tmp_domain = f'{domain}_{schedule}'
+        else:
+            tmp_domain = domain
+        tuple_events = self.update_events(self.__add_event(tmp_domain, **kwargs))
+        kwargs.update({tuple_events[0]: tuple_events[1]})
+        task_id = f"import_{tmp_domain}" if not task_id else task_id
         kwargs.pop("task_id", None)
         arguments = ["import", "--domains", domain, "--tables", ",".join(tables), "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
         return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
