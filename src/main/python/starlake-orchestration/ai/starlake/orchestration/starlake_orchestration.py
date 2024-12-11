@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, final, Generic, List, Optional, Set, TypeVar, Union
+from typing import Any, final, Generic, List, Optional, Set, Type, TypeVar, Union
 
 from ai.starlake.common import sl_cron_start_end_dates, sort_crons_by_frequency, is_valid_cron
 
@@ -612,6 +612,10 @@ class AbstractOrchestration(Generic[U, T, GT, E]):
     def __exit__(self, exc_type, exc_value, traceback):
         return False
 
+    @classmethod
+    def sl_orchestrator(cls) -> str:
+        return None
+
     @property
     def job(self) -> J:
         return self._job
@@ -638,8 +642,12 @@ class OrchestrationFactory:
     _registry = {}
 
     @classmethod
-    def register_orchestration(cls, orchestrator: str, orchestration_class):
-        cls._registry[orchestrator] = orchestration_class
+    def register_orchestration(cls, orchestration_class: Type[AbstractOrchestration]):
+        orchestrator = orchestration_class.sl_orchestrator()
+        if orchestrator is None:
+            raise ValueError("Orchestration must define a valid orchestrator")
+        cls._registry.update({orchestrator: orchestration_class})
+        print(f"Registered orchestration {orchestration_class} for orchestrator {orchestrator}")
 
     @classmethod
     def create_orchestration(cls, job: J, **kwargs) -> AbstractOrchestration[U, T, GT, E]:

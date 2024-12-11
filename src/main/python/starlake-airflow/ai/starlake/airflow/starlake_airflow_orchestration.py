@@ -4,7 +4,7 @@ from ai.starlake.airflow.starlake_airflow_job import StarlakeAirflowJob, Airflow
 
 from ai.starlake.common import sl_cron_start_end_dates
 
-from ai.starlake.dataset import StarlakeDataset
+from ai.starlake.job import StarlakeOrchestrator
 
 from ai.starlake.orchestration import AbstractOrchestration, StarlakeSchedule, StarlakeDependencies, AbstractPipeline, AbstractTaskGroup, AbstractTask, AbstractDependency
 
@@ -128,6 +128,10 @@ class AirflowOrchestration(AbstractOrchestration[DAG, BaseOperator, TaskGroup, D
             job (J): The job that will generate the tasks within the pipeline.
         """
         super().__init__(job, **kwargs) 
+
+    @classmethod
+    def sl_orchestrator(cls) -> str:
+        return StarlakeOrchestrator.AIRFLOW
 
     def sl_create_pipeline(self, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, **kwargs) -> AbstractPipeline[DAG, Dataset]:
         """Create the Starlake pipeline to orchestrate.

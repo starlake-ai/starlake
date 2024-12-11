@@ -22,7 +22,12 @@ E = TypeVar("E")
 
 from enum import Enum
 
-StarlakeOrchestrator = Enum("StarlakeOrchestrator", ["airflow", "dagster"])
+class StarlakeOrchestrator(str, Enum):
+    AIRFLOW = "airflow"
+    DAGSTER = "dagster"
+
+    def __str__(self):
+        return self.value
 
 class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
     def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict, **kwargs) -> None:
@@ -96,14 +101,14 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
 
         self._events: List[E] = []
 
-    @abstractmethod
-    def sl_orchestrator(self) -> Union[StarlakeOrchestrator, str]:
+    @classmethod
+    def sl_orchestrator(cls) -> Union[StarlakeOrchestrator, str, None]:
         """Returns the orchestrator to use.
 
         Returns:
             StarlakeOrchestrator: The orchestrator to use.
         """
-        pass
+        return None
 
     @property
     def events(self) -> List[E]:
