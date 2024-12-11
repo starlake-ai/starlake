@@ -32,17 +32,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             options: dict=None,
             **kwargs) -> None:
         super().__init__(filename=filename, module_name=module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
-        self.cluster_config = StarlakeDataprocClusterConfig(
-            cluster_id="dataproc",
-            dataproc_name=None,
-            master_config=None, 
-            worker_config=None, 
-            secondary_worker_config=None, 
-            idle_delete_ttl=None, 
-            single_node=None, 
-            options=self.options,
-            **kwargs
-        ) if not cluster_config else cluster_config
+        self.cluster_config = StarlakeDataprocClusterConfig.from_module(filename, module_name, self.options) if not cluster_config else cluster_config
         cluster_id = self.cluster_config.cluster_id
         cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}"
         self.__dataproc__  = DataprocResource(
