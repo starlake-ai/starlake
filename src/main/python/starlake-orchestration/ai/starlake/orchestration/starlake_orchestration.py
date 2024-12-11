@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, final, Generic, List, Optional, Set, TypeVar, Union
 
-from ai.starlake.common import sl_cron_start_end_dates, sort_crons_by_frequency
+from ai.starlake.common import sl_cron_start_end_dates, sort_crons_by_frequency, is_valid_cron
 
 from ai.starlake.job import StarlakeSparkConfig, IStarlakeJob, StarlakePreLoadStrategy
 
@@ -288,7 +288,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
             if cron is not None:
                 if cron.lower().strip() == "none":
                     cron = None
-                elif not StarlakeSchedule.is_valid_cron(cron):
+                elif not is_valid_cron(cron):
                     raise ValueError(f"Invalid cron expression: {cron}")
 
             catchup = cron is not None and self.get_context_var(var_name='catchup', default_value='False').lower() == 'true'
