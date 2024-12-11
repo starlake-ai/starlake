@@ -1,5 +1,7 @@
 from ai.starlake.dagster.starlake_dagster_job import StarlakeDagsterJob, DagsterDataset
 
+from ai.starlake.orchestration import StarlakeOrchestrator
+
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies
 
 from dagster import AssetKey, ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping,OutputMapping, DefaultScheduleStatus, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, ScheduleDefinition, OpDefinition
@@ -81,6 +83,10 @@ class DagsterOrchestration(AbstractOrchestration[JobDefinition, OpDefinition, Gr
         setattr(module, 'defs', defs)
 
         return super().__exit__(exc_type, exc_value, traceback)
+
+    @classmethod
+    def sl_orchestrator(cls) -> str:
+        return StarlakeOrchestrator.DAGSTER
 
     def sl_create_pipeline(self, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, **kwargs) -> AbstractPipeline[JobDefinition, AssetKey]:
         return DagsterPipeline(self.job, dag=None, schedule=schedule, dependencies=dependencies, orchestration=self, **kwargs)
