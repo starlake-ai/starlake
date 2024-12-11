@@ -240,7 +240,7 @@ class StarlakeAirflowDataprocJob(StarlakeAirflowJob):
         )
 
     @classmethod
-    def sl_execution_environment(self) -> Union[StarlakeExecutionEnvironment, str]:
+    def sl_execution_environment(cls) -> Union[StarlakeExecutionEnvironment, str]:
         """Returns the execution environment to use.
 
         Returns:
