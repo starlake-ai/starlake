@@ -2,7 +2,7 @@ FROM alpine:latest
 
 RUN apk add --no-cache --no-progress \
     nfs-utils \
-    postgresql14-client \
+    postgresql-client \
     unzip \
     bash
 

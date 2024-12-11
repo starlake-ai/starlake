@@ -217,15 +217,27 @@ case class Schema(
     schemaHandler: SchemaHandler
   ): StructType = {
     val fields = attributesWithoutScriptedFields.map { attr =>
-      val sparkType = attr.`type`(schemaHandler).fold(attr.sparkType(schemaHandler)) { tpe =>
-        (tpe.primitiveType, tpe.pattern) match {
-          case (PrimitiveType.timestamp, "epoch_second") => LongType
-          case (PrimitiveType.timestamp, "epoch_milli")  => LongType
-          case (PrimitiveType.date, _)                   => StringType
-          case (_, _)                                    => attr.sparkType(schemaHandler)
+      val metadata =
+        if (attr.`type` == "variant")
+          org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
+        else org.apache.spark.sql.types.Metadata.empty
+      val sparkType = attr
+        .`type`(schemaHandler)
+        .fold(attr.sparkType(schemaHandler)) { tpe =>
+          (tpe.primitiveType, tpe.pattern) match {
+            case (PrimitiveType.timestamp, "epoch_second") => LongType
+            case (PrimitiveType.timestamp, "epoch_milli")  => LongType
+            case (PrimitiveType.date, _)                   => StringType
+            case (_, _)                                    => attr.sparkType(schemaHandler)
+          }
         }
-      }
-      StructField(attr.name, sparkType, !attr.resolveRequired())
+
+      StructField(
+        name = attr.name,
+        dataType = sparkType,
+        nullable = !attr.resolveRequired(),
+        metadata = metadata
+      )
         .withComment(attr.comment.getOrElse(""))
     }
     StructType(fields)
