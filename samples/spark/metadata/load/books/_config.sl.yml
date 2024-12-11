@@ -3,4 +3,4 @@ version: 1
 load:
   name: "books"
   metadata:
-    directory: "{{incoming_path}}/books"
+    directory: "{{root_path}}/incoming/books"
