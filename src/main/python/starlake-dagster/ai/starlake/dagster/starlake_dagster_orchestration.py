@@ -1,6 +1,6 @@
 from ai.starlake.dagster.starlake_dagster_job import StarlakeDagsterJob, DagsterDataset
 
-from ai.starlake.orchestration import StarlakeOrchestrator
+from ai.starlake.job import StarlakeOrchestrator
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies
 
