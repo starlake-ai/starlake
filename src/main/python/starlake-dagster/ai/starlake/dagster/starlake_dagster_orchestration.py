@@ -10,7 +10,7 @@ from dagster._core.definitions.output import OutputDefinition
 
 from dagster._core.definitions import NodeDefinition
 
-from typing import List, Optional, TypeVar
+from typing import Any, List, Optional, TypeVar, Union
 
 J = TypeVar("J", bound=StarlakeDagsterJob)
 
@@ -92,11 +92,26 @@ class DagsterOrchestration(AbstractOrchestration[JobDefinition, OpDefinition, Gr
         return DagsterPipeline(self.job, dag=None, schedule=schedule, dependencies=dependencies, orchestration=self, **kwargs)
 
     def sl_create_task_group(self, group_id: str, **kwargs) -> AbstractTaskGroup[GraphDefinition]:
-        return AbstractTaskGroup(group_id, GraphDefinition(name=group_id), **kwargs)
+        return AbstractTaskGroup(group_id, orchestration_cls = DagsterOrchestration, group = GraphDefinition(name=group_id), **kwargs)
+
+    @classmethod
+    def from_native(cls, native: Any) -> Optional[Union[AbstractTask[OpDefinition], AbstractTaskGroup[GraphDefinition]]]:
+        """Create a task or task group from a native object.
+        Args:
+            native (Any): the native object.
+        Returns:
+            Optional[Union[AbstractTask[OpDefinition], AbstractTaskGroup[GraphDefinition]]]: the task or task group.
+        """
+        if isinstance(native, OpDefinition):
+            return AbstractTask(native.name, native)
+        elif isinstance(native, GraphDefinition):
+            return AbstractTaskGroup(native.name, cls, native)
+        else:
+            return None
 
 class DagsterPipeline(AbstractPipeline[JobDefinition, AssetKey], DagsterDataset):
     def __init__(self, sl_job: J, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None,  orchestration: Optional[DagsterOrchestration] = None, **kwargs) -> None:
-        super().__init__(sl_job, schedule = schedule, dependencies = dependencies, orchestration = orchestration, **kwargs)
+        super().__init__(sl_job, orchestration_cls = DagsterOrchestration, schedule = schedule, dependencies = dependencies, orchestration = orchestration, **kwargs)
 
     def __exit__(self, exc_type, exc_value, traceback):
         super().__exit__(exc_type, exc_value, traceback)

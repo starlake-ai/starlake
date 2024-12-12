@@ -84,9 +84,10 @@ class TaskGroupContext(AbstractDependency):
     """Task group context to manage dependencies."""
     _context_stack: List["TaskGroupContext"] = []
 
-    def __init__(self, group_id: str, parent: Optional["TaskGroupContext"] = None):
+    def __init__(self, group_id: str, orchestration_cls: "AbstractOrchestration", parent: Optional["TaskGroupContext"] = None):
         super().__init__(id=group_id)
         self._group_id = group_id
+        self._orchestration_cls = orchestration_cls
         self._dependencies: List[AbstractDependency] = []
         self._dependencies_dict: dict = dict()
         self._upstream_dependencies: dict = dict()
@@ -141,12 +142,20 @@ class TaskGroupContext(AbstractDependency):
         """
         return cls._context_stack[-1] if cls._context_stack else None
 
-    def set_dependency(self, upstream_dependency: AbstractDependency, downstream_dependency: AbstractDependency) -> AbstractDependency:
+    def set_dependency(self, upstream_dependency: Union[AbstractDependency, Any], downstream_dependency: Union[AbstractDependency, Any]) -> AbstractDependency:
         """Set a dependency between two tasks.
         Args:
             upstream_dependency (AbstractDependency): the upstream dependency.
             downstream_dependency (AbstractDependency): the downstream dependency.
         """
+        if not isinstance(upstream_dependency, AbstractDependency):
+            upstream_dependency = self._orchestration_cls.from_native(upstream_dependency)
+            if upstream_dependency is None:
+                raise ValueError(f"Invalid upstream dependency: {upstream_dependency}")
+        if not isinstance(downstream_dependency, AbstractDependency):
+            downstream_dependency = self._orchestration_cls.from_native(downstream_dependency)
+            if downstream_dependency is None:
+                raise ValueError(f"Invalid downstream dependency: {downstream_dependency}")
         upstream_dependency_id = upstream_dependency.id
         downstream_dependency_id = downstream_dependency.id
         upstream_deps = self.upstream_dependencies.get(upstream_dependency_id, [])
@@ -219,8 +228,8 @@ class TaskGroupContext(AbstractDependency):
 class AbstractTaskGroup(Generic[GT], TaskGroupContext):
     """Abstract interface to define a task group."""
 
-    def __init__(self, group_id: str, group: Optional[GT] = None, **kwargs):
-        super().__init__(group_id)
+    def __init__(self, group_id: str, orchestration_cls: "AbstractOrchestration", group: Optional[GT] = None, **kwargs):
+        super().__init__(group_id, orchestration_cls)
         self._group = group
         self.params = kwargs
 
@@ -253,7 +262,7 @@ class AbstractTaskGroup(Generic[GT], TaskGroupContext):
 
 class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
     """Abstract interface to define a pipeline."""
-    def __init__(self, job: J, dag: Optional[U] = None, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[U, T, GT, E]] = None, **kwargs) -> None:
+    def __init__(self, job: J, orchestration_cls: "AbstractOrchestration", dag: Optional[U] = None, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[U, T, GT, E]] = None, **kwargs) -> None:
         if not schedule and not dependencies:
             raise ValueError("Either a schedule or dependencies must be provided")
         pipeline_id = job.caller_filename.replace(".py", "").replace(".pyc", "").lower()
@@ -263,7 +272,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
             schedule_name = None
         if schedule_name:
             pipeline_id = f"{pipeline_id}_{schedule_name}"
-        super().__init__(group_id=pipeline_id, group=dag, **kwargs)
+        super().__init__(group_id=pipeline_id, orchestration_cls=orchestration_cls, group=dag, **kwargs)
         self._orchestration = orchestration
         self._job = job
         self._dag = dag
@@ -641,6 +650,16 @@ class AbstractOrchestration(Generic[U, T, GT, E]):
     @abstractmethod
     def sl_create_task_group(self, group_id: str, pipeline: AbstractPipeline[U, E], **kwargs) -> AbstractTaskGroup[GT]:
         pass
+
+    @classmethod
+    def from_native(cls, native: Any) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
+        """Create a task or task group from a native object.
+        Args:
+            native (Any): the native object.
+        Returns:
+            Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]: the task or task group.
+        """
+        return None
 
 class OrchestrationFactory:
     _registry = {}
