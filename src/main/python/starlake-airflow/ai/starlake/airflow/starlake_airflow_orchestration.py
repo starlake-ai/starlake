@@ -18,13 +18,13 @@ from airflow.models.baseoperator import BaseOperator
 
 from airflow.utils.task_group import TaskGroup, TaskGroupContext
 
-from typing import List, Optional, Set, TypeVar, Union
+from typing import Any, List, Optional, TypeVar, Union
 
 J = TypeVar("J", bound=StarlakeAirflowJob)
 
 class AirflowPipeline(AbstractPipeline[DAG, Dataset], AirflowDataset):
     def __init__(self, job: J, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[DAG, BaseOperator, TaskGroup, Dataset]] = None, **kwargs) -> None:
-        super().__init__(job, None, schedule, dependencies, orchestration, **kwargs)
+        super().__init__(job, orchestration_cls=AirflowOrchestration, dag=None, schedule=schedule, dependencies=dependencies, orchestration=orchestration, **kwargs)
 
         airflow_schedule: Union[str, List[Dataset], None] = None
 
@@ -111,7 +111,7 @@ class AirflowPipeline(AbstractPipeline[DAG, Dataset], AirflowDataset):
 
 class AirflowTaskGroup(AbstractTaskGroup[TaskGroup]):
     def __init__(self, group_id: str, group: TaskGroup, **kwargs) -> None:
-        super().__init__(group_id, group, **kwargs)
+        super().__init__(group_id, orchestration_cls=AirflowOrchestration, group=group)
 
     def __enter__(self):
         TaskGroupContext.push_context_managed_task_group(self.group)
@@ -163,3 +163,18 @@ class AirflowOrchestration(AbstractOrchestration[DAG, BaseOperator, TaskGroup, D
             dag=pipeline.dag, 
             **kwargs
         )
+
+    @classmethod
+    def from_native(cls, native: Any) -> Optional[Union[AbstractTask[BaseOperator], AbstractTaskGroup[TaskGroup]]]:
+        """Create a task or task group from a native object.
+        Args:
+            native (Any): the native object.
+        Returns:
+            Optional[Union[AbstractTask[BaseOperator], AbstractTaskGroup[TaskGroup]]]: the task or task group.
+        """
+        if isinstance(native, BaseOperator):
+            return AbstractTask(native.task_id, native)
+        elif isinstance(native, TaskGroup):
+            return AirflowTaskGroup(native.group_id, native)
+        else:
+            return None
