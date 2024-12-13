@@ -1,10 +1,21 @@
-from ai.starlake.job import StarlakePreLoadStrategy
+{% include 'templates/dags/__common__.py.j2' %}
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeJobFactory
+
+import os
+
+import sys
+
+sl_job = StarlakeJobFactory.create_job(
+    filename=os.path.basename(__file__), 
+    module_name=f"{__name__}", 
+    orchestrator=orchestrator,
+    execution_environment=execution_environment,
+    options=options
+)
 
 from ai.starlake.dataset import StarlakeDataset
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDomain, StarlakeTable, OrchestrationFactory
-
-from typing import List
 
 schedules= [{% for schedule in context.schedules %}
     StarlakeSchedule(

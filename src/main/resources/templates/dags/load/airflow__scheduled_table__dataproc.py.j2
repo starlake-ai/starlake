@@ -30,5 +30,6 @@
 # - retry_delay(300): the delay between retries in seconds [OPTIONAL]
 # - default_dag_args: the default dag arguments specified as a map in json format [OPTIONAL]
 # Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
-{% include 'templates/dags/__starlake_airflow_dataproc_job.py.j2' %}
+{% include 'templates/dags/__starlake_airflow_orchestrator.py' %}
+{% include 'templates/dags/__starlake_dataproc_execution.py' %}
 {% include 'templates/dags/load/__scheduled_table_tpl.py.j2' %}
