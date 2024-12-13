@@ -1,9 +1,13 @@
 import os
 
+import sys
+
 import uuid
 
 from ai.starlake.common import MissingEnvironmentVariable
 from ai.starlake.job import StarlakeOptions
+
+from typing import Optional
 
 class StarlakeDataprocMachineConfig():
     def __init__(self, num_instances: int, machine_type: str, disk_type: str, disk_size: int, **kwargs):
@@ -34,6 +38,21 @@ class StarlakeDataprocMasterConfig(StarlakeDataprocMachineConfig, StarlakeOption
             **kwargs
         )
 
+    @classmethod
+    def from_module(cls, filename: str, module_name: str, options: dict):
+        caller_globals = sys.modules[module_name].__dict__
+        cluster_config_name = cls.get_context_var("cluster_config_name", filename.replace(".py", "").replace(".pyc", "").lower(), options)
+        def default_dataproc_master_config(*args, **kwargs) -> StarlakeDataprocMasterConfig:
+            return cls(
+                machine_type=caller_globals.get('dataproc_master_machine_type', None), 
+                disk_type=caller_globals.get('dataproc_master_disk_type', None),
+                disk_size=caller_globals.get('dataproc_master_disk_size', None), 
+                options=options,
+                **kwargs
+            )
+        dataproc_master_config = getattr(module_name, "get_dataproc_master_config", default_dataproc_master_config)
+        return dataproc_master_config(cluster_config_name, **caller_globals.get('dataproc_master_properties', {}))
+
 class StarlakeDataprocWorkerConfig(StarlakeDataprocMachineConfig, StarlakeOptions):
     def __init__(self, num_instances: int, machine_type: str, disk_type: str, disk_size: int, options: dict, **kwargs):
         super().__init__(
@@ -44,8 +63,24 @@ class StarlakeDataprocWorkerConfig(StarlakeDataprocMachineConfig, StarlakeOption
             **kwargs
         )
 
+    @classmethod
+    def from_module(cls, filename: str, module_name: str, options: dict):
+        caller_globals = sys.modules[module_name].__dict__
+        cluster_config_name = cls.get_context_var("cluster_config_name", filename.replace(".py", "").replace(".pyc", "").lower(), options)
+        def default_dataproc_worker_config(*args, **kwargs) -> StarlakeDataprocWorkerConfig:
+            return cls(
+                num_instances=caller_globals.get('dataproc_worker_num_instances', None),
+                machine_type=caller_globals.get('dataproc_worker_machine_type', None), 
+                disk_type=caller_globals.get('dataproc_worker_disk_type', None),
+                disk_size=caller_globals.get('dataproc_worker_disk_size', None), 
+                options=options,
+                **kwargs
+            )
+        dataproc_worker_config = getattr(module_name, "get_dataproc_worker_config", default_dataproc_worker_config)
+        return dataproc_worker_config(cluster_config_name, **caller_globals.get('dataproc_worker_properties', {}))
+
 class StarlakeDataprocClusterConfig(StarlakeOptions):
-    def __init__(self, cluster_id:str, dataproc_name:str, master_config: StarlakeDataprocMasterConfig, worker_config: StarlakeDataprocWorkerConfig, secondary_worker_config: StarlakeDataprocWorkerConfig, idle_delete_ttl: int, single_node: bool, options: dict, **kwargs):
+    def __init__(self, cluster_id:Optional[str] = None, dataproc_name:Optional[str] = None, master_config: Optional[StarlakeDataprocMasterConfig] = None, worker_config: Optional[StarlakeDataprocWorkerConfig] = None, secondary_worker_config: Optional[StarlakeDataprocWorkerConfig] = None, idle_delete_ttl: Optional[int] = None, single_node: Optional[bool] = None, options: Optional[dict] = None, **kwargs):
         super().__init__()
         options = {} if not options else options
         sl_env_vars = __class__.get_sl_env_vars(options)
@@ -81,6 +116,30 @@ class StarlakeDataprocClusterConfig(StarlakeOptions):
         except MissingEnvironmentVariable:
             self.metadata = {}
 
+    @classmethod
+    def from_module(cls, filename: str, module_name: str, options: dict):
+        caller_globals = sys.modules[module_name].__dict__
+        cluster_config_name = cls.get_context_var("cluster_config_name", filename.replace(".py", "").replace(".pyc", "").lower(), options)
+        cluster_id = caller_globals.get("cluster_id", cluster_config_name)
+        dataproc_name = caller_globals.get("dataproc_name", None)
+        master_config = StarlakeDataprocMasterConfig.from_module(filename, module_name, options)
+        worker_config = StarlakeDataprocWorkerConfig.from_module(filename, module_name, options)
+        dataproc_secondary_worker_config = getattr(module_name, "get_dataproc_secondary_worker_config", lambda dag_name: None)
+        secondary_worker_config = dataproc_secondary_worker_config(cluster_config_name)
+        idle_delete_ttl=caller_globals.get('dataproc_idle_delete_ttl', None)
+        single_node=caller_globals.get('dataproc_single_node', None)
+        return cls(
+            cluster_id=cluster_id,
+            dataproc_name=dataproc_name,
+            master_config=master_config,
+            worker_config=worker_config,
+            secondary_worker_config=secondary_worker_config,
+            idle_delete_ttl=idle_delete_ttl,
+            single_node=single_node,
+            options=options,
+            **caller_globals.get('dataproc_cluster_properties', {})
+        )
+
     def __config__(self, **kwargs):
         cluster_properties = dict(self.cluster_properties, **kwargs)
         cluster_config = {
@@ -112,3 +171,6 @@ class StarlakeDataprocClusterConfig(StarlakeOptions):
         elif self.secondary_worker_config:
             cluster_config["secondary_worker_config"] = self.secondary_worker_config.__config__()
         return cluster_config
+
+    def __str__(self):
+        return f"StarlakeDataprocClusterConfig({self.__config__()})"

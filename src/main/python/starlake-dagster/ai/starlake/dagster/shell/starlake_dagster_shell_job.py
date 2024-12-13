@@ -2,7 +2,7 @@ from typing import List, Optional, Union
 
 from ai.starlake.dagster import StarlakeDagsterJob
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
 
 from dagster import Failure, Output, AssetMaterialization, AssetKey, Out, op, RetryPolicy
 
@@ -14,6 +14,15 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
 
     def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs) -> None:
         super().__init__(filename=filename, module_name=module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
+
+    @classmethod
+    def sl_execution_environment(cls) -> Union[StarlakeExecutionEnvironment, str]:
+        """Returns the execution environment to use.
+
+        Returns:
+            StarlakeExecutionEnvironment: The execution environment to use.
+        """
+        return StarlakeExecutionEnvironment.SHELL
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_job()

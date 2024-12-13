@@ -6,7 +6,7 @@ import logging
 
 from typing import Any, Dict, Sequence, Union
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
 
 from ai.starlake.airflow import StarlakeAirflowJob
 
@@ -65,6 +65,15 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
         self.retry_on_failure = __class__.get_context_var("retry_on_failure", "False", self.options).lower() == 'true' if retry_on_failure is None else retry_on_failure
         self.retry_delay_in_seconds = float(__class__.get_context_var("retry_delay_in_seconds", "10", self.options)) if retry_delay_in_seconds is None else retry_delay_in_seconds
         self.use_gcloud = __class__.get_context_var("use_gcloud", "True", self.options).lower() == 'true'
+
+    @classmethod
+    def sl_execution_environment(self) -> Union[StarlakeExecutionEnvironment, str]:
+        """Returns the execution environment to use.
+
+        Returns:
+            StarlakeExecutionEnvironment: The execution environment to use.
+        """
+        return StarlakeExecutionEnvironment.CLOUD_RUN
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides StarlakeAirflowJob.sl_job()

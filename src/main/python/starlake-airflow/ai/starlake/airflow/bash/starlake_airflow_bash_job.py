@@ -1,6 +1,6 @@
 from typing import Union
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
 
 from ai.starlake.airflow import StarlakeAirflowJob
 
@@ -14,6 +14,15 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
     """Airflow Starlake Bash Job."""
     def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs):
         super().__init__(filename, module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
+
+    @classmethod
+    def sl_execution_environment(cls) -> Union[StarlakeExecutionEnvironment, str]:
+        """Returns the execution environment to use.
+
+        Returns:
+            StarlakeExecutionEnvironment: The execution environment to use.
+        """
+        return StarlakeExecutionEnvironment.SHELL
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides StarlakeAirflowJob.sl_job()

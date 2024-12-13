@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, final, Generic, List, Optional, Set, TypeVar, Union
+from typing import Any, final, Generic, List, Optional, Set, Type, TypeVar, Union
 
-from ai.starlake.common import sl_cron_start_end_dates, sort_crons_by_frequency
+import os
+import importlib
+import inspect
+
+from ai.starlake.common import sl_cron_start_end_dates, sort_crons_by_frequency, is_valid_cron
 
 from ai.starlake.job import StarlakeSparkConfig, IStarlakeJob, StarlakePreLoadStrategy
 
@@ -80,9 +84,10 @@ class TaskGroupContext(AbstractDependency):
     """Task group context to manage dependencies."""
     _context_stack: List["TaskGroupContext"] = []
 
-    def __init__(self, group_id: str, parent: Optional["TaskGroupContext"] = None):
+    def __init__(self, group_id: str, orchestration_cls: "AbstractOrchestration", parent: Optional["TaskGroupContext"] = None):
         super().__init__(id=group_id)
         self._group_id = group_id
+        self._orchestration_cls = orchestration_cls
         self._dependencies: List[AbstractDependency] = []
         self._dependencies_dict: dict = dict()
         self._upstream_dependencies: dict = dict()
@@ -137,12 +142,20 @@ class TaskGroupContext(AbstractDependency):
         """
         return cls._context_stack[-1] if cls._context_stack else None
 
-    def set_dependency(self, upstream_dependency: AbstractDependency, downstream_dependency: AbstractDependency) -> AbstractDependency:
+    def set_dependency(self, upstream_dependency: Union[AbstractDependency, Any], downstream_dependency: Union[AbstractDependency, Any]) -> AbstractDependency:
         """Set a dependency between two tasks.
         Args:
             upstream_dependency (AbstractDependency): the upstream dependency.
             downstream_dependency (AbstractDependency): the downstream dependency.
         """
+        if not isinstance(upstream_dependency, AbstractDependency):
+            upstream_dependency = self._orchestration_cls.from_native(upstream_dependency)
+            if upstream_dependency is None:
+                raise ValueError(f"Invalid upstream dependency: {upstream_dependency}")
+        if not isinstance(downstream_dependency, AbstractDependency):
+            downstream_dependency = self._orchestration_cls.from_native(downstream_dependency)
+            if downstream_dependency is None:
+                raise ValueError(f"Invalid downstream dependency: {downstream_dependency}")
         upstream_dependency_id = upstream_dependency.id
         downstream_dependency_id = downstream_dependency.id
         upstream_deps = self.upstream_dependencies.get(upstream_dependency_id, [])
@@ -215,8 +228,8 @@ class TaskGroupContext(AbstractDependency):
 class AbstractTaskGroup(Generic[GT], TaskGroupContext):
     """Abstract interface to define a task group."""
 
-    def __init__(self, group_id: str, group: Optional[GT] = None, **kwargs):
-        super().__init__(group_id)
+    def __init__(self, group_id: str, orchestration_cls: "AbstractOrchestration", group: Optional[GT] = None, **kwargs):
+        super().__init__(group_id, orchestration_cls)
         self._group = group
         self.params = kwargs
 
@@ -249,7 +262,7 @@ class AbstractTaskGroup(Generic[GT], TaskGroupContext):
 
 class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
     """Abstract interface to define a pipeline."""
-    def __init__(self, job: J, dag: Optional[U] = None, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[U, T, GT, E]] = None, **kwargs) -> None:
+    def __init__(self, job: J, orchestration_cls: "AbstractOrchestration", dag: Optional[U] = None, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[U, T, GT, E]] = None, **kwargs) -> None:
         if not schedule and not dependencies:
             raise ValueError("Either a schedule or dependencies must be provided")
         pipeline_id = job.caller_filename.replace(".py", "").replace(".pyc", "").lower()
@@ -259,7 +272,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
             schedule_name = None
         if schedule_name:
             pipeline_id = f"{pipeline_id}_{schedule_name}"
-        super().__init__(group_id=pipeline_id, group=dag, **kwargs)
+        super().__init__(group_id=pipeline_id, orchestration_cls=orchestration_cls, group=dag, **kwargs)
         self._orchestration = orchestration
         self._job = job
         self._dag = dag
@@ -288,7 +301,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
             if cron is not None:
                 if cron.lower().strip() == "none":
                     cron = None
-                elif not StarlakeSchedule.is_valid_cron(cron):
+                elif not is_valid_cron(cron):
                     raise ValueError(f"Invalid cron expression: {cron}")
 
             catchup = cron is not None and self.get_context_var(var_name='catchup', default_value='False').lower() == 'true'
@@ -612,6 +625,10 @@ class AbstractOrchestration(Generic[U, T, GT, E]):
     def __exit__(self, exc_type, exc_value, traceback):
         return False
 
+    @classmethod
+    def sl_orchestrator(cls) -> str:
+        return None
+
     @property
     def job(self) -> J:
         return self._job
@@ -634,15 +651,70 @@ class AbstractOrchestration(Generic[U, T, GT, E]):
     def sl_create_task_group(self, group_id: str, pipeline: AbstractPipeline[U, E], **kwargs) -> AbstractTaskGroup[GT]:
         pass
 
+    @classmethod
+    def from_native(cls, native: Any) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
+        """Create a task or task group from a native object.
+        Args:
+            native (Any): the native object.
+        Returns:
+            Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]: the task or task group.
+        """
+        return None
+
 class OrchestrationFactory:
     _registry = {}
 
+    _initialized = False
+
     @classmethod
-    def register_orchestration(cls, orchestrator: str, orchestration_class):
-        cls._registry[orchestrator] = orchestration_class
+    def register_orchestrations_from_package(cls, package_name: str = "ai.starlake") -> None:
+        """
+        Dynamically load all classes implementing AbstractOrchestration from the given root package, including sub-packages,
+        and register them in the OrchestrationRegistry.
+        """
+        print(f"Registering orchestrations from package {package_name}")
+        package = importlib.import_module(package_name)
+        package_path = os.path.dirname(package.__file__)
+
+        for root, dirs, files in os.walk(package_path):
+            # Convert the filesystem path back to a Python module path
+            relative_path = os.path.relpath(root, package_path)
+            if relative_path == ".":
+                module_prefix = package_name
+            else:
+                module_prefix = f"{package_name}.{relative_path.replace(os.path.sep, '.')}"
+
+            for file in files:
+                if file.endswith(".py") and file != "__init__.py":
+                    module_name = os.path.splitext(file)[0]
+                    full_module_name = f"{module_prefix}.{module_name}"
+
+                    try:
+                        module = importlib.import_module(full_module_name)
+                    except ImportError as e:
+                        print(f"Failed to import module {full_module_name}: {e}")
+                        continue
+                    except AttributeError as e:
+                        print(f"Failed to import module {full_module_name}: {e}")
+                        continue
+
+                    for name, obj in inspect.getmembers(module, inspect.isclass):
+                        if issubclass(obj, AbstractOrchestration) and obj is not AbstractOrchestration:
+                            OrchestrationFactory.register_orchestration(obj)
+
+    @classmethod
+    def register_orchestration(cls, orchestration_class: Type[AbstractOrchestration]):
+        orchestrator = orchestration_class.sl_orchestrator()
+        if orchestrator is None:
+            raise ValueError("Orchestration must define a valid orchestrator")
+        cls._registry.update({orchestrator: orchestration_class})
+        print(f"Registered orchestration {orchestration_class} for orchestrator {orchestrator}")
 
     @classmethod
     def create_orchestration(cls, job: J, **kwargs) -> AbstractOrchestration[U, T, GT, E]:
+        if not cls._initialized:
+            cls.register_orchestrations_from_package()
+            cls._initialized = True
         orchestrator = job.sl_orchestrator()
         if orchestrator not in cls._registry:
             raise ValueError(f"Unknown orchestrator type: {orchestrator}")
