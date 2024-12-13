@@ -19,7 +19,7 @@ object Versions {
   val esSpark212 = "8.16.1"
   val jsonSchemaValidator = "1.4.0"
   val scopt = "4.1.0"
-  val bigquery = "2.44.0"
+  val bigquery = "2.45.0"
   // val gcsConnector = "3.0.4"
   val gcsConnector = "hadoop3-2.2.26"
   val hadoop = "3.3.6"
