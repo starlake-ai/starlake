@@ -1,3 +1,5 @@
+import sys
+
 import uuid
 
 from typing import Optional, Union
@@ -6,7 +8,7 @@ from ai.starlake.common import TODAY
 
 from ai.starlake.gcp import StarlakeDataprocClusterConfig, StarlakeDataprocMasterConfig, StarlakeDataprocWorkerConfig
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
 
 from ai.starlake.airflow import StarlakeAirflowJob, StarlakeAirflowOptions
 
@@ -53,6 +55,30 @@ class StarlakeAirflowDataprocClusterConfig(StarlakeDataprocClusterConfig, Starla
             single_node=single_node,
             options=options,
             **kwargs
+        )
+
+    @classmethod
+    def from_module(cls, filename: str, module_name: str, options: dict):
+        caller_globals = sys.modules[module_name].__dict__
+        cluster_config_name = cls.get_context_var("cluster_config_name", filename.replace(".py", "").replace(".pyc", "").lower(), options)
+        cluster_id = caller_globals.get("cluster_id", cluster_config_name)
+        dataproc_name = caller_globals.get("dataproc_name", None)
+        master_config = StarlakeAirflowDataprocMasterConfig.from_module(filename, module_name, options)
+        worker_config = StarlakeAirflowDataprocWorkerConfig.from_module(filename, module_name, options)
+        dataproc_secondary_worker_config = getattr(module_name, "get_dataproc_secondary_worker_config", lambda dag_name: None)
+        secondary_worker_config = dataproc_secondary_worker_config(cluster_config_name)
+        idle_delete_ttl=caller_globals.get('dataproc_idle_delete_ttl', None)
+        single_node=caller_globals.get('dataproc_single_node', None)
+        return cls(
+            cluster_id=cluster_id,
+            dataproc_name=dataproc_name,
+            master_config=master_config,
+            worker_config=worker_config,
+            secondary_worker_config=secondary_worker_config,
+            idle_delete_ttl=idle_delete_ttl,
+            single_node=single_node,
+            options=options,
+            **caller_globals.get('dataproc_cluster_properties', {})
         )
 
 class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
@@ -203,9 +229,9 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
 
 class StarlakeAirflowDataprocJob(StarlakeAirflowJob):
     """Airflow Starlake Dataproc Job."""
-    def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, cluster: StarlakeAirflowDataprocCluster=None, options: dict=None, **kwargs):
+    def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, cluster: Optional[StarlakeAirflowDataprocCluster]=None, options: dict=None, **kwargs):
         super().__init__(filename, module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
-        self.cluster = StarlakeAirflowDataprocCluster(cluster_config=None, options=self.options, pool=self.pool) if not cluster else cluster
+        self.cluster = StarlakeAirflowDataprocCluster(StarlakeAirflowDataprocClusterConfig.from_module(filename, module_name, self.options), options=self.options, pool=self.pool) if not cluster else cluster
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
         """Overrides StarlakeAirflowJob.sl_job()
@@ -238,3 +264,12 @@ class StarlakeAirflowDataprocJob(StarlakeAirflowJob):
             *args,
             **kwargs
         )
+
+    @classmethod
+    def sl_execution_environment(cls) -> Union[StarlakeExecutionEnvironment, str]:
+        """Returns the execution environment to use.
+
+        Returns:
+            StarlakeExecutionEnvironment: The execution environment to use.
+        """
+        return StarlakeExecutionEnvironment.DATAPROC

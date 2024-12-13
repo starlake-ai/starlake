@@ -71,11 +71,21 @@ Starlake Orchestration provides a modular and extensible framework for creating,
 
 ##### `sl_orchestrator`
 
-Returns the orchestrator type (e.g., `StarlakeOrchestrator.airflow`) for a concrete implementation. This is critical for the `OrchestrationFactory` to instantiate the correct `AbstractOrchestration`.
+Returns the orchestrator type (e.g., `StarlakeOrchestrator.AIRFLOW`) for a concrete implementation. This is critical for the `OrchestrationFactory` to instantiate the correct `AbstractOrchestration`.
 
 ```python
-@abstractmethod
-def sl_orchestrator(self) -> Union[StarlakeOrchestrator, str]:
+@classmethod
+def sl_orchestrator(cls) -> Union[StarlakeOrchestrator, str]:
+    #...
+```
+
+##### `sl_execution_environment`
+
+Returns the execution environment type (e.g., `StarlakeExecutionEnvironment.SHELL`) for a concrete implementation. This is critical for the `StarlakeJobFactory` to instantiate the correct `IStarlakeJob`.
+
+```python
+@classmethod
+def sl_execution_environment(cls) -> Union[StarlakeExecutionEnvironment, str]:
     #...
 ```
 
@@ -255,6 +265,7 @@ The central abstraction for creating pipelines, tasks, and task groups. Orchestr
 
 ##### Critical Methods
 
+* **`sl_orchestrator`**: Returns the orchestrator type (e.g., `StarlakeOrchestrator.AIRFLOW`). This is required for the `OrchestrationFactory` to register the concrete orchestration classes dynamically.
 * **`sl_create_pipeline`** : Creates a pipeline instance, such as an Airflow `DAG` or a Dagster `JobDefinition`.
 * **`sl_create_task_group`** : Defines task groups for organizing related tasks, such as an Airflow `TaskGroup` or a Dagster `GraphDefinition`.
 
@@ -279,17 +290,42 @@ Handles the dynamic registration and instantiation of concrete orchestration cla
 class OrchestrationFactory:
     _registry = {}
 
+    _initialized = False
+
     @classmethod
-    def register_orchestration(cls, orchestrator: str, orchestration_class):
-        cls._registry[orchestrator] = orchestration_class
+    def register_orchestrations_from_package(cls, package_name: str = "ai.starlake") -> None:
+        """
+        Dynamically load all classes implementing AbstractOrchestration from the given root package, including sub-packages,
+        and register them in the OrchestrationRegistry.
+        """
+        ...
+
+    @classmethod
+    def register_orchestration(cls, orchestration_class: Type[AbstractOrchestration]) -> None:
+        orchestrator = orchestration_class.sl_orchestrator()
+        if orchestrator is None:
+            raise ValueError("Orchestration must define a valid orchestrator")
+        cls._registry.update({orchestrator: orchestration_class})
 
     @classmethod
     def create_orchestration(cls, job: J, **kwargs) -> AbstractOrchestration[U, T, GT, E]:
+        if not cls._initialized:
+            cls.register_orchestrations_from_package()
+            cls._initialized = True
         orchestrator = job.sl_orchestrator()
         if orchestrator not in cls._registry:
             raise ValueError(f"Unknown orchestrator type: {orchestrator}")
         return cls._registry[orchestrator](job, **kwargs)
 ```
+
+### 7. StarlakeJobFactory
+
+Handles the dynamic registration and instantiation of concrete `IStarlakeJob` classes.
+
+Features
+
+* Maintains a registry of `IStarleJob` concrete classes per orchestrator and execution environment.
+* Dynamically creates `IStarleJob` instances based on the chosen orchestrator and execution environment types.
 
 ## How to extend Starlake Orchestration?
 
@@ -300,17 +336,20 @@ Implement the `IStarlakeJob` interface to create a **concrete factory class** re
 * **Key Responsibilities**:
 
   * **Implement** `sl_orchestrator`: Specify the orchestrator type (e.g., `airflow`, `dagster`).
+  * **Implement** `sl_execution_environment`: Specify the execution environment type (e.g., `shell`, `cloud_run`).
   * **Implement** `sl_job`: Create tasks compatible with the orchestrator's API.
   * **Override** factory methods: Customize task creation for Starlake commands such as `preload`, `load`, `import`, and `transform`.
-
 * **Example Implementation**:
 
 ```python
 from ai.starlake.job import IStarlakeJob
 
 class MyStarlakeJob(IStarlakeJob):
-    def sl_orchestrator(self) -> str:
+    def sl_orchestrator(cls) -> str:
         return "my_orchestrator"
+
+    def sl_execution_environment(cls) -> str:
+        return "shell"
 
     def sl_job(self, task_id: str, arguments: list, spark_config=None, **kwargs) -> MyOrchestratorTask:
         # Orchestrator-specific implementation for creating a task
@@ -339,6 +378,9 @@ class MyOrchestratorTaskGroup(AbstractTaskGroup):
     ...
 
 class MyOrchestration(AbstractOrchestration):
+    def sl_orchestrator(cls) -> str:
+        return "my_orchestrator"
+
     def sl_create_pipeline(self, schedule=None, dependencies=None, **kwargs) -> AbstractPipeline:
         # Define pipeline using orchestrator's API
         pipeline = MyOrchestratorPipeline(self.job, schedule=schedule, dependencies=dependencies, orchestration=self, **kwargs)
@@ -349,14 +391,14 @@ class MyOrchestration(AbstractOrchestration):
         return MyOrchestratorTaskGroup(name=group_id, pipeline=pipeline, **kwargs)
 ```
 
-### 3. Register the Orchestration Class
+### 3. Register the Orchestration Class (optional)
 
 Register the custom orchestration class with the `OrchestrationFactory`, making it available for pipeline execution.
 
 * Example :
 
 ```python
-OrchestrationFactory.register_orchestration("my_orchestrator", MyOrchestration)
+OrchestrationFactory.register_orchestration(MyOrchestration)
 ```
 
 ### 4. Create and Run the Pipeline
@@ -365,16 +407,15 @@ Use the extended Starlake API to define and execute your pipeline.
 
 * **Steps**:
 
-  1. **Instantiate a Starlake Job**: Use the custom `IStarlakeJob` implementation.
+  1. **Instantiate a Starlake Job**: Use the `StarlakeJobFactory` to create an instance of the custom `IStarlakeJob`.
   2. **Create the Orchestration**: Use the `OrchestrationFactory` to create an instance of the custom orchestrator.
   3. **Define the Pipeline**: Add tasks and organize them using task groups.
-
 * **Example Usage**:
 
 ```python
-from ai.starlake.orchestration import StarlakeSchedule, StarlakeDomain, StarlakeTable, OrchestrationFactory
+from ai.starlake.job import StarlakeJobFactory, StarlakeExecutionEnvironment
 
-from my_orchestrator import MyStarlakeJob
+from ai.starlake.orchestration import StarlakeSchedule, StarlakeDomain, StarlakeTable, OrchestrationFactory
 
 schedule = 
     StarlakeSchedule(
@@ -409,10 +450,18 @@ import os
 
 import sys
 
+# Define the orchestrator type
+orchestrator = "my_orchestrator"
+
+# Define the execution environment
+execution_environment = StarlakeExecutionEnvironment.SHELL
+
 # Create a Starlake job instance
-sl_job = MyStarlakeJob(
+sl_job = StarlakeJobFactory.create_job(
     filename=os.path.basename(__file__), 
-    module_name=f"{__name__}", 
+    module_name=f"{__name__}",
+    orchestrator=orchestrator,
+    execution_environment=execution_environment, 
     options=options
 )
 
@@ -491,15 +540,23 @@ options={
   
 }
 
+from ai.starlake.job import StarlakeOrchestrator
+orchestrator = StarlakeOrchestrator.AIRFLOW
+
+from ai.starlake.job import StarlakeExecutionEnvironment
+execution_environment = StarlakeExecutionEnvironment.SHELL
+
 import os
 
 import sys
 
-from ai.starlake.airflow.bash import StarlakeAirflowBashJob
+from ai.starlake.job import StarlakeJobFactory
 
-sl_job = StarlakeAirflowBashJob(
+sl_job = StarlakeJobFactory.create_job(
     filename=os.path.basename(__file__), 
-    module_name=f"{__name__}", 
+    module_name=f"{__name__}",
+    orchestrator=orchestrator,
+    execution_environment=execution_environment, 
     options=dict(options, **sys.modules[__name__].__dict__.get('jobs', {}))
 )
 
@@ -685,20 +742,14 @@ pip install starlake-orchestration[dagster] --upgrade
 The following example demonstrates how to create a Starlake Dagster pipeline for loading data into a domain.
 
 ```python
-from ai.starlake.dagster import StarlakeDagsterJob
-
-sl_job = StarlakeAirflowBashJob(
-    filename=os.path.basename(__file__), 
-    module_name=f"{__name__}", 
-    options=dict(options, **sys.modules[__name__].__dict__.get('jobs', {}))
-)
+orchestrator = StarlakeOrchestrator.DAGSTER
 ```
 
 ![load starbake ingredients, products and customers daily with imported preload strategy](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagster_preload_imported_daily.png)
 
 ![load starbake orders hourly with imported preload strategy](https://raw.githubusercontent.com/starlake-ai/starlake/master/src/main/python/images/dagster_preload_imported_hourly.png)
 
-The only difference with the previous example is the instantiation of the `StarlakeDagsterJob` class instead of the `StarlakeAirflowBashJob` class.
+The only difference with the previous example is the orchestrator type.
 
 ## Conclusion
 

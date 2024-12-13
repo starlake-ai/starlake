@@ -14,5 +14,6 @@
 # - retries(1): the number of retries to attempt before failing the task [OPTIONAL]
 # - retry_delay(300): the delay between retries in seconds [OPTIONAL]
 # Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
-{% include 'templates/dags/__starlake_dagster_cloud_run_job.py.j2' %}
+{% include 'templates/dags/__starlake_dagster_orchestrator.py' %}
+{% include 'templates/dags/__starlake_cloud_run_execution.py' %}
 {% include 'templates/dags/transform/__scheduled_task_tpl.py.j2' %}

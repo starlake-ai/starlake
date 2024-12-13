@@ -6,7 +6,7 @@ from typing import List, Optional, Union
 
 from ai.starlake.dagster import StarlakeDagsterJob
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
 
 from ai.starlake.common import TODAY
 
@@ -18,7 +18,7 @@ from dagster._core.definitions import NodeDefinition
 
 from dagster_gcp import DataprocResource
 
-from dagster_gcp.dataproc.datasets import DataprocClient
+from dagster_gcp.dataproc.resources import DataprocClient
 
 class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
     """A StarlakeDagsterJob that runs a starlake command on Google Cloud Dataproc."""
@@ -32,17 +32,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             options: dict=None,
             **kwargs) -> None:
         super().__init__(filename=filename, module_name=module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
-        self.cluster_config = StarlakeDataprocClusterConfig(
-            cluster_id="dataproc",
-            dataproc_name=None,
-            master_config=None, 
-            worker_config=None, 
-            secondary_worker_config=None, 
-            idle_delete_ttl=None, 
-            single_node=None, 
-            options=self.options,
-            **kwargs
-        ) if not cluster_config else cluster_config
+        self.cluster_config = StarlakeDataprocClusterConfig.from_module(filename, module_name, self.options) if not cluster_config else cluster_config
         cluster_id = self.cluster_config.cluster_id
         cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}"
         self.__dataproc__  = DataprocResource(
@@ -51,6 +41,15 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             cluster_name=cluster_name,
             cluster_config_dict=self.cluster_config.__config__()
         )
+
+    @classmethod
+    def sl_execution_environment(cls) -> Union[StarlakeExecutionEnvironment, str]:
+        """Returns the execution environment to use.
+
+        Returns:
+            StarlakeExecutionEnvironment: The execution environment to use.
+        """
+        return StarlakeExecutionEnvironment.DATAPROC
 
     def __client__(self) -> DataprocClient:
         """Get the Dataproc client."""

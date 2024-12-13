@@ -74,8 +74,9 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         else:
             self.end_date = None
 
-    def sl_orchestrator(self) -> Union[StarlakeOrchestrator, str]:
-        return StarlakeOrchestrator.airflow
+    @classmethod
+    def sl_orchestrator(cls) -> Union[StarlakeOrchestrator, str]:
+        return StarlakeOrchestrator.AIRFLOW
 
     def update_events(self, event: Dataset, **kwargs) -> Tuple[(str, List[Dataset])]:
         """Add the event to the list of Airflow datasets that will be triggered.
