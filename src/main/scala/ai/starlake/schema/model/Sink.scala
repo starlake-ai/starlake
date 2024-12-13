@@ -134,6 +134,7 @@ case class AllSinks(
   // depending on the connection.type coming from the connection ref, some of the options below may be required
 
   // BigQuery
+  shardSuffix: Option[String] = None,
   // partition: Option[List[String]] = None,  // only one column allowed
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
@@ -161,6 +162,7 @@ case class AllSinks(
   def asMap(): Map[String, Any] = {
     val map = scala.collection.mutable.Map.empty[String, Any]
     connectionRef.foreach(map += "sinkConnectionRef" -> _)
+    shardSuffix.foreach(map += "sinkShardSuffix" -> _)
     clustering.foreach(map += "sinkClustering" -> _.asJava)
     days.foreach(map += "sinkDays" -> _)
     requirePartitionFilter.foreach(map += "sinkRequirePartitionFilter" -> _)
@@ -208,6 +210,7 @@ case class AllSinks(
     table: Option[Schema]
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
     var errors = List.empty[ValidationMessage]
+
     connectionRef match {
       case None =>
       case Some(ref) =>
@@ -219,7 +222,15 @@ case class AllSinks(
           )
         } else {
           val connection = settings.appConfig.connections(ref)
-          if (connection.`type` == ConnectionType.FS) {
+          if (connection.`type` != ConnectionType.BQ) {
+            if (this.shardSuffix.nonEmpty) {
+              errors = errors :+ ValidationMessage(
+                Severity.Error,
+                s"shardSuffix in $tableName",
+                s"shardSuffix is only supported for BigQuery sinks"
+              )
+            }
+          } else if (connection.`type` == ConnectionType.FS) {
             val defaultConnection = settings.appConfig.connections(settings.appConfig.connectionRef)
             if (defaultConnection.sparkFormat.isEmpty) {
               errors = errors :+ ValidationMessage(
@@ -232,15 +243,30 @@ case class AllSinks(
         }
     }
     table.foreach { table =>
-      this.clustering.getOrElse(Nil).foreach {
-        case column if table.attributes.exists(_.getFinalName() == column) =>
-        case column =>
+      this.shardSuffix.foreach { column =>
+        if (!table.attributes.exists(_.getFinalName() == column)) {
           errors = errors :+ ValidationMessage(
             Severity.Error,
-            s"clustering in $tableName",
+            s"shardSuffix in $tableName",
             s"Column $column not found in the table"
           )
+        }
       }
+      // TODO check data type
+      /*
+        if (
+        table
+        .attributes(column)
+        .primitiveType() != PrimitiveType.string
+
+        ) {
+          errors = errors :+ ValidationMessage(
+            Severity.Error,
+            s"shardSuffix in $tableName",
+            s"Column $column should be of type string"
+          )
+        }
+       */
 
       this.partition.getOrElse(Nil).foreach {
         case column if table.attributes.exists(_.getFinalName() == column) =>
@@ -272,6 +298,7 @@ case class AllSinks(
       id = child.id.orElse(this.id),
       format = child.format.orElse(this.format),
       extension = child.extension.orElse(this.extension),
+      shardSuffix = child.shardSuffix.orElse(this.shardSuffix),
       partition = child.partition.orElse(this.partition),
       coalesce = child.coalesce.orElse(this.coalesce),
       options = child.options.orElse(this.options)
@@ -315,6 +342,7 @@ case class AllSinks(
   */
 final case class BigQuerySink(
   connectionRef: Option[String] = None,
+  shardSuffix: Option[String] = None,
   partition: Option[Seq[String]] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
@@ -326,6 +354,7 @@ final case class BigQuerySink(
   def toAllSinks(): AllSinks = {
     AllSinks(
       connectionRef,
+      shardSuffix,
       clustering,
       days,
       requirePartitionFilter,
@@ -344,6 +373,7 @@ object BigQuerySink {
   def fromAllSinks(allSinks: AllSinks): BigQuerySink = {
     BigQuerySink(
       connectionRef = allSinks.connectionRef,
+      shardSuffix = allSinks.shardSuffix,
       partition = allSinks.partition,
       clustering = allSinks.clustering,
       days = allSinks.days,

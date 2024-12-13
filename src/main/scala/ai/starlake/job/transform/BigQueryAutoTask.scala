@@ -160,6 +160,10 @@ class BigQueryAutoTask(
     runBQ(Some(loadedDF))
   }
 
+  def runNative(): Try[JobResult] = {
+    runBQ(None)
+  }
+
   private def runBQ(loadedDF: Option[DataFrame]): Try[JobResult] = {
     val config = bigQuerySinkConfig
 
@@ -183,54 +187,84 @@ class BigQueryAutoTask(
     val jobResult: Try[JobResult] =
       interactive match {
         case None =>
-          val source = loadedDF
-            .map(df => Right(df))
-            .getOrElse(Left(""))
-
           val presqlResult: List[Try[JobResult]] = runSqls(preSql)
           presqlResult.foreach(Utils.logFailure(_, logger))
 
           val jobResult: Try[JobResult] =
             loadedDF match {
               case Some(df) =>
-                val bqLoadConfig =
-                  BigQueryLoadConfig(
-                    connectionRef = Some(sinkConnectionRef),
-                    source = source,
-                    outputTableId = Some(
-                      BigQueryJobBase.extractProjectDatasetAndTable(
-                        this.taskDesc.database,
-                        this.taskDesc.domain,
-                        this.taskDesc.table
-                      )
-                    ),
-                    sourceFormat = settings.appConfig.defaultWriteFormat,
-                    createDisposition = createDisposition,
-                    writeDisposition = writeDisposition,
-                    outputPartition = bqSink.getPartitionColumn(),
-                    outputClustering = bqSink.clustering.getOrElse(Nil),
-                    days = bqSink.days,
-                    requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-                    rls = this.taskDesc.rls,
-                    acl = this.taskDesc.acl,
-                    starlakeSchema = None,
-                    // outputTableDesc = action.taskDesc.comment.getOrElse(""),
-                    attributesDesc = this.taskDesc.attributes,
-                    outputDatabase = this.taskDesc.database,
-                    accessToken = accessToken
-                  )
-                val bqSparkJob =
-                  new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment)
-                val result = bqSparkJob.run()
-                result.map { job =>
-                  bqSparkJob.applyRLSAndCLS() match {
-                    case Success(_) =>
-                      job
-                    case Failure(e) =>
-                      throw e
-                  }
+                taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].shardSuffix match {
+                  case Some(shardColumn) =>
+                    val allResult = df.select(shardColumn).distinct().collect().map { row =>
+                      val shard = row.getString(0)
+                      logger.info(s"Processing shard $shard")
+                      val result = saveDF(df.filter(df(shardColumn) === shard), Some(shard))
+                      logger.info(s"Finished processing shard $shard with result $result")
+                      result
+                    }
+                    allResult.find(_.isFailure).getOrElse(allResult.head)
+                  case None => saveDF(df, None)
                 }
               case None =>
+                taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].shardSuffix match {
+                  case Some(shardColumn) =>
+                    // TODO Check that we are in the second step of the load
+                    val shardsQuery =
+                      "SELECT DISTINCT " + shardColumn + " FROM (" + taskDesc.sql + ")"
+                    val res = bqNativeJob(
+                      config,
+                      shardsQuery
+                    ).runInteractiveQuery(dryRun = dryRun, pageSize = Some(1000))
+
+                    val uniqueValues =
+                      res.map { bqRes =>
+                        val uniqueValues =
+                          bqRes.tableResult
+                            .map { rows =>
+                              val values = rows.iterateAll().asScala.toList.map { row =>
+                                row
+                                  .iterator()
+                                  .asScala
+                                  .toList
+                                  .map(_.getValue().toString)
+                                  .head
+                              }
+                              values
+                            }
+                            .getOrElse(Nil)
+                        uniqueValues
+                      }
+                    uniqueValues match {
+                      case Success(values) =>
+                        val allResult = values.map { shard =>
+                          logger.info(s"Processing shard $shard")
+                          val shardSql = taskDesc.sql + s" WHERE $shardColumn = '$shard'"
+                          val result = bqNativeJob(
+                            config,
+                            shardSql
+                          ).runInteractiveQuery(dryRun = dryRun)
+                          logger.info(s"Finished processing shard $shard with result $result")
+                          result
+                        }
+                        allResult.find(_.isFailure).getOrElse(allResult.head)
+                      case Failure(e) =>
+                        Failure(e)
+                    }
+                  case None =>
+                    val bqJob = bqNativeJob(
+                      config,
+                      mainSql
+                    )
+                    val result = bqJob.runInteractiveQuery(dryRun = dryRun)
+                    result.map { job =>
+                      bqJob.applyRLSAndCLS() match {
+                        case Success(_) =>
+                          job
+                        case Failure(e) =>
+                          throw e
+                      }
+                    }
+                }
                 val bqJob = bqNativeJob(
                   config,
                   mainSql
@@ -361,6 +395,46 @@ class BigQueryAutoTask(
 
   }
 
+  private def saveDF(source: DataFrame, shard: Option[String]): Try[JobResult] = {
+    val bqLoadConfig =
+      BigQueryLoadConfig(
+        connectionRef = Some(sinkConnectionRef),
+        source = Right(source),
+        outputTableId = Some(
+          BigQueryJobBase.extractProjectDatasetAndTable(
+            this.taskDesc.database,
+            this.taskDesc.domain,
+            this.taskDesc.table + shard.map("_" + _).getOrElse("")
+          )
+        ),
+        sourceFormat = settings.appConfig.defaultWriteFormat,
+        createDisposition = createDisposition,
+        writeDisposition = writeDisposition,
+        outputPartition = bqSink.getPartitionColumn(),
+        outputClustering = bqSink.clustering.getOrElse(Nil),
+        days = bqSink.days,
+        requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
+        rls = this.taskDesc.rls,
+        acl = this.taskDesc.acl,
+        starlakeSchema = None,
+        // outputTableDesc = action.taskDesc.comment.getOrElse(""),
+        attributesDesc = this.taskDesc.attributes,
+        outputDatabase = this.taskDesc.database,
+        accessToken = accessToken
+      )
+    val bqSparkJob =
+      new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment)
+    val result = bqSparkJob.run()
+    result.map { job =>
+      bqSparkJob.applyRLSAndCLS() match {
+        case Success(_) =>
+          job
+        case Failure(e) =>
+          throw e
+      }
+    }
+  }
+
   private def limitQuery(sql: String) = {
     val limit = settings.appConfig.maxInteractiveRecords
     val trimmedSql = SQLUtils.stripComments(sql)
@@ -378,7 +452,7 @@ class BigQueryAutoTask(
       sql
   }
   override def run(): Try[JobResult] = {
-    runBQ(None)
+    runNative()
   }
 
   private def bqSchemaWithSCD2(incomingTableSchema: BQSchema): BQSchema = {
