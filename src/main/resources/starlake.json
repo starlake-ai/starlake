@@ -627,6 +627,10 @@
           "$ref": "#/definitions/ConvertibleToString",
           "description": "FS: File extension"
         },
+        "shardSuffix": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "column tu use for sharding. table will be named table_{shardSuffix}"
+        },
         "partition": {
           "type": "array",
           "items": {

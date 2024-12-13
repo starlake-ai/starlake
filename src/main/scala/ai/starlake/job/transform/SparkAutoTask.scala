@@ -640,7 +640,7 @@ class SparkAutoTask(
             resultPageSize
           )
           secondStepTask.updateBigQueryTableSchema(loadedDF.schema)
-          val secondStepJobResult = secondStepTask.run()
+          val secondStepJobResult = secondStepTask.runNative()
           sparkBigQueryJob.dropTable(firstStepTemplateTableId)
           secondStepJobResult
         case Failure(e) =>

@@ -1,0 +1,14 @@
+---
+version: 1
+table:
+  name: "cds"
+  pattern: "cds.xml"
+  attributes:
+  - name: "value"
+    type: "variant"
+  metadata:
+    format: "XML"
+    options:
+      rowTag: "CD"
+    writeStrategy:
+      type: "OVERWRITE"
