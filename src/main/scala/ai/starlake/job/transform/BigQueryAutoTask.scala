@@ -156,15 +156,22 @@ class BigQueryAutoTask(
       bqNativeJob(bigQuerySinkConfig, req).runInteractiveQuery()
     }
   }
-  def runOnDF(loadedDF: DataFrame): Try[JobResult] = {
-    runBQ(Some(loadedDF))
+  def runOnDF(loadedDF: DataFrame, sparkSchema: Option[StructType]): Try[JobResult] = {
+    runBQ(Some(loadedDF), sparkSchema)
   }
 
   def runNative(): Try[JobResult] = {
-    runBQ(None)
+    runBQ(None, None)
   }
 
-  private def runBQ(loadedDF: Option[DataFrame]): Try[JobResult] = {
+  def runNative(sparkSchema: StructType): Try[JobResult] = {
+    runBQ(None, Some(sparkSchema))
+  }
+
+  private def runBQ(
+    loadedDF: Option[DataFrame],
+    sparkSchema: Option[StructType]
+  ): Try[JobResult] = {
     val config = bigQuerySinkConfig
 
     val start = Timestamp.from(Instant.now())
@@ -198,12 +205,15 @@ class BigQueryAutoTask(
                     val allResult = df.select(shardColumn).distinct().collect().map { row =>
                       val shard = row.getString(0)
                       logger.info(s"Processing shard $shard")
+                      sparkSchema.foreach(schema => updateBigQueryTableSchema(schema, Some(shard)))
                       val result = saveDF(df.filter(df(shardColumn) === shard), Some(shard))
                       logger.info(s"Finished processing shard $shard with result $result")
                       result
                     }
                     allResult.find(_.isFailure).getOrElse(allResult.head)
-                  case None => saveDF(df, None)
+                  case None =>
+                    sparkSchema.foreach(schema => updateBigQueryTableSchema(schema))
+                    saveDF(df, None)
                 }
               case None =>
                 taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].shardSuffix match {
@@ -239,44 +249,22 @@ class BigQueryAutoTask(
                         val allResult = values.map { shard =>
                           logger.info(s"Processing shard $shard")
                           val shardSql = taskDesc.sql + s" WHERE $shardColumn = '$shard'"
-                          val result = bqNativeJob(
-                            config,
-                            shardSql
-                          ).runInteractiveQuery(dryRun = dryRun)
-                          logger.info(s"Finished processing shard $shard with result $result")
-                          result
+                          sparkSchema.foreach(schema =>
+                            updateBigQueryTableSchema(schema, Some(shard))
+                          )
+                          val resultApplyCLS = saveNative(config, shardSql)
+                          logger.info(
+                            s"Finished processing shard $shard with result $resultApplyCLS"
+                          )
+                          resultApplyCLS
                         }
                         allResult.find(_.isFailure).getOrElse(allResult.head)
                       case Failure(e) =>
                         Failure(e)
                     }
                   case None =>
-                    val bqJob = bqNativeJob(
-                      config,
-                      mainSql
-                    )
-                    val result = bqJob.runInteractiveQuery(dryRun = dryRun)
-                    result.map { job =>
-                      bqJob.applyRLSAndCLS() match {
-                        case Success(_) =>
-                          job
-                        case Failure(e) =>
-                          throw e
-                      }
-                    }
-                }
-                val bqJob = bqNativeJob(
-                  config,
-                  mainSql
-                )
-                val result = bqJob.runInteractiveQuery(dryRun = dryRun)
-                result.map { job =>
-                  bqJob.applyRLSAndCLS() match {
-                    case Success(_) =>
-                      job
-                    case Failure(e) =>
-                      throw e
-                  }
+                    sparkSchema.foreach(schema => updateBigQueryTableSchema(schema, None))
+                    saveNative(config, mainSql)
                 }
             }
 
@@ -395,6 +383,22 @@ class BigQueryAutoTask(
 
   }
 
+  private def saveNative(config: BigQueryLoadConfig, mainSql: String) = {
+    val bqJob = bqNativeJob(
+      config,
+      mainSql
+    )
+    val result = bqJob.runInteractiveQuery(dryRun = dryRun)
+    result.map { job =>
+      bqJob.applyRLSAndCLS() match {
+        case Success(_) =>
+          job
+        case Failure(e) =>
+          throw e
+      }
+    }
+  }
+
   private def saveDF(source: DataFrame, shard: Option[String]): Try[JobResult] = {
     val bqLoadConfig =
       BigQueryLoadConfig(
@@ -482,13 +486,16 @@ class BigQueryAutoTask(
       incomingTableSchema
   }
 
-  def updateBigQueryTableSchema(incomingSparkSchema: StructType): Unit = {
+  def updateBigQueryTableSchema(
+    incomingSparkSchema: StructType,
+    shardSuffix: Option[String] = None
+  ): Unit = {
     val bigqueryJob = bqNativeJob(bigQuerySinkConfig, "ignore sql")
     val tableId =
       BigQueryJobBase.extractProjectDatasetAndTable(
         taskDesc.getDatabase(),
         taskDesc.domain,
-        taskDesc.table
+        taskDesc.table + shardSuffix.map("_" + _).getOrElse("")
       )
 
     val tableExists = bigqueryJob.tableExists(tableId)
@@ -536,7 +543,8 @@ class BigQueryAutoTask(
         partitionField,
         clusteringFields
       )
-      bigqueryJob.getOrCreateTable(taskDesc._dbComment, tableInfo, None)
+      val targetTableId = shardSuffix.map(_ => tableId)
+      bigqueryJob.getOrCreateTable(taskDesc._dbComment, tableInfo, None, targetTableId)
     }
   }
 }
