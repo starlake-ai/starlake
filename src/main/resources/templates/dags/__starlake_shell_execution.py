@@ -1,0 +1,2 @@
+from ai.starlake.job import StarlakeExecutionEnvironment
+execution_environment = StarlakeExecutionEnvironment.SHELL

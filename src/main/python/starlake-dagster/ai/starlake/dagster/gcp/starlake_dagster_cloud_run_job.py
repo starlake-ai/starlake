@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 
 from ai.starlake.dagster import StarlakeDagsterJob
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
 
 from dagster import Failure, Output, AssetMaterialization, AssetKey, Out, op, RetryPolicy
 
@@ -38,6 +38,15 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
             self.impersonate_service_account = ""
         self.separator = separator if separator != ',' else ' '
         self.update_env_vars = self.separator.join([(f"--update-env-vars \"^{self.separator}^" if i == 0 else "") + f"{key}={value}" for i, (key, value) in enumerate(self.sl_env_vars.items())]) + "\""
+
+    @classmethod
+    def sl_execution_environment(cls) -> Union[StarlakeExecutionEnvironment, str]:
+        """Returns the execution environment to use.
+
+        Returns:
+            StarlakeExecutionEnvironment: The execution environment to use.
+        """
+        return StarlakeExecutionEnvironment.CLOUD_RUN
 
     def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_job()
