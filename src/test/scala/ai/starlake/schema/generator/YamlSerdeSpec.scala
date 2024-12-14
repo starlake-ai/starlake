@@ -230,7 +230,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
       val config = mapperWithEmptyString.writeValueAsString(yamlApplicationConfig)
       try {
-        val deserializedConfig = YamlSerde.deserializeYamlApplication(config, "input")
+        val deserializedConfig = YamlSerde.deserializeYamlApplicationNode(config, "input")
         mapperWithEmptyString.writeValueAsString(deserializedConfig) should equal(config)
       } catch {
         case e: Exception =>
@@ -959,12 +959,16 @@ object YamlConfigGenerators {
   implicit val jdbcEngine: Arbitrary[JdbcEngine] = Arbitrary {
     for {
       tables          <- arbitrary[Map[String, TableDdl]]
+      partitionBy     <- Gen.option(arbitrary[String])
+      clusterBy       <- Gen.option(arbitrary[String])
       viewPrefix      <- arbitrary[Option[String]]
       quote           <- arbitrary[String]
       preActions      <- arbitrary[Option[String]]
       strategyBuilder <- arbitrary[String]
     } yield JdbcEngine(
       tables = tables,
+      partitionBy = partitionBy,
+      clusterBy = clusterBy,
       quote = quote,
       viewPrefix = viewPrefix,
       preActions = preActions,

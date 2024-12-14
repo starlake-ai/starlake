@@ -138,7 +138,7 @@ object ApplicationYamlFileMigrator extends YamlFileMigrator {
     path: Path
   )(implicit storageHandler: StorageHandler): Try[List[PostMigrationAction]] = {
     Try {
-      val migratedYamlEntity = YamlSerde.deserializeYamlApplication(
+      val migratedYamlEntity = YamlSerde.deserializeYamlApplicationNode(
         storageHandler.read(path),
         path.toString
       )

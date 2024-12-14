@@ -503,7 +503,7 @@ object StrategiesBuilder {
         "tableTruncate"    -> truncate,
         "materializedView" -> materializedView.toString,
         "tableFormat"      -> tableFormat
-      ) ++ jdbcEngine.asMap() ++ sinkConfig.toAllSinks().asMap()
+      ) ++ jdbcEngine.asMap() ++ sinkConfig.toAllSinks().asMap(jdbcEngine)
 
     }
   }
