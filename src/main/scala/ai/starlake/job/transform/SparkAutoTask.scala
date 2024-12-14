@@ -639,8 +639,7 @@ class SparkAutoTask(
             accessToken,
             resultPageSize
           )
-          secondStepTask.updateBigQueryTableSchema(loadedDF.schema)
-          val secondStepJobResult = secondStepTask.run()
+          val secondStepJobResult = secondStepTask.runNative(loadedDF.schema)
           sparkBigQueryJob.dropTable(firstStepTemplateTableId)
           secondStepJobResult
         case Failure(e) =>
@@ -652,7 +651,7 @@ class SparkAutoTask(
         sql = None
       )
       // Update table schema
-      val secondSTepTask =
+      val secondStepTask =
         new BigQueryAutoTask(
           Option(applicationId()),
           secondStepDesc,
@@ -664,8 +663,8 @@ class SparkAutoTask(
           accessToken,
           resultPageSize
         )
-      secondSTepTask.updateBigQueryTableSchema(loadedDF.schema)
-      secondSTepTask.runOnDF(loadedDF)
+
+      secondStepTask.runOnDF(loadedDF, Some(loadedDF.schema))
 
     }
   }

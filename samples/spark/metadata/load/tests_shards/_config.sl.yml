@@ -1,0 +1,6 @@
+---
+version: 1
+load:
+  name: "tests_shards"
+  metadata:
+    directory: "{{root_path}}/incoming/tests_shards"

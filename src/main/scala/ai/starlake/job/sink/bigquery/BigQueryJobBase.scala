@@ -539,19 +539,21 @@ trait BigQueryJobBase extends StrictLogging {
   def getOrCreateTable(
     domainDescription: scala.Option[String],
     tableInfo: model.TableInfo,
-    dataFrame: scala.Option[DataFrame]
+    dataFrame: scala.Option[DataFrame],
+    outputTableId: Option[TableId] = None
   )(implicit settings: Settings): Try[(Table, StandardTableDefinition)] = {
+    val targetTableId = outputTableId.getOrElse(tableId)
     getOrCreateDataset(domainDescription).flatMap { _ =>
       val tryResult = BigQueryJobBase.recoverBigqueryException {
 
         val table =
-          if (tableExists(tableId)) {
-            val table = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
+          if (tableExists(targetTableId)) {
+            val table = bigquery(accessToken = cliConfig.accessToken).getTable(targetTableId)
             updateTableDescription(table, tableInfo.maybeTableDescription.orNull)
           } else {
             val tableDefinition = newTableDefinition(tableInfo, dataFrame)
             val bqTableInfoBuilder = BQTableInfo
-              .newBuilder(tableId, tableDefinition)
+              .newBuilder(targetTableId, tableDefinition)
               .setDescription(tableInfo.maybeTableDescription.orNull)
 
             if (tableInfo.maybePartition.isEmpty) {
@@ -565,9 +567,11 @@ trait BigQueryJobBase extends StrictLogging {
             }
 
             val bqTableInfo = bqTableInfoBuilder.build
-            logger.info(s"Creating table ${tableId.getDataset}.${tableId.getTable}")
+            logger.info(s"Creating table ${targetTableId.getDataset}.${targetTableId.getTable}")
             val result = bigquery(accessToken = cliConfig.accessToken).create(bqTableInfo)
-            logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
+            logger.info(
+              s"Table ${targetTableId.getDataset}.${targetTableId.getTable} created successfully"
+            )
             result
           }
         setTagsOnTable(table)
@@ -576,7 +580,7 @@ trait BigQueryJobBase extends StrictLogging {
       tryResult match {
         case Failure(exception) =>
           logger.info(
-            s"Table ${tableId.getDataset}.${tableId.getTable} was not created / retrieved."
+            s"Table ${targetTableId.getDataset}.${targetTableId.getTable} was not created / retrieved."
           )
           Utils.logException(logger, exception)
           tryResult
