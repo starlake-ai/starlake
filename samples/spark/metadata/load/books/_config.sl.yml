@@ -1,6 +1,0 @@
----
-version: 1
-load:
-  name: "books"
-  metadata:
-    directory: "{{root_path}}/incoming/books"

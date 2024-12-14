@@ -53,8 +53,9 @@ application:
         preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
     bigquery:
       type: "bigquery"
+      sparkFormat: "bigquery"
       options:
-        writeMethod: "direct" # direct or indirect
+        writeMethod: "indirect" # direct or indirect (indirect mode requires GOOGLE_APPLICATION_CREDENTIALS env variable when run from your desktop)
         location: "europe-west1" # EU or US
         gcsBucket: "starlake-app" # required in indirect mode only
         authType: "APPLICATION_DEFAULT" #reference to the application default credentials in the GOOGLE_APPLICATION_CREDENTIALS env variable
