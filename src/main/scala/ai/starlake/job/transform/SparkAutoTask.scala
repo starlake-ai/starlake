@@ -176,7 +176,10 @@ class SparkAutoTask(
 
   private def sinkToKafka(mergedDF: DataFrame): Try[DataFrame] = Try {
     Utils.withResources(new KafkaClient(settings.appConfig.kafka)) { kafkaClient =>
-      kafkaClient.sinkToTopic(settings.appConfig.kafka.topics(taskDesc.table), mergedDF)
+      kafkaClient.sinkToTopic(
+        settings.appConfig.kafka.topics(taskDesc.table),
+        mergedDF
+      )
     }
     mergedDF
   }

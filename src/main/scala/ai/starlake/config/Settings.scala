@@ -32,6 +32,7 @@ import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils._
 import better.files.File
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
@@ -576,7 +577,7 @@ object Settings extends StrictLogging {
     serverOptions: Map[String, String],
     topics: Map[String, KafkaTopicConfig],
     cometOffsetsMode: Option[String] = Some("STREAM"),
-    customDeserializers: Option[Map[String, String]]
+    customDeserializers: Option[Map[String, String]] = None
   ) {
     lazy val sparkServerOptions: Map[String, String] = {
       val ASSIGN = "assign"
@@ -1031,6 +1032,22 @@ object Settings extends StrictLogging {
       .loadOrThrow[AppConfig]
   }
 
+  def loadApplication(content: String, appPath: Path, root: String): AppConfig = {
+    val finalNode: JsonNode =
+      YamlSerde
+        .deserializeYamlApplicationNode(content, appPath.toString)
+        .path("application")
+    finalNode.asInstanceOf[ObjectNode].put("root", root)
+    val jsonString = Utils.newJsonMapper().writeValueAsString(finalNode)
+    val applicationConfig = ConfigFactory.parseString(jsonString).resolve()
+    val effectiveApplicationConfig = applicationConfig
+      .withFallback(Settings.referenceConfig)
+    val app = ConfigSource
+      .fromConfig(effectiveApplicationConfig)
+      .loadOrThrow[AppConfig]
+    app
+  }
+
   /** @param config
     *   : usually the default configuration loaded from reference.conf except in tests
     * @return
@@ -1251,10 +1268,10 @@ object Settings extends StrictLogging {
           .withFallback(effectiveConfig)
         logger.debug(effectiveApplicationConfig.toString)
 
-        val mergedSettings = loadConf(Some(effectiveApplicationConfig))
+        val mergedAppConfig = loadConf(Some(effectiveApplicationConfig))
 
         val applicationSettings = Settings(
-          mergedSettings,
+          mergedAppConfig,
           effectiveApplicationConfig.getConfig("spark"),
           effectiveApplicationConfig.getConfig("extra")
         )
