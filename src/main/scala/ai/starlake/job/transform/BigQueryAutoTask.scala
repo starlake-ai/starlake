@@ -180,7 +180,7 @@ class BigQueryAutoTask(
     }
     val mainSql =
       if (loadedDF.isEmpty) {
-        buildAllSQLQueries(None)
+        buildAllSQLQueries(None, forceNative = true)
       } else {
         val sql = taskDesc.getSql()
         val mainSql = schemaHandler.substituteRefTaskMainSQL(
