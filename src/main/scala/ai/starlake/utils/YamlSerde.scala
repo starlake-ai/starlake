@@ -1,6 +1,6 @@
 package ai.starlake.utils
 
-import ai.starlake.config.{ApplicationDesc, Settings}
+import ai.starlake.config.Settings
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.exceptions.SchemaValidationException
 import ai.starlake.extract.{ExtractDesc, JDBCSchemas}
@@ -252,13 +252,6 @@ object YamlSerde extends LazyLogging with YamlUtils {
   def deserializeYamlApplicationNode(content: String, path: String): JsonNode = {
     val refsSubPath = "application"
     validateConfigFile(refsSubPath, content, path, List(YamlMigrator.V1.ApplicationConfig))
-  }
-
-  def deserializeYamlApplication(content: String, path: String): ApplicationDesc = {
-    val refsSubPath = "application"
-    val refsNode =
-      validateConfigFile(refsSubPath, content, path, List(YamlMigrator.V1.ApplicationConfig))
-    mapper.treeToValue(refsNode, classOf[ApplicationDesc])
   }
 
   def deserializeYamlTables(content: String, path: String): List[TableDesc] = {

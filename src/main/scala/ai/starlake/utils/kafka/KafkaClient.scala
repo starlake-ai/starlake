@@ -26,7 +26,8 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   val cometOffsetsMode: Mode =
     settings.appConfig.kafka.cometOffsetsMode.map(Mode.fromString).getOrElse(Mode.STREAM)
   val serverOptions: Map[String, String] = kafkaConfig.serverOptions
-  val cometOffsetsConfig: KafkaTopicConfig = kafkaConfig.topics("comet_offsets")
+  val cometOffsetsConfig: KafkaTopicConfig =
+    kafkaConfig.topics("comet_offsets")
 
   val serverOptionsProperties = new Properties()
   serverOptions.foreach { case (k, v) =>

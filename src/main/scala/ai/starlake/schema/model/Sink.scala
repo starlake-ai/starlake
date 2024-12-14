@@ -128,7 +128,7 @@ object Sink {
   }
 }
 
-case class AllSinks(
+final case class AllSinks(
   // All sinks
   connectionRef: Option[String] = None,
   // depending on the connection.type coming from the connection ref, some of the options below may be required
@@ -159,6 +159,9 @@ case class AllSinks(
   // partition: Option[List[String]] = None, // Only one column allowed
 
 ) {
+
+  def this() = this(None)
+
   def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
     val map = scala.collection.mutable.Map.empty[String, Any]
     connectionRef.foreach(map += "sinkConnectionRef" -> _)
