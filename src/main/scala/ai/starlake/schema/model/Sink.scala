@@ -21,7 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.{Connection, JdbcEngine}
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonTypeName}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -158,7 +158,7 @@ case class AllSinks(
   // partition: Option[List[String]] = None, // Only one column allowed
 
 ) {
-  def asMap(): Map[String, Any] = {
+  def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
     val map = scala.collection.mutable.Map.empty[String, Any]
     connectionRef.foreach(map += "sinkConnectionRef" -> _)
     clustering.foreach(map += "sinkClustering" -> _.asJava)
@@ -174,9 +174,9 @@ case class AllSinks(
     coalesce.foreach(map += "sinkCoalesce" -> _)
     options.foreach(map += "sinkOptions" -> _.asJava)
 
-    map += "sinkTableOptionsClause"    -> this.getTableOptionsClause()
-    map += "sinkTablePartitionClause"  -> this.getPartitionByClauseSQL()
-    map += "sinkTableClusteringClause" -> this.getClusterByClauseSQL()
+    map += "sinkTableOptionsClause"    -> this.getTableOptionsClause(jdbcEngine)
+    map += "sinkTablePartitionClause"  -> this.getPartitionByClauseSQL(jdbcEngine)
+    map += "sinkTableClusteringClause" -> this.getClusterByClauseSQL(jdbcEngine)
 
     map.toMap
   }
@@ -186,15 +186,23 @@ case class AllSinks(
   }
 
   @JsonIgnore
-  def getPartitionByClauseSQL(): String =
-    partition.map(_.mkString("PARTITIONED BY (", ",", ")")) getOrElse ""
+  def getPartitionByClauseSQL(jdbcEngine: JdbcEngine): String =
+    jdbcEngine.partitionBy match {
+      case Some(partitionBy) =>
+        partition.map(_.mkString(s"$partitionBy (", ",", ")")) getOrElse ""
+      case None => ""
+    }
 
   @JsonIgnore
-  def getClusterByClauseSQL(): String =
-    clustering.map(_.mkString("CLUSTERED BY (", ",", ")")) getOrElse ""
+  def getClusterByClauseSQL(jdbcEngine: JdbcEngine): String =
+    jdbcEngine.clusterBy match {
+      case Some(clusterBy) =>
+        clustering.map(_.mkString(s"$clusterBy (", ",", ")")) getOrElse ""
+      case None => ""
+    }
 
   @JsonIgnore
-  def getTableOptionsClause(): String = {
+  def getTableOptionsClause(jdbcEngine: JdbcEngine): String = {
     val opts = options.getOrElse(Map.empty)
     if (opts.isEmpty) {
       ""

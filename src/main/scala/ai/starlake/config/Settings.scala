@@ -24,7 +24,6 @@ import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
-import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.schema.handlers._
 import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.schema.model._
@@ -502,6 +501,8 @@ object Settings extends StrictLogging {
     tables: Map[String, TableDdl],
     quote: String,
     viewPrefix: Option[String],
+    partitionBy: Option[String],
+    clusterBy: Option[String],
     preActions: Option[String],
     strategyBuilder: String,
     columnRemarks: Option[String] = None,
@@ -798,19 +799,15 @@ object Settings extends StrictLogging {
     def connectionOptions(name: String): Map[String, String] =
       connections(name).options
 
-  }
-
-  object AppConfig {
     def checkValidity(
       storageHandler: StorageHandler,
       settings: Settings
     ): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]
-      val appConfig = settings.appConfig
-      if (appConfig.env.nonEmpty && appConfig.env != "None") {
+      if (this.env.nonEmpty && this.env != "None") {
         val envFile = new Path(
           DatasetArea.metadata(settings),
-          "env." + appConfig.env + ".sl.yml"
+          "env." + this.env + ".sl.yml"
         )
         if (!storageHandler.exists(envFile)) {
           errors = errors :+ ValidationMessage(
@@ -822,92 +819,92 @@ object Settings extends StrictLogging {
       }
       Try {
         Utils
-          .loadInstance[GenericRowValidator](settings.appConfig.rowValidatorClass)
+          .loadInstance[GenericRowValidator](this.rowValidatorClass)
       } match {
         case scala.util.Failure(exception) =>
           errors = errors :+ ValidationMessage(
             Severity.Error,
             "AppConfig",
-            s"rowValidatorClass ${settings.appConfig.rowValidatorClass} not found"
+            s"rowValidatorClass ${this.rowValidatorClass} not found"
           )
         case _ =>
       }
 
       Try {
         Utils
-          .loadInstance[GenericRowValidator](settings.appConfig.treeValidatorClass)
+          .loadInstance[GenericRowValidator](this.treeValidatorClass)
       } match {
         case scala.util.Failure(exception) =>
           errors = errors :+ ValidationMessage(
             Severity.Error,
             "AppConfig",
-            s"treeValidatorClass ${settings.appConfig.treeValidatorClass} not found"
+            s"treeValidatorClass ${this.treeValidatorClass} not found"
           )
         case _ =>
       }
       Try {
         Utils
-          .loadInstance[LoadStrategy](settings.appConfig.loadStrategyClass)
+          .loadInstance[LoadStrategy](this.loadStrategyClass)
       } match {
         case scala.util.Failure(exception) =>
           exception.printStackTrace()
           errors = errors :+ ValidationMessage(
             Severity.Error,
             "AppConfig",
-            s"loadStrategyClass ${settings.appConfig.loadStrategyClass} not found"
+            s"loadStrategyClass ${this.loadStrategyClass} not found"
           )
         case _ =>
       }
 
-      if (!Set("spark", "native").contains(settings.appConfig.loader)) {
+      if (!Set("spark", "native").contains(this.loader)) {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "AppConfig",
-          s"loader ${settings.appConfig.loader} not supported"
+          s"loader ${this.loader} not supported"
         )
       }
-      settings.appConfig.connections.foreach { case (name, connection) =>
+      this.connections.foreach { case (name, connection) =>
         errors = errors ++ connection.checkValidity()(settings)
       }
-      val path = new Path(settings.appConfig.root)
+      val path = new Path(this.root)
       if (!storageHandler.exists(path)) {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "AppConfig",
-          s"root ${settings.appConfig.root} not found"
+          s"root ${this.root} not found"
         )
       }
       Try {
-        settings.appConfig.sqlParameterPattern.r
+        this.sqlParameterPattern.r
       } match {
         case scala.util.Failure(exception) =>
           errors = errors :+ ValidationMessage(
             Severity.Error,
             "AppConfig",
-            s"sqlParameterPattern ${settings.appConfig.sqlParameterPattern} is not a valid regex"
+            s"sqlParameterPattern ${this.sqlParameterPattern} is not a valid regex"
           )
         case _ =>
       }
-      if (settings.appConfig.rejectMaxRecords < 0) {
+      if (this.rejectMaxRecords < 0) {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "AppConfig",
-          s"rejectMaxRecords ${settings.appConfig.rejectMaxRecords} must be positive"
+          s"rejectMaxRecords ${this.rejectMaxRecords} must be positive"
         )
       }
-      if (settings.appConfig.maxParCopy <= 0) {
+      if (this.maxParCopy <= 0) {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "AppConfig",
-          s"maxParCopy ${settings.appConfig.maxParCopy} must be positive"
+          s"maxParCopy ${this.maxParCopy} must be positive"
         )
       }
       val patterns = List(
-        (settings.appConfig.forceViewPattern, "forceViewPattern"),
-        (settings.appConfig.forceDomainPattern, "forceDomainPattern"),
-        (settings.appConfig.forceTablePattern, "forceTablePattern"),
-        (settings.appConfig.forceJobPattern, "forceJobPattern"),
-        settings.appConfig.forceTaskPattern -> "forceTaskPattern"
+        (this.forceViewPattern, "forceViewPattern"),
+        (this.forceDomainPattern, "forceDomainPattern"),
+        (this.forceTablePattern, "forceTablePattern"),
+        (this.forceJobPattern, "forceJobPattern"),
+        this.forceTaskPattern -> "forceTaskPattern"
       )
       patterns.foreach { case (value, name) =>
         Try {
@@ -922,15 +919,15 @@ object Settings extends StrictLogging {
           case _ =>
         }
       }
-      if (settings.appConfig.sessionDurationServe <= 0) {
+      if (this.sessionDurationServe <= 0) {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "AppConfig",
-          s"sessionDurationServe ${settings.appConfig.sessionDurationServe} must be positive"
+          s"sessionDurationServe ${this.sessionDurationServe} must be positive"
         )
       }
 
-      if (settings.appConfig.connections.isEmpty) {
+      if (this.connections.isEmpty) {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "AppConfig",
@@ -938,28 +935,28 @@ object Settings extends StrictLogging {
         )
       }
 
-      val validConnectionNames = settings.appConfig.connections.keys.mkString(", ")
+      val validConnectionNames = this.connections.keys.mkString(", ")
 
-      if (settings.appConfig.connectionRef.isEmpty) {
+      if (this.connectionRef.isEmpty) {
         val msg =
-          if (settings.appConfig.connections.isEmpty)
+          if (this.connections.isEmpty)
             s"connectionRef must be defined. Define a connection first and set it to this newly defined connection"
           else
             s"connectionRef must be defined. Valid connection names are $validConnectionNames"
         errors = errors :+ ValidationMessage(Severity.Error, "AppConfig", msg)
       } else {
-        settings.appConfig.connections.get(settings.appConfig.connectionRef) match {
+        this.connections.get(this.connectionRef) match {
           case Some(_) =>
           case None =>
             errors = errors :+ ValidationMessage(
               Severity.Error,
               "AppConfig",
-              s"Connection ${settings.appConfig.connectionRef} not found. Valid connection names are $validConnectionNames"
+              s"Connection ${this.connectionRef} not found. Valid connection names are $validConnectionNames"
             )
         }
       }
 
-      settings.appConfig.schedulePresets.foreach { case (name, cron) =>
+      this.schedulePresets.foreach { case (name, cron) =>
         Try {
           cron.r
         } match {
@@ -974,11 +971,10 @@ object Settings extends StrictLogging {
       }
 
       val dagRef: List[String] =
-        settings.appConfig.dagRef
+        this.dagRef
           .map(ref => List(ref.load.toList, ref.transform.toList).flatten)
           .getOrElse(Nil)
 
-      val dagTemplateLoader = new Yml2DagTemplateLoader()
       dagRef.foreach { dagRef =>
         val dagConfigRef = if (dagRef.endsWith(".yml")) dagRef else dagRef + ".sl.yml"
         val dagConfigPath = new Path(DatasetArea.dags(settings), dagConfigRef)
@@ -993,6 +989,9 @@ object Settings extends StrictLogging {
       errors
     }
 
+  }
+
+  object AppConfig {
     private case class JsonWrapped(jsonValue: String) {
 
       @throws(classOf[ObjectStreamException])
@@ -1237,7 +1236,7 @@ object Settings extends StrictLogging {
           }
         val finalNode: JsonNode =
           YamlSerde
-            .deserializeYamlApplication(content, applicationYmlPath.toString)
+            .deserializeYamlApplicationNode(content, applicationYmlPath.toString)
             .path("application")
         val jsonString = Utils.newJsonMapper().writeValueAsString(finalNode)
         val applicationConfig = ConfigFactory.parseString(jsonString).resolve()

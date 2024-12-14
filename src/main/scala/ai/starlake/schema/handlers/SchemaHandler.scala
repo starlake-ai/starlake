@@ -20,7 +20,7 @@
 
 package ai.starlake.schema.handlers
 
-import ai.starlake.config.Settings.{latestSchemaVersion, AppConfig, Connection}
+import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
@@ -152,7 +152,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     config: ValidateConfig = ValidateConfig()
   ): Try[(List[ValidationMessage], Int, Int)] = Try {
     val envErrorsAndWarnings = EnvDesc.checkValidity(storage, settings)
-    val settingsErrorsAndWarnings = AppConfig.checkValidity(storage, settings)
+    val settingsErrorsAndWarnings = settings.appConfig.checkValidity(storage, settings)
     val typesDomainsJobsErrorsAndWarnings =
       checkTypeDomainsJobsValidity(reload = config.reload)(storage)
     val deserErrors = deserializedDomains(DatasetArea.load)
