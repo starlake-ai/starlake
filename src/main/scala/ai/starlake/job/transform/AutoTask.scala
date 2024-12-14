@@ -117,10 +117,17 @@ abstract class AutoTask(
 
   def buildAllSQLQueries(
     sql: Option[String],
-    tableExistsForcedValue: Option[Boolean] = None
+    tableExistsForcedValue: Option[Boolean] = None,
+    forceNative: Boolean = false
   ): String = {
     val inputSQL = sql.getOrElse(taskDesc.getSql())
-    val runConnection = this.taskDesc.getRunConnection()
+    val runConnection =
+      if (forceNative) {
+        this.taskDesc.getRunConnection().copy(sparkFormat = None)
+      } else {
+        this.taskDesc.getRunConnection()
+      }
+
     if (interactive.isEmpty) {
       if (taskDesc.parseSQL.getOrElse(true)) {
         val sqlWithParametersTranspiledIfInTest =
