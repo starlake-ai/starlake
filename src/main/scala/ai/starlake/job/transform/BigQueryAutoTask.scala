@@ -172,13 +172,8 @@ class BigQueryAutoTask(
     loadedDF: Option[DataFrame],
     sparkSchema: Option[StructType]
   ): Try[JobResult] = {
-    val config = bigQuerySinkConfig
 
-    val start = Timestamp.from(Instant.now())
-    if (truncate) {
-      // nothing to do, config is created with write_truncate in that case
-    }
-    val mainSql =
+    def mainSql(): String =
       if (loadedDF.isEmpty) {
         buildAllSQLQueries(None, forceNative = true)
       } else {
@@ -190,6 +185,13 @@ class BigQueryAutoTask(
         )
         mainSql
       }
+
+    val config = bigQuerySinkConfig
+
+    val start = Timestamp.from(Instant.now())
+    if (truncate) {
+      // nothing to do, config is created with write_truncate in that case
+    }
 
     val jobResult: Try[JobResult] =
       interactive match {
@@ -264,7 +266,7 @@ class BigQueryAutoTask(
                     }
                   case None =>
                     sparkSchema.foreach(schema => updateBigQueryTableSchema(schema, None))
-                    saveNative(config, mainSql)
+                    saveNative(config, mainSql())
                 }
             }
 
@@ -349,7 +351,7 @@ class BigQueryAutoTask(
 
         case Some(_) =>
           // interactive query, we limit the number of rows to maxInteractiveRecords
-          val limitSql = limitQuery(mainSql)
+          val limitSql = limitQuery(mainSql())
           val res = bqNativeJob(
             config,
             limitSql
@@ -357,7 +359,7 @@ class BigQueryAutoTask(
 
           res.foreach { _ =>
             if (settings.appConfig.autoExportSchema) {
-              SQLUtils.extractTableNames(mainSql).foreach { domainAndTableName =>
+              SQLUtils.extractTableNames(mainSql()).foreach { domainAndTableName =>
                 val components = SQLUtils.unquoteAgressive(domainAndTableName.split("\\.").toList)
                 if (components.size == 2) {
                   val domainName = components(0)

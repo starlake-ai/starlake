@@ -1,25 +1,25 @@
 
 {% if materializedView == 'MATERIALIZED_VIEW' %}
-{% set createPrefix = 'CREATE MATERIALIZED VIEW' %}
+{% set createTable = 'CREATE MATERIALIZED VIEW ' + tableFullName %}
 {% else %}
-{% set createPrefix = 'CREATE TABLE' %}
+{% set createTable = 'CREATE TABLE ' + tableFullName %}
 {% endif %}
 
 {% if strategyOn == 'TARGET' %}
 
-{{ createPrefix }} {{ tableFullName }} AS {{selectStatement }};
+{{ createTable }} AS {{selectStatement }};
 
 {% elif strategyOn == 'SOURCE_AND_TARGET' and strategyTimestamp == '' %}
 
 CREATE OR REPLACE VIEW #SL_INCOMING AS {{ selectStatement }};
-{{ createPrefix }} {{ tableFullName }} AS
+{{ createTable }} AS
 SELECT {{ tableColumnsCsv }}
 FROM #SL_INCOMING
 QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY 0) = 1;
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' and timestamp is present #}
 
 CREATE OR REPLACE VIEW #SL_INCOMING AS {{ selectStatement }};
-{{ createPrefix }} {{ tableFullName }} AS 
+{{ createTable }} AS 
 SELECT {{ tableColumnsCsv }}
 FROM #SL_INCOMING
 QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) = 1;

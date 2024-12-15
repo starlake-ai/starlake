@@ -184,7 +184,9 @@ object Settings extends StrictLogging {
     def sparkDatasource(): Option[String] = {
       this.`type` match {
         case ConnectionType.JDBC =>
-          val engineName = options("url").split(':')(1).toLowerCase()
+          val urlKey = if (options.contains("url")) "url" else "sfUrl"
+          val engineName =
+            if (urlKey == "sfUrl") "snowflake" else options(urlKey).split(':')(1).toLowerCase()
           this.sparkFormat match {
             case Some(_) =>
               engineName match {
@@ -223,48 +225,49 @@ object Settings extends StrictLogging {
 
       `type` match {
         case ConnectionType.JDBC =>
-          if (!options.contains("url")) {
+          if (!options.contains("url") && !options.contains("sfUrl")) {
             errors = errors :+ ValidationMessage(
               Severity.Error,
               "Connection",
-              s"Connection type ${`type`} requires a url"
+              s"Connection type ${`type`} requires a url or sfUrl for snowflake spark"
             )
-          }
-          sparkDatasource() match {
-            case Some(datasource) =>
-              if (datasource.contains("redshift")) {
-                if (options.get("aws_iam_role").isEmpty) {
-                  errors = errors :+ ValidationMessage(
-                    Severity.Error,
-                    "Connection",
-                    s"Connection type ${`type`} requires an aws_iam_role"
-                  )
+          } else {
+            sparkDatasource() match {
+              case Some(datasource) =>
+                if (datasource.contains("redshift")) {
+                  if (options.get("aws_iam_role").isEmpty) {
+                    errors = errors :+ ValidationMessage(
+                      Severity.Error,
+                      "Connection",
+                      s"Connection type ${`type`} requires an aws_iam_role"
+                    )
+                  }
+                  if (options.get("tempdir").isEmpty) {
+                    errors = errors :+ ValidationMessage(
+                      Severity.Error,
+                      "Connection",
+                      s"Connection type ${`type`} requires an tempdir"
+                    )
+                  }
                 }
-                if (options.get("tempdir").isEmpty) {
-                  errors = errors :+ ValidationMessage(
-                    Severity.Error,
-                    "Connection",
-                    s"Connection type ${`type`} requires an tempdir"
-                  )
+                if (datasource.contains("snowflake")) {
+                  if (options.get("warehouse").isEmpty) {
+                    errors = errors :+ ValidationMessage(
+                      Severity.Error,
+                      "Connection",
+                      s"Connection type ${`type`} requires an warehouse"
+                    )
+                  }
+                  if (options.get("db").isEmpty) {
+                    errors = errors :+ ValidationMessage(
+                      Severity.Error,
+                      "Connection",
+                      s"Connection type ${`type`} requires an db"
+                    )
+                  }
                 }
-              }
-              if (datasource.contains("snowflake")) {
-                if (options.get("warehouse").isEmpty) {
-                  errors = errors :+ ValidationMessage(
-                    Severity.Error,
-                    "Connection",
-                    s"Connection type ${`type`} requires an warehouse"
-                  )
-                }
-                if (options.get("db").isEmpty) {
-                  errors = errors :+ ValidationMessage(
-                    Severity.Error,
-                    "Connection",
-                    s"Connection type ${`type`} requires an db"
-                  )
-                }
-              }
-            case None =>
+              case None =>
+            }
           }
         case ConnectionType.BQ =>
           if (!options.contains("location")) {

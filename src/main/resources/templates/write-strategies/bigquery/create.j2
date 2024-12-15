@@ -54,18 +54,18 @@ UPDATE {{ tableUpdateSetExpression }}
 #}
 
 {% if materializedView == 'MATERIALIZED_VIEW' %}
-{% set createPrefix = 'CREATE MATERIALIZED VIEW' %}
+{% set createTable = 'CREATE MATERIALIZED VIEW ' + tableFullName %}
 {% else %}
-{% set createPrefix = 'CREATE TABLE ' + tableFullName + ' ' + sinkTablePartitionClause + ' ' + sinkTableClusteringClause %}
+{% set createTable = 'CREATE TABLE ' + tableFullName + ' ' + sinkTablePartitionClause + ' ' + sinkTableClusteringClause %}
 {% endif %}
 
 {% if strategyOn == 'TARGET' %}
 
-{{ createPrefix }} AS {{ selectStatement }};
+{{ createTable }} AS {{ selectStatement }};
 
 {% elif strategyOn == 'SOURCE_AND_TARGET' and strategyTimestamp == '' %}
 
-{{ createPrefix }} {{ tableFullName }} AS
+{{ createTable }} AS
 WITH SL_INCOMING AS ({{selectStatement }})
 SELECT {{ tableColumnsCsv }}
 FROM SL_INCOMING
@@ -73,7 +73,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY (select 0)
 
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' and timestamp is present #}
 
-{{ createPrefix }} {{ tableFullName }} AS
+{{ createTable }} AS
 WITH SL_INCOMING AS ({{ selectStatement }})
 SELECT  {{ tableColumnsCsv }},
 FROM SL_INCOMING
