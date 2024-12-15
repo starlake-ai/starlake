@@ -441,7 +441,7 @@ class BigQueryAutoTask(
     }
   }
 
-  private def limitQuery(sql: String) = {
+  private def limitQuery(sql: String): String = {
     val limit = settings.appConfig.maxInteractiveRecords
     val trimmedSql = SQLUtils.stripComments(sql)
     val upperCaseSQL = trimmedSql.toUpperCase().replace("\n", " ")

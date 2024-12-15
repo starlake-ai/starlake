@@ -11,8 +11,9 @@ class LoadCSVJsonFieldBQIntegrationSpec extends BigQueryIntegrationSpecBase {
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
     "Import / Load / Transform BQ" should "succeed" in {
       withEnvs(
-        "SL_ROOT" -> localDir.pathAsString,
-        "SL_ENV"  -> "BQ"
+        "SL_ROOT"                   -> localDir.pathAsString,
+        "SL_ENV"                    -> "BQ",
+        "SL_INTERMEDIATE_BQ_FORMAT" -> "avro"
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
