@@ -372,7 +372,9 @@ object Settings extends StrictLogging {
       `type` match {
         case ConnectionType.BQ => "bigquery"
         case ConnectionType.JDBC =>
-          val engineName = options("url").split(':')(1).toLowerCase()
+          val urlKey = if (options.contains("url")) "url" else "sfUrl"
+          val engineName =
+            if (urlKey == "sfUrl") "snowflake" else options(urlKey).split(':')(1).toLowerCase()
           engineName
         case _ => "spark"
       }
@@ -392,7 +394,9 @@ object Settings extends StrictLogging {
         case None | Some("jdbc") =>
           this.`type` match {
             case JDBC =>
-              val engineName = options("url").split(':')(1).toLowerCase()
+              val urlKey = if (options.contains("url")) "url" else "sfUrl"
+              val engineName =
+                if (urlKey == "sfUrl") "snowflake" else options(urlKey).split(':')(1).toLowerCase()
               if (engineName == "databricks")
                 "spark"
               else engineName
