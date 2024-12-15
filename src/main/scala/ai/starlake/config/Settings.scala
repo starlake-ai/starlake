@@ -509,10 +509,10 @@ object Settings extends StrictLogging {
     tables: Map[String, TableDdl],
     quote: String,
     viewPrefix: Option[String],
-    partitionBy: Option[String],
-    clusterBy: Option[String],
     preActions: Option[String],
     strategyBuilder: String,
+    partitionBy: Option[String] = None,
+    clusterBy: Option[String] = None,
     columnRemarks: Option[String] = None,
     tableRemarks: Option[String] = None,
     supportsJson: Option[Boolean] = None

@@ -134,7 +134,7 @@ final case class AllSinks(
   // depending on the connection.type coming from the connection ref, some of the options below may be required
 
   // BigQuery
-  shardSuffix: Option[String] = None,
+  sharding: Option[String] = None,
   // partition: Option[List[String]] = None,  // only one column allowed
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
@@ -165,7 +165,7 @@ final case class AllSinks(
   def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
     val map = scala.collection.mutable.Map.empty[String, Any]
     connectionRef.foreach(map += "sinkConnectionRef" -> _)
-    shardSuffix.foreach(map += "sinkShardSuffix" -> _)
+    sharding.foreach(map += "sinkShardSuffix" -> _)
     clustering.foreach(map += "sinkClustering" -> _.asJava)
     days.foreach(map += "sinkDays" -> _)
     requirePartitionFilter.foreach(map += "sinkRequirePartitionFilter" -> _)
@@ -234,11 +234,11 @@ final case class AllSinks(
         } else {
           val connection = settings.appConfig.connections(ref)
           if (connection.`type` != ConnectionType.BQ) {
-            if (this.shardSuffix.nonEmpty) {
+            if (this.sharding.nonEmpty) {
               errors = errors :+ ValidationMessage(
                 Severity.Error,
-                s"shardSuffix in $tableName",
-                s"shardSuffix is only supported for BigQuery sinks"
+                s"sharding in $tableName",
+                s"sharding is only supported for BigQuery sinks"
               )
             }
           } else if (connection.`type` == ConnectionType.FS) {
@@ -254,11 +254,11 @@ final case class AllSinks(
         }
     }
     table.foreach { table =>
-      this.shardSuffix.foreach { column =>
+      this.sharding.foreach { column =>
         if (!table.attributes.exists(_.getFinalName() == column)) {
           errors = errors :+ ValidationMessage(
             Severity.Error,
-            s"shardSuffix in $tableName",
+            s"sharding in $tableName",
             s"Column $column not found in the table"
           )
         }
@@ -273,7 +273,7 @@ final case class AllSinks(
         ) {
           errors = errors :+ ValidationMessage(
             Severity.Error,
-            s"shardSuffix in $tableName",
+            s"sharding in $tableName",
             s"Column $column should be of type string"
           )
         }
@@ -309,7 +309,7 @@ final case class AllSinks(
       id = child.id.orElse(this.id),
       format = child.format.orElse(this.format),
       extension = child.extension.orElse(this.extension),
-      shardSuffix = child.shardSuffix.orElse(this.shardSuffix),
+      sharding = child.sharding.orElse(this.sharding),
       partition = child.partition.orElse(this.partition),
       coalesce = child.coalesce.orElse(this.coalesce),
       options = child.options.orElse(this.options)
@@ -353,7 +353,7 @@ final case class AllSinks(
   */
 final case class BigQuerySink(
   connectionRef: Option[String] = None,
-  shardSuffix: Option[String] = None,
+  sharding: Option[String] = None,
   partition: Option[Seq[String]] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
@@ -365,7 +365,7 @@ final case class BigQuerySink(
   def toAllSinks(): AllSinks = {
     AllSinks(
       connectionRef,
-      shardSuffix,
+      sharding,
       clustering,
       days,
       requirePartitionFilter,
@@ -384,7 +384,7 @@ object BigQuerySink {
   def fromAllSinks(allSinks: AllSinks): BigQuerySink = {
     BigQuerySink(
       connectionRef = allSinks.connectionRef,
-      shardSuffix = allSinks.shardSuffix,
+      sharding = allSinks.sharding,
       partition = allSinks.partition,
       clustering = allSinks.clustering,
       days = allSinks.days,

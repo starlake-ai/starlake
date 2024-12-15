@@ -455,6 +455,14 @@
           "type": "string",
           "description": "TODO"
         },
+        "partitionBy": {
+          "type": "string",
+          "description": "TODO"
+        },
+        "clusterBy": {
+          "type": "string",
+          "description": "TODO"
+        },
         "strategyBuilder": {
           "type": "string",
           "description": "TODO"
@@ -627,9 +635,9 @@
           "$ref": "#/definitions/ConvertibleToString",
           "description": "FS: File extension"
         },
-        "shardSuffix": {
+        "sharding": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "column tu use for sharding. table will be named table_{shardSuffix}"
+          "description": "column tu use for sharding. table will be named table_{sharding}"
         },
         "partition": {
           "type": "array",
