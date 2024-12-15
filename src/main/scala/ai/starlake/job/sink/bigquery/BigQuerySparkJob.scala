@@ -1,15 +1,9 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.model.{
-  AttributeDesc,
-  ClusteringInfo,
-  FieldPartitionInfo,
-  Schema,
-  TableInfo
-}
+import ai.starlake.schema.model._
 import ai.starlake.utils._
-import com.google.cloud.bigquery.{JobInfo, Schema => BQSchema, StandardTableDefinition}
+import com.google.cloud.bigquery.{JobInfo, StandardTableDefinition, Schema => BQSchema}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.GoogleCredentials
 import com.google.common.io.BaseEncoding

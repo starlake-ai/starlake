@@ -709,7 +709,7 @@ trait IngestionJob extends SparkJob {
               schemaHandler
             )
         }
-      if (autoTask.sink(mergedDF)) {
+      if (autoTask.sink(mergedDF, Some(this.schema))) {
         Success(0L)
       } else {
         Failure(new Exception("Failed to sink"))

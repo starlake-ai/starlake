@@ -1,0 +1,22 @@
+---
+version: 1
+table:
+  name: "csv_json"
+  pattern: "mytest-.*.csv"
+  attributes:
+    - name: "id"
+      type: "integer"
+      array: false
+    - name: "zelabel"
+      type: "string"
+      array: false
+    - name: "zejson"
+      type: "variant"
+      array: false
+      sample: "{\"msg\":\"yo man\"}"
+  metadata:
+    format: "DSV"
+    withHeader: true
+    separator: ","
+    writeStrategy:
+      type: "OVERWRITE"

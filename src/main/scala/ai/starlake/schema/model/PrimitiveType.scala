@@ -94,7 +94,7 @@ object PrimitiveType {
   object variant extends PrimitiveType("variant") {
     def fromString(str: String, pattern: String, zone: String): Any = str
 
-    def sparkType(zone: Option[String]): DataType = VarcharType(Int.MaxValue)
+    def sparkType(zone: Option[String]): DataType = StringType // VarcharType(Int.MaxValue)
   }
 
   object long extends PrimitiveType("long") {

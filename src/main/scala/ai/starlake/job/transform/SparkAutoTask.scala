@@ -145,7 +145,12 @@ class SparkAutoTask(
 
   }
 
-  def sink(dataframe: DataFrame): Boolean = {
+  /** @param dataframe
+    * @param schema
+    *   this schema to set the JSON metadata in the BQ table as a JSON column
+    * @return
+    */
+  def sink(dataframe: DataFrame, schema: Option[Schema] = None): Boolean = {
     val sink = this.sinkConfig
     logger.info(s"sinking data to $sink")
     val result =
@@ -157,7 +162,7 @@ class SparkAutoTask(
           sinkToFile(dataframe)
 
         case _: BigQuerySink =>
-          sinkToBQ(dataframe)
+          sinkToBQ(dataframe, schema)
 
         case _: JdbcSink =>
           sinkToJDBC(dataframe)
@@ -591,7 +596,7 @@ class SparkAutoTask(
   ///////////////////////////////////////////////////
   ///////////////////////////////////////////////////
 
-  private def sinkToBQ(loadedDF: DataFrame): Try[JobResult] = {
+  private def sinkToBQ(loadedDF: DataFrame, slSchema: Option[Schema] = None): Try[JobResult] = {
     val twoSteps = strategy.isMerge()
     if (twoSteps) {
       val (overwriteCreateDisposition: String, overwriteWriteDisposition: String) =
@@ -667,7 +672,29 @@ class SparkAutoTask(
           resultPageSize
         )
 
-      secondStepTask.runOnDF(loadedDF, Some(loadedDF.schema))
+      val sparkSchema = loadedDF.schema
+      val updateSchema = slSchema
+        .map { slSchema =>
+          val fields =
+            sparkSchema.fields.map { field =>
+              val slField = slSchema.attributes.find { attr =>
+                attr.getFinalName().equalsIgnoreCase(field.name) &&
+                attr.`type`.toLowerCase() == "variant"
+              }
+              slField
+                .map { _ =>
+                  val metadata =
+                    org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
+                  val jsonField = field.copy(metadata = metadata)
+                  jsonField
+                }
+                .getOrElse(field)
+            }
+          val updatedSchema = StructType(fields)
+          updatedSchema
+        }
+        .getOrElse(sparkSchema)
+      secondStepTask.runOnDF(loadedDF, Some(updateSchema))
 
     }
   }
