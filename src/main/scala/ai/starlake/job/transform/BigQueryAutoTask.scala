@@ -202,7 +202,7 @@ class BigQueryAutoTask(
           val jobResult: Try[JobResult] =
             loadedDF match {
               case Some(df) =>
-                taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].shardSuffix match {
+                taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
                   case Some(shardColumn) =>
                     val allResult = df.select(shardColumn).distinct().collect().map { row =>
                       val shard = row.getString(0)
@@ -218,7 +218,7 @@ class BigQueryAutoTask(
                     saveDF(df, None)
                 }
               case None =>
-                taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].shardSuffix match {
+                taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
                   case Some(shardColumn) =>
                     // TODO Check that we are in the second step of the load
                     val shardsQuery =
@@ -490,14 +490,14 @@ class BigQueryAutoTask(
 
   def updateBigQueryTableSchema(
     incomingSparkSchema: StructType,
-    shardSuffix: Option[String] = None
+    sharding: Option[String] = None
   ): Unit = {
     val bigqueryJob = bqNativeJob(bigQuerySinkConfig, "ignore sql")
     val tableId =
       BigQueryJobBase.extractProjectDatasetAndTable(
         taskDesc.getDatabase(),
         taskDesc.domain,
-        taskDesc.table + shardSuffix.map("_" + _).getOrElse("")
+        taskDesc.table + sharding.map("_" + _).getOrElse("")
       )
 
     val tableExists = bigqueryJob.tableExists(tableId)
@@ -545,7 +545,7 @@ class BigQueryAutoTask(
         partitionField,
         clusteringFields
       )
-      val targetTableId = shardSuffix.map(_ => tableId)
+      val targetTableId = sharding.map(_ => tableId)
       bigqueryJob.getOrCreateTable(taskDesc._dbComment, tableInfo, None, targetTableId)
     }
   }
