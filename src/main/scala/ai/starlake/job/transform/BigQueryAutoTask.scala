@@ -207,7 +207,8 @@ class BigQueryAutoTask(
                     val allResult =
                       df.select(shardColumns.head, shardColumns.tail: _*).distinct().collect().map {
                         row =>
-                          val shard = row.toSeq.map(_.toString).mkString("_")
+                          val shard =
+                            row.toSeq.map(Option(_).map(_.toString).getOrElse("null")).mkString("_")
                           logger.info(s"Processing shard $shard")
                           sparkSchema
                             .foreach(schema => updateBigQueryTableSchema(schema, Some(shard)))
@@ -250,7 +251,7 @@ class BigQueryAutoTask(
                                   .iterator()
                                   .asScala
                                   .toList
-                                  .map(_.getValue().toString)
+                                  .map(x => Option(x.getValue()).map(_.toString).getOrElse("null"))
                               }
                               values
                             }

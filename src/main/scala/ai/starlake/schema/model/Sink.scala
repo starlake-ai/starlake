@@ -482,7 +482,9 @@ case class FsSink(
   }
 
   def getStorageOptions(): Map[String, String] = {
-    getOptions() + ("delimiter" -> delimiter.getOrElse("µ")) + ("withHeader" -> "false")
+    getOptions() +
+    ("delimiter"  -> delimiter.getOrElse("µ")) +
+    ("withHeader" -> "false")
   }
 
   def isExport(): Boolean = {
