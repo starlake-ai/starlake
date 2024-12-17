@@ -636,8 +636,11 @@
           "description": "FS: File extension"
         },
         "sharding": {
-          "$ref": "#/definitions/ConvertibleToString",
-          "description": "column tu use for sharding. table will be named table_{sharding}"
+          "description": "columns to use for sharding. table will be named table_{sharding(0)}_{sharding(1)}",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          }
         },
         "partition": {
           "type": "array",
