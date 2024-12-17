@@ -52,6 +52,6 @@ table:
     quote: "\""
     escape: "\\"
     sink:
-      sharding: [country]
+      sharding: [name1,country]
     writeStrategy:
       type: "APPEND"
