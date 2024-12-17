@@ -134,7 +134,7 @@ final case class AllSinks(
   // depending on the connection.type coming from the connection ref, some of the options below may be required
 
   // BigQuery
-  sharding: Option[String] = None,
+  sharding: Option[List[String]] = None,
   // partition: Option[List[String]] = None,  // only one column allowed
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
@@ -353,7 +353,7 @@ final case class AllSinks(
   */
 final case class BigQuerySink(
   connectionRef: Option[String] = None,
-  sharding: Option[String] = None,
+  sharding: Option[List[String]] = None,
   partition: Option[Seq[String]] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,

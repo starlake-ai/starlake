@@ -203,15 +203,25 @@ class BigQueryAutoTask(
             loadedDF match {
               case Some(df) =>
                 taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
-                  case Some(shardColumn) =>
-                    val allResult = df.select(shardColumn).distinct().collect().map { row =>
-                      val shard = row.getString(0)
-                      logger.info(s"Processing shard $shard")
-                      sparkSchema.foreach(schema => updateBigQueryTableSchema(schema, Some(shard)))
-                      val result = saveDF(df.filter(df(shardColumn) === shard), Some(shard))
-                      logger.info(s"Finished processing shard $shard with result $result")
-                      result
-                    }
+                  case Some(shardColumns) =>
+                    val allResult =
+                      df.select(shardColumns.head, shardColumns.tail: _*).distinct().collect().map {
+                        row =>
+                          val shard = row.toSeq.map(_.toString).mkString("_")
+                          logger.info(s"Processing shard $shard")
+                          sparkSchema
+                            .foreach(schema => updateBigQueryTableSchema(schema, Some(shard)))
+                          val shardHead = shardColumns.head
+                          val shardTail = shardColumns.tail
+                          val conditions = shardTail
+                            .map { shardColumn =>
+                              df(shardColumn) === row.getAs(shardColumn)
+                            }
+                            .foldLeft(df(shardHead) === row.getAs(shardHead))(_ && _)
+                          val result = saveDF(df.filter(conditions), Some(shard))
+                          logger.info(s"Finished processing shard $shard with result $result")
+                          result
+                      }
                     allResult.find(_.isFailure).getOrElse(allResult.head)
                   case None =>
                     sparkSchema.foreach(schema => updateBigQueryTableSchema(schema))
@@ -219,10 +229,12 @@ class BigQueryAutoTask(
                 }
               case None =>
                 taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
-                  case Some(shardColumn) =>
+                  case Some(shardColumns) =>
                     // TODO Check that we are in the second step of the load
                     val shardsQuery =
-                      "SELECT DISTINCT " + shardColumn + " FROM (" + taskDesc.sql + ")"
+                      "SELECT DISTINCT " +
+                      shardColumns.mkString(", ") +
+                      " FROM (" + taskDesc.sql + ")"
                     val res = bqNativeJob(
                       config,
                       shardsQuery
@@ -239,7 +251,6 @@ class BigQueryAutoTask(
                                   .asScala
                                   .toList
                                   .map(_.getValue().toString)
-                                  .head
                               }
                               values
                             }
@@ -248,15 +259,27 @@ class BigQueryAutoTask(
                       }
                     uniqueValues match {
                       case Success(values) =>
-                        val allResult = values.map { shard =>
-                          logger.info(s"Processing shard $shard")
-                          val shardSql = taskDesc.sql + s" WHERE $shardColumn = '$shard'"
+                        val allResult = values.map { shardValue =>
+                          logger.info(s"Processing shard $shardValue")
+                          val shardHead = shardColumns.head
+                          val sharValueHead = shardValue.head
+                          val shardValueTail = shardValue.tail
+                          val shardTail = shardColumns.tail
+                          val conditions = shardTail.zipWithIndex
+                            .map { case (shardColumn, index) =>
+                              s"$shardColumn = '${shardValueTail(index)}'"
+                            }
+                            .foldLeft(s"$shardHead = '$sharValueHead'")(_ + " AND " + _)
+                          val shardSql = s"SELECT * FROM (${taskDesc.sql}) WHERE $conditions"
                           sparkSchema.foreach(schema =>
-                            updateBigQueryTableSchema(schema, Some(shard))
+                            updateBigQueryTableSchema(
+                              schema,
+                              Some(shardValue.mkString("_"))
+                            )
                           )
                           val resultApplyCLS = saveNative(config, shardSql)
                           logger.info(
-                            s"Finished processing shard $shard with result $resultApplyCLS"
+                            s"Finished processing shard $shardValue with result $resultApplyCLS"
                           )
                           resultApplyCLS
                         }
