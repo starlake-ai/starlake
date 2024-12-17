@@ -76,7 +76,7 @@ dependencyOverrides := Seq(
   "org.scala-lang"                    % "scala-library"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-reflect"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-compiler"            % scalaVersion.value,
-  "com.google.guava"                  %  "guava"                    % "31.1-jre", // required by jinjava 2.7.3
+  "com.google.guava"                  %  "guava"                    % "33.4.0-jre", // required by jinjava 2.7.3
   "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jacksonForSpark3
 )
 
