@@ -1,11 +1,11 @@
 package ai.starlake.job.site
 
 import ai.starlake.config.Settings
+import ai.starlake.core.utils.StringUtils
 import ai.starlake.lineage._
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, Domain, Schema}
 import ai.starlake.sql.SQLUtils
-import ai.starlake.utils.Utils
 import better.files.File
 import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
@@ -53,7 +53,7 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
     domain: Domain,
     config: SiteConfig
   ): Unit = {
-    val normalizedDomainName = Utils.keepAlphaNum(domain.finalName)
+    val normalizedDomainName = StringUtils.replaceNonAlphanumericWithUnderscore(domain.finalName)
     val formattedDomainIndex = "%04d".format(domainIndex)
     val domainFolder = File(domainPath, formattedDomainIndex + "." + normalizedDomainName)
     domainFolder.createDirectoryIfNotExists()
@@ -124,7 +124,7 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
     jobDesc: AutoJobDesc,
     config: SiteConfig
   ): Unit = {
-    val normalizedJobName = Utils.keepAlphaNum(jobDesc.name)
+    val normalizedJobName = StringUtils.replaceNonAlphanumericWithUnderscore(jobDesc.name)
     val formattedJobIndex = "%04d".format(jobIndex)
     val jobFolder = File(jobPath, formattedJobIndex + "." + normalizedJobName)
     jobFolder.createDirectoryIfNotExists()

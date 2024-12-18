@@ -20,8 +20,8 @@
 
 package ai.starlake.config
 
+import ai.starlake.core.utils.StringUtils
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
@@ -165,7 +165,7 @@ object DatasetArea extends StrictLogging {
   }
 
   def substituteDomainAndSchema(domain: String, schema: String, template: String): String = {
-    val normalizedDomainName = Utils.keepAlphaNum(domain)
+    val normalizedDomainName = StringUtils.replaceNonAlphanumericWithUnderscore(domain)
     template
       .replace("{{domain}}", domain)
       .replace("{{normalized_domain}}", normalizedDomainName)

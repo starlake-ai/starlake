@@ -1,7 +1,7 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extract.{ExtractJDBCSchemaCmd, ExtractSchemaConfig, JdbcDbUtils}
+import ai.starlake.extract.{ExtractSchemaCmd, ExtractSchemaConfig, JdbcDbUtils}
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Engine, WriteStrategyType}
@@ -275,7 +275,7 @@ class JdbcAutoTask(
                 connectionRef = Some(sinkConnectionRef),
                 accessToken = accessToken
               )
-              ExtractJDBCSchemaCmd.run(config, schemaHandler)
+              ExtractSchemaCmd.run(config, schemaHandler)
             }
           }
           JdbcJobResult(Nil)
