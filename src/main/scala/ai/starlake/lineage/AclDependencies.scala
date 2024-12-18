@@ -3,6 +3,7 @@ package ai.starlake.lineage
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import AutoTaskDependencies.{Column, Diagram, Item, Relation}
+import ai.starlake.core.utils.StringUtils
 import ai.starlake.schema.model.{RowLevelSecurity, Schema}
 import ai.starlake.utils.{JsonSerializer, Utils}
 import com.typesafe.scalalogging.LazyLogging
@@ -23,7 +24,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
                      |""".stripMargin
 
   private def formatDotName(name: String) = {
-    Utils.keepAlphaNum(name)
+    StringUtils.replaceNonAlphanumericWithUnderscore(name)
   }
 
   def run(args: Array[String]): Try[Unit] = {

@@ -333,10 +333,6 @@ object Utils extends StrictLogging {
     mapper
   }
 
-  def keepAlphaNum(str: String): String = {
-    str.replaceAll("[^\\p{Alnum}]", "_")
-  }
-
   def dot2Svg(outputFile: Option[File], str: String): Unit = {
     dot2Format(outputFile, str, "svg")
   }

@@ -98,7 +98,7 @@ object Main extends StrictLogging {
     AclDependenciesCmd,
     AutoTaskDependenciesCmd,
     ExtractCmd,
-    ExtractJDBCSchemaCmd,
+    ExtractSchemaCmd,
     ExtractDataCmd,
     ExtractScriptCmd,
     BigQueryTableInfoCmd,

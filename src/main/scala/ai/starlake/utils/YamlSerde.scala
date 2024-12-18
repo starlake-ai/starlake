@@ -3,7 +3,7 @@ package ai.starlake.utils
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.exceptions.SchemaValidationException
-import ai.starlake.extract.{ExtractDesc, JDBCSchemas}
+import ai.starlake.extract.{ExtractDesc, ExtractSchemas}
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.{
   AutoJobDesc,
@@ -48,7 +48,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
       case e: AutoTaskDesc        => TaskDesc(latestSchemaVersion, e)
       case e: Domain              => LoadDesc(latestSchemaVersion, e)
       case e: ModelSchema         => TableDesc(latestSchemaVersion, e)
-      case e: JDBCSchemas         => ExtractDesc(latestSchemaVersion, e)
+      case e: ExtractSchemas      => ExtractDesc(latestSchemaVersion, e)
       case e: DagGenerationConfig => DagDesc(latestSchemaVersion, e)
       case _                      => entity
     }
@@ -226,7 +226,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
     content: String,
     inputFilename: String,
     propageDefault: Boolean = true
-  ): JDBCSchemas = {
+  ): ExtractSchemas = {
     val extractSubPath = "extract"
     val extractNode =
       validateConfigFile(
@@ -236,7 +236,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
         List(YamlMigrator.V1.ExtractConfig),
         Some(YamlMigrator.ScalaClass.ExtractConfig)
       ).path(extractSubPath)
-    val jdbcSchemas = mapper.treeToValue(extractNode, classOf[JDBCSchemas])
+    val jdbcSchemas = mapper.treeToValue(extractNode, classOf[ExtractSchemas])
     if (propageDefault) {
       jdbcSchemas.propagateGlobalJdbcSchemas()
     } else {

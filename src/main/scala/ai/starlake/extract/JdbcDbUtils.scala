@@ -2,6 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings.{Connection, JdbcEngine}
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.core.utils.StringUtils
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
 import ai.starlake.job.Main
 import ai.starlake.schema.model._
@@ -764,7 +765,7 @@ object JdbcDbUtils extends LazyLogging {
       domainTemplate.flatMap(_.tables.headOption.flatMap(_.attributes.head.trim))
 
     val cometSchema = selectedTablesAndColumns.map { case (tableName, tableAttrs) =>
-      val sanitizedTableName = Utils.keepAlphaNum(tableName)
+      val sanitizedTableName = StringUtils.replaceNonAlphanumericWithUnderscore(tableName)
       Schema(
         name = tableName,
         rename = if (sanitizedTableName != tableName) Some(sanitizedTableName) else None,
@@ -798,7 +799,7 @@ object JdbcDbUtils extends LazyLogging {
         }
       }
 
-    val normalizedDomainName = Utils.keepAlphaNum(jdbcSchema.schema)
+    val normalizedDomainName = StringUtils.replaceNonAlphanumericWithUnderscore(jdbcSchema.schema)
     val rename = domainTemplate
       .flatMap(_.rename)
       .map { name =>
@@ -812,7 +813,7 @@ object JdbcDbUtils extends LazyLogging {
     Domain(
       database = database,
       name = jdbcSchema.sanitizeName match {
-        case Some(true) => Utils.keepAlphaNum(jdbcSchema.schema)
+        case Some(true) => StringUtils.replaceNonAlphanumericWithUnderscore(jdbcSchema.schema)
         case _          => jdbcSchema.schema
       },
       rename = rename,
