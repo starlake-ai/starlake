@@ -33,7 +33,6 @@ import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 
 import java.util.regex.Pattern
-import scala.collection.View
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
@@ -484,7 +483,7 @@ class OpenAPISchemaExtractor(
       currentSchema: OpenAPISwaggerSchema[_],
       currentPath: Option[String] = None
     ): OpenAPISwaggerSchema[_] = {
-      def handleObjectSchema(os: OpenAPISwaggerSchema[_]) = {
+      def handleObjectSchema(os: OpenAPISwaggerSchema[_]): OpenAPISwaggerSchema[_] = {
         val newProperties = os.getProperties.asScala
           .filter { case (name, _) =>
             !fieldPatterns.exists(
@@ -494,7 +493,7 @@ class OpenAPISchemaExtractor(
           .map { case (name, pSchema) =>
             name -> processExclusion(pSchema, currentPath.map(_ + "_" + name))
           }
-          .toMap
+          .toMap[String, OpenAPISwaggerSchema[_]]
           .asJava
         os.setProperties(newProperties)
         os

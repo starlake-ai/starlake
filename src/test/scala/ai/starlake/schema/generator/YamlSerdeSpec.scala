@@ -24,7 +24,6 @@ import ai.starlake.config.Settings.{
 import ai.starlake.config.{ApplicationDesc, Settings}
 import ai.starlake.extract._
 import ai.starlake.extract.impl.openapi.{
-  All,
   Get,
   HttpOperation,
   OpenAPIDomain,
@@ -32,8 +31,7 @@ import ai.starlake.extract.impl.openapi.{
   OpenAPIRoute,
   OpenAPIRouteExplosion,
   OpenAPISchema,
-  Post,
-  RouteExplosionStrategy
+  Post
 }
 import ai.starlake.job.load.{IngestionNameStrategy, IngestionTimeStrategy}
 import ai.starlake.schema.model._
@@ -52,7 +50,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import java.util.TimeZone
 import java.util.regex.Pattern
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryValues {
   new WithSettings() {
@@ -659,7 +657,7 @@ object YamlConfigGenerators {
   implicit val openAPIExtractSchema: Arbitrary[OpenAPIExtractSchema] = Arbitrary {
     for {
       basePath          <- arbitrary[Option[String]]
-      formatTypeMapping <- arbitrary[Map[String, Pattern]].map(_.view.mapValues(_.toString).toMap)
+      formatTypeMapping <- arbitrary[Map[String, Pattern]].map(_.mapValues(_.toString).toMap)
       domains           <- arbitrary[List[OpenAPIDomain]].filter(_.nonEmpty)
     } yield OpenAPIExtractSchema(
       basePath = basePath,
