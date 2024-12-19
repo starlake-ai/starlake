@@ -1,6 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extract.{JDBCSchema, JDBCTable}
 import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Severity, _}
@@ -51,6 +52,78 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       }
     }
     tableWithDagConfigAndSchedule
+  }
+
+  case class ExtractedTableWithDagConfig(
+    configFile: String,
+    schema: JDBCSchema,
+    table: Option[JDBCTable],
+    dagConfigName: String,
+    dagConfig: DagGenerationConfig,
+    schedule: Option[String]
+  )
+
+  private def extractedTableWithDagConfigs(
+    dagConfigs: Map[String, DagGenerationConfig],
+    tags: Set[String]
+  )(implicit settings: Settings): List[ExtractedTableWithDagConfig] = {
+    logger.info("Starting to generate dags")
+    val extractedTableWithDagConfigAndSchedule =
+      schemaHandler.loadExtractConfigs().flatMap { configs =>
+        val configFile = configs._1
+        configs._2.jdbcSchemas.flatMap { schema =>
+          if (schema.tables.isEmpty) {
+            if (tags.isEmpty || schema.tags.intersect(tags).nonEmpty) {
+              val dagConfigRef = schema.dagRef
+                .orElse(settings.appConfig.dagRef.flatMap(_.load))
+              dagConfigRef.map { dagRef =>
+                val dagConfig = dagConfigs.getOrElse(
+                  dagRef,
+                  throw new Exception(
+                    s"Could not find dag config $dagRef referenced in ${schema.schema}. Dag configs found ${dagConfigs.keys
+                        .mkString(",")}"
+                  )
+                )
+                ExtractedTableWithDagConfig(
+                  configFile,
+                  schema,
+                  None,
+                  dagRef,
+                  dagConfig,
+                  schema.schedule
+                )
+              }
+            } else {
+              None
+            }
+          } else {
+            schema.tables.filter(tags.isEmpty || _.tags.intersect(tags).nonEmpty).flatMap { table =>
+              val dagConfigRef = table.dagRef
+                .orElse(settings.appConfig.dagRef.flatMap(_.load))
+              val schedule = table.schedule
+
+              dagConfigRef.map { dagRef =>
+                val dagConfig = dagConfigs.getOrElse(
+                  dagRef,
+                  throw new Exception(
+                    s"Could not find dag config $dagRef referenced in ${schema.schema}.${table.name}. Dag configs found ${dagConfigs.keys
+                        .mkString(",")}"
+                  )
+                )
+                ExtractedTableWithDagConfig(
+                  configFile,
+                  schema,
+                  Some(table),
+                  dagRef,
+                  dagConfig,
+                  schedule
+                )
+              }
+            }
+          }
+        }
+      }
+    extractedTableWithDagConfigAndSchedule.toList
   }
 
   case class TaskWithDagConfig(
