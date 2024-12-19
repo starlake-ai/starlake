@@ -85,7 +85,7 @@ class ExtractSpec extends TestHelper {
       assert(row1InsertionCheck, "Data not inserted")
       val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
       implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
-      new ExtractJDBCSchema(settings.schemaHandler()).extractSchema(
+      new ExtractSchema(settings.schemaHandler()).extractSchema(
         jdbcSchema,
         connectionSettings,
         new Path(outputDir.pathAsString),
@@ -148,7 +148,7 @@ class ExtractSpec extends TestHelper {
       assert(row1InsertionCheck, "Data not inserted")
       val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
       implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
-      new ExtractJDBCSchema(settings.schemaHandler()).extractSchema(
+      new ExtractSchema(settings.schemaHandler()).extractSchema(
         jdbcSchema,
         connectionSettings,
         new Path(outputDir.pathAsString),
@@ -207,7 +207,7 @@ class ExtractSpec extends TestHelper {
       assert(row1InsertionCheck, "Data not inserted")
       val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
       implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
-      new ExtractJDBCSchema(settings.schemaHandler()).extractSchema(
+      new ExtractSchema(settings.schemaHandler()).extractSchema(
         jdbcSchema,
         connectionSettings,
         new Path(outputDir.pathAsString),
@@ -257,7 +257,7 @@ class ExtractSpec extends TestHelper {
     assert(row1InsertionCheck, "Data not inserted")
     val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
     implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
-    new ExtractJDBCSchema(settings.schemaHandler()).extractSchema(
+    new ExtractSchema(settings.schemaHandler()).extractSchema(
       jdbcSchema,
       connectionSettings,
       new Path(outputDir.pathAsString),
@@ -336,38 +336,40 @@ class ExtractSpec extends TestHelper {
           jdbcMapping.contentAsString,
           jdbcMapping.pathAsString
         )
-      assert(jdbcSchemas.jdbcSchemas.nonEmpty)
-      jdbcSchemas shouldBe JDBCSchemas(
+      assert(jdbcSchemas.jdbcSchemas.getOrElse(Nil).nonEmpty)
+      jdbcSchemas shouldBe ExtractSchemas(
         connectionRef = Some("test-pg"),
-        jdbcSchemas = List(
-          JDBCSchema(
-            catalog = Some("business"),
-            schema = "public",
-            tables = List(
-              JDBCTable(
-                "user",
-                None,
-                List(TableColumn("id", None), TableColumn("email", None)),
-                None,
-                None,
-                Map.empty,
-                None,
-                None
+        jdbcSchemas = Some(
+          List(
+            JDBCSchema(
+              catalog = Some("business"),
+              schema = "public",
+              tables = List(
+                JDBCTable(
+                  "user",
+                  None,
+                  List(TableColumn("id", None), TableColumn("email", None)),
+                  None,
+                  None,
+                  Map.empty,
+                  None,
+                  None
+                ),
+                JDBCTable("product", None, Nil, None, None, Map.empty, None, None),
+                JDBCTable("*", None, Nil, None, None, Map.empty, None, None)
               ),
-              JDBCTable("product", None, Nil, None, None, Map.empty, None, None),
-              JDBCTable("*", None, Nil, None, None, Map.empty, None, None)
-            ),
-            tableTypes = List(
-              "TABLE",
-              "VIEW",
-              "SYSTEM TABLE",
-              "GLOBAL TEMPORARY",
-              "LOCAL TEMPORARY",
-              "ALIAS",
-              "SYNONYM"
-            ),
-            template = Some("/my-templates/domain-template.yml"),
-            pattern = Some("{{schema}}-{{table}}.*")
+              tableTypes = List(
+                "TABLE",
+                "VIEW",
+                "SYSTEM TABLE",
+                "GLOBAL TEMPORARY",
+                "LOCAL TEMPORARY",
+                "ALIAS",
+                "SYNONYM"
+              ),
+              template = Some("/my-templates/domain-template.yml"),
+              pattern = Some("{{schema}}-{{table}}.*")
+            )
           )
         ),
         default = None
@@ -409,35 +411,37 @@ class ExtractSpec extends TestHelper {
           jdbcMapping.contentAsString,
           jdbcMapping.pathAsString
         )
-      assert(jdbcSchemas.jdbcSchemas.nonEmpty)
-      jdbcSchemas shouldBe JDBCSchemas(
+      assert(jdbcSchemas.jdbcSchemas.getOrElse(Nil).nonEmpty)
+      jdbcSchemas shouldBe ExtractSchemas(
         connectionRef = Some("test-pg"),
-        jdbcSchemas = List(
-          JDBCSchema(
-            catalog = Some("business"),
-            schema = "public",
-            tables = List(
-              JDBCTable(
-                "user",
-                None,
-                List(TableColumn("id", None), TableColumn("email", None)),
-                None,
-                None,
-                Map.empty,
-                None,
-                None
+        jdbcSchemas = Some(
+          List(
+            JDBCSchema(
+              catalog = Some("business"),
+              schema = "public",
+              tables = List(
+                JDBCTable(
+                  "user",
+                  None,
+                  List(TableColumn("id", None), TableColumn("email", None)),
+                  None,
+                  None,
+                  Map.empty,
+                  None,
+                  None
+                ),
+                JDBCTable("product", None, Nil, None, None, Map.empty, None, None),
+                JDBCTable("*", None, Nil, None, None, Map.empty, None, None)
               ),
-              JDBCTable("product", None, Nil, None, None, Map.empty, None, None),
-              JDBCTable("*", None, Nil, None, None, Map.empty, None, None)
-            ),
-            tableTypes = List(
-              "TABLE",
-              "VIEW"
-            ),
-            template = Some("/my-templates/domain-template.yml"),
-            pattern = Some("{{schema}}-{{table}}.*"),
-            fullExport = Some(true),
-            sanitizeName = Some(true)
+              tableTypes = List(
+                "TABLE",
+                "VIEW"
+              ),
+              template = Some("/my-templates/domain-template.yml"),
+              pattern = Some("{{schema}}-{{table}}.*"),
+              fullExport = Some(true),
+              sanitizeName = Some(true)
+            )
           )
         ),
         default = Some(
@@ -487,39 +491,41 @@ class ExtractSpec extends TestHelper {
           jdbcMapping.contentAsString,
           jdbcMapping.pathAsString
         )
-      assert(jdbcSchemas.jdbcSchemas.nonEmpty)
-      jdbcSchemas shouldBe JDBCSchemas(
+      assert(jdbcSchemas.jdbcSchemas.getOrElse(Nil).nonEmpty)
+      jdbcSchemas shouldBe ExtractSchemas(
         connectionRef = Some("test-pg"),
-        jdbcSchemas = List(
-          JDBCSchema(
-            catalog = Some("business"),
-            tables = List(
-              JDBCTable(
-                "user",
-                None,
-                List(TableColumn("id", None), TableColumn("email", None)),
-                None,
-                None,
-                Map.empty,
-                None,
-                None
+        jdbcSchemas = Some(
+          List(
+            JDBCSchema(
+              catalog = Some("business"),
+              tables = List(
+                JDBCTable(
+                  "user",
+                  None,
+                  List(TableColumn("id", None), TableColumn("email", None)),
+                  None,
+                  None,
+                  Map.empty,
+                  None,
+                  None
+                ),
+                JDBCTable("product", None, Nil, None, None, Map.empty, None, None),
+                JDBCTable("*", None, Nil, None, None, Map.empty, None, None)
               ),
-              JDBCTable("product", None, Nil, None, None, Map.empty, None, None),
-              JDBCTable("*", None, Nil, None, None, Map.empty, None, None)
-            ),
-            tableTypes = List(
-              "TABLE",
-              "VIEW",
-              "SYSTEM TABLE",
-              "GLOBAL TEMPORARY",
-              "LOCAL TEMPORARY",
-              "ALIAS",
-              "SYNONYM"
-            ),
-            template = Some("/my-templates/domain-template.yml"),
-            pattern = Some("{{schema}}-{{table}}.*"),
-            fullExport = Some(false),
-            sanitizeName = Some(false)
+              tableTypes = List(
+                "TABLE",
+                "VIEW",
+                "SYSTEM TABLE",
+                "GLOBAL TEMPORARY",
+                "LOCAL TEMPORARY",
+                "ALIAS",
+                "SYNONYM"
+              ),
+              template = Some("/my-templates/domain-template.yml"),
+              pattern = Some("{{schema}}-{{table}}.*"),
+              fullExport = Some(false),
+              sanitizeName = Some(false)
+            )
           )
         ),
         default = Some(
@@ -557,7 +563,7 @@ class ExtractSpec extends TestHelper {
       assert(row1InsertionCheck, "Data not inserted")
       implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
       val tmpDir = File.newTemporaryDirectory()
-      new ExtractJDBCSchema(settings.schemaHandler()).extractSchema(
+      new ExtractSchema(settings.schemaHandler()).extractSchema(
         JDBCSchema(
           None,
           "PUBLIC",
@@ -632,7 +638,7 @@ class ExtractSpec extends TestHelper {
       assert(row1InsertionCheck, "Data not inserted")
       implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
       val tmpDir = File.newTemporaryDirectory()
-      new ExtractJDBCSchema(settings.schemaHandler()).extractSchema(
+      new ExtractSchema(settings.schemaHandler()).extractSchema(
         JDBCSchema(
           None,
           "PUBLIC",
@@ -723,7 +729,7 @@ class ExtractSpec extends TestHelper {
   }
 
   "ExtractSchema Config" should "work" in {
-    val rendered = ExtractJDBCSchemaCmd.usage()
+    val rendered = ExtractSchemaCmd.usage()
     println(rendered)
     val expected =
       """

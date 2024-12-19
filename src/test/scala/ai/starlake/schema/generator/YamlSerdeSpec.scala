@@ -23,6 +23,18 @@ import ai.starlake.config.Settings.{
 }
 import ai.starlake.config.{ApplicationDesc, Settings}
 import ai.starlake.extract._
+import ai.starlake.extract.impl.openapi.{
+  All,
+  Get,
+  HttpOperation,
+  OpenAPIDomain,
+  OpenAPIExtractSchema,
+  OpenAPIRoute,
+  OpenAPIRouteExplosion,
+  OpenAPISchema,
+  Post,
+  RouteExplosionStrategy
+}
 import ai.starlake.job.load.{IngestionNameStrategy, IngestionTimeStrategy}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{Utils, YamlSerde}
@@ -40,7 +52,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import java.util.TimeZone
 import java.util.regex.Pattern
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryValues {
   new WithSettings() {
@@ -136,8 +148,111 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
       val config = mapperWithEmptyString.writeValueAsString(yamlExtractConfig)
       try {
-        val deserializedConfig = YamlSerde.deserializeYamlExtractConfig(config, "input")
-        deserializedConfig should equal(yamlExtractConfig.extract.propagateGlobalJdbcSchemas())
+        val deserializedConfig: ExtractSchemas =
+          YamlSerde.deserializeYamlExtractConfig(config, "input")
+        val inputConfig = yamlExtractConfig.extract.propagateGlobalJdbcSchemas()
+        for {
+          inputOpenAPI        <- inputConfig.openAPI
+          deserializedOpenAPI <- deserializedConfig.openAPI
+          inputIncludeSchemas = inputOpenAPI.domains
+            .flatMap(_.schemas)
+            .flatMap(_.include)
+          deserializedIncludeSchemas = deserializedOpenAPI.domains
+            .flatMap(_.schemas)
+            .flatMap(_.include)
+          inputExcludeSchemas = inputOpenAPI.domains
+            .flatMap(_.schemas)
+            .flatMap(_.exclude)
+          deserializedExcludeSchemas = deserializedOpenAPI.domains
+            .flatMap(_.schemas)
+            .flatMap(_.exclude)
+          inputExcludeFieldsRoutes = inputOpenAPI.domains
+            .flatMap(_.routes)
+            .flatMap(_.excludeFields)
+          deserializedExcludeFieldsRoutes = deserializedOpenAPI.domains
+            .flatMap(_.routes)
+            .flatMap(_.excludeFields)
+          inputPathsRoutes = inputOpenAPI.domains
+            .flatMap(_.routes)
+            .flatMap(_.paths)
+          deserializedPathsRoutes = deserializedOpenAPI.domains
+            .flatMap(_.routes)
+            .flatMap(_.paths)
+          inputExcludeRoutes = inputOpenAPI.domains
+            .flatMap(_.routes)
+            .flatMap(_.exclude)
+          deserializedExcludeRoutes = deserializedOpenAPI.domains
+            .flatMap(_.routes)
+            .flatMap(_.exclude)
+          inputExplosionRoutes = inputOpenAPI.domains
+            .flatMap(_.routes)
+            .flatMap(_.explode)
+            .flatMap(_.exclude)
+          deserializedExplosionRoutes = deserializedOpenAPI.domains
+            .flatMap(_.routes)
+            .flatMap(_.explode)
+            .flatMap(_.exclude)
+          inputExplosionRenameRoutes = inputOpenAPI.domains
+            .flatMap(_.routes)
+            .flatMap(_.explode)
+            .map(_.rename)
+            .flatMap(_.map { case (n, p) => n -> p.pattern() })
+          deserializedExplosionRenameRoutes = deserializedOpenAPI.domains
+            .flatMap(_.routes)
+            .flatMap(_.explode)
+            .map(_.rename)
+            .flatMap(_.map { case (n, p) => n -> p.pattern() })
+        } {
+          inputIncludeSchemas.map(_.pattern()) shouldEqual deserializedIncludeSchemas.map(
+            _.pattern()
+          )
+          inputExcludeSchemas.map(_.pattern()) shouldEqual deserializedExcludeSchemas.map(
+            _.pattern()
+          )
+          inputExcludeFieldsRoutes.map(_.pattern()) shouldEqual deserializedExcludeFieldsRoutes.map(
+            _.pattern()
+          )
+          inputPathsRoutes.map(_.pattern()) shouldEqual deserializedPathsRoutes.map(
+            _.pattern()
+          )
+          inputExcludeRoutes.map(_.pattern()) shouldEqual deserializedExcludeRoutes.map(
+            _.pattern()
+          )
+          inputExplosionRoutes.map(_.pattern()) shouldEqual deserializedExplosionRoutes.map(
+            _.pattern()
+          )
+          inputExplosionRenameRoutes should contain theSameElementsAs deserializedExplosionRenameRoutes
+        }
+        val dummyPattern = Pattern.compile("dummy")
+        def substitutePattern(extractSchemas: ExtractSchemas): ExtractSchemas = {
+          val openAPI = extractSchemas.openAPI.map { openAPI =>
+            val domains = openAPI.domains.map { domain =>
+              val schemas = domain.schemas.map { schema =>
+                schema.copy(
+                  include = schema.include.map(_ => dummyPattern),
+                  exclude = schema.exclude.map(_ => dummyPattern)
+                )
+              }
+              val routes = domain.routes.map { route =>
+                route.copy(
+                  excludeFields = route.excludeFields.map(_ => dummyPattern),
+                  paths = route.paths.map(_ => dummyPattern),
+                  exclude = route.exclude.map(_ => dummyPattern),
+                  explode = route.explode.map(explode =>
+                    explode.copy(
+                      exclude = explode.exclude.map(_ => dummyPattern),
+                      rename = explode.rename.map { case (n, _) => n -> dummyPattern }
+                    )
+                  )
+                )
+              }
+              domain.copy(schemas = schemas, routes = routes)
+            }
+            openAPI.copy(domains = domains)
+          }
+          extractSchemas.copy(openAPI = openAPI)
+        }
+        substitutePattern(inputConfig) shouldEqual substitutePattern(deserializedConfig)
       } catch {
         case e: Exception =>
           logger.info("Generated config\n" + config)
@@ -479,9 +594,84 @@ object YamlConfigGenerators {
     )
   }
 
-  implicit val jdbcSchemas: Arbitrary[JDBCSchemas] = Arbitrary {
+  implicit val openAPIRouteExplotion: Arbitrary[OpenAPIRouteExplosion] = Arbitrary {
     for {
-      jdbcSchemas <- arbitrary[List[JDBCSchema]]
+      on <- Gen.oneOf(
+        ai.starlake.extract.impl.openapi.All,
+        ai.starlake.extract.impl.openapi.Array,
+        ai.starlake.extract.impl.openapi.`Object`
+      )
+      exclude <- arbitrary[List[Pattern]]
+      rename  <- arbitrary[Map[String, Pattern]]
+    } yield OpenAPIRouteExplosion(
+      on = on,
+      exclude = exclude,
+      rename = rename
+    )
+  }
+
+  implicit val httpOperation: Arbitrary[HttpOperation] = Arbitrary {
+    Gen.oneOf(Get, Post)
+  }
+
+  implicit val openAPIRoute: Arbitrary[OpenAPIRoute] = Arbitrary {
+    for {
+      paths         <- arbitrary[List[Pattern]].filter(_.nonEmpty)
+      as            <- arbitrary[Option[String]]
+      operations    <- arbitrary[Set[HttpOperation]].filter(_.nonEmpty)
+      exclude       <- arbitrary[List[Pattern]].filter(_.nonEmpty)
+      excludeFields <- arbitrary[List[Pattern]].filter(_.nonEmpty)
+      explode       <- arbitrary[Option[OpenAPIRouteExplosion]]
+    } yield OpenAPIRoute(
+      paths = paths,
+      as = as,
+      operations = operations,
+      exclude = exclude,
+      excludeFields = excludeFields,
+      explode = explode
+    )
+  }
+
+  implicit val openAPISchema: Arbitrary[OpenAPISchema] = Arbitrary {
+    for {
+      include <- arbitrary[List[Pattern]].filter(_.nonEmpty)
+      exclude <- arbitrary[List[Pattern]]
+    } yield OpenAPISchema(
+      include = include,
+      exclude = exclude
+    )
+  }
+
+  implicit val openAPIDomain: Arbitrary[OpenAPIDomain] = Arbitrary {
+    for {
+      name     <- Arbitrary.arbitrary[String]
+      basePath <- arbitrary[Option[String]]
+      schemas  <- arbitrary[Option[OpenAPISchema]]
+      routes   <- arbitrary[List[OpenAPIRoute]].filter(_.nonEmpty)
+    } yield OpenAPIDomain(
+      name = name,
+      basePath = basePath,
+      schemas = schemas,
+      routes = routes
+    )
+  }
+
+  implicit val openAPIExtractSchema: Arbitrary[OpenAPIExtractSchema] = Arbitrary {
+    for {
+      basePath          <- arbitrary[Option[String]]
+      formatTypeMapping <- arbitrary[Map[String, Pattern]].map(_.view.mapValues(_.toString).toMap)
+      domains           <- arbitrary[List[OpenAPIDomain]].filter(_.nonEmpty)
+    } yield OpenAPIExtractSchema(
+      basePath = basePath,
+      formatTypeMapping = formatTypeMapping,
+      domains = domains
+    )
+  }
+
+  implicit val jdbcSchemas: Arbitrary[ExtractSchemas] = Arbitrary {
+    for {
+      sanitizeAttributeName <- Gen.oneOf(OnLoad, OnExtract)
+      jdbcSchemas           <- arbitrary[Option[List[JDBCSchema]]]
       default <- Gen.option(
         arbitrary[JDBCSchema].map(_.copy(tables = Nil, exclude = Nil))
       )
@@ -490,7 +680,8 @@ object YamlConfigGenerators {
       loadConnectionRef      <- Gen.option(arbitrary[String])
       transformConnectionRef <- Gen.option(arbitrary[String])
       auditConnectionRef     <- Gen.option(arbitrary[String])
-    } yield JDBCSchemas(
+    } yield ExtractSchemas(
+      sanitizeAttributeName = sanitizeAttributeName,
       jdbcSchemas = jdbcSchemas,
       default = default,
       output = output,
@@ -499,10 +690,22 @@ object YamlConfigGenerators {
     )
   }
 
+  implicit val openAPISchemas: Arbitrary[ExtractSchemas] = Arbitrary {
+    for {
+      sanitizeAttributeName <- Gen.oneOf(OnLoad, OnExtract)
+      openAPIExtractSchema  <- arbitrary[Option[OpenAPIExtractSchema]]
+      connectionRef         <- Gen.option(arbitrary[String])
+    } yield ExtractSchemas(
+      sanitizeAttributeName = sanitizeAttributeName,
+      openAPI = openAPIExtractSchema,
+      connectionRef = connectionRef
+    )
+  }
+
   implicit val extractDesc: Arbitrary[ExtractDesc] = Arbitrary {
     for {
-      jdbcSchemas <- arbitrary[JDBCSchemas]
-    } yield ExtractDesc(latestSchemaVersion, extract = jdbcSchemas)
+      extractSchemas <- Gen.oneOf(openAPISchemas.arbitrary, jdbcSchemas.arbitrary)
+    } yield ExtractDesc(latestSchemaVersion, extract = extractSchemas)
   }
 
   implicit val dagGenerationConfig: Arbitrary[DagGenerationConfig] = Arbitrary {

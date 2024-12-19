@@ -2,6 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.config.Settings.Connection
+import ai.starlake.core.utils.StringUtils
 import ai.starlake.exceptions.DataExtractionException
 import ai.starlake.extract.JdbcDbUtils._
 import ai.starlake.extract.LastExportUtils._
@@ -24,7 +25,7 @@ import scala.util.{Failure, Success, Try, Using}
 
 case class InsertLastExportParams(deltaRow: DeltaRow, partitionColumnType: PrimitiveType)
 
-class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
+class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper with LazyLogging {
 
   @nowarn
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] = {
@@ -73,7 +74,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
     implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
       ParUtils.createForkSupport(config.parallelism)
     ParUtils
-      .makeParallel(jdbcSchemas.jdbcSchemas)
+      .makeParallel(jdbcSchemas.jdbcSchemas.getOrElse(Nil))
       .filter { s =>
         (config.includeSchemas, config.excludeSchemas) match {
           case (Nil, Nil) => true
@@ -144,8 +145,9 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends Extract with LazyLogg
 
     // Some database accept strange chars (aka DB2). We get rid of them
     val domainName = extractConfig.jdbcSchema.sanitizeName match {
-      case Some(true) => Utils.keepAlphaNum(extractConfig.jdbcSchema.schema)
-      case _          => extractConfig.jdbcSchema.schema
+      case Some(true) =>
+        StringUtils.replaceNonAlphanumericWithUnderscore(extractConfig.jdbcSchema.schema)
+      case _ => extractConfig.jdbcSchema.schema
     }
     val tableOutputDir = createDomainOutputDir(extractConfig.baseOutputDir, domainName)
 

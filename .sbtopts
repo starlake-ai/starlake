@@ -1,5 +1,5 @@
--J-Xmx2G
--J-Xss4M
+-J-Xmx16G
+-J-Xss8M
 -J-XX:+UseG1GC
 -J--add-opens=java.base/java.util=ALL-UNNAMED
 -J--add-opens=java.base/java.lang=ALL-UNNAMED

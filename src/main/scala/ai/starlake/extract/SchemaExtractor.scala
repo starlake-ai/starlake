@@ -32,7 +32,7 @@ object SchemaExtractor {
           connectionRef = Some(connectionName),
           accessToken = accessToken
         )
-        val result = ExtractJDBCSchemaCmd.run(config, schemaHandler)
+        val result = ExtractSchemaCmd.run(config, schemaHandler)
         result
 
       case ConnectionType.FS =>

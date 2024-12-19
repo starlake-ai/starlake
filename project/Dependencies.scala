@@ -54,7 +54,8 @@ object Dependencies {
     "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jacksonForSpark3 % "provided",
     "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jacksonForSpark3 % "provided",
     "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jacksonForSpark3 % "provided",
-    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jacksonForSpark3 % "provided"
+    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jacksonForSpark3 % "provided",
+    "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % Versions.jacksonForSpark3 % "provided"
   )
 
   val spark3 = Seq(
@@ -102,6 +103,10 @@ object Dependencies {
   )
 
   // Included
+
+  val swaggerParser = Seq(
+    "io.swagger.parser.v3" % "swagger-parser" % Versions.swaggerParser excludeAll (jacksonExclusions: _*)
+  )
 
   val betterfiles = Seq(
     "com.github.pathikrit" %% "better-files" % Versions.betterFiles
@@ -217,7 +222,7 @@ object Dependencies {
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++
-    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler ++ cache ++ Seq(
+    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler ++ cache ++ swaggerParser ++ Seq(
       "org.duckdb" % "duckdb_jdbc" % Versions.duckdb
     )
 }
