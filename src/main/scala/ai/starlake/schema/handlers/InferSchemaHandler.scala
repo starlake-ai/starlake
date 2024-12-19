@@ -21,6 +21,7 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
+import ai.starlake.schema.exceptions.InvalidFieldNameException
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerde
 import org.apache.hadoop.fs.Path
@@ -101,36 +102,49 @@ object InferSchemaHandler {
         currentSchema match {
           case st: StructType =>
             val schemaWithIndex: Seq[(StructField, Int)] = st.zipWithIndex
-            val attributes = schemaWithIndex.map { case (field, index) =>
-              val structLines =
-                currentLines.flatMap(Option(_)).map {
-                  case r: Row => r.get(index)
-                  case other =>
-                    throw new RuntimeException(
-                      "Encountered " + other.getClass.getName + s" for field path $fieldPath but expected a Row instead for a Struct"
-                    )
-                }
-
-              createAttribute(
-                structLines,
-                st(index).dataType,
-                field,
-                fieldPath + "." + field.name,
-                forcePattern
-              )
-            }.toList
-
             val rename = container.name.replaceAll("[:.-]", "_")
             val renamedField = if (rename != container.name) Some(rename) else None
-            Attribute(
-              name = container.name,
-              `type` = st.typeName,
-              rename = renamedField,
-              required = if (!container.nullable) Some(true) else None,
-              array = Some(false),
-              attributes = attributes,
-              sample = None // currentLines.map(Option(_)).headOption.flatten.map(_.toString)
-            )
+            try {
+              val attributes = schemaWithIndex.map { case (field, index) =>
+                val structLines =
+                  currentLines.flatMap(Option(_)).map {
+                    case r: Row => r.get(index)
+                    case other =>
+                      throw new RuntimeException(
+                        "Encountered " + other.getClass.getName + s" for field path $fieldPath but expected a Row instead for a Struct"
+                      )
+                  }
+
+                createAttribute(
+                  structLines,
+                  st(index).dataType,
+                  field,
+                  fieldPath + "." + field.name,
+                  forcePattern
+                )
+              }.toList
+
+              Attribute(
+                name = container.name,
+                `type` = st.typeName,
+                rename = renamedField,
+                required = if (!container.nullable) Some(true) else None,
+                array = Some(false),
+                attributes = attributes,
+                sample = None // currentLines.map(Option(_)).headOption.flatten.map(_.toString)
+              )
+            } catch {
+              case _: InvalidFieldNameException =>
+                Attribute(
+                  name = container.name,
+                  `type` = PrimitiveType.variant.value,
+                  rename = renamedField,
+                  required = if (!container.nullable) Some(true) else None,
+                  array = Some(false),
+                  attributes = Nil,
+                  sample = None // currentLines.map(Option(_)).headOption.flatten.map(_.toString)
+                )
+            }
           case dt: ArrayType =>
             dt.elementType match {
               case _: ArrayType =>
@@ -207,9 +221,7 @@ object InferSchemaHandler {
       if (!forcePattern || identifierRegex.pattern.matcher(result.name).matches)
         result
       else
-        throw new RuntimeException(
-          s"Invalid field name ->${result.name}<-. Only letters, digits and '_' are allowed. Other characters including spaces are forbidden."
-        )
+        throw new InvalidFieldNameException(result.name)
     }
     createAttribute(
       lines,
