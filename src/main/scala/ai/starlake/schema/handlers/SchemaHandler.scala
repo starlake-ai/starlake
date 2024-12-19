@@ -20,8 +20,9 @@
 
 package ai.starlake.schema.handlers
 
-import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
+import ai.starlake.config.Settings.{Connection, latestSchemaVersion}
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extract.JDBCSchemas
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
 import ai.starlake.schema.model.Severity._
@@ -740,6 +741,34 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     } else {
       logger.info("No dags config provided. Use only configuration defined in domain config files.")
       Map.empty[String, DagGenerationConfig]
+    }
+  }
+
+  def deserializedExtractConfigs(extractPath: Path): Map[String, JDBCSchemas] = {
+    val extractConfigsPaths =
+      storage
+        .list(path = extractPath, extension = ".sl.yml", recursive = false)
+        .map(_.path)
+    extractConfigsPaths.map { extractConfigPath =>
+      val extractConfigName = extractConfigPath.getName().dropRight(".sl.yml".length)
+      val extractConfigFileContent = storage.read(extractConfigPath).richFormat(activeEnvVars(), Map.empty)
+      val jdbcSchemas = YamlSerde
+        .deserializeYamlExtractConfig(
+          extractConfigFileContent,
+          extractConfigName,
+          // propageDefault = true
+        )
+      logger.info(s"Successfully loaded extract config $extractConfigName in $extractConfigPath")
+      extractConfigName -> jdbcSchemas
+    }.toMap
+  }
+
+  def loadExtractConfigs(): Map[String, JDBCSchemas] = {
+    if (storage.exists(DatasetArea.extract)) {
+      deserializedExtractConfigs(DatasetArea.extract)
+    } else {
+      logger.info("No extract config provided.")
+      Map.empty[String, JDBCSchemas]
     }
   }
 
