@@ -61,7 +61,7 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
         else:
             cron_expr = None
 
-        transform_options = pipeline.sl_transform_options(cron_expr) #FIXME
+        transform_options = pipeline.sl_transform_options(cron_expr)
 
         # create a task
         def create_task(task_id: str, task_name: str, task_type: StarlakeDependencyType):
