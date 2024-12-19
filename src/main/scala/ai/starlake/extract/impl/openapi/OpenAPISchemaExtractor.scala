@@ -23,7 +23,7 @@ import io.swagger.v3.oas.models.media.{
   NumberSchema,
   ObjectSchema,
   PasswordSchema,
-  Schema => OpenAPISchema,
+  Schema => OpenAPISwaggerSchema,
   StringSchema,
   UUIDSchema
 }
@@ -397,13 +397,13 @@ class OpenAPISchemaExtractor(
     }
   }
 
-  private def isObjectSchema(schema: OpenAPISchema[_]): Boolean = {
+  private def isObjectSchema(schema: OpenAPISwaggerSchema[_]): Boolean = {
     "object".equalsIgnoreCase(schema.getType) && Option(
       schema.getAdditionalProperties
     ).isEmpty
   }
 
-  private def isMapSchema(schema: OpenAPISchema[_]): Boolean = {
+  private def isMapSchema(schema: OpenAPISwaggerSchema[_]): Boolean = {
     "object".equalsIgnoreCase(schema.getType) && Option(
       schema.getAdditionalProperties
     ).isDefined
@@ -421,7 +421,7 @@ class OpenAPISchemaExtractor(
     */
   private def extractStructureSchema(
     apiResponse: ApiResponse,
-    openApiSchemas: Map[OpenAPISchema[_], List[String]]
+    openApiSchemas: Map[OpenAPISwaggerSchema[_], List[String]]
   ): List[ResponseSchema] = {
     Option(apiResponse.getContent).toList.flatMap(_.asScala.flatMap {
       case (mediaType, mediaTypeObject) =>
@@ -441,12 +441,12 @@ class OpenAPISchemaExtractor(
         mediaTypeObject.getSchema match {
           case _: ObjectSchema =>
             handleObjectSchema
-          case _: OpenAPISchema[_] if isObjectSchema(mediaTypeObject.getSchema) =>
+          case _: OpenAPISwaggerSchema[_] if isObjectSchema(mediaTypeObject.getSchema) =>
             handleObjectSchema
           case _: ArraySchema
               if mediaTypeObject.getSchema.getItems
                 .isInstanceOf[ObjectSchema] || mediaTypeObject.getSchema.getItems
-                .isInstanceOf[OpenAPISchema[_]] && isObjectSchema(
+                .isInstanceOf[OpenAPISwaggerSchema[_]] && isObjectSchema(
                 mediaTypeObject.getSchema.getItems
               ) =>
             Some(
@@ -475,15 +475,15 @@ class OpenAPISchemaExtractor(
     *   the modified OpenAPI schema with matching fields excluded
     */
   private def excludeFieldsFromSchema(
-    responseSchema: OpenAPISchema[_],
+    responseSchema: OpenAPISwaggerSchema[_],
     fieldPatterns: List[Pattern]
-  ): OpenAPISchema[_] = {
+  ): OpenAPISwaggerSchema[_] = {
 
     def processExclusion(
-      currentSchema: OpenAPISchema[_],
+      currentSchema: OpenAPISwaggerSchema[_],
       currentPath: Option[String] = None
-    ): OpenAPISchema[_] = {
-      def handleObjectSchema(os: OpenAPISchema[_]) = {
+    ): OpenAPISwaggerSchema[_] = {
+      def handleObjectSchema(os: OpenAPISwaggerSchema[_]) = {
         val newProperties = os.getProperties.asScala
           .filter { case (name, _) =>
             !fieldPatterns.exists(
@@ -502,11 +502,11 @@ class OpenAPISchemaExtractor(
       currentSchema match {
         case os: ObjectSchema =>
           handleObjectSchema(os)
-        case os: OpenAPISchema[_] if isObjectSchema(os) =>
+        case os: OpenAPISwaggerSchema[_] if isObjectSchema(os) =>
           handleObjectSchema(os)
         case as: ArraySchema
             if as.getItems.isInstanceOf[ObjectSchema] || as.getItems
-              .isInstanceOf[OpenAPISchema[_]] && isObjectSchema(
+              .isInstanceOf[OpenAPISwaggerSchema[_]] && isObjectSchema(
               as.getItems
             ) =>
           as.setItems(processExclusion(as.getItems, currentPath))
@@ -535,24 +535,24 @@ class OpenAPISchemaExtractor(
     *   corresponding OpenAPI schema and an optional description.
     */
   private def explodeStructureSchema(
-    responseSchema: OpenAPISchema[_],
+    responseSchema: OpenAPISwaggerSchema[_],
     explosionStrategy: RouteExplosionStrategy
-  ): Map[String, (OpenAPISchema[_], Option[String])] = {
+  ): Map[String, (OpenAPISwaggerSchema[_], Option[String])] = {
     def internalExplode(
       currentPath: String,
-      currentSchema: OpenAPISchema[_]
-    ): Map[String, (OpenAPISchema[_], Option[String])] = {
-      def handleObjectSchema(os: OpenAPISchema[_]) = {
+      currentSchema: OpenAPISwaggerSchema[_]
+    ): Map[String, (OpenAPISwaggerSchema[_], Option[String])] = {
+      def handleObjectSchema(os: OpenAPISwaggerSchema[_]) = {
         if (explosionStrategy == All || explosionStrategy == `Object`) {
           Map(currentPath -> (os -> Option(os.getDescription)))
         } else {
           os.getProperties.asScala
             .filter {
-              case (_, _: ObjectSchema)                          => true
-              case (_, s: OpenAPISchema[_]) if isObjectSchema(s) => true
+              case (_, _: ObjectSchema)                                 => true
+              case (_, s: OpenAPISwaggerSchema[_]) if isObjectSchema(s) => true
               case (_, s: ArraySchema)
                   if s.getItems.isInstanceOf[ObjectSchema] || s.getItems
-                    .isInstanceOf[OpenAPISchema[_]] && isObjectSchema(
+                    .isInstanceOf[OpenAPISwaggerSchema[_]] && isObjectSchema(
                     s.getItems
                   ) =>
                 true
@@ -569,11 +569,11 @@ class OpenAPISchemaExtractor(
       currentSchema match {
         case os: ObjectSchema =>
           handleObjectSchema(os)
-        case os: OpenAPISchema[_] if isObjectSchema(os) =>
+        case os: OpenAPISwaggerSchema[_] if isObjectSchema(os) =>
           handleObjectSchema(os)
         case as: ArraySchema
             if as.getItems.isInstanceOf[ObjectSchema] || as.getItems
-              .isInstanceOf[OpenAPISchema[_]] && isObjectSchema(
+              .isInstanceOf[OpenAPISwaggerSchema[_]] && isObjectSchema(
               as.getItems
             ) =>
           if (explosionStrategy == All || explosionStrategy == Array) {
@@ -585,11 +585,11 @@ class OpenAPISchemaExtractor(
             as.getItems.getProperties.asScala
               .filter {
                 case (_, _: ObjectSchema) => true
-                case (_, s: OpenAPISchema[_]) if isObjectSchema(s) =>
+                case (_, s: OpenAPISwaggerSchema[_]) if isObjectSchema(s) =>
                   true
                 case (_, s: ArraySchema)
                     if s.getItems.isInstanceOf[ObjectSchema] || s.getItems
-                      .isInstanceOf[OpenAPISchema[_]] && isObjectSchema(
+                      .isInstanceOf[OpenAPISwaggerSchema[_]] && isObjectSchema(
                       s.getItems
                     ) =>
                   true
@@ -605,17 +605,17 @@ class OpenAPISchemaExtractor(
     }
     assert(
       responseSchema.isInstanceOf[ObjectSchema] || responseSchema
-        .isInstanceOf[OpenAPISchema[_]] && isObjectSchema(responseSchema),
+        .isInstanceOf[OpenAPISwaggerSchema[_]] && isObjectSchema(responseSchema),
       "Expected an object schema but found " + responseSchema.getClass.getName
     )
     responseSchema.getProperties.asScala
       .filter {
         case (_, _: ObjectSchema) => true
-        case (_, s: OpenAPISchema[_]) if isObjectSchema(s) =>
+        case (_, s: OpenAPISwaggerSchema[_]) if isObjectSchema(s) =>
           true
         case (_, s: ArraySchema)
             if s.getItems.isInstanceOf[ObjectSchema] || s.getItems
-              .isInstanceOf[OpenAPISchema[_]] && isObjectSchema(
+              .isInstanceOf[OpenAPISwaggerSchema[_]] && isObjectSchema(
               s.getItems
             ) =>
           true
@@ -712,11 +712,11 @@ class OpenAPISchemaExtractor(
     *   OpenAPI schema.
     */
   private def openAPISchemaToStarlakeSchema(
-    openAPIschema: OpenAPISchema[_],
+    openAPIschema: OpenAPISwaggerSchema[_],
     formatTypeMapping: Map[String, String]
   ): SchemaName => Schema = {
     val typeIgnored = scala.collection.mutable.ListBuffer[String]()
-    def buildAttribute(fieldName: String, attributeSchema: OpenAPISchema[_]): Attribute = {
+    def buildAttribute(fieldName: String, attributeSchema: OpenAPISwaggerSchema[_]): Attribute = {
       def asAttributeOf(
         attributeType: String,
         childAttributes: List[Attribute] = Nil
@@ -791,12 +791,12 @@ class OpenAPISchemaExtractor(
         case _: ObjectSchema =>
           val attributes = buildAttributes(attributeSchema)
           asAttributeOf(PrimitiveType.struct.toString, attributes)
-        case os: OpenAPISchema[_] if isObjectSchema(os) =>
+        case os: OpenAPISwaggerSchema[_] if isObjectSchema(os) =>
           val attributes = buildAttributes(attributeSchema)
           asAttributeOf(PrimitiveType.struct.toString, attributes)
         case _: MapSchema | _: JsonSchema =>
           asAttributeOf(PrimitiveType.variant.toString)
-        case os: OpenAPISchema[_] if isMapSchema(os) =>
+        case os: OpenAPISwaggerSchema[_] if isMapSchema(os) =>
           asAttributeOf(PrimitiveType.variant.toString)
         case _ =>
           throw new RuntimeException(
@@ -804,7 +804,7 @@ class OpenAPISchemaExtractor(
           )
       }
     }
-    def buildAttributes(schemaWithAttributes: OpenAPISchema[_]): List[Attribute] = {
+    def buildAttributes(schemaWithAttributes: OpenAPISwaggerSchema[_]): List[Attribute] = {
       def handleObjectSchema = {
         Option(schemaWithAttributes.getProperties)
           .map(_.asScala)
@@ -818,7 +818,7 @@ class OpenAPISchemaExtractor(
       schemaWithAttributes match {
         case _: ObjectSchema =>
           handleObjectSchema
-        case _: OpenAPISchema[_] if isObjectSchema(schemaWithAttributes) =>
+        case _: OpenAPISwaggerSchema[_] if isObjectSchema(schemaWithAttributes) =>
           handleObjectSchema
         case _ =>
           throw new RuntimeException(
