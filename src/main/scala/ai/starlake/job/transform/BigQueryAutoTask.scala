@@ -1,10 +1,11 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.core.utils.StringUtils
 import ai.starlake.extract.{
   BigQueryTablesConfig,
   ExtractBigQuerySchema,
-  ExtractJDBCSchemaCmd,
+  ExtractSchemaCmd,
   ExtractSchemaConfig
 }
 import ai.starlake.job.metrics.{BigQueryExpectationAssertionHandler, ExpectationJob}
@@ -253,7 +254,10 @@ class BigQueryAutoTask(
                                   .toList
                                   .map(x =>
                                     Option(x.getValue())
-                                      .map(it => Utils.keepAlphaNum(it.toString))
+                                      .map(it =>
+                                        StringUtils
+                                          .replaceNonAlphanumericWithUnderscore(it.toString)
+                                      )
                                       .getOrElse("null")
                                   )
                               }
@@ -355,7 +359,7 @@ class BigQueryAutoTask(
                       connectionRef = Some(sinkConnectionRef),
                       accessToken = accessToken
                     )
-                    ExtractJDBCSchemaCmd.run(config, schemaHandler)
+                    ExtractSchemaCmd.run(config, schemaHandler)
                   }
                 }
               } match {
@@ -438,7 +442,9 @@ class BigQueryAutoTask(
           BigQueryJobBase.extractProjectDatasetAndTable(
             this.taskDesc.database,
             this.taskDesc.domain,
-            this.taskDesc.table + shard.map("_" + Utils.keepAlphaNum(_)).getOrElse("")
+            this.taskDesc.table + shard
+              .map("_" + StringUtils.replaceNonAlphanumericWithUnderscore(_))
+              .getOrElse("")
           )
         ),
         sourceFormat = settings.appConfig.defaultWriteFormat,

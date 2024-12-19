@@ -50,6 +50,7 @@ import pureconfig.generic.{FieldCoproductHint, ProductHint}
 
 import java.io.ObjectStreamException
 import java.net.URI
+import java.nio.charset.{Charset, StandardCharsets}
 import java.sql.DriverManager
 import java.util.{Locale, Properties, TimeZone, UUID}
 import scala.annotation.nowarn
@@ -204,6 +205,27 @@ object Settings extends StrictLogging {
     }
 
     def this() = this(ConnectionType.JDBC, None, None, None, None, Map.empty)
+
+    @JsonIgnore
+    def getFSPath(): String = {
+      this.`type` match {
+        case ConnectionType.FS =>
+          options.getOrElse(
+            "path",
+            throw new RuntimeException("Expecting a path in the connection options")
+          )
+        case _ => throw new RuntimeException(s"Currently don't support location for ${`type`}")
+      }
+    }
+
+    @JsonIgnore
+    def getFSEncoding(): Charset = {
+      `type` match {
+        case ConnectionType.FS =>
+          options.get("encoding").map(Charset.forName).getOrElse(StandardCharsets.UTF_8)
+        case _ => throw new RuntimeException(s"Currently don't support encoding for ${`type`}")
+      }
+    }
 
     def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]

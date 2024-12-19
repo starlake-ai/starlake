@@ -1,7 +1,7 @@
 package ai.starlake.integration.extract
 
 import ai.starlake.TestHelper
-import ai.starlake.extract.{ExtractDataJob, ExtractJDBCSchema}
+import ai.starlake.extract.{ExtractDataJob, ExtractSchema}
 import better.files.File
 
 import java.sql.DriverManager
@@ -205,7 +205,7 @@ class ExtractIntegrationSpec extends TestHelper {
       println(tmpDir.pathAsString)
       tmpYmlFile.write(config)
       val schemaHandler = settings.schemaHandler()
-      new ExtractJDBCSchema(schemaHandler).run(
+      new ExtractSchema(schemaHandler).run(
         Array(
           "--config",
           tmpYmlFile.pathAsString,

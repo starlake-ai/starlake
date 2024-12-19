@@ -8,7 +8,7 @@ import scopt.OParser
 
 import scala.util.{Success, Try}
 
-trait ExtractJDBCSchemaCmd extends Cmd[ExtractSchemaConfig] {
+object ExtractSchemaCmd extends Cmd[ExtractSchemaConfig] {
 
   val command = "extract-schema"
 
@@ -64,9 +64,7 @@ trait ExtractJDBCSchemaCmd extends Cmd[ExtractSchemaConfig] {
   override def run(config: ExtractSchemaConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
-    new ExtractJDBCSchema(schemaHandler).run(config)
+    new ExtractSchema(schemaHandler).run(config)
     Success(JobResult.empty)
   }
 }
-
-object ExtractJDBCSchemaCmd extends ExtractJDBCSchemaCmd

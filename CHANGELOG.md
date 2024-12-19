@@ -1,6 +1,11 @@
 
 # Release notes
 
+# 1.3.0
+__New Feature__:
+- Extract Starlake schema from OpenAPI definition
+- Fallback to variant type when struct's attribute has invalid field names 
+
 # 1.2.2
 __Bug Fix__:
 - fix usage of technical columns when load table is set to overwrite
