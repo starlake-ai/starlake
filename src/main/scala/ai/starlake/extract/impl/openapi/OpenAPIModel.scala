@@ -1,7 +1,7 @@
 package ai.starlake.extract.impl.openapi
 
 import ai.starlake.core.utils.NamingUtils.normalizeTableName
-import io.swagger.v3.oas.models.media.{Schema => OpenAPISchema}
+import io.swagger.v3.oas.models.media.{Schema => OpenAPISwaggerSchema}
 import io.swagger.v3.oas.models.responses.ApiResponse
 import io.swagger.v3.oas.models.{Operation, PathItem}
 
@@ -84,7 +84,7 @@ protected case class PathResponse(
 protected case class ResponseSchema(
   mediaType: String,
   schemaDescription: Option[String],
-  schema: OpenAPISchema[_],
+  schema: OpenAPISwaggerSchema[_],
   schemaNames: List[String]
 )
 
@@ -96,7 +96,7 @@ protected case class ResponseSchema(
   * @param schemaNames
   *   List of names associated with the schema.
   */
-protected case class RichOpenAPISchema(schema: OpenAPISchema[_], schemaNames: List[String]) {
+protected case class RichOpenAPISchema(schema: OpenAPISwaggerSchema[_], schemaNames: List[String]) {
   lazy val schemaNamesStr: String = if (schemaNames.isEmpty) {
     "UndefinedSchemaName"
   } else {
