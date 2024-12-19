@@ -11,7 +11,7 @@ import ai.starlake.core.utils.{
   TableAttributeMelderConfig,
   TableMelderConfig
 }
-import ai.starlake.schema.model.{Attribute, Domain, Metadata, Schema, TransformInput}
+import ai.starlake.schema.model.{Attribute, Domain, Metadata, Schema}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
