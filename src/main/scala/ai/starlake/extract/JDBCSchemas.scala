@@ -54,7 +54,10 @@ case class JDBCSchemas(
             stringPartitionFunc =
               schema.stringPartitionFunc.orElse(default.flatMap(_.stringPartitionFunc)),
             fullExport = schema.fullExport.orElse(default.flatMap(_.fullExport)),
-            sanitizeName = schema.sanitizeName.orElse(default.flatMap(_.sanitizeName))
+            sanitizeName = schema.sanitizeName.orElse(default.flatMap(_.sanitizeName)),
+            dagRef = schema.dagRef.orElse(default.flatMap(_.dagRef)),
+            schedule = schema.schedule.orElse(default.flatMap(_.schedule)),
+            tags = schema.tags ++ default.map(_.tags).getOrElse(Set.empty)
           )
           .fillWithDefaultValues()
       }))
@@ -91,7 +94,10 @@ case class JDBCSchema(
   fetchSize: Option[Int] = None,
   stringPartitionFunc: Option[String] = None,
   fullExport: Option[Boolean] = None,
-  sanitizeName: Option[Boolean] = None
+  sanitizeName: Option[Boolean] = None,
+  dagRef: Option[String] = None,
+  schedule: Option[String] = None,
+  tags: Set[String] = Set.empty
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
@@ -99,7 +105,8 @@ case class JDBCSchema(
     copy(
       tableTypes = if (tableTypes.isEmpty) JDBCSchema.defaultTableTypes else tableTypes,
       fullExport = if (fullExport.isEmpty) Some(false) else fullExport,
-      sanitizeName = if (sanitizeName.isEmpty) Some(false) else sanitizeName
+      sanitizeName = if (sanitizeName.isEmpty) Some(false) else sanitizeName,
+      tables = tables.map(_.fillWithSchemaValues(this))
     )
   }
 }
@@ -137,7 +144,10 @@ case class JDBCTable(
   fetchSize: Option[Int],
   fullExport: Option[Boolean],
   filter: Option[String] = None,
-  stringPartitionFunc: Option[String] = None
+  stringPartitionFunc: Option[String] = None,
+  dagRef: Option[String] = None,
+  schedule: Option[String] = None,
+  tags: Set[String] = Set.empty
 ) {
   def this() =
     this(
@@ -148,6 +158,16 @@ case class JDBCTable(
       None,
       Map.empty,
       None,
+      None,
+      None,
       None
     ) // Should never be called. Here for Jackson deserialization only
+
+  def fillWithSchemaValues(schema: JDBCSchema): JDBCTable = {
+    copy(
+      dagRef = if (dagRef.isEmpty) schema.dagRef else dagRef,
+      schedule = if (schedule.isEmpty) schema.schedule else schedule,
+      tags = tags ++ schema.tags
+    )
+  }
 }
