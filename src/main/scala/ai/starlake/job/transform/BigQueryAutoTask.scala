@@ -251,7 +251,11 @@ class BigQueryAutoTask(
                                   .iterator()
                                   .asScala
                                   .toList
-                                  .map(x => Option(x.getValue()).map(_.toString).getOrElse("null"))
+                                  .map(x =>
+                                    Option(x.getValue())
+                                      .map(it => Utils.keepAlphaNum(it.toString))
+                                      .getOrElse("null")
+                                  )
                               }
                               values
                             }
@@ -434,7 +438,7 @@ class BigQueryAutoTask(
           BigQueryJobBase.extractProjectDatasetAndTable(
             this.taskDesc.database,
             this.taskDesc.domain,
-            this.taskDesc.table + shard.map("_" + _).getOrElse("")
+            this.taskDesc.table + shard.map("_" + Utils.keepAlphaNum(_)).getOrElse("")
           )
         ),
         sourceFormat = settings.appConfig.defaultWriteFormat,

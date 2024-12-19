@@ -148,7 +148,7 @@ services:
       - SL_API_JDBC_USER=${SL_POSTGRES_USER:-dbuser}
       - SL_API_JDBC_PASSWORD=${SL_POSTGRES_PASSWORD:-dbuser123}
       - SL_API_JDBC_URL=jdbc:postgresql://starlake-db:5432/${SL_POSTGRES_DB:-starlake}?user=${SL_POSTGRES_USER:-dbuser}&password=${SL_POSTGRES_PASSWORD:-dbuser123} # JDBC URL to connect to the database
-      - SL_API_DOMAIN=localhost
+      - SL_API_DOMAIN=${SL_API_DOMAIN:-localhost}
       - SL_API_PROJECT_ROOT=/mnt/filestore/projects
       - SL_API_ORCHESTRATOR_URL=http://localhost:${SL_UI_PORT:-80}/airflow/
       #- SL_API_ORCHESTRATOR_URL=http://localhost:${SL_UI_PORT:-80}/dagster/deployment/locations
