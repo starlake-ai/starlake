@@ -128,7 +128,7 @@ class OpenAPISchemaExtractor(
 
     groupSchemasByTable(schemasByTableName).flatMap { case (schema, connexInfos) =>
       generateStarlakeSchemas(schema, connexInfos, extractConfig.formatTypeMapping)
-    }.toList
+    }
   }
 
   /** Groups schemas by their associated table and then further groups them by their schema
@@ -145,7 +145,6 @@ class OpenAPISchemaExtractor(
   ) = {
     schemasByTableName
       .groupBy { case (tableName, _) => tableName }
-      .view
       .mapValues { infos =>
         checkSchemaCollision(infos.map(_._2))
         infos
@@ -156,6 +155,8 @@ class OpenAPISchemaExtractor(
           )
       }
       .groupBy { case (_, i) => i.schema }
+      .mapValues(_.toList) // just transform to list in order to be compatible with 2.12
+      .toList
   }
 
   /** Constructs a mapping between a normalized table name and updated API essential information by
@@ -263,7 +264,7 @@ class OpenAPISchemaExtractor(
     */
   private def generateStarlakeSchemas(
     schema: RichOpenAPISchema,
-    connexInfos: View[(SchemaDescription, ApiEssentialInformation)],
+    connexInfos: List[(SchemaDescription, ApiEssentialInformation)],
     formatTypeMapping: Map[String, String]
   ) = {
     // Sharing the same schema doesn't mean they should be in the table in the output.
@@ -655,7 +656,6 @@ class OpenAPISchemaExtractor(
         .getOpenAPI
     val schemaNames = openAPI.getComponents.getSchemas.asScala.toList
       .groupBy { case (_, schema) => schema }
-      .view
       .mapValues(_.map { case (schemaName, _) => schemaName })
       .toMap
     (for {
