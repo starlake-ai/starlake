@@ -21,8 +21,7 @@
 package ai.starlake.workflow
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extract.JdbcDbUtils.StarlakeConnectionPool
-import ai.starlake.extract.{JdbcDbUtils, ParUtils}
+import ai.starlake.extract.ParUtils
 import ai.starlake.job.infer.{InferSchemaConfig, InferSchemaJob}
 import ai.starlake.job.ingest._
 import ai.starlake.job.load.LoadStrategy
@@ -60,65 +59,13 @@ import better.files.File
 import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.catalyst.SQLConfHelper
-import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
-import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcType}
-import org.apache.spark.sql.types._
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
-import java.sql.{Connection, Types}
 import java.time.Instant
 import java.util.Collections
 import scala.annotation.nowarn
 import scala.reflect.io.Directory
 import scala.util.{Failure, Success, Try}
-
-private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
-  override def canHandle(url: String): Boolean = url.toLowerCase.startsWith("jdbc:snowflake:")
-  // override def quoteIdentifier(column: String): String = column
-  override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
-    case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
-    case TimestampType =>
-      Some(JdbcType(sys.env.getOrElse("SF_TIMEZONE", "TIMESTAMP"), java.sql.Types.TIMESTAMP))
-    case _ => JdbcDbUtils.getCommonJDBCType(dt)
-  }
-}
-
-private object StarlakeDuckDbDialect extends JdbcDialect with SQLConfHelper {
-
-  override def createConnectionFactory(options: JDBCOptions): Int => Connection = {
-    (partitionId: Int) =>
-      {
-        try {
-          StarlakeConnectionPool.getConnection(options.parameters)
-        } catch {
-          case e: Throwable =>
-            throw new Exception(
-              s"Error while creating connection for partition $partitionId",
-              e
-            )
-        }
-      }
-  }
-
-  override def canHandle(url: String): Boolean = url.toLowerCase.startsWith("jdbc:duckdb:")
-  // override def quoteIdentifier(column: String): String = column
-  override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
-    case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
-    case _           => JdbcDbUtils.getCommonJDBCType(dt)
-  }
-  override def getCatalystType(
-    sqlType: Int,
-    typeName: String,
-    size: Int,
-    md: MetadataBuilder
-  ): Option[DataType] = {
-    if (sqlType == Types.TIMESTAMP_WITH_TIMEZONE) {
-      Some(TimestampType)
-    } else None
-  }
-
-}
 
 /** The whole worklfow works as follow :
   *   - loadLanding : Zipped files are uncompressed or raw files extracted from the local
@@ -138,12 +85,6 @@ class IngestionWorkflow(
   schemaHandler: SchemaHandler
 )(implicit settings: Settings)
     extends StrictLogging {
-
-  import org.apache.spark.sql.jdbc.JdbcDialects
-
-  JdbcDialects.registerDialect(StarlakeSnowflakeDialect)
-  JdbcDialects.registerDialect(StarlakeDuckDbDialect)
-
   private var _domains: Option[List[Domain]] = None
 
   private def domains(
