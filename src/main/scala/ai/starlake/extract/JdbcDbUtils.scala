@@ -183,9 +183,8 @@ object JdbcDbUtils extends LazyLogging {
 
     val options =
       if (connection.isDuckDb()) {
-        val isMotherduck = connection.options("url").contains("jdbc:duckdb:md:")
         val duckDbEnableExternalAccess =
-          settings.appConfig.duckDbEnableExternalAccess || isMotherduck
+          settings.appConfig.duckDbEnableExternalAccess || connection.isMotherDuckDb()
         connection.options
           .updated("duckdb.read_only", "true")
           .updated("enable_external_access", duckDbEnableExternalAccess.toString)
