@@ -62,11 +62,14 @@ class JdbcAutoTask(
 
   override def tableExists: Boolean = {
     val exists =
-      JdbcDbUtils.withJDBCConnection(JdbcDbUtils.readOnlyConnection(sinkConnection).options) {
-        conn =>
-          val url = sinkConnection.options("url")
-          val exists = JdbcDbUtils.tableExists(conn, url, fullTableName)
-          exists
+      JdbcDbUtils.withJDBCConnection(
+        JdbcDbUtils
+          .readOnlyConnection(sinkConnection)(settings)
+          .options
+      ) { conn =>
+        val url = sinkConnection.options("url")
+        val exists = JdbcDbUtils.tableExists(conn, url, fullTableName)
+        exists
       }
     if (!exists && taskDesc._auditTableName.isDefined)
       createAuditTable() // We are sinking to an audit table. We need to create it first in JDBC
@@ -120,7 +123,9 @@ class JdbcAutoTask(
   }
   override protected lazy val sinkConnection: Settings.Connection = {
     if (interactive.isDefined) {
-      JdbcDbUtils.readOnlyConnection(settings.appConfig.connections(sinkConnectionRef))
+      JdbcDbUtils.readOnlyConnection(
+        settings.appConfig.connections(sinkConnectionRef)
+      )(settings)
     } else {
       settings.appConfig.connections(sinkConnectionRef)
     }
@@ -151,7 +156,10 @@ class JdbcAutoTask(
         }
       val sinkOptions =
         if (sinkConnection.isDuckDb()) {
-          sinkConnection.options.updated("enable_external_access", "false")
+          sinkConnection.options.updated(
+            "enable_external_access",
+            settings.appConfig.duckDbEnableExternalAccess.toString
+          )
         } else {
           sinkConnection.options
         }

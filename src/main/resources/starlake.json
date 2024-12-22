@@ -2322,6 +2322,10 @@
           "type": "object",
           "description": "Map of string",
           "additionalProperties": true
+        },
+        "duckDbEnableExternalAccess": {
+          "description": "Allow DuckDB to load / Save data from / to external sources. Default to true",
+          "type": "boolean"
         }
       }
     },
