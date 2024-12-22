@@ -1451,7 +1451,8 @@ object YamlConfigGenerators {
       testCsvNullString = testCsvNullString,
       maxInteractiveRecords = maxInteractiveRecords,
       duckdbPath = duckdbPath,
-      ack = None
+      ack = None,
+      duckDbEnableExternalAccess = false
     )
   }
 
