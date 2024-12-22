@@ -99,9 +99,9 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           } else {
             schema.tables.filter(tags.isEmpty || _.tags.intersect(tags).nonEmpty).flatMap { table =>
               val dagConfigRef = table.dagRef
+                .orElse(schema.dagRef)
                 .orElse(settings.appConfig.dagRef.flatMap(_.load))
-              val schedule = table.schedule
-
+              val schedule = table.schedule.orElse(schema.schedule)
               dagConfigRef.map { dagRef =>
                 val dagConfig = dagConfigs.getOrElse(
                   dagRef,
@@ -237,6 +237,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     logger.info(s"Cleaning output directory $outputDir")
     settings.storageHandler().delete(outputDir)
   }
+
   def generateDomainDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
@@ -247,6 +248,9 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
     val tableConfigs = tableWithDagConfigs(dagConfigs, config.tags.toSet)
     val groupedDags = groupByDagConfigScheduleDomain(tableConfigs)
+
+    val extractedTableConfigs = extractedTableWithDagConfigs(dagConfigs, config.tags.toSet)
+    val extractedGroupedDags = groupByExtractedDagConfigScheduleDomain(extractedTableConfigs)
 
     val env = schemaHandler.activeEnvVars(root = Some(settings.appConfig.root))
     val jEnv = env.map { case (k, v) =>
@@ -262,6 +266,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       if (errors.nonEmpty) {
         throw new Exception(s"Dag config ${dagConfigName} is invalid: ${errors.mkString(",")}")
       }
+      val extractedGroupedBySchedule = extractedGroupedDags.getOrElse(dagConfigName, Map.empty)
       val dagTemplateName = dagConfig.template
       val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
       val filenameVars = dagConfig.getfilenameVars()
@@ -286,8 +291,40 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 scheduleValue
               )
               val cronIfNone = if (cron == "None") null else cron
+              val extractedGroupedByConfigFile =
+                extractedGroupedBySchedule.getOrElse(schedule, Map.empty)
+              val dagExtractions = extractedGroupedByConfigFile
+                .map { case (configFile, groupedBySchema) =>
+                  val dagSchemas = groupedBySchema
+                    .flatMap {
+                      case (schema, tables)
+                          if schema.schema == domain.name && tables.exists(_.name == table.name) =>
+                        Some(
+                          DagSchema(
+                            schema.schema,
+                            List(TableSchema(table.name)).asJava
+                          )
+                        )
+                      case _ => None
+                    }
+                    .toList
+                    .sortBy(_.name)
+                  DagExtraction(
+                    configFile,
+                    dagSchemas.asJava
+                  )
+                }
+                .toList
+                .sortBy(_.config)
               val schedules =
-                List(DagSchedule(schedule, cronIfNone, java.util.List.of[DagDomain](dagDomain)))
+                List(
+                  DagSchedule(
+                    schedule,
+                    cronIfNone,
+                    java.util.List.of[DagDomain](dagDomain),
+                    dagExtractions.asJava
+                  )
+                )
 
               val envVars =
                 schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
@@ -317,7 +354,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       } else if (filenameVars.exists(List("domain", "finalDomain", "renamedDomain").contains)) {
         // one dag per domain
         val domains = groupedBySchedule
-          .flatMap { case (schedule, groupedByDomain) =>
+          .flatMap { case (_, groupedByDomain) =>
             groupedByDomain.keys
           }
           .toList
@@ -337,7 +374,36 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                   schedule
                 )
                 val cronIfNone = if (cron == "None") null else cron
-                DagSchedule(schedule, cronIfNone, java.util.List.of[DagDomain](dagDomain))
+                val extractedGroupedByConfigFile =
+                  extractedGroupedBySchedule.getOrElse(schedule, Map.empty)
+                val dagExtractions = extractedGroupedByConfigFile
+                  .map { case (configFile, groupedBySchema) =>
+                    val dagSchemas = groupedBySchema
+                      .flatMap {
+                        case (schema, tables) if schema.schema == domain.name =>
+                          Some(
+                            DagSchema(
+                              schema.schema,
+                              tables.map(t => TableSchema(t.name)).asJava
+                            )
+                          )
+                        case _ => None
+                      }
+                      .toList
+                      .sortBy(_.name)
+                    DagExtraction(
+                      configFile,
+                      dagSchemas.asJava
+                    )
+                  }
+                  .toList
+                  .sortBy(_.config)
+                DagSchedule(
+                  schedule,
+                  cronIfNone,
+                  java.util.List.of[DagDomain](dagDomain),
+                  dagExtractions.asJava
+                )
               }
             }
             .toList
@@ -385,64 +451,81 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         }
       } else {
         // one dag per config
-        groupedDags.foreach { case (dagConfigName, groupedBySchedule) =>
-          var scheduleIndex = 1
-          val dagConfig = dagConfigs(dagConfigName)
-          val dagTemplateName = dagConfig.template
-          val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
-          val dagSchedules = groupedBySchedule
-            .map { case (schedule, groupedByDomain) =>
-              val (scheduleValue, nextScheduleIndex) =
-                getScheduleName(schedule, scheduleIndex)
-              scheduleIndex = nextScheduleIndex
-              val dagDomains = groupedByDomain
-                .map { case (domain, tables) =>
-                  DagDomain(
-                    domain.name,
-                    domain.finalName,
-                    tables.map(t => TableDomain(t.name, t.finalName)).asJava
-                  )
-                }
-                .toList
-                .sortBy(_.name)
-              val cron = settings.appConfig.schedulePresets.getOrElse(
-                schedule,
-                schedule
-              )
-              val cronIfNone = if (cron == "None") null else cron
-              DagSchedule(scheduleValue, cronIfNone, dagDomains.asJava)
-            }
-            .toList
-            .sortBy(_.schedule)
-          if (filenameVars.contains("schedule")) {
-            dagSchedules.foreach { schedule =>
-              val envVars =
-                schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
-                  "schedule" -> schedule.schedule
+        var scheduleIndex = 1
+        val dagConfig = dagConfigs(dagConfigName)
+        val dagTemplateName = dagConfig.template
+        val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
+        val dagSchedules = groupedBySchedule
+          .map { case (schedule, groupedByDomain) =>
+            val (scheduleValue, nextScheduleIndex) =
+              getScheduleName(schedule, scheduleIndex)
+            scheduleIndex = nextScheduleIndex
+            val dagDomains = groupedByDomain
+              .map { case (domain, tables) =>
+                DagDomain(
+                  domain.name,
+                  domain.finalName,
+                  tables.map(t => TableDomain(t.name, t.finalName)).asJava
                 )
-              val options = dagConfig.options.map { case (k, v) =>
-                k -> Utils.parseJinja(v, envVars)
               }
-              val comment = Utils.parseJinja(dagConfig.comment, envVars)
-              val context = LoadDagGenerationContext(
-                config = dagConfig.copy(options = options, comment = comment),
-                List(schedule)
+              .toList
+              .sortBy(_.name)
+            val cron = settings.appConfig.schedulePresets.getOrElse(
+              schedule,
+              schedule
+            )
+            val cronIfNone = if (cron == "None") null else cron
+            val extractedGroupedByConfigFile =
+              extractedGroupedBySchedule.getOrElse(schedule, Map.empty)
+            val dagExtractions = extractedGroupedByConfigFile
+              .map { case (configFile, groupedBySchema) =>
+                val dagSchemas = groupedBySchema
+                  .map { case (schema, tables) =>
+                    DagSchema(
+                      schema.schema,
+                      tables.map(t => TableSchema(t.name)).asJava
+                    )
+                  }
+                  .toList
+                  .sortBy(_.name)
+                DagExtraction(
+                  configFile,
+                  dagSchemas.asJava
+                )
+              }
+              .toList
+              .sortBy(_.config)
+            DagSchedule(scheduleValue, cronIfNone, dagDomains.asJava, dagExtractions.asJava)
+          }
+          .toList
+          .sortBy(_.schedule)
+        if (filenameVars.contains("schedule")) {
+          dagSchedules.foreach { schedule =>
+            val envVars =
+              schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
+                "schedule" -> schedule.schedule
               )
-              val filename = Utils.parseJinja(dagConfig.filename, envVars)
-              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+            val options = dagConfig.options.map { case (k, v) =>
+              k -> Utils.parseJinja(v, envVars)
             }
-          } else {
-            val envVars = schemaHandler.activeEnvVars(root = Option(settings.appConfig.root))
-            val options = dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
             val comment = Utils.parseJinja(dagConfig.comment, envVars)
             val context = LoadDagGenerationContext(
               config = dagConfig.copy(options = options, comment = comment),
-              schedules = dagSchedules
+              List(schedule)
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
             applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
           }
-
+        } else {
+          val envVars = schemaHandler.activeEnvVars(root = Option(settings.appConfig.root))
+          val options = dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
+          val comment = Utils.parseJinja(dagConfig.comment, envVars)
+          val context = LoadDagGenerationContext(
+            config = dagConfig.copy(options = options, comment = comment),
+            schedules = dagSchedules
+          )
+          val filename = Utils.parseJinja(dagConfig.filename, envVars)
+          applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
         }
       }
     }
@@ -484,6 +567,32 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               domain -> tableWithConfig.map(_.table).sortBy(_.name)
             }
             scheduleName -> groupedTableNames
+        }
+        (dagConfigName, groupedByScheduleAndDomain)
+    }
+    groupDagConfigNameAndSchedule
+  }
+
+  /** group extracted tables by dag config name, schedule, config file and domain
+    */
+  private def groupByExtractedDagConfigScheduleDomain(
+    tableWithDagConfigs: List[ExtractedTableWithDagConfig]
+  ): Map[String, Map[String, Map[String, Map[JDBCSchema, List[JDBCTable]]]]] = {
+    val groupByDagConfigName = tableWithDagConfigs.groupBy(_.dagConfigName)
+    val groupDagConfigNameAndSchedule = groupByDagConfigName.map {
+      case (dagConfigName, tableWithDagConfigs) =>
+        val groupedBySchedule = tableWithDagConfigs.groupBy(_.schedule.getOrElse("None"))
+        val groupedByScheduleAndDomain = groupedBySchedule.map {
+          case (scheduleName, tableWithDagConfigs) =>
+            val groupedByConfigFile = tableWithDagConfigs.groupBy(_.configFile)
+            val groupedConfigFiles = groupedByConfigFile.map { case (configFile, tableWithConfig) =>
+              val groupedBySchema = tableWithConfig.groupBy(_.schema)
+              val groupedTableNames = groupedBySchema.map { case (schema, tableWithConfig) =>
+                schema -> tableWithConfig.flatMap(_.table).sortBy(_.name)
+              }
+              configFile -> groupedTableNames
+            }
+            scheduleName -> groupedConfigFiles
         }
         (dagConfigName, groupedByScheduleAndDomain)
     }
