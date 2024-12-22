@@ -473,6 +473,10 @@ object Settings extends StrictLogging {
     def isDuckDb(): Boolean = getJdbcEngineName().toString == "duckdb"
 
     @JsonIgnore
+    def isMotherDuckDb(): Boolean =
+      isDuckDb() && options("url").toLowerCase().startsWith("jdbc:duckdb:md:")
+
+    @JsonIgnore
     lazy val jdbcUrl: String = applyIfConnectionTypeIs(
       ConnectionType.JDBC,
       options.getOrElse(

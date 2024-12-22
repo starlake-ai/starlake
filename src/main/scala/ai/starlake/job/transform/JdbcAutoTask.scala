@@ -156,9 +156,11 @@ class JdbcAutoTask(
         }
       val sinkOptions =
         if (sinkConnection.isDuckDb()) {
+          val duckDbEnableExternalAccess =
+            settings.appConfig.duckDbEnableExternalAccess || sinkConnection.isMotherDuckDb()
           sinkConnection.options.updated(
             "enable_external_access",
-            settings.appConfig.duckDbEnableExternalAccess.toString
+            duckDbEnableExternalAccess.toString
           )
         } else {
           sinkConnection.options
