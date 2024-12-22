@@ -13,12 +13,19 @@ import scala.util.Try
 
 case class DagDesc(version: Int, dag: DagGenerationConfig)
 
-case class DagSchedule(schedule: String, cron: String, domains: java.util.List[DagDomain]) {
+case class DagSchedule(
+  schedule: String,
+  cron: String,
+  domains: java.util.List[DagDomain],
+  extractions: java.util.List[DagExtraction] = new java.util.ArrayList[DagExtraction](0)
+) {
   def getSchedule(): String = schedule
 
   def getCron(): String = cron
 
   def getDomains(): java.util.List[DagDomain] = domains
+
+  def getExtractions(): java.util.List[DagExtraction] = extractions
 }
 
 case class DagDomain(name: String, finalName: String, tables: java.util.List[TableDomain]) {
@@ -33,6 +40,22 @@ case class TableDomain(name: String, finalName: String) {
   def getName(): String = name
 
   def getFinalName(): String = finalName
+}
+
+case class DagExtraction(config: String, schemas: java.util.List[DagSchema]) {
+  def getConfig(): String = config
+
+  def getSchemas(): java.util.List[DagSchema] = schemas
+}
+
+case class DagSchema(name: String, tables: java.util.List[TableSchema]) {
+  def getName(): String = name
+
+  def getTables(): java.util.List[TableSchema] = tables
+}
+
+case class TableSchema(name: String) {
+  def getName(): String = name
 }
 
 case class DagPair(name: String, value: String) {
