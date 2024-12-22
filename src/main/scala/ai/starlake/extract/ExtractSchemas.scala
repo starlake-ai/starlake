@@ -214,11 +214,7 @@ case class JDBCTable(
       None,
       Map.empty,
       None,
-      None,
-      None,
-      None,
-      None,
-      Set[String].empty
+      None
     ) // Should never be called. Here for Jackson deserialization only
 
   def fillWithSchemaValues(schema: JDBCSchema): JDBCTable = {
