@@ -751,7 +751,7 @@ class SparkAutoTask(
         }
 
         val isIndirectWriteMethod =
-          sinkConnection.options.getOrElse("writeMethod", "indirect") == "indirect"
+          sinkConnection.options.getOrElse("writeMethod", "direct") == "indirect"
 
         if (sinkConnection.isPostgreSql() && isIndirectWriteMethod) {
           val separator = sinkConnection.options.getOrElse("separator", ",")
