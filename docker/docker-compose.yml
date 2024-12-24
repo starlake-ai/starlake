@@ -140,10 +140,10 @@ services:
       - SL_API_GIT_COMMAND_ROOT=/git
       - SL_API_SECURE=false
       - SL_API_SESSION_AS_HEADER=true
-      - SL_API_HTTP_FRONT_URL=http://starlake-ui
+      - SL_API_HTTP_FRONT_URL=${SL_API_HTTP_FRONT_URL:-http://starlake-ui}
       - SL_API_HTTP_INTERFACE=0.0.0.0
       - SL_API_HTTP_PORT=9000
-      - SL_LOG_LEVEL=info
+      - SL_LOG_LEVEL=${SL_LOG_LEVEL:-info}
       - SL_API_JDBC_DRIVER=org.postgresql.Driver
       - SL_API_JDBC_USER=${SL_POSTGRES_USER:-dbuser}
       - SL_API_JDBC_PASSWORD=${SL_POSTGRES_PASSWORD:-dbuser123}
@@ -160,6 +160,7 @@ services:
       - POSTGRES_DB=${SL_POSTGRES_DB:-starlake}
       - POSTGRES_USER=${SL_POSTGRES_USER:-dbuser}
       - POSTGRES_PASSWORD=${SL_POSTGRES_PASSWORD:-dbuser123}
+      - SL_UI_DEMO=${SL_UI_DEMO:-false}
 
   starlake-ui:
     image: starlakeai/starlake-1.3-ui:${SL_UI_VERSION:-0.1}
