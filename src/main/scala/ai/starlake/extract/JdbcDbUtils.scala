@@ -126,14 +126,26 @@ object JdbcDbUtils extends LazyLogging {
     * @tparam T
     * @return
     */
+  private var depth = 0
+  private var count = 0
   def withJDBCConnection[T](
     connectionOptions: Map[String, String]
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
+    count = count + 1
+    logger.info(s"count=$count / depth=$depth; Creating connection  $connectionOptions")
+    try {
+      throw new Exception(s"count=$count / depth=$depth Stack trace")
+    } catch {
+      case e: Exception =>
+        e.printStackTrace()
+    }
     Try(StarlakeConnectionPool.getConnection(connectionOptions)) match {
       case Failure(exception) =>
-        logger.error(s"Error creating connection", exception)
+        logger.error(s"count=$count / depth=$depth Error creating connection", exception)
         throw exception
       case Success(connection) =>
+        logger.info(s"count=$count / depth=$depth Created connection $connection")
+        depth = depth + 1
         // run preActions
         val preActions = connectionOptions.get("preActions")
         preActions.foreach { actions =>
@@ -170,6 +182,7 @@ object JdbcDbUtils extends LazyLogging {
               logger.warn(s"Could not close connection to $url", exception)
           }
         }
+        depth = depth - 1
         result match {
           case Failure(exception) =>
             throw exception
@@ -416,10 +429,9 @@ object JdbcDbUtils extends LazyLogging {
   def extractJDBCSchemas(connectionSettings: Connection)(implicit
     settings: Settings
   ): Try[List[String]] = {
-    withJDBCConnection(connectionSettings.options) { connection =>
-      val url = connectionSettings.options("url")
-      val databaseMetaData = connection.getMetaData()
 
+    withJDBCConnection(readOnlyConnection(connectionSettings).options) { connection =>
+      val databaseMetaData = connection.getMetaData()
       Using(databaseMetaData.getSchemas()) { resultSet =>
         new Iterator[String] {
           override def hasNext: Boolean = resultSet.next()
@@ -547,7 +559,7 @@ object JdbcDbUtils extends LazyLogging {
         .map(tblSchema => tblSchema.name.toUpperCase -> tblSchema)
         .toMap
     val uppercaseTableNames = jdbcTableMap.keys.toList
-    withJDBCConnection(connectionSettings.options) { connection =>
+    withJDBCConnection(readOnlyConnection(connectionSettings).options) { connection =>
       val databaseMetaData = connection.getMetaData()
       extractCaseInsensitiveSchemaName(
         connectionSettings,
@@ -632,87 +644,88 @@ object JdbcDbUtils extends LazyLogging {
                 logger.info(
                   s"Extracting table's schema '$tableName' with remarks '$tableRemarks'"
                 )
-                withJDBCConnection(connectionSettings.options) { tableExtractConnection =>
-                  val jdbcColumnMetadata: JdbcColumnMetadata =
-                    jdbcSchema.tables
-                      .find(_.name.equalsIgnoreCase(tableName))
-                      .flatMap(_.sql)
-                      .map { sql =>
-                        // extract schema from sql metadata
-                        val statement = tableExtractConnection.createStatement()
-                        statement.setMaxRows(1)
-                        val resultSet = use(statement.executeQuery(sql))
-                        new ResultSetColumnMetadata(
-                          resultSet.getMetaData,
-                          jdbcSchema,
-                          tableName,
-                          keepOriginalName,
-                          skipRemarks,
-                          jdbcEngine
-                        )
-                      }
-                      .getOrElse(
-                        new JdbcColumnDatabaseMetadata(
-                          connectionSettings,
-                          tableExtractConnection.getMetaData,
-                          jdbcSchema,
-                          schemaName,
-                          tableName,
-                          keepOriginalName,
-                          skipRemarks,
-                          jdbcEngine
-                        )
-                      )
-                  val primaryKeys = jdbcColumnMetadata.primaryKeys
-                  val foreignKeys: Map[TableName, TableName] = jdbcColumnMetadata.foreignKeys
-                  val columns: List[Attribute] = jdbcColumnMetadata.columns
-                  logger.whenDebugEnabled {
-                    columns
-                      .foreach(column => logger.debug(s"column: $tableName.${column.name}"))
-                  }
-                  val jdbcCurrentTable = jdbcTableMap
-                    .get(tableName.toUpperCase)
-                  // Limit to the columns specified by the user if any
-                  val currentTableRequestedColumns: Map[ColumnName, Option[ColumnName]] =
-                    jdbcCurrentTable
-                      .map(
-                        _.columns.map(c =>
-                          (if (keepOriginalName) c.name.toUpperCase.trim
-                           else c.rename.getOrElse(c.name).toUpperCase.trim) -> c.rename
-                        )
-                      )
-                      .getOrElse(Map.empty)
-                      .toMap
-                  val currentFilter = jdbcCurrentTable.flatMap(_.filter)
-                  val selectedColumns: List[Attribute] =
-                    columns
-                      .filter(col =>
-                        currentTableRequestedColumns.isEmpty || currentTableRequestedColumns
-                          .contains("*") || currentTableRequestedColumns
-                          .contains(col.name.toUpperCase())
-                      )
-                      .map(c =>
-                        c.copy(
-                          foreignKey = foreignKeys.get(c.name.toUpperCase)
-                        )
-                      )
-                  logger.whenDebugEnabled {
-                    val schemaMessage = selectedColumns
-                      .map(c =>
-                        c.name -> c.rename match {
-                          case (name, Some(newName)) => name + " as " + newName
-                          case (name, _)             => name
+                withJDBCConnection(readOnlyConnection(connectionSettings).options) {
+                  tableExtractConnection =>
+                    val jdbcColumnMetadata: JdbcColumnMetadata =
+                      jdbcSchema.tables
+                        .find(_.name.equalsIgnoreCase(tableName))
+                        .flatMap(_.sql)
+                        .map { sql =>
+                          // extract schema from sql metadata
+                          val statement = tableExtractConnection.createStatement()
+                          statement.setMaxRows(1)
+                          val resultSet = use(statement.executeQuery(sql))
+                          new ResultSetColumnMetadata(
+                            resultSet.getMetaData,
+                            jdbcSchema,
+                            tableName,
+                            keepOriginalName,
+                            skipRemarks,
+                            jdbcEngine
+                          )
                         }
-                      )
-                      .mkString("Final schema column:\n - ", "\n - ", "")
-                    logger.debug(schemaMessage)
-                  }
-                  tableName -> ExtractTableAttributes(
-                    tableRemarks,
-                    selectedColumns,
-                    primaryKeys,
-                    currentFilter
-                  )
+                        .getOrElse(
+                          new JdbcColumnDatabaseMetadata(
+                            connectionSettings,
+                            tableExtractConnection.getMetaData,
+                            jdbcSchema,
+                            schemaName,
+                            tableName,
+                            keepOriginalName,
+                            skipRemarks,
+                            jdbcEngine
+                          )
+                        )
+                    val primaryKeys = jdbcColumnMetadata.primaryKeys
+                    val foreignKeys: Map[TableName, TableName] = jdbcColumnMetadata.foreignKeys
+                    val columns: List[Attribute] = jdbcColumnMetadata.columns
+                    logger.whenDebugEnabled {
+                      columns
+                        .foreach(column => logger.debug(s"column: $tableName.${column.name}"))
+                    }
+                    val jdbcCurrentTable = jdbcTableMap
+                      .get(tableName.toUpperCase)
+                    // Limit to the columns specified by the user if any
+                    val currentTableRequestedColumns: Map[ColumnName, Option[ColumnName]] =
+                      jdbcCurrentTable
+                        .map(
+                          _.columns.map(c =>
+                            (if (keepOriginalName) c.name.toUpperCase.trim
+                             else c.rename.getOrElse(c.name).toUpperCase.trim) -> c.rename
+                          )
+                        )
+                        .getOrElse(Map.empty)
+                        .toMap
+                    val currentFilter = jdbcCurrentTable.flatMap(_.filter)
+                    val selectedColumns: List[Attribute] =
+                      columns
+                        .filter(col =>
+                          currentTableRequestedColumns.isEmpty || currentTableRequestedColumns
+                            .contains("*") || currentTableRequestedColumns
+                            .contains(col.name.toUpperCase())
+                        )
+                        .map(c =>
+                          c.copy(
+                            foreignKey = foreignKeys.get(c.name.toUpperCase)
+                          )
+                        )
+                    logger.whenDebugEnabled {
+                      val schemaMessage = selectedColumns
+                        .map(c =>
+                          c.name -> c.rename match {
+                            case (name, Some(newName)) => name + " as " + newName
+                            case (name, _)             => name
+                          }
+                        )
+                        .mkString("Final schema column:\n - ", "\n - ", "")
+                      logger.debug(schemaMessage)
+                    }
+                    tableName -> ExtractTableAttributes(
+                      tableRemarks,
+                      selectedColumns,
+                      primaryKeys,
+                      currentFilter
+                    )
                 }
               }
             }

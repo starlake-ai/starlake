@@ -744,7 +744,7 @@ class SparkAutoTask(
           )
         }
 
-        val tablePath = new Path(s"${settings.appConfig.datasets}/${fullTableName}")
+        val tablePath = new Path(s"${settings.appConfig.datasets}/${firstStepTempTable}")
 
         if (settings.storageHandler().exists(tablePath)) {
           settings.storageHandler().delete(tablePath)
@@ -767,7 +767,7 @@ class SparkAutoTask(
               .foreach { file =>
                 val localFile = StorageHandler.localFile(file.path).toString()
                 val copySql =
-                  s"COPY $fullTableName FROM '$localFile' DELIMITER ',' CSV HEADER"
+                  s"COPY $firstStepTempTable FROM '$localFile' DELIMITER ',' CSV HEADER"
                 manager.copyIn(
                   copySql,
                   new BufferedReader(new java.io.FileReader(localFile))
@@ -784,14 +784,14 @@ class SparkAutoTask(
             sinkConnection.options.updated("enable_external_access", "true")
           ) { conn =>
             val sql =
-              s"INSERT INTO $fullTableName SELECT * FROM '$tablePath/*.parquet'"
+              s"INSERT INTO $firstStepTempTable SELECT * FROM '$tablePath/*.parquet'"
             JdbcDbUtils.executeUpdate(sql, conn)
           }
           settings.storageHandler().delete(tablePath)
         } else {
           loadedDF.write
             .format(sinkConnection.sparkDatasource().getOrElse("jdbc"))
-            .option("dbtable", fullTableName)
+            .option("dbtable", firstStepTempTable)
             .mode(SaveMode.Append) // truncate done above if requested
             .options(sinkConnection.options)
             .save()
