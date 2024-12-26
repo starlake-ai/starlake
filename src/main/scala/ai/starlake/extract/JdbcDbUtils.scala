@@ -132,6 +132,7 @@ object JdbcDbUtils extends LazyLogging {
     connectionOptions: Map[String, String]
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
     count = count + 1
+    /*
     logger.info(s"count=$count / depth=$depth; Creating connection  $connectionOptions")
     try {
       throw new Exception(s"count=$count / depth=$depth Stack trace")
@@ -139,12 +140,13 @@ object JdbcDbUtils extends LazyLogging {
       case e: Exception =>
         e.printStackTrace()
     }
+     */
     Try(StarlakeConnectionPool.getConnection(connectionOptions)) match {
       case Failure(exception) =>
-        logger.error(s"count=$count / depth=$depth Error creating connection", exception)
+        // logger.error(s"count=$count / depth=$depth Error creating connection", exception)
         throw exception
       case Success(connection) =>
-        logger.info(s"count=$count / depth=$depth Created connection $connection")
+        // logger.info(s"count=$count / depth=$depth Created connection $connection")
         depth = depth + 1
         // run preActions
         val preActions = connectionOptions.get("preActions")
