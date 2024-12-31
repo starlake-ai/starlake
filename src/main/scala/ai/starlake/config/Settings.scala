@@ -261,30 +261,30 @@ object Settings extends StrictLogging {
                     errors = errors :+ ValidationMessage(
                       Severity.Error,
                       "Connection",
-                      s"Connection type ${`type`} requires an aws_iam_role"
+                      s"Redshift connection type ${`type`} requires an aws_iam_role"
                     )
                   }
                   if (options.get("tempdir").isEmpty) {
                     errors = errors :+ ValidationMessage(
                       Severity.Error,
                       "Connection",
-                      s"Connection type ${`type`} requires an tempdir"
+                      s"Redshift connection type ${`type`} requires an tempdir"
                     )
                   }
                 }
                 if (datasource.contains("snowflake")) {
-                  if (options.get("warehouse").isEmpty) {
+                  if (options.get("warehouse").isEmpty && options.get("sfWarehouse").isEmpty) {
                     errors = errors :+ ValidationMessage(
                       Severity.Error,
                       "Connection",
-                      s"Connection type ${`type`} requires an warehouse"
+                      s"Snowflake connection type ${`type`} requires a sfWarehouse property"
                     )
                   }
-                  if (options.get("db").isEmpty) {
+                  if (options.get("db").isEmpty && options.get("sfDatabase").isEmpty) {
                     errors = errors :+ ValidationMessage(
                       Severity.Error,
                       "Connection",
-                      s"Connection type ${`type`} requires an db"
+                      s"Snowflake connection type ${`type`} requires a sfDatabase property"
                     )
                   }
                 }
