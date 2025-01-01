@@ -334,7 +334,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 .sortBy(_.name)
               val cron = settings.appConfig.schedulePresets.getOrElse(
                 schedule,
-                schedule
+                scheduleValue
               )
               val cronIfNone = if (cron == "None") null else cron
               DagSchedule(scheduleValue, cronIfNone, dagDomains.asJava)
