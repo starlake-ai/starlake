@@ -145,15 +145,30 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         )
         val cronIfNone = if (cron == "None") null else cron
         val configs = taskConfigs.map { case (_, config) => config.taskDesc.name }
-        val config = AutoTaskDependenciesConfig(tasks = Some(configs))
-        val deps = depsEngine.jobsDependencyTree(config)
+        val autoTaskDepsConfig = AutoTaskDependenciesConfig(tasks = Some(configs))
+        val deps = depsEngine.jobsDependencyTree(autoTaskDepsConfig)
         val context = TransformDagGenerationContext(
           config = dagConfig,
           deps = deps,
           cron = Option(cronIfNone)
         )
-        applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+        applyJ2AndSave(
+          outputDir,
+          jEnv,
+          dagTemplateContent,
+          optionsWithProjectIdAndName(config, context.asMap),
+          filename
+        )
       }
+  }
+
+  private def optionsWithProjectIdAndName(
+    config: DagGenerateConfig,
+    options: util.HashMap[String, Object]
+  ): util.HashMap[String, Object] = {
+    options.put("sl_project_id", config.projectId.getOrElse("-1"))
+    options.put("sl_project_name", config.projectName.getOrElse("[noname]"))
+    options
   }
 
   def clean(dir: Option[String])(implicit settings: Settings): Unit = {
@@ -237,7 +252,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
               scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
-              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+              applyJ2AndSave(
+                outputDir,
+                jEnv,
+                dagTemplateContent,
+                optionsWithProjectIdAndName(config, context.asMap),
+                filename
+              )
             }
           }
         }
@@ -291,7 +312,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 schedules
               )
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
-              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+              applyJ2AndSave(
+                outputDir,
+                jEnv,
+                dagTemplateContent,
+                optionsWithProjectIdAndName(config, context.asMap),
+                filename
+              )
             }
           } else {
             val envVars =
@@ -307,7 +334,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               schedules
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
-            applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+            applyJ2AndSave(
+              outputDir,
+              jEnv,
+              dagTemplateContent,
+              optionsWithProjectIdAndName(config, context.asMap),
+              filename
+            )
           }
         }
       } else {
@@ -356,7 +389,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 List(schedule)
               )
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
-              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+              applyJ2AndSave(
+                outputDir,
+                jEnv,
+                dagTemplateContent,
+                optionsWithProjectIdAndName(config, context.asMap),
+                filename
+              )
             }
           } else {
             val envVars = schemaHandler.activeEnvVars(root = Option(settings.appConfig.root))
@@ -367,7 +406,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               schedules = dagSchedules
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
-            applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+            applyJ2AndSave(
+              outputDir,
+              jEnv,
+              dagTemplateContent,
+              optionsWithProjectIdAndName(config, context.asMap),
+              filename
+            )
           }
 
         }
