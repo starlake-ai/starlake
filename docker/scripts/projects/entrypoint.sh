@@ -31,7 +31,7 @@ if [[ $member_id =~ ^[0-9]+$ ]]; then
                         psql -v ON_ERROR_STOP=1 -h "${POSTGRES_HOST}" -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -w <<-EOSQL
 INSERT INTO public.slk_project (id, code, "name", description, repository, active, deleted, created, updated, master, owner, owner_email, access, pat, airflow_role)
 OVERRIDING SYSTEM VALUE
-VALUES($project_id, '$project_uuid', '$project_name', '$project_name', '', true, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $member_id, 'admin@localhost.local', "ADMIN', '', 'DEV:OPS,STAGING:OPS,PROD:OPS');
+VALUES($project_id, '$project_uuid', '$project_name', '$project_name', '', true, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, -1, $member_id, 'admin@localhost.local', 'ADMIN', '', 'DEV:OPS,STAGING:OPS,PROD:OPS');
 INSERT INTO public.slk_project_props (id, project, properties, created, updated)
 OVERRIDING SYSTEM VALUE
 VALUES($project_id, $project_id, '[{"envName":"__sl_ignore__"}]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
