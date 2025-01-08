@@ -81,6 +81,7 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
         cmd.generateDomainDags(config)
         cmd.generateTaskDags(config)
       }
+      cmd.normalizeDagNames(config)
       JobResult.empty
     }
     result
