@@ -461,6 +461,31 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     }
     groupDagConfigNameAndSchedule
   }
+
+  def normalizeDagNames(config: DagGenerateConfig)(implicit settings: Settings) = {
+    config.projectId match {
+      case Some(projectId) =>
+        val outputDir = new Path(
+          config.outputDir.getOrElse(throw new Exception("outputDir is required"))
+        )
+        val dagFiles =
+          settings
+            .storageHandler()
+            .list(
+              path = outputDir,
+              extension = ".py",
+              exclude = Some("_.*".r.pattern),
+              recursive = false
+            )
+        dagFiles.foreach { file =>
+          val fileName = file.path.getName
+          val newFileName = s"SL_${projectId}_$fileName"
+          settings.storageHandler().move(file.path, new Path(file.path.getParent, newFileName))
+        }
+      case None =>
+
+    }
+  }
 }
 
 object DagGenerateJob {
