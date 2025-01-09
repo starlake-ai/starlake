@@ -462,7 +462,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     groupDagConfigNameAndSchedule
   }
 
-  def normalizeDagNames(config: DagGenerateConfig)(implicit settings: Settings) = {
+  def normalizeDagNames(config: DagGenerateConfig)(implicit settings: Settings): List[Path] = {
     config.projectId match {
       case Some(projectId) =>
         val outputDir = new Path(
@@ -477,12 +477,15 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               exclude = Some("_.*".r.pattern),
               recursive = false
             )
-        dagFiles.foreach { file =>
+        dagFiles.map { file =>
           val fileName = file.path.getName
           val newFileName = s"SL_${projectId}_$fileName"
-          settings.storageHandler().move(file.path, new Path(file.path.getParent, newFileName))
+          val newPath = new Path(file.path.getParent, newFileName)
+          settings.storageHandler().move(file.path, newPath)
+          newPath
         }
       case None =>
+        Nil
 
     }
   }
