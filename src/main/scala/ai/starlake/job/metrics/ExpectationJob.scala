@@ -134,6 +134,9 @@ class ExpectationJob(
 )(implicit val settings: Settings)
     extends SparkJob {
 
+  private var _failOnError: Boolean = false
+  def failOnError(): Boolean = _failOnError
+
   override def name: String = "Check Expectations"
 
   override def applicationId(): String = this.appId.getOrElse(this.applicationId())
@@ -165,12 +168,14 @@ class ExpectationJob(
           expectationWithMacroDefinitions,
           schemaHandler.activeEnvVars()
         )
-      val assertion = Utils.parseJinja(expectation.expect, schemaHandler.activeEnvVars())
+      val assertion = Utils.parseJinja(expectation.expected, schemaHandler.activeEnvVars())
       logger.info(
         s"Applying expectation: ${expectation.query} with request $sql"
       )
       Try {
         val expectationResult = sqlRunner.handle(sql, assertion)
+        val success = expectationResult("assertion").asInstanceOf[Boolean]
+        if (!success) _failOnError = true
         ExpectationReport(
           applicationId(),
           database,
@@ -182,10 +187,12 @@ class ExpectationJob(
           Some(sql),
           Some(expectationResult("count").asInstanceOf[Long]),
           None,
-          success = expectationResult("assertion").asInstanceOf[Boolean]
+          success = success
         )
       } match {
         case Failure(e: IllegalArgumentException) =>
+          if (expectation.failOnError)
+            _failOnError = true
           e.printStackTrace()
           ExpectationReport(
             applicationId(),
@@ -201,6 +208,8 @@ class ExpectationJob(
             success = false
           )
         case Failure(e) =>
+          if (expectation.failOnError)
+            _failOnError = true
           e.printStackTrace()
           ExpectationReport(
             applicationId(),
@@ -275,9 +284,9 @@ class ExpectationJob(
         }
       } else
         Success(SparkJobResult(None, None))
-    val failed = expectationReports.count(!_.success)
-    if (settings.appConfig.expectations.failOnError && failed > 0) {
-      Failure(new Exception(s"$failed Expectations failed"))
+    val failedCount = expectationReports.count(!_.success)
+    if (settings.appConfig.expectations.failOnError && this.failOnError()) {
+      Failure(new Exception(s"$failedCount Expectations failed"))
     } else {
       result
     }

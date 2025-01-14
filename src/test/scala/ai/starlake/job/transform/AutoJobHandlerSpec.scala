@@ -127,7 +127,11 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        expectations = List(ExpectationItem("is_col_value_not_unique('firstname')", "count == 0")),
+        expectations = List(
+          ExpectationItem(
+            ExpectationItemExpect("is_col_value_not_unique('firstname')", "count == 0")
+          )
+        ),
         python = None,
         writeStrategy = Some(WriteStrategy.Overwrite)
       )
@@ -172,7 +176,11 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         database = None,
         domain = "user",
         table = "user",
-        expectations = List(ExpectationItem("is_col_value_not_unique('firstname')", "count == 0")),
+        expectations = List(
+          ExpectationItem(
+            ExpectationItemExpect("is_col_value_not_unique('firstname')", "count == 0")
+          )
+        ),
         python = None,
         writeStrategy = Some(WriteStrategy.Overwrite),
         sink = Some(FsSink().toAllSinks())

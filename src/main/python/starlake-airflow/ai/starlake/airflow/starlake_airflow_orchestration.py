@@ -46,6 +46,9 @@ class AirflowPipeline(AbstractPipeline[DAG, Dataset], AirflowDataset):
         user_defined_filters = kwargs.get('user_defined_filters', job.caller_globals.get('user_defined_filters', None))
         kwargs.pop('user_defined_filters', None)
 
+        access_control = kwargs.get('access_control', job.caller_globals.get('access_control', None))
+        kwargs.pop('access_control', None)
+
         self.dag = DAG(
             dag_id=self.pipeline_id, 
             schedule=airflow_schedule,
@@ -57,6 +60,7 @@ class AirflowPipeline(AbstractPipeline[DAG, Dataset], AirflowDataset):
             end_date=job.end_date,
             user_defined_macros=user_defined_macros,
             user_defined_filters=user_defined_filters,
+            access_control=access_control,
             **kwargs
         )
 

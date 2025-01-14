@@ -60,8 +60,13 @@ import scala.util.{Failure, Success, Try}
 object Settings extends StrictLogging {
   val latestSchemaVersion: Int = 1
   implicit def hint[A]: ProductHint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
+
   private var _referenceConfig: Config = ConfigFactory.load()
   def referenceConfig: Config = _referenceConfig
+
+  private var _applicationConfig: Config = null
+  def applicationConfig: Config = _applicationConfig
+
   private val referenceClassLoader = Thread.currentThread().getContextClassLoader
   def invalidateCaches(): Unit = {
     ConfigFactory.invalidateCaches()
@@ -1073,8 +1078,8 @@ object Settings extends StrictLogging {
         .path("application")
     finalNode.asInstanceOf[ObjectNode].put("root", root)
     val jsonString = Utils.newJsonMapper().writeValueAsString(finalNode)
-    val applicationConfig = ConfigFactory.parseString(jsonString).resolve()
-    val effectiveApplicationConfig = applicationConfig
+    _applicationConfig = ConfigFactory.parseString(jsonString).resolve()
+    val effectiveApplicationConfig = _applicationConfig
       .withFallback(Settings.referenceConfig)
     val app = ConfigSource
       .fromConfig(effectiveApplicationConfig)
