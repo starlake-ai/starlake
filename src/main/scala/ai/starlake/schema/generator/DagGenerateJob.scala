@@ -191,7 +191,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     config.masterProjectId match {
       case Some(masterProjectId) =>
         options.put("sl_project_id", masterProjectId)
-        options.put("sl_project_name", config.masterProjectName)
+        options.put("sl_project_name", config.masterProjectName.getOrElse("[noname]"))
         options.put("sl_airflow_access_control", airflowAccessControl(masterProjectId.toLong))
       case None =>
         options.put("sl_project_id", "-1")
