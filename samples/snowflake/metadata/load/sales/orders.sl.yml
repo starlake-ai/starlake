@@ -4,7 +4,6 @@
     merge:
       key:
         - "id"
-      delete: "customer_id is null"
     metadata:
       separator: ","
     attributes:
