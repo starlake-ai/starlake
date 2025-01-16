@@ -1212,7 +1212,7 @@
           "description": "Expectations to check after Load / Transform has succeeded",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/ConvertibleToString"
+            "$ref": "#/definitions/ExpectationItemV1"
           }
         },
         "acl": {
