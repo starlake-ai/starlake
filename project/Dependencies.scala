@@ -216,7 +216,7 @@ object Dependencies {
   )
 
   val cache = Seq(
-    "com.github.ben-manes.caffeine" % "caffeine" % "3.1.8"
+    "com.github.ben-manes.caffeine" % "caffeine" % "3.2.0"
   )
 
   val dependencies =
