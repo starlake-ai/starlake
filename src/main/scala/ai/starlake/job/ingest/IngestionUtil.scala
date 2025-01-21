@@ -53,7 +53,7 @@ object IngestionUtil {
     import session.implicits._
     val rejectedPathName = paths.map(_.toString).mkString(",")
     // We need to save first the application ID
-    // referencing it inside the worker (rdd.map) below would fail.
+    // referencing it inside the worker (ds.map) below would fail.
     val rejectedTypedDS = rejectedDS.map { err =>
       RejectedRecord(
         applicationId,

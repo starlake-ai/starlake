@@ -1,0 +1,13 @@
+writeStrategy:
+  type: "UPSERT_BY_KEY"
+  key: [id]
+  sharding: [country]
+  partition: [date]
+acl:
+  - role: viewer
+    grants: ["user:me@me.com"]
+expectations:
+  - expect: "is_col_value_not_unique('id') => count == 0"
+    failOnError: false
+schedule: "0 0 * * *"
+

@@ -162,12 +162,42 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       }
   }
 
+  private def airflowAccessControl(projectId: Long): String = {
+    assert(projectId > 0)
+
+    // To reduce memory footprint in the SaaS version, we access global variables
+    // from the application configuration object instead of the user session
+    // configuration object.
+    val viewerConfig = Settings.applicationConfig.getString("dagAccess.airflow.viewer")
+    val userConfig = Settings.applicationConfig.getString("dagAccess.airflow.user")
+    val opsConfig = Settings.applicationConfig.getString("dagAccess.airflow.ops")
+    val result =
+      s"""
+         |{
+         |"SL_${projectId}_VIEWER":
+         |    $viewerConfig,
+         |"SL_${projectId}_USER":
+         |    $userConfig,
+         |"SL_${projectId}_OPS":
+         |    $opsConfig
+         |}
+         |""".stripMargin
+    result
+  }
   private def optionsWithProjectIdAndName(
     config: DagGenerateConfig,
     options: util.HashMap[String, Object]
   ): util.HashMap[String, Object] = {
-    options.put("sl_project_id", config.projectId.getOrElse("-1"))
-    options.put("sl_project_name", config.projectName.getOrElse("[noname]"))
+    config.masterProjectId match {
+      case Some(masterProjectId) =>
+        options.put("sl_project_id", masterProjectId)
+        options.put("sl_project_name", config.masterProjectName.getOrElse("[noname]"))
+        options.put("sl_airflow_access_control", airflowAccessControl(masterProjectId.toLong))
+      case None =>
+        options.put("sl_project_id", "-1")
+        options.put("sl_project_name", "[noname]")
+        options.put("sl_airflow_access_control", "None")
+    }
     options
   }
 
@@ -463,7 +493,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   def normalizeDagNames(config: DagGenerateConfig)(implicit settings: Settings): List[Path] = {
-    config.projectId match {
+    config.masterProjectId match {
       case Some(projectId) =>
         val outputDir = new Path(
           config.outputDir.getOrElse(throw new Exception("outputDir is required"))
@@ -480,7 +510,11 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         dagFiles.map { file =>
           val fileName = file.path.getName
           val newFileName = s"SL_${projectId}_$fileName"
-          val newPath = new Path(file.path.getParent, newFileName)
+          val newPath =
+            new Path(
+              file.path.getParent,
+              newFileName.toLowerCase()
+            ) // should be lowercase like dag ids
           settings.storageHandler().move(file.path, newPath)
           newPath
         }

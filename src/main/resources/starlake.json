@@ -609,6 +609,19 @@
         }
       }
     },
+    "ExpectationItemV1": {
+      "type": "object",
+      "properties": {
+        "expect": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "When using filesystem storage, the path to the expectations file"
+        },
+        "failOnError": {
+          "description": "should load / transform fail on expectation error ?",
+          "type": "boolean"
+        }
+      }
+    },
     "MetricsV1": {
       "type": "object",
       "properties": {
@@ -996,7 +1009,7 @@
           "description": "Expectations to check after Load / Transform has succeeded",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/ConvertibleToString"
+            "$ref": "#/definitions/ExpectationItemV1"
           }
         },
         "primaryKey": {
@@ -1199,7 +1212,7 @@
           "description": "Expectations to check after Load / Transform has succeeded",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/ConvertibleToString"
+            "$ref": "#/definitions/ExpectationItemV1"
           }
         },
         "acl": {
