@@ -368,8 +368,12 @@ trait IngestionJob extends SparkJob {
             if (auditLog.success) {
               // run expectations
               val expectationsResult = runExpectations()
-              if (expectationsResult.isFailure && settings.appConfig.expectations.failOnError)
-                throw new Exception("Expectations failed")
+
+              expectationsResult match {
+                case Failure(exception) if settings.appConfig.expectations.failOnError =>
+                  throw exception
+                case _ =>
+              }
               SparkJobResult(None, Some(counters))
             } else throw new DisallowRejectRecordException()
         }
