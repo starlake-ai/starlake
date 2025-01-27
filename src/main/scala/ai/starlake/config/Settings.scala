@@ -65,7 +65,6 @@ object Settings extends StrictLogging {
   def referenceConfig: Config = _referenceConfig
 
   private var _applicationConfig: Config = null
-  def applicationConfig: Config = _applicationConfig
 
   private val referenceClassLoader = Thread.currentThread().getContextClassLoader
   def invalidateCaches(): Unit = {
