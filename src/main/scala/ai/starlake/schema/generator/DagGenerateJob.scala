@@ -168,9 +168,9 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     // To reduce memory footprint in the SaaS version, we access global variables
     // from the application configuration object instead of the user session
     // configuration object.
-    val viewerConfig = Settings.applicationConfig.getString("dagAccess.airflow.viewer")
-    val userConfig = Settings.applicationConfig.getString("dagAccess.airflow.user")
-    val opsConfig = Settings.applicationConfig.getString("dagAccess.airflow.ops")
+    val viewerConfig = Settings.referenceConfig.getString("dagAccess.airflow.viewer")
+    val userConfig = Settings.referenceConfig.getString("dagAccess.airflow.user")
+    val opsConfig = Settings.referenceConfig.getString("dagAccess.airflow.ops")
     val result =
       s"""
          |{
