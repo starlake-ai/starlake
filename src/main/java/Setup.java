@@ -156,10 +156,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
 
     // BIGQUERY
-    private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.40.0");
+    private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.41.1");
 
     // deltalake
-    private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("3.2.0");
+    private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("3.2.1");
 
     private static final String HADOOP_AZURE_VERSION = getEnv("HADOOP_AZURE_VERSION").orElse("3.3.5");
     private static final String AZURE_STORAGE_VERSION = getEnv("AZURE_STORAGE_VERSION").orElse("8.6.6");
@@ -172,8 +172,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
     };
 
     // SNOWFLAKE
-    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.19.0");
-    private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.1.0");
+    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.21.0");
+    private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.1.1");
 
     // POSTGRESQL
     private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.5.4");
@@ -182,9 +182,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.1.3");
 
     // REDSHIFT
-    private static final String AWS_JAVA_SDK_VERSION = getEnv("AWS_JAVA_SDK_VERSION").orElse("1.12.595");
+    private static final String AWS_JAVA_SDK_VERSION = getEnv("AWS_JAVA_SDK_VERSION").orElse("1.12.780");
     private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.3.4");
-    private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.30");
+    private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.32");
     private static  String SPARK_REDSHIFT_VERSION() {
         if (SCALA_VERSION.equals("2.13")) {
             return getEnv("SPARK_REDSHIFT_VERSION").orElse("6.3.0-spark_3.5-SNAPSHOT");

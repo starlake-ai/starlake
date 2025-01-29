@@ -19,6 +19,7 @@ object SingleUserMainServer {
     handler.addServletWithMapping(classOf[SingleUserRequestHandler], "/")
     server.start()
     println(s"Server started at $host:$port")
+    server.join()
   }
 
   private var autoReload = true

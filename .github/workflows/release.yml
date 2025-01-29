@@ -19,12 +19,14 @@ jobs:
       - name: Install graphviz
         run: sudo apt-get install -y graphviz
       - name: Set up Zulu 11
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
-          distribution: 'zulu' # See 'Supported distributions' for available options
+          distribution: 'temurin' # See 'Supported distributions' for available options
           java-version: '11'
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         if: ${{ !github.event.repository.fork }}
+      - name: Setup sbt launcher
+        uses: sbt/setup-sbt@v1
       - id: 'auth'
         uses: 'google-github-actions/auth@v1'
         with:
@@ -122,7 +124,7 @@ jobs:
           context: "./distrib/docker"
           pull: true
           load: true
-          tags: ${{ steps.meta.outputs.tags }},${{ env.REGISTRY_IMAGE_LATEST }},${{ env.REGISTRY_IMAGE }}:${{ env.SL_MAJOR_MINOR_VERSION }}
+          tags: ${{ steps.meta.outputs.tags }},${{ env.REGISTRY_IMAGE_LATEST }},${{ env.REGISTRY_IMAGE }}:${{ env.SL_MAJOR_MINOR_VERSION }},"${{ env.REGISTRY_IMAGE }}:${{ env.SL_MAJOR_VERSION }}",${{ env.REGISTRY_IMAGE }}:latest
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
               BUILD_DATE=${{ env.BUILD_DATE }}
@@ -147,7 +149,7 @@ jobs:
           pull: true
           push: true
           provenance: mode=max
-          tags: ${{ steps.meta.outputs.tags }},${{ env.REGISTRY_IMAGE_LATEST }},${{ env.REGISTRY_IMAGE }}:${{ env.SL_MAJOR_MINOR_VERSION }},"${{ env.REGISTRY_IMAGE }}:latest","${{ env.REGISTRY_IMAGE }}:${{ env.SL_MAJOR_VERSION }}"
+          tags: ${{ steps.meta.outputs.tags }},${{ env.REGISTRY_IMAGE_LATEST }},${{ env.REGISTRY_IMAGE }}:${{ env.SL_MAJOR_MINOR_VERSION }},"${{ env.REGISTRY_IMAGE }}:${{ env.SL_MAJOR_VERSION }}","${{ env.REGISTRY_IMAGE }}:latest"
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
               BUILD_DATE=${{ env.BUILD_DATE }}

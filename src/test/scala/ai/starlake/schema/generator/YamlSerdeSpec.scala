@@ -949,8 +949,8 @@ object YamlConfigGenerators {
       query  <- arbitrary[String].map(_.replace("=>", "_").replace(")", "_"))
       expect <- arbitrary[String]
     } yield {
-      val ei = ExpectationItem(query = query, expect = expect)
-      ei
+      val eie = ExpectationItemExpect(query = query, expected = expect)
+      ExpectationItem(eie)
     }
   }
 
