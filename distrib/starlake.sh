@@ -79,7 +79,7 @@ launch_starlake() {
 #    echo "- SL_MAIN=$SL_MAIN"
 #    echo "- SL_VALIDATE_ON_LOAD=$SL_VALIDATE_ON_LOAD"
     echo "- SPARK_DRIVER_MEMORY=$SPARK_DRIVER_MEMORY"
-    echo Make sure your java home path does not contain space
+#    echo Make sure your java home path does not contain space
 
 
     #if [[ $SL_FS = abfs:* ]] || [[ $SL_FS = wasb:* ]] || [[ $SL_FS = wasbs:* ]]
