@@ -1417,7 +1417,8 @@ object Settings extends StrictLogging {
 }
 
 object CometColumns {
-  val cometInputFileNameColumn: String = "comet_input_file_name"
+  val cometInputFileNameColumn: String = "sl_input_file_name"
+  val oldCometInputFileNameColumn: String = "comet_input_file_name"
   val slSuccessColumn: String = "sl_success"
   val slErrorMessageColumn: String = "sl_error_message"
 }

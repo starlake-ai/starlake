@@ -28,10 +28,10 @@ trait IngestionJob extends SparkJob {
   val test: Boolean
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
     val validatorClassName = loader.toLowerCase() match {
-      case "spark" => validatorClass
       case "native" =>
         logger.warn(s"Unexpected '$loader' loader !!!")
         validatorClass
+      case "spark" => validatorClass
       case _ =>
         throw new Exception(s"Unexpected '$loader' loader !!!")
     }

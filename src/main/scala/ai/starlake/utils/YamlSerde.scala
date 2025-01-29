@@ -1,6 +1,6 @@
 package ai.starlake.utils
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.exceptions.SchemaValidationException
 import ai.starlake.extract.{ExtractDesc, ExtractSchemas}
@@ -255,7 +255,11 @@ object YamlSerde extends LazyLogging with YamlUtils {
   }
 
   def deserializeYamlTables(content: String, path: String): List[TableDesc] = {
-    deserializeYamlTables(mapper.readTree(content), path)
+    val withNewCometFilename = content.replaceAll(
+      CometColumns.oldCometInputFileNameColumn,
+      CometColumns.cometInputFileNameColumn
+    )
+    deserializeYamlTables(mapper.readTree(withNewCometFilename), path)
   }
 
   private def deserializeYamlTables(jsonRootNode: JsonNode, path: String): List[TableDesc] = {

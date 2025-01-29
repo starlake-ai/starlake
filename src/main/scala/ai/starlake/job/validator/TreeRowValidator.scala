@@ -1,6 +1,6 @@
 package ai.starlake.job.validator
 
-import ai.starlake.config.{CometColumns, PrivacyLevels}
+import ai.starlake.config.{CometColumns, PrivacyLevels, Settings}
 import ai.starlake.job.ingest.IngestionUtil
 import ai.starlake.schema.model.{Attribute, Format, TransformInput, Type}
 import ai.starlake.utils.{TransformEngine, Utils}
@@ -200,7 +200,7 @@ object TreeRowValidator extends GenericRowValidator {
               case subcell =>
                 validateCol(attributes(name).asInstanceOf[Attribute], cellHandleTimestamp(subcell))
             }
-          case (cell, "comet_input_file_name") =>
+          case (cell, CometColumns.cometInputFileNameColumn) =>
             cell
           case (null, name) =>
             null

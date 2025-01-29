@@ -158,8 +158,7 @@ case class Metadata(
 
     val loaderErrors =
       Set("native", "spark").contains(loader.getOrElse("spark")) match {
-        case true => Right(true)
-        case false =>
+        case false if this.resolveFormat() != Format.DATAFRAME =>
           Left(
             List(
               ValidationMessage(
@@ -169,6 +168,7 @@ case class Metadata(
               )
             )
           )
+        case _ => Right(true)
       }
     val writeStrategyErrors =
       writeStrategy.map(_.checkValidity(domainName, table)).getOrElse(Right(true))

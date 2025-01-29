@@ -12,10 +12,8 @@ import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
-import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.deploy.PythonRunner
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import org.apache.spark.sql.{DataFrame, SaveMode}
@@ -353,30 +351,7 @@ class SparkAutoTask(
   }
 
   private def runPySpark(pythonFile: Path): Option[DataFrame] = {
-    // We first download locally all files because PythonRunner only support local filesystem
-    val pyFiles =
-      pythonFile +: settings.sparkConfig
-        .getString("pyFiles")
-        .split(",")
-        .filter(_.nonEmpty)
-        .map(x => new Path(x.trim))
-    val directory = new Path(File.newTemporaryDirectory().pathAsString)
-    logger.info(s"Python local directory is $directory")
-    pyFiles.foreach { pyFile =>
-      val pyName = pyFile.getName
-      storageHandler.copyToLocal(pyFile, new Path(directory, pyName))
-    }
-    val pythonParams = commandParameters.flatMap { case (name, value) =>
-      List(s"""--$name""", s"""$value""")
-    }.toArray
-
-    PythonRunner.main(
-      Array(
-        new Path(directory, pythonFile.getName).toString,
-        pyFiles.mkString(",")
-      ) ++ pythonParams
-    )
-
+    SparkUtils.runPySpark(pythonFile, commandParameters)
     if (session.catalog.tableExists("SL_THIS"))
       Some(session.sqlContext.table("SL_THIS"))
     else
