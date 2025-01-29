@@ -27,7 +27,7 @@ Starlake Orchestration is a **Python-based API** for creating, scheduling and ma
 
 Starlake Orchestration aligns with Starlake's philosophy by abstracting orchestration complexities into a simple, unified Python-based API.
 
-It is recommended to use it in combinaison with **[starlake dag generation](https://starlake.ai/starlake/docs/guides/orchestrate/customization)**, but can be used directly as is in your **DAGs**.
+It is recommended to use it in combinaison with **[starlake dag generation](https:/docs.starlake.ai/guides/orchestrate/customization)**, but can be used directly as is in your **DAGs**.
 
 ### Key Features
 
@@ -116,7 +116,7 @@ Each method corresponds to a specific Starlake command.
 
 ##### Preload
 
-Will generate the task that will run the starlake [preload](https://starlake.ai/starlake/docs/cli/preload) command.
+Will generate the task that will run the starlake [preload](https://docs.starlake.ai/cli/preload) command.
 
 ```python
 def sl_pre_load(
@@ -151,7 +151,7 @@ Strategies:
 
 ##### Import
 
-Generates the task for the [import](https://starlake.ai/starlake/docs/cli/import) command.
+Generates the task for the [import](https://docs.starlake.ai/cli/import) command.
 
 ```python
 def sl_import(
@@ -171,7 +171,7 @@ def sl_import(
 
 ##### Load
 
-Generates the task for the [load](https://starlake.ai/starlake/docs/cli/load) command.
+Generates the task for the [load](https://docs.starlake.ai/cli/load) command.
 
 ```python
 def sl_load(
@@ -193,7 +193,7 @@ def sl_load(
 
 ##### Transform
 
-Generates the task for the [transform](https://starlake.ai/starlake/docs/cli/transform) command.
+Generates the task for the [transform](https://docs.starlake.ai/cli/transform) command.
 
 ```python
 def sl_transform(
