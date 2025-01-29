@@ -115,7 +115,7 @@ load:
           required: false
         - name: "fileName"
           type: "string"
-          script: "comet_input_file_name"
+          script: "sl_input_file_name"
           privacy: None
           required: false
       postsql:
