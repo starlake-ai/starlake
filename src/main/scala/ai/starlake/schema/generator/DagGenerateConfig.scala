@@ -31,5 +31,7 @@ case class DagGenerateConfig(
   clean: Boolean = false,
   tags: Seq[String] = Nil,
   domains: Boolean = false,
-  tasks: Boolean = false
+  tasks: Boolean = false,
+  masterProjectId: Option[String] = None,
+  masterProjectName: Option[String] = None
 )

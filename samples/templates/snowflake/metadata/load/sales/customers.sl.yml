@@ -37,4 +37,5 @@ table:
         required: false
         rename: "lastname"
     expectations:
-      - "column_occurs('id', 2) => count == 1"
+      - expect: "column_occurs('id', 2) => count == 1"
+        failOnError: false

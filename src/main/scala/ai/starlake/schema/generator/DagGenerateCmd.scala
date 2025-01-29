@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.JobResult
+import ai.starlake.utils.{DagGenerateJobResult, JobResult}
 import scopt.OParser
 
 import scala.util.Try
@@ -81,7 +81,8 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
         cmd.generateDomainDags(config)
         cmd.generateTaskDags(config)
       }
-      JobResult.empty
+      val files = cmd.normalizeDagNames(config)
+      DagGenerateJobResult(files)
     }
     result
   }

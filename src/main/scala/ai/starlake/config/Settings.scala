@@ -60,8 +60,12 @@ import scala.util.{Failure, Success, Try}
 object Settings extends StrictLogging {
   val latestSchemaVersion: Int = 1
   implicit def hint[A]: ProductHint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
+
   private var _referenceConfig: Config = ConfigFactory.load()
   def referenceConfig: Config = _referenceConfig
+
+  private var _applicationConfig: Config = null
+
   private val referenceClassLoader = Thread.currentThread().getContextClassLoader
   def invalidateCaches(): Unit = {
     ConfigFactory.invalidateCaches()
@@ -261,30 +265,30 @@ object Settings extends StrictLogging {
                     errors = errors :+ ValidationMessage(
                       Severity.Error,
                       "Connection",
-                      s"Connection type ${`type`} requires an aws_iam_role"
+                      s"Redshift connection type ${`type`} requires an aws_iam_role"
                     )
                   }
                   if (options.get("tempdir").isEmpty) {
                     errors = errors :+ ValidationMessage(
                       Severity.Error,
                       "Connection",
-                      s"Connection type ${`type`} requires an tempdir"
+                      s"Redshift connection type ${`type`} requires an tempdir"
                     )
                   }
                 }
                 if (datasource.contains("snowflake")) {
-                  if (options.get("warehouse").isEmpty) {
+                  if (options.get("warehouse").isEmpty && options.get("sfWarehouse").isEmpty) {
                     errors = errors :+ ValidationMessage(
                       Severity.Error,
                       "Connection",
-                      s"Connection type ${`type`} requires an warehouse"
+                      s"Snowflake connection type ${`type`} requires a sfWarehouse property"
                     )
                   }
-                  if (options.get("db").isEmpty) {
+                  if (options.get("db").isEmpty && options.get("sfDatabase").isEmpty) {
                     errors = errors :+ ValidationMessage(
                       Severity.Error,
                       "Connection",
-                      s"Connection type ${`type`} requires an db"
+                      s"Snowflake connection type ${`type`} requires a sfDatabase property"
                     )
                   }
                 }
@@ -1073,8 +1077,8 @@ object Settings extends StrictLogging {
         .path("application")
     finalNode.asInstanceOf[ObjectNode].put("root", root)
     val jsonString = Utils.newJsonMapper().writeValueAsString(finalNode)
-    val applicationConfig = ConfigFactory.parseString(jsonString).resolve()
-    val effectiveApplicationConfig = applicationConfig
+    _applicationConfig = ConfigFactory.parseString(jsonString).resolve()
+    val effectiveApplicationConfig = _applicationConfig
       .withFallback(Settings.referenceConfig)
     val app = ConfigSource
       .fromConfig(effectiveApplicationConfig)

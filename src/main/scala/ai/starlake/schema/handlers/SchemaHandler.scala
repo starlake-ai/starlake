@@ -1574,7 +1574,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       // do nothing
     }
 
-    taskOnly(s"${domainName}.${taskName}") match {
+    taskOnly(s"${domainName}.${taskName}", reload = true) match {
       case Success(taskDesc) =>
         _jobs.find(_.name.toLowerCase() == domainName.toLowerCase()) match {
           case None =>

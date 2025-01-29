@@ -3,6 +3,7 @@ package ai.starlake.utils
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
 import com.google.gson.Gson
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 
@@ -116,6 +117,9 @@ case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) 
 object JobResult {
   def empty: JobResult = EmptyJobResult
 }
+
+case class DagGenerateJobResult(dagFiles: List[Path]) extends JobResult
+
 case object EmptyJobResult extends JobResult
 case object FailedJobResult extends JobResult
 case class PreLoadJobResult(domain: String, tables: Map[String, Int]) extends JobResult {

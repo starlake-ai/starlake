@@ -21,6 +21,7 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
+import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.job.strategies.StrategiesBuilder
@@ -443,7 +444,7 @@ object AutoTask extends StrictLogging {
           table,
           sql,
           summarizeOnly,
-          conn,
+          JdbcDbUtils.readOnlyConnection(conn),
           accessToken,
           Some(connectionName),
           test

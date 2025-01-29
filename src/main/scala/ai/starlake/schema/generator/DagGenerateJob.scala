@@ -145,15 +145,60 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         )
         val cronIfNone = if (cron == "None") null else cron
         val configs = taskConfigs.map { case (_, config) => config.taskDesc.name }
-        val config = AutoTaskDependenciesConfig(tasks = Some(configs))
-        val deps = depsEngine.jobsDependencyTree(config)
+        val autoTaskDepsConfig = AutoTaskDependenciesConfig(tasks = Some(configs))
+        val deps = depsEngine.jobsDependencyTree(autoTaskDepsConfig)
         val context = TransformDagGenerationContext(
           config = dagConfig,
           deps = deps,
           cron = Option(cronIfNone)
         )
-        applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+        applyJ2AndSave(
+          outputDir,
+          jEnv,
+          dagTemplateContent,
+          optionsWithProjectIdAndName(config, context.asMap),
+          filename
+        )
       }
+  }
+
+  private def airflowAccessControl(projectId: Long): String = {
+    assert(projectId > 0)
+
+    // To reduce memory footprint in the SaaS version, we access global variables
+    // from the application configuration object instead of the user session
+    // configuration object.
+    val viewerConfig = Settings.referenceConfig.getString("dagAccess.airflow.viewer")
+    val userConfig = Settings.referenceConfig.getString("dagAccess.airflow.user")
+    val opsConfig = Settings.referenceConfig.getString("dagAccess.airflow.ops")
+    val result =
+      s"""
+         |{
+         |"SL_${projectId}_VIEWER":
+         |    $viewerConfig,
+         |"SL_${projectId}_USER":
+         |    $userConfig,
+         |"SL_${projectId}_OPS":
+         |    $opsConfig
+         |}
+         |""".stripMargin
+    result
+  }
+  private def optionsWithProjectIdAndName(
+    config: DagGenerateConfig,
+    options: util.HashMap[String, Object]
+  ): util.HashMap[String, Object] = {
+    config.masterProjectId match {
+      case Some(masterProjectId) =>
+        options.put("sl_project_id", masterProjectId)
+        options.put("sl_project_name", config.masterProjectName.getOrElse("[noname]"))
+        options.put("sl_airflow_access_control", airflowAccessControl(masterProjectId.toLong))
+      case None =>
+        options.put("sl_project_id", "-1")
+        options.put("sl_project_name", "[noname]")
+        options.put("sl_airflow_access_control", "None")
+    }
+    options
   }
 
   def clean(dir: Option[String])(implicit settings: Settings): Unit = {
@@ -237,7 +282,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
               scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
-              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+              applyJ2AndSave(
+                outputDir,
+                jEnv,
+                dagTemplateContent,
+                optionsWithProjectIdAndName(config, context.asMap),
+                filename
+              )
             }
           }
         }
@@ -291,7 +342,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 schedules
               )
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
-              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+              applyJ2AndSave(
+                outputDir,
+                jEnv,
+                dagTemplateContent,
+                optionsWithProjectIdAndName(config, context.asMap),
+                filename
+              )
             }
           } else {
             val envVars =
@@ -307,7 +364,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               schedules
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
-            applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+            applyJ2AndSave(
+              outputDir,
+              jEnv,
+              dagTemplateContent,
+              optionsWithProjectIdAndName(config, context.asMap),
+              filename
+            )
           }
         }
       } else {
@@ -334,7 +397,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 .sortBy(_.name)
               val cron = settings.appConfig.schedulePresets.getOrElse(
                 schedule,
-                schedule
+                scheduleValue
               )
               val cronIfNone = if (cron == "None") null else cron
               DagSchedule(scheduleValue, cronIfNone, dagDomains.asJava)
@@ -356,7 +419,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 List(schedule)
               )
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
-              applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+              applyJ2AndSave(
+                outputDir,
+                jEnv,
+                dagTemplateContent,
+                optionsWithProjectIdAndName(config, context.asMap),
+                filename
+              )
             }
           } else {
             val envVars = schemaHandler.activeEnvVars(root = Option(settings.appConfig.root))
@@ -367,7 +436,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               schedules = dagSchedules
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
-            applyJ2AndSave(outputDir, jEnv, dagTemplateContent, context.asMap, filename)
+            applyJ2AndSave(
+              outputDir,
+              jEnv,
+              dagTemplateContent,
+              optionsWithProjectIdAndName(config, context.asMap),
+              filename
+            )
           }
 
         }
@@ -415,6 +490,38 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         (dagConfigName, groupedByScheduleAndDomain)
     }
     groupDagConfigNameAndSchedule
+  }
+
+  def normalizeDagNames(config: DagGenerateConfig)(implicit settings: Settings): List[Path] = {
+    config.masterProjectId match {
+      case Some(projectId) =>
+        val outputDir = new Path(
+          config.outputDir.getOrElse(throw new Exception("outputDir is required"))
+        )
+        val dagFiles =
+          settings
+            .storageHandler()
+            .list(
+              path = outputDir,
+              extension = ".py",
+              exclude = Some("_.*".r.pattern),
+              recursive = false
+            )
+        dagFiles.map { file =>
+          val fileName = file.path.getName
+          val newFileName = s"SL_${projectId}_$fileName"
+          val newPath =
+            new Path(
+              file.path.getParent,
+              newFileName.toLowerCase()
+            ) // should be lowercase like dag ids
+          settings.storageHandler().move(file.path, newPath)
+          newPath
+        }
+      case None =>
+        Nil
+
+    }
   }
 }
 

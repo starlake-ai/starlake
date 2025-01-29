@@ -155,4 +155,4 @@ The Load & Transform steps support multiple configurations for inputs and output
 
 
 # Documentation
-Complete documentation available [here](https://starlake.ai/starlake/docs/intro/)
+Complete documentation available [here](https://docs.starlake.ai/)

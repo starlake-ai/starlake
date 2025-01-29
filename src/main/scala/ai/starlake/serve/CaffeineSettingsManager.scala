@@ -1,6 +1,8 @@
 package ai.starlake.serve
 
+import ai.starlake.config.Settings.Connection
 import ai.starlake.config.{PrivacyLevels, Settings}
+import ai.starlake.schema.model.ConnectionType
 import ai.starlake.utils.Utils
 import com.github.benmanes.caffeine.cache.{Cache, Caffeine}
 
@@ -52,7 +54,22 @@ class CaffeineSettingsManager extends SettingsManager {
           cache.put(sessionId, updatedSession)
           (updatedSession, true)
       }
-    val apiConfigWithTenant = settings.appConfig.copy(tenant = tenant)
+    val connections = settings.appConfig.connections
+    val connectionsWithSlDuckDB =
+      connections.get("sl_duckdb") match {
+        case Some(_) => connections
+        case None =>
+          val connectionsWithDuckDB = new Connection(
+            `type` = ConnectionType.JDBC,
+            options = Map(
+              "url"    -> s"jdbc:duckdb:$root/datasets/duckdb.db",
+              "driver" -> "org.duckdb.DuckDBDriver"
+            )
+          )
+          connections + ("sl_duckdb" -> connectionsWithDuckDB)
+      }
+    val apiConfigWithTenant =
+      settings.appConfig.copy(tenant = tenant, connections = connectionsWithSlDuckDB)
     (settings.copy(appConfig = apiConfigWithTenant), fromCache)
   }
 
