@@ -2,7 +2,7 @@
 
 **starlake-dagster** is the **[Starlake](https://starlake.ai)** Python Distribution for **Dagster**.
 
-It is recommended to use it in combinaison with **[starlake dag generation](https://starlake.ai/starlake/docs/guides/orchestrate/customization)**, but can be used directly as is in your **DAGs**.
+It is recommended to use it in combinaison with **[starlake dag generation](https://docs.starlake.ai/guides/orchestrate/customization)**, but can be used directly as is in your **DAGs**.
 
 ## Prerequisites
 
@@ -19,11 +19,11 @@ pip install starlake-orchestration[dagster] --upgrade
 
 ## StarlakeDagsterJob
 
-`ai.starlake.dagster.StarlakeDagsterJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Dagster node** that will run the [import](https://starlake.ai/starlake/docs/cli/import), [load](https://starlake.ai/starlake/docs/category/load) and [transform](https://starlake.ai/starlake/docs/category/transform) starlake commands.
+`ai.starlake.dagster.StarlakeDagsterJob` is an **abstract factory class** that extends the generic factory interface `ai.starlake.job.IStarlakeJob` and is responsible for **generating** the **Dagster node** that will run the [import](https://starlake.ai/starlake/docs/cli/import), [load](https://docs.starlake.ai/category/load) and [transform](https://docs.starlake.ai/category/transform) starlake commands.
 
 ### sl_import
 
-It generates the Dagster node that will run the starlake [import](https://starlake.ai/starlake/docs/cli/import) command.
+It generates the Dagster node that will run the starlake [import](https://docs.starlake.ai/cli/import) command.
 
 ```python
 def sl_import(
@@ -43,7 +43,7 @@ def sl_import(
 
 ### sl_load
 
-It generates the Dagster node that will run the starlake [load](https://starlake.ai/starlake/docs/cli/load) command.
+It generates the Dagster node that will run the starlake [load](https://docs.starlake.ai/cli/load) command.
 
 ```python
 def sl_load(
@@ -65,7 +65,7 @@ def sl_load(
 
 ### sl_transform
 
-It generates the Dagster node that will run the starlake [transform](https://starlake.ai/starlake/docs/cli/transform) command.
+It generates the Dagster node that will run the starlake [transform](https://docs.starlake.ai/cli/transform) command.
 
 ```python
 def sl_transform(
