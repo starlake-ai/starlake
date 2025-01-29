@@ -514,7 +514,7 @@ __New feature__:
 # 0.3.1
 __New feature__:
 - Update Kafka / BigQuery libraries
-- Add new  [preset env vars](https://starlake-ai.github.io/starlake/docs/reference/environment#preset-variables)
+- Add new  [preset env vars](https://docs.starlake.ai/configuration/environment#predefined-variables)
 - Allow renaming of domains and schemas
 
 # 0.3.0
