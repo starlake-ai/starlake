@@ -3,8 +3,11 @@ package ai.starlake.utils
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.sql.SQLUtils
+import better.files.File
 import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
+import org.apache.spark.deploy.PythonRunner
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions.JDBC_PREFER_TIMESTAMP_NTZ
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils.getJdbcType
@@ -351,5 +354,33 @@ object SparkUtils extends StrictLogging {
       }
     logger.info(s"Successfully executed statement id $sqlId")
     result
+  }
+
+  def runPySpark(pythonFile: Path, commandParameters: Map[String, String])(implicit
+    settings: Settings
+  ): Unit = {
+    // We first download locally all files because PythonRunner only support local filesystem
+    val pyFiles =
+      pythonFile +: settings.sparkConfig
+        .getString("pyFiles")
+        .split(",")
+        .filter(_.nonEmpty)
+        .map(x => new Path(x.trim))
+    val directory = new Path(File.newTemporaryDirectory().pathAsString)
+    logger.info(s"Python local directory is $directory")
+    pyFiles.foreach { pyFile =>
+      val pyName = pyFile.getName
+      settings.storageHandler().copyToLocal(pyFile, new Path(directory, pyName))
+    }
+    val pythonParams = commandParameters.flatMap { case (name, value) =>
+      List(s"""--$name""", s"""$value""")
+    }.toArray
+
+    PythonRunner.main(
+      Array(
+        new Path(directory, pythonFile.getName).toString,
+        pyFiles.mkString(",")
+      ) ++ pythonParams
+    )
   }
 }
