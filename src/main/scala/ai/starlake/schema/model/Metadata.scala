@@ -158,12 +158,14 @@ case class Metadata(
 
     val loaderErrors =
       Set("native", "spark").contains(loader.getOrElse("spark")) match {
+        case false if loader.getOrElse("").isEmpty =>
+          Right(true)
         case false if this.resolveFormat() != Format.DATAFRAME =>
           Left(
             List(
               ValidationMessage(
                 Error,
-                "Table metadata",
+                s"Table metadata $domainName.$tableName",
                 s"loader: $loader is not a valid loader. Valid loaders are native, spark"
               )
             )

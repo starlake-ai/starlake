@@ -315,7 +315,7 @@ case class Schema(
     }
 
     attributes.foreach { attribute =>
-      for (errors <- attribute.checkValidity(schemaHandler).left) {
+      for (errors <- attribute.checkValidity(schemaHandler, domainName, this).left) {
         errorList ++= errors
       }
     }

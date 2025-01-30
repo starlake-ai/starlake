@@ -105,7 +105,12 @@ case class Attribute(
     * @return
     *   true if attribute is valid
     */
-  def checkValidity(schemaHandler: SchemaHandler): Either[List[ValidationMessage], Boolean] = {
+  def checkValidity(
+    schemaHandler: SchemaHandler,
+    domainName: String,
+    schema: Schema
+  ): Either[List[ValidationMessage], Boolean] = {
+    val tableName = schema.getName()
     val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
     if (`type` == null)
       errorList +=
@@ -116,7 +121,7 @@ case class Attribute(
     if (!rename.forall(colNamePattern.matcher(_).matches()))
       errorList += ValidationMessage(
         Error,
-        "Attribute.rename",
+        s"Attribute.rename in table $domainName.$tableName",
         s"rename: renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
       )
 
@@ -127,20 +132,20 @@ case class Attribute(
         if (tpe == PrimitiveType.struct && attributes.isEmpty)
           errorList += ValidationMessage(
             Error,
-            "Attribute.primitiveType",
+            s"Attribute.primitiveType in table $domainName.$tableName",
             s"Attribute $this : Struct types must have at least one attribute."
           )
         if (tpe != PrimitiveType.struct && attributes.nonEmpty)
           errorList += ValidationMessage(
             Error,
-            "Attribute.primitiveType",
+            s"Attribute.primitiveType in table $domainName.$tableName",
             s" $this : Simple attributes cannot have sub-attributes"
           )
       case None if attributes.isEmpty =>
         errorList +=
           ValidationMessage(
             Error,
-            "Attribute.primitiveType",
+            s"Attribute.primitiveType in table $domainName.$tableName",
             s"Invalid Type ${`type`}"
           )
       case _ => // good boy
@@ -150,14 +155,14 @@ case class Attribute(
       if (resolveRequired())
         errorList += ValidationMessage(
           Error,
-          "Attribute.default",
+          s"Attribute.default in table $domainName.$tableName",
           s"attribute with name $name - default value valid for optional fields only"
         )
       primitiveType.foreach { primitiveType =>
         if (primitiveType == PrimitiveType.struct)
           errorList += ValidationMessage(
             Error,
-            "Attribute.default",
+            s"Attribute.default in table $domainName.$tableName",
             s"attribute with name $name - default value not valid for struct type fields"
           )
         `type`(schemaHandler).foreach { someTpe =>
@@ -166,7 +171,7 @@ case class Attribute(
             case Failure(e) =>
               errorList += ValidationMessage(
                 Error,
-                "Attribute.default",
+                s"Attribute.default in table $domainName.$tableName",
                 s"attribute with name $name - Invalid default value for this attribute type ${e.getMessage()}"
               )
           }
@@ -176,7 +181,7 @@ case class Attribute(
         if (isArray)
           errorList += ValidationMessage(
             Error,
-            "Attribute.array",
+            s"Attribute.array in table $domainName.$tableName",
             s"attribute with name $name: default value not valid for array fields"
           )
       }
@@ -186,7 +191,7 @@ case class Attribute(
       case (Some(_), true) =>
         ValidationMessage(
           Warning,
-          "Attribute.script",
+          s"Attribute.script in table $domainName.$tableName",
           s"script: Attribute $name : Scripted attributed cannot be required. It will be forced to optional"
         )
       case (_, _) =>

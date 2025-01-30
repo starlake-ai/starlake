@@ -66,25 +66,28 @@ object SingleUserMainServer {
         SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.types(reload)(settings))
       case _ =>
         val errCapture = new ByteArrayOutputStream()
-        Console.withErr(errCapture) {
-          val result = SingleUserServices.core(args, reload)(settings)
-          result match {
-            case Failure(e: IllegalArgumentException) =>
-              s"""
+        val outCapture = new ByteArrayOutputStream()
+        Console.withOut(outCapture) {
+          Console.withErr(errCapture) {
+            val result = SingleUserServices.core(args, reload)(settings)
+            result match {
+              case Failure(e: IllegalArgumentException) =>
+                s"""
               |--------------------------------------------------
               |${errCapture.toString().trim}
               |--------------------------------------------------
               |${e.getMessage}""".stripMargin
-            case Failure(exception) =>
-              val errMessage = Utils.exceptionAsString(exception)
+              case Failure(exception) =>
+                val errMessage = Utils.exceptionAsString(exception)
 
-              SingleUserMainServer.mapper.writeValueAsString(
-                Response(errMessage)
-              )
-            case Success(_) =>
-              SingleUserMainServer.mapper.writeValueAsString(
-                Response("Serving")
-              )
+                SingleUserMainServer.mapper.writeValueAsString(
+                  Response(errMessage)
+                )
+              case Success(_) =>
+                SingleUserMainServer.mapper.writeValueAsString(
+                  Response(outCapture.toString.trim)
+                )
+            }
           }
         }
     }
