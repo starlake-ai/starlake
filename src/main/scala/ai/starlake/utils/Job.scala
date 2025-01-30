@@ -1,6 +1,7 @@
 package ai.starlake.utils
 
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
+import ai.starlake.schema.model.ValidationMessage
 import com.google.gson.Gson
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path

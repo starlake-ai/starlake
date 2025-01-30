@@ -49,7 +49,7 @@ class SchemaSpec extends TestHelper {
         ) // Should raise an error. Privacy cannot be applied on types other than string
       )
 
-      attr.checkValidity(schemaHandler) shouldBe Left(
+      attr.checkValidity(schemaHandler, "ignore", new Schema()) shouldBe Left(
         List(
           ValidationMessage(Error, "Attribute.primitiveType", "Invalid Type invalid-type")
         )
@@ -69,7 +69,7 @@ class SchemaSpec extends TestHelper {
           )
         ) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
       )
-      attr.checkValidity(schemaHandler) shouldBe Right(true)
+      attr.checkValidity(schemaHandler, "ignore", new Schema()) shouldBe Right(true)
     }
 
     "Sub Attribute" should "be present for struct types only" in {
@@ -94,7 +94,7 @@ class SchemaSpec extends TestHelper {
         )
       )
 
-      attr.checkValidity(schemaHandler) shouldBe Left(expectedErrors)
+      attr.checkValidity(schemaHandler, "ignore", new Schema()) shouldBe Left(expectedErrors)
     }
 
     "Position serialization" should "output all fields" in {
@@ -119,7 +119,7 @@ class SchemaSpec extends TestHelper {
     "Default value for an attribute" should "only be used for non obligatory fields" in {
       val requiredAttribute =
         Attribute("requiredAttribute", "long", required = Some(true), default = Some("10"))
-      requiredAttribute.checkValidity(schemaHandler) shouldBe Left(
+      requiredAttribute.checkValidity(schemaHandler, "ignore", new Schema()) shouldBe Left(
         List(
           ValidationMessage(
             Error,
@@ -131,7 +131,7 @@ class SchemaSpec extends TestHelper {
 
       val optionalAttribute =
         Attribute("optionalAttribute", "long", required = Some(false), default = Some("10"))
-      optionalAttribute.checkValidity(schemaHandler) shouldBe Right(true)
+      optionalAttribute.checkValidity(schemaHandler, "ignore", new Schema()) shouldBe Right(true)
     }
     "Ignore attribute " should "be used only when file format is flat DSV, JSON_FLAT, POSITION" in {
       val meta = new Metadata(

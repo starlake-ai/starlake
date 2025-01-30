@@ -49,6 +49,9 @@ object ValidateCmd extends Cmd[ValidateConfig] {
         } else
           // scalastyle:off println
           println("No errors or warnings found")
+        errorsAndWarning.foreach { msg =>
+          println(msg.toString())
+        }
     }
     errorsAndWarning.map(_ => JobResult.empty)
   }
