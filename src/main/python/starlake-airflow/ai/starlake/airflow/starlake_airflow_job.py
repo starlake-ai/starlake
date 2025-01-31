@@ -24,8 +24,6 @@ from airflow.operators.dummy import DummyOperator
 
 from airflow.operators.python import ShortCircuitOperator
 
-from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
-
 DEFAULT_POOL:str ="default_pool"
 
 DEFAULT_DAG_ARGS = {
@@ -174,6 +172,8 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
             Optional[BaseOperator]: The Airflow task or None.
         """
         def skip_or_start(upstream_task: BaseOperator, **kwargs) -> bool:
+            from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
+
             if isinstance(upstream_task, DataprocSubmitJobOperator):
                 job = upstream_task.hook.get_job(
                     job_id=upstream_task.job_id, 

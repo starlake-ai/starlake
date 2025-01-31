@@ -14,12 +14,6 @@ from ai.starlake.airflow import StarlakeAirflowJob, StarlakeAirflowOptions
 
 from airflow.models.baseoperator import BaseOperator
 
-from airflow.providers.google.cloud.operators.dataproc import (
-    DataprocCreateClusterOperator,
-    DataprocSubmitJobOperator,
-    DataprocDeleteClusterOperator,
-)
-
 from airflow.utils.trigger_rule import TriggerRule
 
 class StarlakeAirflowDataprocMasterConfig(StarlakeDataprocMasterConfig, StarlakeAirflowOptions):
@@ -124,6 +118,8 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
 
         spark_events_bucket = f'dataproc-{self.cluster_config.project_id}'
 
+        from airflow.providers.google.cloud.operators.dataproc import     DataprocCreateClusterOperator
+
         return DataprocCreateClusterOperator(
             task_id=task_id,
             project_id=self.cluster_config.project_id,
@@ -153,6 +149,9 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
             'pool': kwargs.get('pool', self.pool),
             'trigger_rule': kwargs.get('trigger_rule', TriggerRule.NONE_SKIPPED)
         })
+
+        from airflow.providers.google.cloud.operators.dataproc import DataprocDeleteClusterOperator
+
         return DataprocDeleteClusterOperator(
             task_id=task_id,
             project_id=self.cluster_config.project_id,
@@ -202,6 +201,8 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
         })
 
         job_id = task_id + "_" + str(uuid.uuid4())[:8]
+
+        from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
 
         return DataprocSubmitJobOperator(
             task_id=task_id,
