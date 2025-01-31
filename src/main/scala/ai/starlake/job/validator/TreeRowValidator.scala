@@ -1,6 +1,6 @@
 package ai.starlake.job.validator
 
-import ai.starlake.config.{CometColumns, PrivacyLevels, Settings}
+import ai.starlake.config.{CometColumns, PrivacyLevels}
 import ai.starlake.job.ingest.IngestionUtil
 import ai.starlake.schema.model.{Attribute, Format, TransformInput, Type}
 import ai.starlake.utils.{TransformEngine, Utils}
