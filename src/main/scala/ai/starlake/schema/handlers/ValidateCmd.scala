@@ -2,6 +2,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
+import ai.starlake.job.transform.AutoTask
 import ai.starlake.utils.JobResult
 import scopt.OParser
 
@@ -33,6 +34,7 @@ object ValidateCmd extends Cmd[ValidateConfig] {
   override def run(config: ValidateConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
+    validateConnections()
     val errorsAndWarning = schemaHandler.checkValidity(config)
     errorsAndWarning match {
       case Failure(error) =>
@@ -54,5 +56,34 @@ object ValidateCmd extends Cmd[ValidateConfig] {
         }
     }
     errorsAndWarning.map(_ => JobResult.empty)
+  }
+
+  def validateConnections()(implicit
+    settings: Settings
+  ) = {
+    settings.appConfig.connections.keys.foreach { connectionName =>
+      AutoTask
+        .executeQuery(
+          "__ignore__",
+          "__ignore__",
+          "SELECT 1",
+          summarizeOnly = false,
+          connectionName,
+          None,
+          test = false
+        )(
+          settings,
+          settings.storageHandler(),
+          settings.schemaHandler()
+        ) match {
+        case Success(_) =>
+          // scalastyle:off println
+          println(s"SUCCESS: Connection $connectionName is valid")
+        case Failure(exception) =>
+          // scalastyle:off println
+          println(s"ERROR: Connection $connectionName is invalid")
+          exception.printStackTrace()
+      }
+    }
   }
 }
