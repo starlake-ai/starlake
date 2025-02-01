@@ -50,10 +50,10 @@ class StarlakeFargateHelper:
         self._container_name = kwargs.get("container_name", caller_globals.get("aws_task_definition_container_name", job.__class__.get_context_var("aws_task_definition_container_name", None, options)))
         kwargs.pop("container_name", None)
         # overrides aws container cpu
-        self._cpu = kwargs.get("cpu", caller_globals.get("cpu", job.__class__.get_context_var("cpu", 1024, options)))
+        self._cpu: int = int(kwargs.get("cpu", caller_globals.get("cpu", job.__class__.get_context_var("cpu", 1024, options))))
         kwargs.pop("cpu", None)
         # overrides aws container memory
-        self._memory = kwargs.get("memory", caller_globals.get("memory", job.__class__.get_context_var("memory", 2048, options)))
+        self._memory: int = int(kwargs.get("memory", caller_globals.get("memory", job.__class__.get_context_var("memory", 2048, options))))
         kwargs.pop("memory", None)
 
         sl_env_vars = job.__class__.get_sl_env_vars(options)
