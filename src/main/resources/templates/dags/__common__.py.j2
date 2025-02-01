@@ -2,7 +2,7 @@ description="""{{ context.config.comment }}"""
 
 template="{{ context.config.template }}"
 
-access_control  = {{ context.config.options|selectattr('sl_airflow_access_control') }}
+access_control  = {{ context.sl_airflow_access_control }}
 
 if not access_control: #FIXME empty list
     access_control = None
