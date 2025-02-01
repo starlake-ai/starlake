@@ -1,8 +1,8 @@
 # This template executes individual fargate jobs and requires the following dag generation options set:
 #
-# - aws_task_definition: the task definition to use for the job [REQUIRED]
+# - aws_task_definition_name: the task definition to use for the job [REQUIRED]
 # - aws_task_definition_container_name: the container name to use for the job [REQUIRED]
-# - aws_cluster: the cluster to use for the job [REQUIRED]
+# - aws_cluster_name: the cluster to use for the job [REQUIRED]
 # - aws_conn_id(aws_default): the connection id to use for the job (if not set, aws_default will be used) [OPTIONAL]
 # - aws_region(eu-west-3): the region where the job is located (if not set, eu-west-3 will be used) [OPTIONAL]
 # - cpu(1024): the cpu to use for the job (if not set, 1024 will be used) [OPTIONAL]
