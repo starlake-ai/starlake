@@ -1,7 +1,7 @@
 {% if materializedView == 'MATERIALIZED_VIEW' %}
 {% set createTable = 'CREATE MATERIALIZED VIEW ' + tableFullName %}
 {% else %}
-{% set createTable = 'CREATE TABLE ' + tableFullName %}
+{% set createTable = 'CREATE TABLE ' + tableFullName + ' ' + sinkTableClusteringClause %}
 {% endif %}
 
 {% if strategyOn == 'TARGET' %}
