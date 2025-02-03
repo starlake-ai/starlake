@@ -161,6 +161,22 @@ launch_starlake() {
 
 
 case "$1" in
+  --version)
+	  echo Starlake $SL_VERSION
+	  echo Duckdb JDBC driver ${DUCKDB_VERSION}
+	  echo BigQuery Spark connector ${SPARK_BQ_VERSION}
+	  echo Hadoop for Azure ${HADOOP_AZURE_VERSION}
+	  echo Azure Storage ${AZURE_STORAGE_VERSION}
+	  echo Spark ${SPARK_VERSION}
+	  echo Hadoop ${HADOOP_VERSION}
+	  echo Snowflake Spark connector ${SPARK_SNOWFLAKE_VERSION}
+	  echo Snowflake JDBC driver ${SNOWFLAKE_JDBC_VERSION}
+	  echo Postgres JDBC driver ${POSTGRESQL_VERSION}
+	  echo AWS SDK ${AWS_JAVA_SDK_VERSION}
+	  echo Hadoop for AWS ${HADOOP_AWS_VERSION}
+	  echo Redshift JDBC driver ${REDSHIFT_JDBC_VERSION}
+	  echo Redshift Spark connector ${SPARK_REDSHIFT_VERSION}
+    ;;
   install)
     launch_setup
     echo

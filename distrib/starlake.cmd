@@ -38,24 +38,41 @@ IF /i "%language%"=="de" goto languageDE
 SET SL_HTTP_HOST=127.0.0.1
 if "%SL_HTTP_HOST%"=="" SET SL_HTTP_HOST=127.0.0.1
 SET SL_SERVE_URI=http://%SL_HTTP_HOST%:%SL_HTTP_PORT%
-if "%~1"=="install" (
-    call :launch_setup %*
-    echo Installation done. You're ready to enjoy Starlake!
-    echo If any errors happen during installation. Please try to install again or open an issue.
-) else (
-    if "%~1"=="serve" (
-        call :launch_starlake %*
+
+if "%~1"=="--version" (
+	  echo Starlake %SL_VERSION%
+	  echo Duckdb JDBC driver %DUCKDB_VERSION%
+	  echo BigQuery Spark connector %SPARK_BQ_VERSION%
+	  echo Hadoop for Azure %HADOOP_AZURE_VERSION%
+	  echo Azure Storage %AZURE_STORAGE_VERSION%
+	  echo Spark %SPARK_VERSION%
+	  echo Hadoop %HADOOP_VERSION%
+	  echo Snowflake Spark connector %SPARK_SNOWFLAKE_VERSION%
+	  echo Snowflake JDBC driver %SNOWFLAKE_JDBC_VERSION%
+	  echo Postgres JDBC driver %POSTGRESQL_VERSION%
+	  echo AWS SDK %AWS_JAVA_SDK_VERSION%
+	  echo Hadoop for AWS %HADOOP_AWS_VERSION%
+	  echo Redshift JDBC driver %REDSHIFT_JDBC_VERSION%
+	  echo Redshift Spark connector %SPARK_REDSHIFT_VERSION%
+   ) else (
+    if "%~1"=="install" (
+        call :launch_setup %*
+        echo Installation done. You're ready to enjoy Starlake!
+        echo If any errors happen during installation. Please try to install again or open an issue.
     ) else (
-        if "%SL_HTTP_PORT%"=="" (
+        if "%~1"=="serve" (
             call :launch_starlake %*
         ) else (
-            FOR %%x IN (validation run transform compile) DO DEL /F /Q %SL_ROOT\%out\%%x.log 2>NUL
-            curl.exe  "%SL_SERVE_URI%?ROOT=%SL_ROOT%&PARAMS=%*"
-            FOR %%x IN (validation run transform compile) DO TYPE  %SL_ROOT%\out\%%x.log 2>NUL
+            if "%SL_HTTP_PORT%"=="" (
+                call :launch_starlake %*
+            ) else (
+                FOR %%x IN (validation run transform compile) DO DEL /F /Q %SL_ROOT\%out\%%x.log 2>NUL
+                curl.exe  "%SL_SERVE_URI%?ROOT=%SL_ROOT%&PARAMS=%*"
+                FOR %%x IN (validation run transform compile) DO TYPE  %SL_ROOT%\out\%%x.log 2>NUL
+            )
         )
     )
 )
-
 goto :eof
 
 :launch_setup
