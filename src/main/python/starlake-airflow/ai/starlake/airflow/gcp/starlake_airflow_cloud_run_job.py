@@ -19,7 +19,7 @@ from airflow.operators.bash import BashOperator
 from airflow.providers.google.cloud.hooks.cloud_run import CloudRunHook
 from airflow.providers.google.cloud.operators.cloud_run import  CloudRunExecuteJobOperator
 
-from airflow.sensors.base import BaseSensorOperator
+from airflow.sensors.base import BaseSensorOperator, PokeReturnValue
 from airflow.sensors.bash import BashSensor
 
 from airflow.utils.context import Context
@@ -173,7 +173,7 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
 
                     job_task >> completion_sensor
 
-                return task_completion_sensors
+            return task_completion_sensors
 
         else: # synchronous job
             if self.use_gcloud:
@@ -249,22 +249,22 @@ class GCloudRunJobCompletionSensor(BashSensor):
         else:
             bash_command=(f"value=`gcloud beta run jobs executions describe {{{{task_instance.xcom_pull(key='return_value', task_ids='{source_task_id}')}}}}  --region {cloud_run_job_region} --project {project_id} --format='value(status.completionTime, status.cancelledCounts)' {impersonate_service_account}| sed 's/[[:blank:]]//g'`; test -n \"$value\"")
 
-        # if kwargs.get('do_xcom_push', False):
-        #     bash_command=f"""
-        #     set -e
-        #     bash -c '
-        #     {bash_command}
-        #     return_code=$?
+        if kwargs.get('do_xcom_push', False) and retry_on_failure:
+            bash_command=f"""
+            set -e
+            bash -c '
+            {bash_command}
+            return_code=$?
 
-        #     # Push the return code to XCom
-        #     echo $return_code
+            # Push the return code to XCom
+            echo $return_code
 
-        #     # Exit with the captured return code if non-zero
-        #     if [ $return_code -ne 0 ]; then
-        #         exit $return_code
-        #     fi
-        #     '
-        #     """
+            # Exit with the captured return code if non-zero
+            if [ $return_code -ne 0 ]; then
+                exit $return_code
+            fi
+            '
+            """
         super().__init__(
             bash_command=bash_command,
             mode="reschedule",
@@ -310,7 +310,14 @@ class CloudRunJobOperator(CloudRunExecuteJobOperator):
             return self.operation.operation.name
 
         else:
-            return super(CloudRunJobOperator, self).execute(context)
+            try:
+                job = super(CloudRunJobOperator, self).execute(context)
+                if self.do_xcom_push:
+                    self.xcom_push(context, key="job", value=job)
+                return True
+            except Exception as e:
+                logger.exception(msg=f"Task {self.task_id} has failed")
+                return False
 
 class CloudRunJobCompletionSensor(BaseSensorOperator):
 
@@ -343,8 +350,14 @@ class CloudRunJobCompletionSensor(BaseSensorOperator):
             # An operation can only have one of those two combinations: if it is failed, then
             # the error field will be populated, else, then the response field will be.
             if operation.error.SerializeToString():
-                raise AirflowException(
-                    f"{operation.error.message} [{operation.error.code}]"
-                )
-            return True
-        return False
+                if self.do_xcom_push:
+                    self.log.error(
+                        f"{operation.error.message} [{operation.error.code}]"
+                    )
+                    return PokeReturnValue(True, False)
+                else:
+                    raise AirflowException(
+                        f"{operation.error.message} [{operation.error.code}]"
+                    )
+            return PokeReturnValue(True, True)
+        return PokeReturnValue(False, False)

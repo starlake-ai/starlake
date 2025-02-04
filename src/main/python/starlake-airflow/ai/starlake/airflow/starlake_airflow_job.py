@@ -24,6 +24,8 @@ from airflow.operators.dummy import DummyOperator
 
 from airflow.operators.python import ShortCircuitOperator
 
+import logging
+
 DEFAULT_POOL:str ="default_pool"
 
 DEFAULT_DAG_ARGS = {
@@ -171,74 +173,57 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         Returns:
             Optional[BaseOperator]: The Airflow task or None.
         """
-        def skip_or_start(upstream_task: BaseOperator, **kwargs) -> bool:
-            from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
+        def f_skip_or_start(upstream_task_id: str, **kwargs) -> bool:
+            logger = logging.getLogger(__name__)
 
-            if isinstance(upstream_task, DataprocSubmitJobOperator):
-                job = upstream_task.hook.get_job(
-                    job_id=upstream_task.job_id, 
-                    project_id=upstream_task.project_id, 
-                    region=upstream_task.region
-                )
-                state = job.status.state
-                from google.cloud.dataproc_v1 import JobStatus
-                if state == JobStatus.State.DONE:
-                    failed = False
-                elif state == JobStatus.State.ERROR:
-                    failed = True
-                    print(f"Job failed:\n{job}")
-                elif state == JobStatus.State.CANCELLED:
-                    failed = True
-                    print(f"Job was cancelled:\n{job}")
-                else:
-                    from airflow.exceptions import AirflowException
-                    raise AirflowException(f"Job is still running:\n{job}")
+            return_value = kwargs['ti'].xcom_pull(task_ids=upstream_task_id, key='return_value')
 
-            else:
-                return_value = kwargs['ti'].xcom_pull(task_ids=upstream_task.task_id, key='return_value')
+            logger.warning(f"Upstream task {upstream_task_id} return value: {return_value}[{type(return_value)}]")
 
-                print(f"Upstream task {upstream_task.task_id} return value: {return_value}[{type(return_value)}]")
-
-                if return_value is None:
-                    failed = True
-                    print("No return value found in XCom.")
-                elif isinstance(return_value, int):
-                    failed = return_value
-                    print(f"Return value: {failed}")
-                elif isinstance(return_value, str):
-                    try:
-                        import ast
-                        parsed_return_value = ast.literal_eval(return_value)
-                        if isinstance(parsed_return_value, int):
-                            failed = parsed_return_value
-                            print(f"Parsed return value: {failed}")
-                        elif isinstance(parsed_return_value, str) and parsed_return_value:
-                            failed = int(parsed_return_value.strip())
-                            print(f"Parsed return value: {failed}")
-                        else:
-                            failed = True
-                            print(f"Parsed return value {parsed_return_value}[{type(parsed_return_value)}] is not a valid integer or is empty.")
-                    except (ValueError, SyntaxError) as e:
+            if return_value is None:
+                failed = True
+                logger.error("No return value found in XCom.")
+            elif isinstance(return_value, bool):
+                failed = not return_value
+            elif isinstance(return_value, int):
+                failed = return_value
+            elif isinstance(return_value, str):
+                try:
+                    import ast
+                    parsed_return_value = ast.literal_eval(return_value)
+                    if isinstance(parsed_return_value, bool):
+                        failed = not parsed_return_value
+                    elif isinstance(parsed_return_value, int):
+                        failed = parsed_return_value
+                    elif isinstance(parsed_return_value, str) and parsed_return_value:
+                        failed = int(parsed_return_value.strip())
+                    else:
                         failed = True
-                        print(f"Error parsing return value: {e}")
-                else:
+                        logger.error(f"Parsed return value {parsed_return_value}[{type(parsed_return_value)}] is not a valid bool, integer or is empty.")
+                except (ValueError, SyntaxError) as e:
                     failed = True
-                    print("Return value is not a valid integer or string.")
+                    logger.error(f"Error parsing return value: {e}")
+            else:
+                failed = True
+                logger.error("Return value is not a valid bool, integer or string.")
+
+            logger.warning(f"Failed: {failed}")
 
             return not failed
 
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
 
-        upstream_task_id = upstream_task.task_id.split('.')[-1]
-        task_id = f"validating_{upstream_task_id}" if not task_id else task_id
+        if not isinstance(upstream_task, BaseOperator):
+            raise ValueError("The upstream task must be an instance of BaseOperator.")
+        upstream_task_id = upstream_task.task_id
+        task_id = task_id or f"validating_{upstream_task_id.split('.')[-1]}"
         kwargs.pop("task_id", None)
 
         return ShortCircuitOperator(
             task_id = task_id,
-            python_callable = skip_or_start,
-            op_args=[upstream_task],
+            python_callable = f_skip_or_start,
+            op_args=[upstream_task_id],
             op_kwargs=kwargs,
-            provide_context = True,
             trigger_rule = 'all_done',
             **kwargs
         )
