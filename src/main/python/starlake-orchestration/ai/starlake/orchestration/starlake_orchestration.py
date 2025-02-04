@@ -456,7 +456,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def dummy_task(self, task_id: str, **kwargs) -> AbstractTask[T]:
+    def dummy_task(self, task_id: str, **kwargs) -> Union[AbstractTask[T], AbstractTaskGroup[GT]]:
         pipeline_id = self.pipeline_id
         events = kwargs.get('events', [])
         kwargs.pop('events', None)
@@ -474,7 +474,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
             self
         )
 
-    def trigger_least_frequent_datasets_task(self, **kwargs) -> Optional[AbstractTask[T]]:
+    def trigger_least_frequent_datasets_task(self, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         if not self.least_frequent_datasets:
             return None
         task_id = kwargs.get('task_id', 'trigger_least_frequent_datasets')
@@ -486,7 +486,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def start_task(self, **kwargs) -> AbstractTask[T]:
+    def start_task(self, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         task_id = kwargs.get('task_id', 'start')
         kwargs.pop('task_id', None)
         return self.orchestration.sl_create_task(
@@ -499,7 +499,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def pre_tasks(self, *args, **kwargs) -> Optional[AbstractTask[T]]:
+    def pre_tasks(self, *args, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         task_id = kwargs.get('task_id', 'pre_tasks')
         kwargs.pop('task_id', None)
         return self.orchestration.sl_create_task(
@@ -509,7 +509,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def sl_pre_load(self, domain: str, tables: Set[str], **kwargs) -> AbstractTask[T]:
+    def sl_pre_load(self, domain: str, tables: Set[str], **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         task_id = kwargs.get('task_id', IStarlakeJob.get_sl_pre_load_task_id(domain, self.pre_load_strategy, **kwargs))
         kwargs.pop('task_id', None)
         return self.orchestration.sl_create_task(
@@ -524,19 +524,44 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def skip_or_start(self, task_id: str, upstream_task: AbstractTask[T], **kwargs) -> Optional[AbstractTask[T]]:
+    def skip_or_start(self, task_id: str, upstream_task: Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]], **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
+        if not upstream_task:
+            return None
+        if isinstance(upstream_task, AbstractTaskGroup):
+            leaves = upstream_task.leaves
+            if leaves.__len__() == 1:
+                last_task = leaves[0]
+                if isinstance(last_task, AbstractTask):
+                    with upstream_task:
+                        skip_or_start_task = self.orchestration.sl_create_task(
+                            task_id, 
+                            self.job.skip_or_start_op(
+                                task_id=task_id, 
+                                upstream_task=last_task.task, 
+                                **kwargs
+                            ),
+                            self
+                        )
+                        last_task >> skip_or_start_task
+                    return None
+                else:
+                    upstream_task = upstream_task.group
+            else:
+                upstream_task = upstream_task.group
+        else:
+            upstream_task = upstream_task.task
         return self.orchestration.sl_create_task(
             task_id, 
             self.job.skip_or_start_op(
                 task_id=task_id, 
-                upstream_task=upstream_task.task, 
+                upstream_task=upstream_task, 
                 **kwargs
             ),
             self
         ) 
 
     @final
-    def sl_import(self, task_id: str, domain: str, tables: set=set(), **kwargs) -> AbstractTask[T]:
+    def sl_import(self, task_id: str, domain: str, tables: set=set(), **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         return self.orchestration.sl_create_task(
             task_id,
             self.job.sl_import(
@@ -549,7 +574,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig, **kwargs) -> AbstractTask[T]:
+    def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         return self.orchestration.sl_create_task(
             task_id, 
             self.job.sl_load(
@@ -563,7 +588,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def sl_transform(self, task_id: str, transform_name: str, transform_options: str = None, spark_config: StarlakeSparkConfig = None, **kwargs) -> AbstractTask[T]:
+    def sl_transform(self, task_id: str, transform_name: str, transform_options: str = None, spark_config: StarlakeSparkConfig = None, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         return self.orchestration.sl_create_task(
             task_id, 
                 self.job.sl_transform(
@@ -577,7 +602,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def post_tasks(self, **kwargs) -> Optional[AbstractTask[T]]:
+    def post_tasks(self, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         task_id = kwargs.get('task_id', 'post_tasks')
         kwargs.pop('task_id', None)
         return self.orchestration.sl_create_task(
@@ -587,7 +612,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def end_task(self, output_datasets: Optional[List[StarlakeDataset]] = None, **kwargs) -> AbstractTask:
+    def end_task(self, output_datasets: Optional[List[StarlakeDataset]] = None, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         pipeline_id = self.pipeline_id
         events = list(map(lambda dataset: self.to_event(dataset=dataset, source=pipeline_id), output_datasets or []))
         task_id = kwargs.get('task_id', 'end')
@@ -642,7 +667,7 @@ class AbstractOrchestration(Generic[U, T, GT, E]):
         """Create a pipeline."""
         pass
 
-    def sl_create_task(self, task_id: str, task: Optional[T], pipeline: AbstractPipeline[U, E]) -> Optional[AbstractTask[T]]:
+    def sl_create_task(self, task_id: str, task: Optional[Union[T, GT]], pipeline: AbstractPipeline[U, E]) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         if task is None:
             return None
         return AbstractTask(task_id, task)

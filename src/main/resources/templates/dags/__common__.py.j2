@@ -4,7 +4,7 @@ template="{{ context.config.template }}"
 
 access_control  = {{ context.sl_airflow_access_control }}
 
-if not access_control: #FIXME empty list
+if not access_control: # If access control is empty, set it to None
     access_control = None
 
 options={
