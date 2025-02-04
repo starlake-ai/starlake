@@ -202,9 +202,7 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
 
         job_id = task_id + "_" + str(uuid.uuid4())[:8]
 
-        from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
-
-        return DataprocSubmitJobOperator(
+        return DataprocJobOperator(
             task_id=task_id,
             project_id=self.cluster_config.project_id,
             region=self.cluster_config.region,
@@ -274,3 +272,24 @@ class StarlakeAirflowDataprocJob(StarlakeAirflowJob):
             StarlakeExecutionEnvironment: The execution environment to use.
         """
         return StarlakeExecutionEnvironment.DATAPROC
+
+from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
+
+class DataprocJobOperator(DataprocSubmitJobOperator):
+    """Dataproc Job Operator"""
+    def __init__(self, project_id: str, region: str, job: dict, **kwargs):
+        kwargs.pop("asynchronous", None) # TODO handle asynchronous dataproc jobs
+        super().__init__(project_id=project_id, region=region, job=job, asynchronous=False, **kwargs)
+
+    def execute(self, context):
+        try:
+            job_id = super().execute(context)
+            if self.do_xcom_push:
+                self.xcom_push(context, key="job_id", value=job_id)
+                return True
+            else:
+                return job_id
+        except Exception as e:
+            if self.do_xcom_push:
+                self.xcom_push(context, key="return_value", value=False)
+            raise e
