@@ -4,9 +4,6 @@ template="{{ context.config.template }}"
 
 access_control  = {{ context.sl_airflow_access_control }}
 
-if not access_control: # If access control is empty, set it to None
-    access_control = None
-
 options={
     {% for option in context.config.options %}'{{ option.name }}':'{{ option.value }}'{% if not loop.last  %}, {% endif %}
     {% endfor %}
