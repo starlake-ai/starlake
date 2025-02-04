@@ -42,7 +42,7 @@ object Versions {
   val jSqlTranspiler = "0.7-SNAPSHOT"
   val bigQueue = "0.7.0"
   val redshiftJDBC = "2.1.0.32"
-  val scalaCompat = "2.12.0"
+  val scalaCompat = "2.13.0"
   val scalaParallelCollections = "1.0.4"
   val derbyVersion = "10.14.2.0" // last version compatible with Java 8
   val jSqlFormatter = "5.1-SNAPSHOT"
