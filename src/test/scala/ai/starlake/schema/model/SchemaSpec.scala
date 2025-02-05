@@ -51,12 +51,16 @@ class SchemaSpec extends TestHelper {
 
       attr.checkValidity(schemaHandler, "ignore", new Schema()) shouldBe Left(
         List(
-          ValidationMessage(Error, "Attribute.primitiveType", "Invalid Type invalid-type")
+          ValidationMessage(
+            Error,
+            "Attribute.primitiveType in table ignore.",
+            "Invalid Type invalid-type"
+          )
         )
       )
     }
 
-    "Attribute privacy" should "appliable to any type" in {
+    "Attribute privacy" should "applicable to any type" in {
       val attr = Attribute(
         "attr",
         "long",
@@ -89,7 +93,7 @@ class SchemaSpec extends TestHelper {
       val expectedErrors = List(
         ValidationMessage(
           Error,
-          "Attribute.primitiveType",
+          "Attribute.primitiveType in table ignore.",
           "Attribute Attribute(attr,struct,true,true,ApproxLong(20),None,None,None,List(),None,None,Set()) : Struct types must have at least one attribute."
         )
       )
@@ -123,7 +127,7 @@ class SchemaSpec extends TestHelper {
         List(
           ValidationMessage(
             Error,
-            "Attribute.default",
+            "Attribute.default in table ignore.",
             s"attribute with name ${requiredAttribute.name} - default value valid for optional fields only"
           )
         )
