@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
 
@@ -24,13 +24,14 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
         """
         return StarlakeExecutionEnvironment.SHELL
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
+    def sl_job(self, task_id: str, arguments: list, spark_config: Optional[StarlakeSparkConfig] = None, **kwargs) -> BaseOperator:
         """Overrides StarlakeAirflowJob.sl_job()
         Generate the Airflow task that will run the starlake command.
 
         Args:
             task_id (str): The required task id.
             arguments (list): The required arguments of the starlake command to run.
+            spark_config (Optional[StarlakeSparkConfig], optional): The optional spark configuration. Defaults to None.
 
         Returns:
             BaseOperator: The Airflow task.

@@ -154,11 +154,49 @@ class AirflowOrchestration(AbstractOrchestration[DAG, BaseOperator, TaskGroup, D
             self
         )
 
-    def sl_create_task(self, task_id: str, task: Optional[BaseOperator], pipeline: AbstractPipeline[DAG, Dataset]) -> Optional[AbstractTask[BaseOperator]]:
+    def sl_create_task(self, task_id: str, task: Optional[Union[BaseOperator, TaskGroup]], pipeline: AbstractPipeline[DAG, Dataset]) -> Optional[Union[AbstractTask[BaseOperator], AbstractTaskGroup[TaskGroup]]]:
         if task is None:
             return None
+
         task.dag = pipeline.dag
-        return AbstractTask(task_id, task)
+
+        if isinstance(task, TaskGroup):
+            task_group = AirflowTaskGroup(
+                group_id = task.group_id.split('.')[-1],
+                group = task, 
+                dag = pipeline.dag,
+            )
+
+            with task_group:
+
+                tasks = list(task.children.values())
+                # sorted_tasks = []
+                visited = {}
+
+                def visit(t: Union[BaseOperator, TaskGroup]) -> Optional[Union[AbstractTask[BaseOperator], AbstractTaskGroup[TaskGroup]]]:
+                    if isinstance(t, TaskGroup):
+                        v_task_id = t.group_id
+                    else:
+                        v_task_id = t.task_id
+                    if v_task_id in visited.keys():
+                        return visited.get(v_task_id)
+                    v = self.sl_create_task(v_task_id.split('.')[-1], t, pipeline)
+                    visited.update({v_task_id: v})
+                    for upstream in t.upstream_list:  # Visite récursive des tâches en amont
+                        if upstream in tasks:
+                            v_upstream = visit(upstream)
+                            if v_upstream:
+                                task_group.set_dependency(v_upstream, v)
+                    # sorted_tasks.append(t)
+                    return v
+
+                for t in tasks:
+                    visit(t)
+
+            return task_group
+
+        else:
+            return AbstractTask(task_id, task)
 
     def sl_create_task_group(self, group_id: str, pipeline: AbstractPipeline[DAG, Dataset], **kwargs) -> AbstractTaskGroup[TaskGroup]:
         return AirflowTaskGroup(
@@ -176,9 +214,9 @@ class AirflowOrchestration(AbstractOrchestration[DAG, BaseOperator, TaskGroup, D
         Returns:
             Optional[Union[AbstractTask[BaseOperator], AbstractTaskGroup[TaskGroup]]]: the task or task group.
         """
-        if isinstance(native, BaseOperator):
-            return AbstractTask(native.task_id, native)
-        elif isinstance(native, TaskGroup):
+        if isinstance(native, TaskGroup):
             return AirflowTaskGroup(native.group_id, native)
+        elif isinstance(native, BaseOperator):
+            return AbstractTask(native.task_id, native)
         else:
             return None
