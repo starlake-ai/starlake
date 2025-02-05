@@ -1,5 +1,6 @@
 package ai.starlake.extract.sources.googlesheets
 
+import ai.starlake.utils.GcpCredentials
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.sheets.v4.{Sheets, SheetsScopes}
@@ -28,7 +29,8 @@ case class GoogleSheetsExtractorConfig(
 )
 
 object GoogleSheetsExtractor {
-  private val SCOPE = SheetsScopes.SPREADSHEETS_READONLY
+  private val SCOPE_READONLY = SheetsScopes.SPREADSHEETS_READONLY
+  private val SCOPE = SheetsScopes.SPREADSHEETS
 
   def main(args: Array[String]) = {
     run(
@@ -41,7 +43,11 @@ object GoogleSheetsExtractor {
   def run(config: GoogleSheetsExtractorConfig) = {
     val APPLICATION_NAME = "GoogleSheets Extractor"
     val HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport
-    val credentials = GoogleCredentials.getApplicationDefault
+    val connectionOpions = Map(
+      "authType"   -> "APPLICATION_DEFAULT",
+      "authScopes" -> s"$SCOPE,https://www.googleapis.com/auth/cloud-platform,"
+    )
+    val credentials = GcpCredentials.credentials(connectionOpions).get
 
     val spreadsheetId = config.spreadsheets.head.id
     val service =
