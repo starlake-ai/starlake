@@ -1,14 +1,11 @@
 package ai.starlake.extract.sources.googlesheets
 
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
-import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.sheets.v4.{Sheets, SheetsScopes}
 import com.google.auth.http.HttpCredentialsAdapter
 import com.google.auth.oauth2.GoogleCredentials
 
-import java.sql.DriverManager
-import java.util.Collections
 import scala.jdk.CollectionConverters._
 
 /** Configuration for GoogleSheetsExtractor
