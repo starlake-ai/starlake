@@ -696,6 +696,12 @@ class SparkAutoTask(
      */
 
     val twoSteps = strategy.isMerge()
+    if (sinkConnection.isDuckDb()) {
+      JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
+        // do nothing just create the database
+      }
+
+    }
     val result =
       if (twoSteps) {
         val tablePartName = SQLUtils.temporaryTableName(taskDesc.table)

@@ -926,7 +926,7 @@ object LastExportUtils extends LazyLogging {
   def getBoundaries(
     conn: SQLConnection,
     auditConnection: SQLConnection,
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     auditColumns: Columns
   )(implicit settings: Settings): Bounds = {
@@ -1191,7 +1191,7 @@ object LastExportUtils extends LazyLogging {
     */
   private def internalBoundaries[T](
     conn: SQLConnection,
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     hashFunc: Option[String]
   )(apply: PreparedStatement => T): T = {
@@ -1213,7 +1213,7 @@ object LastExportUtils extends LazyLogging {
 
   def getMaxLongFromSuccessfulExport(
     conn: SQLConnection,
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     columnName: String,
     auditColumns: Columns
@@ -1228,7 +1228,7 @@ object LastExportUtils extends LazyLogging {
 
   def getMaxDecimalFromSuccessfulExport(
     conn: SQLConnection,
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     columnName: String,
     auditColumns: Columns
@@ -1243,7 +1243,7 @@ object LastExportUtils extends LazyLogging {
 
   def getMaxTimestampFromSuccessfulExport(
     conn: SQLConnection,
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     columnName: String,
     auditColumns: Columns
@@ -1258,7 +1258,7 @@ object LastExportUtils extends LazyLogging {
 
   def getMaxDateFromSuccessfulExport(
     conn: SQLConnection,
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     columnName: String,
     auditColumns: Columns
@@ -1273,7 +1273,7 @@ object LastExportUtils extends LazyLogging {
 
   private def getMaxValueFromSuccessfulExport[T](
     conn: SQLConnection,
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     columnName: String,
     auditColumns: Columns,

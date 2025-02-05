@@ -75,7 +75,7 @@ case class UserExtractDataConfig(
 
 /** Class used during data extraction process
   */
-case class ExtractDataConfig(
+case class ExtractJdbcDataConfig(
   jdbcSchema: JDBCSchema,
   baseOutputDir: Path,
   limit: Int,

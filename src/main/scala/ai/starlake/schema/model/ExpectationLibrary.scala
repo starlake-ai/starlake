@@ -6,8 +6,14 @@ import org.apache.hadoop.fs.Path
 object ExpectationLibrary {
   def categories()(implicit settings: Settings): List[String] = {
     val path = DatasetArea.expectations
-    settings.storageHandler().list(path, recursive = false).map(_.path.getName)
+    settings
+      .storageHandler()
+      .list(path, recursive = false)
+      .map(_.path.getName)
+      .filter(_.endsWith(".j2"))
+      .map(_.stripSuffix(".j2"))
   }
+
   def expectations(category: String)(implicit settings: Settings): List[String] = {
     val path = DatasetArea.expectations
     val catPath = new Path(path, category + ".j2")

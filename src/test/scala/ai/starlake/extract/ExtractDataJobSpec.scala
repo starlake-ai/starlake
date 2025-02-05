@@ -150,7 +150,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       // Table definition first
       val jdbcConnection = settings.appConfig.connections("test-pg")
       extractDataJob.resolveNumPartitions(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(numPartitions = Some(2)),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -171,7 +171,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // second precedence: jdbcSchema
       extractDataJob.resolveNumPartitions(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(numPartitions = Some(2)),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -192,7 +192,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // default
       extractDataJob.resolveNumPartitions(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(numPartitions = None),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -219,7 +219,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       // Table definition first
       val jdbcConnection: Settings.Connection = settings.appConfig.connections("test-pg")
       extractDataJob.resolveTableStringPartitionFunc(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(stringPartitionFunc = Some("schemaPartitionFunc")),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -240,7 +240,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // second precedence: jdbcSchema
       extractDataJob.resolveTableStringPartitionFunc(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(stringPartitionFunc = Some("schemaPartitionFunc")),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -261,7 +261,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // default
       extractDataJob.resolveTableStringPartitionFunc(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(stringPartitionFunc = None),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -281,7 +281,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       ) shouldBe Some("abs( hashtext({{col}}) % {{nb_partitions}} )")
 
       extractDataJob.resolveTableStringPartitionFunc(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(stringPartitionFunc = None),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -308,7 +308,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       // Table definition first
       val jdbcConnection = settings.appConfig.connections("test-pg")
       extractDataJob.resolvePartitionColumn(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(partitionColumn = Some("schemaPartitionColumn")),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -329,7 +329,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // second precedence: jdbcSchema
       extractDataJob.resolvePartitionColumn(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(partitionColumn = Some("schemaPartitionColumn")),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -350,7 +350,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // none
       extractDataJob.resolvePartitionColumn(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(partitionColumn = None),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -659,7 +659,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -754,7 +754,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -847,7 +847,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -927,7 +927,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -1020,7 +1020,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         )
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           1,
@@ -1121,7 +1121,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -1226,7 +1226,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -1329,7 +1329,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -1419,7 +1419,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -1527,7 +1527,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val allHeaders = ListBuffer[String]()
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -1636,7 +1636,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -1739,7 +1739,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -1842,7 +1842,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -1945,7 +1945,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -2048,7 +2048,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -2151,7 +2151,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -2254,7 +2254,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -2365,7 +2365,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -2479,7 +2479,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -2593,7 +2593,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -2707,7 +2707,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -2821,7 +2821,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -2934,7 +2934,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -3047,7 +3047,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -3160,7 +3160,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -3273,7 +3273,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -3387,7 +3387,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -3501,7 +3501,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -3615,7 +3615,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
           new Path(outputFolder.pathAsString),
           0,
@@ -3812,7 +3812,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      private val extractDataConfig: ExtractDataConfig = ExtractDataConfig(
+      private val extractDataConfig: ExtractJdbcDataConfig = ExtractJdbcDataConfig(
         JDBCSchema().copy(schema = "public"),
         new Path(outputFolder.pathAsString),
         0,
@@ -3902,7 +3902,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // CLI case which can be only incremental
       extractDataJob.isTableFullExport(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(fullExport = Some(true)),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -3923,7 +3923,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // table case
       extractDataJob.isTableFullExport(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(fullExport = Some(true)),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -3944,7 +3944,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // schema case
       extractDataJob.isTableFullExport(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(fullExport = Some(false)),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -3965,7 +3965,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // default case which is true
       extractDataJob.isTableFullExport(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(fullExport = None),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -3994,7 +3994,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // table case
       extractDataJob.computeTableFetchSize(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(fetchSize = Some(100)),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -4015,7 +4015,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // schema case
       extractDataJob.computeTableFetchSize(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(fetchSize = Some(100)),
           baseOutputDir = new Path("."),
           limit = 1,
@@ -4036,7 +4036,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       // default case which is true
       extractDataJob.computeTableFetchSize(
-        ExtractDataConfig(
+        ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(fetchSize = None),
           baseOutputDir = new Path("."),
           limit = 1,
