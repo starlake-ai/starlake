@@ -89,7 +89,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
       .foreach { jdbcSchema =>
         assert(config.numPartitions > 0)
         extractData(
-          ExtractDataConfig(
+          ExtractJdbcDataConfig(
             jdbcSchema,
             dataOutputDir(config.outputDir),
             config.limit,
@@ -134,7 +134,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     * @param settings
     */
   private def extractData(
-    extractConfig: ExtractDataConfig
+    extractConfig: ExtractJdbcDataConfig
   )(implicit
     settings: Settings,
     schemaHandler: SchemaHandler,
@@ -259,7 +259,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
   }
 
   private def computePartitionConfig(
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     domainName: String,
     tableName: TableName,
     currentTableDefinition: Option[JDBCTable],
@@ -290,7 +290,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
   }
 
   private[extract] def resolveTableStringPartitionFunc(
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     currentTableDefinition: Option[JDBCTable]
   ): Option[TableName] = {
     currentTableDefinition
@@ -302,7 +302,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
   }
 
   private[extract] def resolveNumPartitions(
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     currentTableDefinition: Option[JDBCTable]
   ): Int = {
     currentTableDefinition
@@ -314,7 +314,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
   }
 
   private[extract] def resolvePartitionColumn(
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     currentTableDefinition: Option[JDBCTable]
   ) = {
     currentTableDefinition
@@ -348,7 +348,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     * If not set, default from JDBC driver is used
     */
   private[extract] def computeTableFetchSize(
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     currentTableDefinition: Option[JDBCTable]
   ): Option[Int] = {
     currentTableDefinition
@@ -364,7 +364,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     *   - true if not defined
     */
   private[extract] def isTableFullExport(
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     currentTableDefinition: Option[JDBCTable]
   ): Boolean = {
     extractConfig.cliFullExport
@@ -385,14 +385,14 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     * @return
     */
   private def isProcessTablesExtraction(
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     filteredJdbcSchema: JDBCSchema
   ) = {
     extractConfig.jdbcSchema.tables.isEmpty || filteredJdbcSchema.tables.nonEmpty
   }
 
   def isExtractionNeeded(
-    extractDataConfig: ExtractDataConfig,
+    extractDataConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     auditColumns: Columns
   )(implicit settings: Settings): Boolean = {
@@ -435,7 +435,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
   }
 
   private[extract] def extractTableData(
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     context: String,
     auditColumns: Columns,
@@ -639,7 +639,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     *   expression to use in order to distribute data.
     */
   def sqlFetchQuery(
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     boundary: BoundaryDef,
     columnToDistribute: Option[String] = None
@@ -673,7 +673,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
   }
 
   private def computePrepareStatement(
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     bounds: BoundaryDef,
     boundaryContext: String,
@@ -762,7 +762,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
   }
 
   private def getBoundaries(
-    extractConfig: ExtractDataConfig,
+    extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     context: TableName,
     auditColumns: Columns

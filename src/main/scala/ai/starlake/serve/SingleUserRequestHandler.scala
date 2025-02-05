@@ -15,7 +15,11 @@ class SingleUserRequestHandler extends HttpServlet {
     val root = Option(req.getParameter("ROOT")).getOrElse(File.temp.pathAsString)
     val env = Option(req.getParameter("ENV"))
     val metadata = Option(req.getParameter("METADATA"))
-    val duckDbMode = Option(req.getParameter("SL_DUCKDB_MODE")).getOrElse("false").toBoolean
+    val duckDbMode =
+      Option(req.getParameter("SL_DUCKDB_MODE"))
+        .orElse(Option(req.getParameter("SL_DUAL_MODE")))
+        .getOrElse("false")
+        .toBoolean
     val gcpProject =
       Option(req.getParameter("SL_DATABASE"))
         .filter(_.nonEmpty)
@@ -26,6 +30,7 @@ class SingleUserRequestHandler extends HttpServlet {
     System.out.println(s"ENV=$env")
     System.out.println(s"SL_DATABASE=$gcpProject")
     System.out.println(s"SL_DUCKDB_MODE=$duckDbMode")
+    System.out.println(s"SL_DUAL_MODE=$duckDbMode")
     try {
       val response = SingleUserMainServer.run(root, metadata, params, env, gcpProject, duckDbMode)
       resp.setStatus(HttpServletResponse.SC_OK)
