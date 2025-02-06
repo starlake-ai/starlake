@@ -9,7 +9,7 @@ import ai.starlake.utils.{GcpCredentials, Utils}
 import better.files.File
 import com.google.api.gax.core.FixedCredentialsProvider
 import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
-import com.google.cloud.datacatalog.v1.{Schema, _}
+import com.google.cloud.datacatalog.v1._
 import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.{
   GoogleCredentials => GcsGoogleCredentials,
   ServiceAccountCredentials => GcsServiceAccountCredentials,
