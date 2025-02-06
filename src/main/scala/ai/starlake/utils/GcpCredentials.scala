@@ -1,6 +1,6 @@
 package ai.starlake.utils
 
-import ai.starlake.job.sink.bigquery.BigQueryJobBase.{getJsonKeyStream, logger}
+import ai.starlake.job.sink.bigquery.BigQueryJobBase.getJsonKeyStream
 import com.google.auth.Credentials
 import com.google.auth.oauth2.{
   AccessToken,
@@ -8,7 +8,6 @@ import com.google.auth.oauth2.{
   ServiceAccountCredentials,
   UserCredentials
 }
-
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.util.{Failure, Success, Try}
