@@ -22,7 +22,7 @@ trait TransformCmd extends Cmd[TransformConfig] {
         .opt[String]("name")
         .action((x, c) => c.copy(name = x))
         .required()
-        .text("Task Name"),
+        .text("Task Name in the form domain.task"),
       builder
         .opt[Unit]("compile")
         .action((_, c) => c.copy(compile = true))
