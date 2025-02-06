@@ -172,8 +172,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     val userConfig = Settings.referenceConfig.getString("dagAccess.airflow.user")
     val opsConfig = Settings.referenceConfig.getString("dagAccess.airflow.ops")
     val result =
-      s"""
-         |{
+      s"""{
          |"SL_${projectId}_VIEWER":
          |    $viewerConfig,
          |"SL_${projectId}_USER":
