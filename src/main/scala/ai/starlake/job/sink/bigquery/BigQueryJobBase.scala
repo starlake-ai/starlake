@@ -10,11 +10,15 @@ import better.files.File
 import com.google.api.gax.core.FixedCredentialsProvider
 import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1.{Schema, _}
-import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.{GoogleCredentials => GcsGoogleCredentials, ServiceAccountCredentials => GcsServiceAccountCredentials, UserCredentials => GcsUserCredentials}
+import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.{
+  GoogleCredentials => GcsGoogleCredentials,
+  ServiceAccountCredentials => GcsServiceAccountCredentials,
+  UserCredentials => GcsUserCredentials
+}
 import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.{Credentials => GcsCredentials}
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.storage.{Storage, StorageOptions}
 import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
-import com.google.iam.v1.{Binding, SetIamPolicyRequest, Policy => IAMPolicy}
+import com.google.iam.v1.{Binding, Policy => IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.DataFrame
