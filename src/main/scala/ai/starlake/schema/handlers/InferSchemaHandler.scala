@@ -25,28 +25,205 @@ import ai.starlake.schema.exceptions.InvalidFieldNameException
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerde
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
+import org.apache.spark.sql.{Column, DataFrame}
+import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.functions.{
+  coalesce,
+  col,
+  collect_set,
+  lit,
+  max,
+  reduce,
+  trim,
+  udf,
+  when
+}
+import org.apache.spark.sql.types.{
+  ArrayType,
+  ByteType,
+  DataType,
+  IntegerType,
+  LongType,
+  ShortType,
+  StringType,
+  StructField,
+  StructType,
+  TimestampType
+}
 
-import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
-import scala.collection.GenSeq
 import scala.util.Try
 
-object InferSchemaHandler {
-  val datePattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}".r.pattern
+object DataTypesToInt extends Enumeration {
+  type DataTypeToInt = Value
+  // The id of the enum corresponds to the precedence. Higher int is higher precedence
+  val NULL, BYTE, BOOLEAN, DATE, BASIC_ISO_DATE, ISO_OFFSET_DATE, ISO_DATE_TIME, ISO_ORDINAL_DATE,
+    ISO_WEEK_DATE, RFC_1123_DATE_TIME, TIMESTAMP, SHORT, INT, LONG, DOUBLE, DECIMAL, STRING, STRUCT,
+    VARIANT = Value
 
-  def parseIsoInstant(str: String): Boolean = {
-    try {
-      ZonedDateTime.parse(str, DateTimeFormatter.ISO_DATE_TIME)
-      true
-    } catch {
-      case e: java.time.format.DateTimeParseException => false
-    }
+  def dataTypeToTypeInt(dataType: DataType) = PrimitiveType.from(dataType) match {
+    case PrimitiveType.string    => DataTypesToInt.STRING.id
+    case PrimitiveType.variant   => DataTypesToInt.VARIANT.id
+    case PrimitiveType.long      => DataTypesToInt.LONG.id
+    case PrimitiveType.int       => DataTypesToInt.INT.id
+    case PrimitiveType.short     => DataTypesToInt.SHORT.id
+    case PrimitiveType.double    => DataTypesToInt.DOUBLE.id
+    case PrimitiveType.decimal   => DataTypesToInt.DECIMAL.id
+    case PrimitiveType.boolean   => DataTypesToInt.BOOLEAN.id
+    case PrimitiveType.byte      => DataTypesToInt.BYTE.id
+    case PrimitiveType.struct    => DataTypesToInt.STRUCT.id
+    case PrimitiveType.date      => DataTypesToInt.DATE.id
+    case PrimitiveType.timestamp => DataTypesToInt.TIMESTAMP.id
   }
 
+  def typeIntToTypeStr(primitiveTypeInt: Int): String = DataTypesToInt(primitiveTypeInt) match {
+    case DataTypesToInt.STRING             => PrimitiveType.string.value
+    case DataTypesToInt.VARIANT            => PrimitiveType.variant.value
+    case DataTypesToInt.LONG               => PrimitiveType.long.value
+    case DataTypesToInt.INT                => PrimitiveType.int.value
+    case DataTypesToInt.SHORT              => PrimitiveType.short.value
+    case DataTypesToInt.DOUBLE             => PrimitiveType.double.value
+    case DataTypesToInt.DECIMAL            => PrimitiveType.decimal.value
+    case DataTypesToInt.BOOLEAN            => PrimitiveType.boolean.value
+    case DataTypesToInt.BYTE               => PrimitiveType.byte.value
+    case DataTypesToInt.STRUCT             => PrimitiveType.struct.value
+    case DataTypesToInt.DATE               => PrimitiveType.date.value
+    case DataTypesToInt.TIMESTAMP          => PrimitiveType.timestamp.value
+    case DataTypesToInt.ISO_DATE_TIME      => "iso_date_time"
+    case DataTypesToInt.BASIC_ISO_DATE     => "basic_iso_date"
+    case DataTypesToInt.ISO_OFFSET_DATE    => "iso_offset_date"
+    case DataTypesToInt.ISO_DATE_TIME      => "iso_date_time"
+    case DataTypesToInt.ISO_ORDINAL_DATE   => "iso_ordinal_date"
+    case DataTypesToInt.ISO_WEEK_DATE      => "iso_week_date"
+    case DataTypesToInt.RFC_1123_DATE_TIME => "rfc_1123_date_time"
+    case DataTypesToInt.NULL => PrimitiveType.string.value // null type default to string
+  }
+
+  def originalTypeIntToTypeStr(primitiveTypeInt: Int): String = DataTypesToInt(
+    primitiveTypeInt
+  ) match {
+    case DataTypesToInt.STRING             => PrimitiveType.string.value
+    case DataTypesToInt.VARIANT            => PrimitiveType.variant.value
+    case DataTypesToInt.LONG               => PrimitiveType.long.value
+    case DataTypesToInt.INT                => PrimitiveType.int.value
+    case DataTypesToInt.SHORT              => PrimitiveType.short.value
+    case DataTypesToInt.DOUBLE             => PrimitiveType.double.value
+    case DataTypesToInt.DECIMAL            => PrimitiveType.decimal.value
+    case DataTypesToInt.BOOLEAN            => PrimitiveType.boolean.value
+    case DataTypesToInt.BYTE               => PrimitiveType.byte.value
+    case DataTypesToInt.STRUCT             => PrimitiveType.struct.value
+    case DataTypesToInt.DATE               => PrimitiveType.date.value
+    case DataTypesToInt.TIMESTAMP          => PrimitiveType.timestamp.value
+    case DataTypesToInt.ISO_DATE_TIME      => "iso_date_time"
+    case DataTypesToInt.BASIC_ISO_DATE     => "basic_iso_date"
+    case DataTypesToInt.ISO_OFFSET_DATE    => "iso_offset_date"
+    case DataTypesToInt.ISO_DATE_TIME      => "iso_date_time"
+    case DataTypesToInt.ISO_ORDINAL_DATE   => "iso_ordinal_date"
+    case DataTypesToInt.ISO_WEEK_DATE      => "iso_week_date"
+    case DataTypesToInt.RFC_1123_DATE_TIME => "rfc_1123_date_time"
+    case DataTypesToInt.NULL               => "null"
+  }
+
+  private val patterns: Seq[(Object, Int)] = Seq(
+    "yyyy-MM-dd HH:mm:ss" -> DataTypesToInt.TIMESTAMP.id,
+    // the data type "ISO_LOCAL_DATE" and ISO_DATE exist but will never be inferred since date have a higher precedence
+    DateTimeFormatter.ISO_LOCAL_DATE -> DataTypesToInt.DATE.id,
+    DateTimeFormatter.BASIC_ISO_DATE -> DataTypesToInt.BASIC_ISO_DATE.id,
+    // ISO_OFFSET_DATE is preferred over ISO_DATE since the date without offset is already inferred from date.
+    DateTimeFormatter.ISO_OFFSET_DATE -> DataTypesToInt.ISO_OFFSET_DATE.id,
+    // ISO_DATE_TIME is preferred over ISO_ZONED_DATE_TIME, ISO_OFFSET_DATE_TIME, ISO_LOCAL_DATE_TIME and ISO_INSTANT since it covers their pattern
+    DateTimeFormatter.ISO_DATE_TIME      -> DataTypesToInt.ISO_DATE_TIME.id,
+    DateTimeFormatter.ISO_ORDINAL_DATE   -> DataTypesToInt.ISO_ORDINAL_DATE.id,
+    DateTimeFormatter.ISO_WEEK_DATE      -> DataTypesToInt.ISO_WEEK_DATE.id,
+    DateTimeFormatter.RFC_1123_DATE_TIME -> DataTypesToInt.RFC_1123_DATE_TIME.id
+  )
+
+  def guessTemporalType: UserDefinedFunction = udf((maybeTimestamp: String) => {
+    Option(maybeTimestamp) match {
+      case Some(input) =>
+        patterns
+          .collectFirst {
+            case (pattern: String, typeId)
+                if Try(DateTimeFormatter.ofPattern(pattern).parse(input)).isSuccess =>
+              typeId
+            case (formatter: DateTimeFormatter, typeId) if Try(formatter.parse(input)).isSuccess =>
+              typeId
+          }
+          .getOrElse(DataTypesToInt.STRING.id)
+      case None => DataTypesToInt.NULL.id
+    }
+  })
+
+  def coerceDataType(element1Type: Column, element2Type: Column): Column = {
+    when(element1Type.isNull, element2Type)
+      .when(element2Type.isNull, element1Type)
+      .otherwise(
+        coalesce(
+          when(element1Type === lit(DataTypesToInt.NULL.id), element2Type)
+            .when(element2Type === lit(DataTypesToInt.NULL.id), element1Type)
+            .when(element1Type === element2Type, element1Type)
+            .when(
+              element1Type === lit(DataTypesToInt.SHORT.id),
+              when(
+                element2Type.isin(
+                  DataTypesToInt.INT.id,
+                  DataTypesToInt.LONG.id,
+                  DataTypesToInt.DOUBLE.id,
+                  DataTypesToInt.DECIMAL.id
+                ),
+                element2Type
+              )
+            )
+            .when(
+              element1Type === lit(DataTypesToInt.INT.id),
+              when(element2Type.isin(DataTypesToInt.SHORT.id), element1Type)
+                .when(
+                  element2Type
+                    .isin(
+                      DataTypesToInt.LONG.id,
+                      DataTypesToInt.DOUBLE.id,
+                      DataTypesToInt.DECIMAL.id
+                    ),
+                  element2Type
+                )
+            )
+            .when(
+              element1Type === lit(DataTypesToInt.LONG.id),
+              when(element2Type.isin(DataTypesToInt.SHORT.id, DataTypesToInt.INT.id), element1Type)
+                .when(
+                  element2Type.isin(DataTypesToInt.DOUBLE.id, DataTypesToInt.DECIMAL.id),
+                  element2Type
+                )
+            )
+            .when(
+              element1Type === lit(DataTypesToInt.DOUBLE.id),
+              when(
+                element2Type
+                  .isin(DataTypesToInt.SHORT.id, DataTypesToInt.INT.id, DataTypesToInt.LONG.id),
+                element1Type
+              )
+                .when(element2Type.isin(DataTypesToInt.DECIMAL.id), element2Type)
+            )
+            .when(
+              element1Type === lit(DataTypesToInt.DECIMAL.id),
+              when(
+                element2Type
+                  .isin(DataTypesToInt.SHORT.id, DataTypesToInt.INT.id, DataTypesToInt.LONG.id),
+                element1Type
+              )
+            ),
+          lit(DataTypesToInt.STRING.id) // this means we can't coerce so we default to string
+        )
+      )
+  }
+}
+
+object InferSchemaHandler {
+
   val identifierRegex = "^([a-zA-Z_][a-zA-Z\\d_:.-]*)$".r
+
+  val sampleColumnSuffix = "_$SL_SAMPLE"
 
   def convertToValidXMLSchema(
     currentSchema: DataType
@@ -77,6 +254,166 @@ object InferSchemaHandler {
     result
   }
 
+  def adjustAttributes(schema: StructType, format: Format)(inputDF: DataFrame): DataFrame = {
+
+    // tuple1: relative transform and the final column name
+    // tuple2: relative transform to get sample and the final column name which is suffixed with _$SL_SAMPLE
+    def adjustAttributes(
+      currentSchema: DataType,
+      currentPath: String
+    ): List[((Column => Column, String), (Column => Column, String))] = {
+      currentSchema match {
+        case st: StructType =>
+          st.fields.flatMap { field =>
+            adjustAttributes(
+              field.dataType,
+              if (currentPath.isEmpty) field.name else currentPath + "." + field.name
+            ).map { case ((fAttribute, attributeColumnName), (fSample, sampleColumnName)) =>
+              (
+                (
+                  (currentColumn: Column) => fAttribute(currentColumn.getField(field.name))
+                ) -> attributeColumnName,
+                (
+                  (currentColumn: Column) => fSample(currentColumn.getField(field.name))
+                ) -> sampleColumnName
+              )
+            }
+          }.toList
+        case dt: ArrayType =>
+          dt.elementType match {
+            case _: ArrayType =>
+              throw new RuntimeException(
+                s"Starlake doesn't support array of array. Rejecting field path $currentPath"
+              )
+            case _ =>
+              adjustAttributes(dt.elementType, currentPath + "[]").map {
+                case ((fAttribute, attributeColumnName), (fSample, sampleColumnName)) =>
+                  (
+                    ((arrayColumn: Column) => {
+                      reduce(
+                        arrayColumn,
+                        lit(DataTypesToInt.NULL.id),
+                        (finalType, elementColumn) => {
+                          DataTypesToInt.coerceDataType(finalType, fAttribute(elementColumn))
+                        }
+                      )
+                    }) -> attributeColumnName,
+                    ((arrayColumn: Column) => {
+                      reduce(
+                        arrayColumn,
+                        lit(null).cast(StringType),
+                        (finalSample, elementColumn) => {
+                          when(finalSample.isNotNull, finalSample)
+                            .when(trim(fSample(elementColumn)).isNotNull, fSample(elementColumn))
+                        }
+                      )
+                    }) -> sampleColumnName
+                  )
+              }
+          }
+        case StringType =>
+          List(
+            (
+              ((strColumn: Column) => {
+                when(strColumn.isNull, lit(DataTypesToInt.NULL.id))
+                  .when(
+                    DataTypesToInt.guessTemporalType(strColumn).isNotNull,
+                    DataTypesToInt.guessTemporalType(strColumn)
+                  )
+                  .otherwise(lit(DataTypesToInt.STRING.id))
+              }) -> currentPath,
+              (
+                (strColumn: Column) => strColumn.cast(StringType)
+              ) -> (currentPath + sampleColumnSuffix)
+            )
+          )
+        case TimestampType
+            if Set(
+              Format.DSV,
+              Format.POSITION,
+              Format.JSON_FLAT
+            ).contains(format) =>
+          List(
+            (
+              ((currentColumn: Column) => {
+                val strColumn = currentColumn.cast(StringType)
+                when(strColumn.isNull, lit(DataTypesToInt.NULL.id))
+                  .when(
+                    DataTypesToInt.guessTemporalType(strColumn).isNotNull,
+                    DataTypesToInt.guessTemporalType(strColumn)
+                  )
+                  .otherwise(lit(DataTypesToInt.STRING.id))
+              }) -> currentPath,
+              (
+                (currentColumn: Column) => currentColumn.cast(StringType)
+              ) -> (currentPath + sampleColumnSuffix)
+            )
+          )
+        case ByteType | IntegerType | LongType | ShortType =>
+          List(
+            (
+              ((currentColumn: Column) => {
+                val strColumn = currentColumn.cast(StringType)
+                when(strColumn.isNull, lit(DataTypesToInt.NULL.id))
+                  .when(strColumn.startsWith(lit("0")), lit(DataTypesToInt.STRING.id))
+                  .otherwise(lit(DataTypesToInt.dataTypeToTypeInt(currentSchema)))
+              }) -> currentPath,
+              (
+                (currentColumn: Column) => currentColumn.cast(StringType)
+              ) -> (currentPath + sampleColumnSuffix)
+            )
+          )
+        case _ =>
+          List(
+            (
+              ((valueColumn: Column) => {
+                when(valueColumn.isNull, lit(DataTypesToInt.NULL.id))
+                  .otherwise(lit(DataTypesToInt.dataTypeToTypeInt(currentSchema)))
+              }) -> currentPath,
+              (
+                (currentColumn: Column) => currentColumn.cast(StringType)
+              ) -> (currentPath + sampleColumnSuffix)
+            )
+          )
+      }
+    }
+    val (projectionsList, columnNames) = (for {
+      field <- schema.fields.toList
+      ((fAttribute, attributeColumnName), (fSample, sampleColumnName)) <- adjustAttributes(
+        field.dataType,
+        field.name
+      )
+    } yield {
+      (
+        List(
+          fAttribute(col(field.name)).as(attributeColumnName),
+          fSample(col(field.name)).as(sampleColumnName)
+        ),
+        (attributeColumnName, sampleColumnName)
+      )
+    }).unzip
+
+    val lineWithColumnTypesDF = inputDF.select(projectionsList.flatten: _*)
+    val (attributeTypeColumnNames, sampleColumnNames) = columnNames.unzip
+    val reduceAttributeColumnTypes = attributeTypeColumnNames.map { column =>
+      reduce(
+        collect_set(lineWithColumnTypesDF("`" + column + "`")),
+        lit(DataTypesToInt.NULL.id),
+        (finalType, elementColumn) => {
+          DataTypesToInt.coerceDataType(finalType, elementColumn)
+        }
+      ).as(column)
+    }
+    val maxSampleColumn = sampleColumnNames.map { column =>
+      max(lineWithColumnTypesDF("`" + column + "`")).as(column)
+    }
+    val aggregations = reduceAttributeColumnTypes ++ maxSampleColumn
+    lineWithColumnTypesDF.agg(
+      aggregations.head,
+      aggregations.tail: _*
+    )
+  }
+
   /** * Traverses the schema and returns a list of attributes.
     *
     * @param schema
@@ -85,14 +422,12 @@ object InferSchemaHandler {
     *   List of Attributes
     */
   def createAttributes(
-    lines: List[Row],
+    adjustedAttributes: Map[String, String], // field path, type
     schema: StructType,
-    format: Format,
     forcePattern: Boolean = true
   ): List[Attribute] = {
 
     def createAttribute(
-      currentLines: List[Any],
       currentSchema: DataType,
       container: StructField,
       fieldPath: String,
@@ -101,25 +436,14 @@ object InferSchemaHandler {
       val result =
         currentSchema match {
           case st: StructType =>
-            val schemaWithIndex: Seq[(StructField, Int)] = st.zipWithIndex
             val rename = container.name.replaceAll("[:.-]", "_")
             val renamedField = if (rename != container.name) Some(rename) else None
             try {
-              val attributes = schemaWithIndex.map { case (field, index) =>
-                val structLines =
-                  currentLines.flatMap(Option(_)).map {
-                    case r: Row => r.get(index)
-                    case other =>
-                      throw new RuntimeException(
-                        "Encountered " + other.getClass.getName + s" for field path $fieldPath but expected a Row instead for a Struct"
-                      )
-                  }
-
+              val attributes = st.map { field =>
                 createAttribute(
-                  structLines,
-                  st(index).dataType,
+                  st(field.name).dataType,
                   field,
-                  fieldPath + "." + field.name,
+                  if (fieldPath.isEmpty) field.name else fieldPath + "." + field.name,
                   forcePattern
                 )
               }.toList
@@ -152,19 +476,7 @@ object InferSchemaHandler {
                   s"Starlake doesn't support array of array. Rejecting field path $fieldPath"
                 )
               case _ =>
-                // if the array contains elements of type struct.
-                // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
-                val arrayLines =
-                  currentLines.flatMap(Option(_)).flatMap {
-                    case ar: GenSeq[_] => ar
-                    case other =>
-                      throw new RuntimeException(
-                        s"Expecting an array to be contained into a Seq for field path $fieldPath and not ${other.getClass.getName}"
-                      )
-                  }
-
                 val stAttributes = createAttribute(
-                  arrayLines,
                   dt.elementType,
                   container,
                   fieldPath + "[]",
@@ -178,34 +490,8 @@ object InferSchemaHandler {
             }
           // if the datatype is a simple Attribute
           case _ =>
-            val cellType = currentSchema.typeName match {
-              case "string" =>
-                val timestampCandidates = currentLines.flatMap(Option(_).map(_.toString))
-                if (timestampCandidates.isEmpty)
-                  "string"
-                else if (timestampCandidates.forall(v => parseIsoInstant(v)))
-                  "iso_date_time"
-                else if (timestampCandidates.forall(v => datePattern.matcher(v).matches()))
-                  "date"
-                else
-                  "string"
-              case "timestamp"
-                  if Set(
-                    Format.DSV,
-                    Format.POSITION,
-                    Format.JSON_FLAT
-                  ).contains(format) =>
-                // We handle here the case when it is a date and not a timestamp
-                val timestamps = currentLines.flatMap(Option(_).map(_.toString))
-                if (timestamps.forall(v => datePattern.matcher(v).matches()))
-                  "date"
-                else if (timestamps.forall(v => parseIsoInstant(v)))
-                  "iso_date_time"
-                else
-                  "timestamp"
-              case _ =>
-                PrimitiveType.from(currentSchema).value
-            }
+            val cellType =
+              adjustedAttributes.getOrElse(fieldPath, PrimitiveType.from(currentSchema).value)
             val rename = container.name.replaceAll("[:.-]", "_")
             val renamedField = if (rename != container.name) Some(rename) else None
             Attribute(
@@ -214,7 +500,7 @@ object InferSchemaHandler {
               rename = renamedField,
               array = Some(false),
               required = if (!container.nullable) Some(true) else None,
-              sample = currentLines.map(Option(_)).headOption.flatten.map(_.toString)
+              sample = adjustedAttributes.get(fieldPath + sampleColumnSuffix).flatMap(Option(_))
             )
         }
 
@@ -224,7 +510,6 @@ object InferSchemaHandler {
         throw new InvalidFieldNameException(result.name)
     }
     createAttribute(
-      lines,
       schema,
       StructField("_ROOT_", StructType(Nil)),
       "",
