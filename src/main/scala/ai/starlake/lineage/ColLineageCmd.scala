@@ -45,7 +45,7 @@ object ColLineageCmd extends Cmd[ColLineageConfig] {
   ): Try[JobResult] = {
     Try {
       val colLineage =
-        new ColLineage(settings, schemaHandler, settings.storageHandler())
+        new ColLineage(settings, schemaHandler)
       colLineage.colLineage(config)
 
     }.map(_ => JobResult.empty)

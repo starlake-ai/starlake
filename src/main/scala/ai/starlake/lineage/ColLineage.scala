@@ -2,64 +2,21 @@ package ai.starlake.lineage
 
 import ai.starlake.config.Settings
 import ai.starlake.lineage.ColLineage.{Column, Relation, Table}
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler, TableWithNameOnly}
+import ai.starlake.schema.model.AutoTaskDesc
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLColumResolver
 import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData, JdbcResultSetMetaData}
 import ai.starlake.utils.{JsonSerializer, Utils}
+import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.jdk.CollectionConverters._
 
 class ColLineage(
   settings: Settings,
-  schemaHandler: SchemaHandler,
-  storageHandler: StorageHandler
+  schemaHandler: SchemaHandler
 ) extends StrictLogging {
-  def run1() = {
-    val query =
-      """
-      |with mycte as (
-      |  select o.amount, c.id, CURRENT_TIMESTAMP() as timestamp1, o.amount as amount2
-      |  from `sales.orders` o, `sales.customers` c
-      |  where o.customer_id = c.id
-      |),
-      |yourcte as (select * from mycte)
-      |select id, sumx(sumy(mycte.amount + yourcte.amount) + yourcte.amount) as sum, timestamp1, amount as amount2, yourcte.amount as amount3
-      |from mycte, yourcte
-      |group by yourcte.id, yourcte.timestamp1
-      |""".stripMargin
-    println(query)
-    val metaData: JdbcMetaData = new JdbcMetaData("", "")
-      .addTable(
-        "sales",
-        "orders",
-        new JdbcColumn("customer_id"),
-        new JdbcColumn("order_id"),
-        new JdbcColumn("amount"),
-        new JdbcColumn("seller_id")
-      )
-      .addTable(
-        "sales",
-        "customers",
-        new JdbcColumn("id"),
-        new JdbcColumn("signup"),
-        new JdbcColumn("contact"),
-        new JdbcColumn("birthdate"),
-        new JdbcColumn("name1"),
-        new JdbcColumn("name2"),
-        new JdbcColumn("id1")
-      )
-
-    val res: JdbcResultSetMetaData =
-      JSQLColumResolver
-        .getResultSetMetaData(query, JdbcMetaData.copyOf(metaData))
-        .asInstanceOf[JdbcResultSetMetaData]
-
-    extractTables(res).foreach(t => println(t.toString))
-    extractRelations("mySchema", "myTable", res).foreach(r => println(r.toString))
-  }
-
   val domains = schemaHandler.domains()
   val tasks = schemaHandler.tasks()
 
@@ -98,6 +55,230 @@ class ColLineage(
     }
   }
 
+  def colLineage(colLineageConfig: ColLineageConfig): Option[ColLineage.Lineage] = {
+    val taskDesc = schemaHandler.taskOnly(colLineageConfig.task, reload = true)
+    taskDesc.toOption.map { task =>
+      val sqlSubst = task.sql
+        .map { sql =>
+          schemaHandler.substituteRefTaskMainSQL(sql, task.getRunConnection()(settings))
+        }
+        .getOrElse("")
+      val tableNames = SQLUtils.extractTableNames(sqlSubst)
+      val quoteFreeTables = tableNames.map(SQLUtils.quoteFreeTableName)
+      val tablesWithColumnNames = schemaHandler.getTablesWithColumnNames(quoteFreeTables)
+      colLineage(
+        colLineageConfig.outputFile,
+        task.domain,
+        task.table,
+        sqlSubst,
+        tablesWithColumnNames
+      )
+    }
+  }
+
+  def colLineage(
+    outputFile: Option[File],
+    domainName: String,
+    tableName: String,
+    sqlSubst: String,
+    tablesWithColumnNames: List[(String, TableWithNameOnly)]
+  ): ColLineage.Lineage = {
+    val sql = sqlSubst.replaceAll("::[a-zA-Z0-9]+", "")
+    // remove all ::TEXT (type change in columns)
+    var jdbcMetadata = new JdbcMetaData("", "")
+    tablesWithColumnNames.foreach { case (domainName, table) =>
+      val jdbcColumns = table.attrs.map { attrName => new JdbcColumn(attrName) }
+      jdbcMetadata = jdbcMetadata.addTable("", domainName, table.name, jdbcColumns.asJava)
+    }
+
+    val res: JdbcResultSetMetaData =
+      JSQLColumResolver
+        .getResultSetMetaData(
+          sql,
+          JdbcMetaData.copyOf(jdbcMetadata.setErrorMode(JdbcMetaData.ErrorMode.LENIENT))
+        )
+
+    val tables = extractTables(res)
+    val relations = ColLineage.extractRelations(domainName, tableName, res)
+    val allTables = ColLineage.tablesInRelations(relations) ++ tables
+
+    val finalTables = allTables
+      .groupBy(t => (t.domain, t.table))
+      .map { case ((domainName, tableName), table) =>
+        Table(
+          domainName,
+          tableName,
+          table.flatMap(_.columns).distinct,
+          isTask = table.exists(_.isTask)
+        )
+      }
+      .toList
+    logger.whenDebugEnabled {
+      relations.foreach(r => logger.debug(r.toString))
+      allTables.foreach(t => logger.debug(t.toString))
+      finalTables.foreach(t => logger.debug(t.toString))
+    }
+
+    val lineage = ColLineage.Lineage(finalTables, relations)
+    val diagramAsStr =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(lineage)
+    Utils.save(outputFile, diagramAsStr)
+    lineage
+  }
+
+}
+
+object ColLineage {
+  case class Column(domain: String, table: String, column: String)
+  case class Relation(from: Column, to: Column, expression: Option[String])
+  case class Table(domain: String, table: String, columns: List[String], isTask: Boolean) {
+    def fullName: String = s"$domain.$table"
+  }
+  case class Lineage(tables: List[Table], relations: List[Relation])
+
+  def main(args: Array[String]) = {
+    val query =
+      """
+        |with mycte as (
+        |  select o.amount, c.id, CURRENT_TIMESTAMP() as timestamp1, o.amount as amount2
+        |  from `sales.orders` o, `sales.customers` c
+        |  where o.customer_id = c.id
+        |),
+        |yourcte as (select * from mycte)
+        |select id, sumx(sumy(mycte.amount + yourcte.amount) + yourcte.amount) as sum, timestamp1, amount as amount2, yourcte.amount as amount3
+        |from mycte, yourcte
+        |group by yourcte.id, yourcte.timestamp1
+        |""".stripMargin
+    val query2 =
+      """
+            |WITH
+            |  relationships AS (
+            |    SELECT rt.from_location_code,
+            |           rt.to_location_code,
+            |           rt.departure_datetime                                                                              AS departure_date,
+            |           rt.arrival_datetime                                                                                AS arrival_date,
+            |           rt.ticketno,
+            |           rt.leg_number,
+            |           rt.leg_direction,
+            |           rt.service_direction,
+            |           rt.booking_reference,
+            |           fj.transaction_id,
+            |           fj.ticket_id,
+            |           fj.ticket_number,
+            |           rt.batch_id
+            |      FROM sch1.booked_travel rt
+            |        LEFT JOIN (
+            |        SELECT DISTINCT t.transaction_id, sdt.ticket_number, sdt.ticket_id
+            |          FROM sch2.ticket_transactions t
+            |            JOIN sch2.tickets sdt USING (ticket_id)
+            |            JOIN sch1.reserved_travels ert ON ert.ticketno = sdt.ticket_number
+            |                  ) fj ON fj.ticket_number = rt.ticketno
+            |      WHERE batch_id = 234
+            |  ),
+            |  xaction AS (
+            |    SELECT DISTINCT t.transaction_id, sdt.ticket_number, sdt.ticket_id
+            |      FROM sch2.ticket_transactions t
+            |        JOIN sch2.tickets sdt USING (ticket_id)
+            |        JOIN relationships ert ON ert.ticketno = sdt.ticket_number
+            |      WHERE ert.batch_id = 234
+            |  ),
+            |  from_location AS (
+            |    SELECT DISTINCT l.location_id AS from_location_id, rt.from_location_code
+            |      FROM sch2.locations l
+            |        JOIN relationships rt ON rt.from_location_code = l.code
+            |      WHERE rt.batch_id = 234
+            |  ),
+            |  to_location AS (
+            |    SELECT DISTINCT d.location_id AS to_location_id, rt.to_location_code
+            |      FROM sch2.locations d
+            |        JOIN relationships rt ON rt.to_location_code = d.code
+            |      WHERE rt.batch_id = 234
+            |  ),
+            |  departure_dates as (
+            |    select distinct on (d.date_id, d.the_date) d.date_id as departure_date_id, d.the_date as departure_date
+            |      from sch2.dates d
+            |        join relationships r on r.departure_date = d.the_date
+            |      where r.batch_id = 234
+            |  ),
+            |  arrival_dates as (
+            |    select distinct on (d.date_id, d.the_date) d.date_id as arrival_date_id, d.the_date as arrival_date
+            |      from sch2.dates d
+            |        join relationships r on r.arrival_date = d.the_date
+            |      where r.batch_id = 234
+            |  )
+            |INSERT
+            |  INTO sch2.travel_legs (transaction_id, ticket_id, leg_number, leg_direction,
+            |                              from_location_id, to_location_id, service_direction,
+            |                              departure_date_id, departure_date, arrival_date, arrival_date_id, booking_reference)
+            |SELECT r.transaction_id,
+            |       r.ticket_id,
+            |       r.leg_number,
+            |       r.leg_direction,
+            |       f.from_location_id,
+            |       t.to_location_id,
+            |       r.service_direction,
+            |       d.departure_date_id,
+            |       r.departure_date,
+            |       r.arrival_date,
+            |       a.arrival_date_id,
+            |       r.booking_reference
+            |  FROM relationships r
+            |    LEFT JOIN xaction USING (transaction_id)
+            |    LEFT JOIN from_location f ON f.from_location_code = r.from_location_code
+            |    LEFT JOIN to_location t ON t.to_location_code = r.to_location_code
+            |    left join departure_dates d on r.departure_date = d.departure_date
+            |    left join arrival_dates a on a.arrival_date = r.arrival_date
+            |""".stripMargin
+    val lineage = lineageFromQuery(query)
+    val diagramAsStr =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(lineage)
+    println(diagramAsStr)
+  }
+  def lineageFromQuery(query: String) = {
+    val metaData: JdbcMetaData = new JdbcMetaData("", "")
+      .addTable(
+        "sales",
+        "orders",
+        new JdbcColumn("customer_id"),
+        new JdbcColumn("order_id"),
+        new JdbcColumn("amount"),
+        new JdbcColumn("seller_id")
+      )
+      .addTable(
+        "sales",
+        "customers",
+        new JdbcColumn("id"),
+        new JdbcColumn("signup"),
+        new JdbcColumn("contact"),
+        new JdbcColumn("birthdate"),
+        new JdbcColumn("name1"),
+        new JdbcColumn("name2"),
+        new JdbcColumn("id1")
+      )
+
+    val res: JdbcResultSetMetaData =
+      JSQLColumResolver
+        .getResultSetMetaData(query, JdbcMetaData.copyOf(metaData))
+        .asInstanceOf[JdbcResultSetMetaData]
+
+    val relations =
+      extractRelations("domain", "table", res)
+    val allTables = ColLineage.tablesInRelations(relations)
+    val finalTables = allTables
+      .groupBy(t => (t.domain, t.table))
+      .map { case ((domainName, tableName), table) =>
+        Table(
+          domainName,
+          tableName,
+          table.flatMap(_.columns).distinct,
+          isTask = table.exists(_.isTask)
+        )
+      }
+      .toList
+    val lineage = ColLineage.Lineage(finalTables, relations)
+    lineage
+  }
+
   private def finalColumns(column: JdbcColumn): List[JdbcColumn] = {
     val children = column.getChildren.asScala.toList
     if (children.isEmpty) {
@@ -116,14 +297,14 @@ class ColLineage(
   }
 
   def extractRelations(
-    schemaName: String,
+    domainName: String,
     tableName: String,
     columnName: String,
     expression: Option[String],
     column: JdbcColumn
   ): List[Relation] = {
     val colName = Option(columnName).getOrElse(column.columnName)
-    val currentColumn = Column(schemaName, tableName, colName)
+    val currentColumn = Column(domainName, tableName, colName)
     val relations =
       if (
         Option(column.tableName).isDefined &&
@@ -185,7 +366,7 @@ class ColLineage(
         val relations =
           column.getChildren.asScala.flatMap { child =>
             extractRelations(
-              schemaName,
+              domainName,
               tableName,
               colName,
               Option(column.getExpression).map(_.toString),
@@ -198,8 +379,9 @@ class ColLineage(
       }
     relations
   }
+
   def extractRelations(
-    schemaName: String,
+    domainName: String,
     tableName: String,
     resultSetMetaData: JdbcResultSetMetaData
   ): List[Relation] = {
@@ -211,8 +393,8 @@ class ColLineage(
         .zip(labels)
         .flatMap { case (column, label) =>
           val columnName = if (Option(label).isEmpty) column.columnName else label
-          extractRelations(
-            schemaName,
+          ColLineage.extractRelations(
+            domainName,
             tableName,
             columnName,
             Option(column.getExpression).map(_.toString),
@@ -222,62 +404,6 @@ class ColLineage(
         .toList
     relations.distinct
   }
-  def colLineage(colLineageConfig: ColLineageConfig): Option[ColLineage.Lineage] = {
-    val taskDesc = schemaHandler.taskOnly(colLineageConfig.task, reload = true)
-    taskDesc.toOption.map { task =>
-      val sqlSubst = task.sql
-        .map { sql =>
-          schemaHandler.substituteRefTaskMainSQL(sql, task.getRunConnection()(settings))
-        }
-        .getOrElse("")
-      val sql = sqlSubst.replaceAll("::[a-zA-Z0-9]+", "")
-      // remove all ::TEXT (type change in columns)
-      val tableNames = SQLUtils.extractTableNames(sql)
-      val quoteFreeTables = tableNames.map(SQLUtils.quoteFreeTableName)
-      val tablesWithColumnNames = schemaHandler.getTablesWithColumnNames(quoteFreeTables)
-      var jdbcMetadata = new JdbcMetaData("", "")
-      tablesWithColumnNames.foreach { case (domainName, table) =>
-        val jdbcColumns = table.attrs.map { attrName => new JdbcColumn(attrName) }
-        jdbcMetadata = jdbcMetadata.addTable("", domainName, table.name, jdbcColumns.asJava)
-      }
-
-      val res: JdbcResultSetMetaData =
-        JSQLColumResolver
-          .getResultSetMetaData(
-            sql,
-            JdbcMetaData.copyOf(jdbcMetadata.setErrorMode(JdbcMetaData.ErrorMode.LENIENT))
-          )
-
-      val tables = extractTables(res)
-      val relations = extractRelations(task.domain, task.table, res)
-      relations.foreach(r => logger.debug(r.toString))
-
-      tablesInRelations(relations).foreach(t => logger.debug(t.toString))
-
-      val allTables = tablesInRelations(relations) ++ tables
-      allTables.foreach(t => logger.debug(t.toString))
-
-      val finalTables = allTables
-        .groupBy(t => (t.domain, t.table))
-        .map { case ((domainName, tableName), table) =>
-          Table(
-            domainName,
-            tableName,
-            table.flatMap(_.columns).distinct,
-            isTask = table.exists(_.isTask)
-          )
-        }
-        .toList
-      finalTables.foreach(t => logger.debug(t.toString))
-
-      val lineage = ColLineage.Lineage(finalTables, relations)
-      val diagramAsStr =
-        JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(lineage)
-      Utils.save(colLineageConfig.outputFile, diagramAsStr)
-      lineage
-    }
-  }
-
   def tablesInRelations(relations: List[Relation]): List[Table] = {
     val tables =
       relations.flatMap { relation =>
@@ -295,13 +421,4 @@ class ColLineage(
     tables
   }
 
-}
-
-object ColLineage {
-  case class Column(domain: String, table: String, column: String)
-  case class Relation(from: Column, to: Column, expression: Option[String])
-  case class Table(domain: String, table: String, columns: List[String], isTask: Boolean) {
-    def fullName: String = s"$domain.$table"
-  }
-  case class Lineage(tables: List[Table], relations: List[Relation])
 }

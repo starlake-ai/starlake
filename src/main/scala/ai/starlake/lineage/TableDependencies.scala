@@ -93,7 +93,7 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       Utils.save(config.outputFile, dotStr)
   }
 
-  def relationsAsDiagram(config: TableDependenciesConfig): Diagram = {
+  private def allTables(config: TableDependenciesConfig): List[String] = {
     schemaHandler.domains(reload = config.reload)
     // we check if we have tables or domains
     val finalTableNames = config.tables match {
@@ -114,7 +114,21 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
           Nil
         }
     }
+    finalTableNames
+  }
 
+  private def asItemsAndRelations(
+    allTableNames: Set[String]
+  ): List[(AutoTaskDependencies.Item, List[AutoTaskDependencies.Relation])] = {
+    val itemsAndRelations =
+      schemaHandler
+        .domains()
+        .flatMap(_.asItem(allTableNames.map(_.toLowerCase)))
+    itemsAndRelations
+  }
+
+  def relationsAsDiagram(config: TableDependenciesConfig): Diagram = {
+    val finalTableNames = allTables(config)
     //    val filteredTables = getTables(Some(finalTables))
     val (pkTables, sourceTables, fkTables) =
       if (config.related) {
@@ -124,10 +138,7 @@ class TableDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
         (Set.empty[String], finalTableNames.toSet, finalTableNames.toSet)
 
     val allTableNames = pkTables.union(sourceTables).union(fkTables)
-    val itemsAndRelations =
-      schemaHandler
-        .domains()
-        .flatMap(_.asItem(allTableNames.map(_.toLowerCase)))
+    val itemsAndRelations = asItemsAndRelations(allTableNames)
     val items = itemsAndRelations.map(_._1).distinct
     val relations = itemsAndRelations.flatMap(_._2).distinct
     val diagram = Diagram(items, relations, "table")
