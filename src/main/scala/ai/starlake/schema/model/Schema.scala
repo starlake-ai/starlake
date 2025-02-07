@@ -553,7 +553,7 @@ case class Schema(
       fkTables
   }
 
-  def asItem(domainName: String, tableNames: Set[String]) = {
+  def asItem(domainName: String, tableNames: Set[String]): Option[(Item, List[Relation])] = {
     val fullName = domainName + "." + this.finalName
     val includeTable = tableNames.contains(fullName.toLowerCase)
     if (includeTable) {
