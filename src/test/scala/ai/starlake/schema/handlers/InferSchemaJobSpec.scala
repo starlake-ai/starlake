@@ -13,6 +13,8 @@ class InferSchemaJobSpec extends TestHelper {
 
   new WithSettings() {
 
+    implicit val storageHandlerImpl = settings.storageHandler()
+
     lazy val csvLines =
       Utils.withResources(Source.fromFile("src/test/resources/sample/SCHEMA-VALID-NOHEADER.dsv"))(
         _.getLines().toList
@@ -54,31 +56,39 @@ class InferSchemaJobSpec extends TestHelper {
     lazy val inferSchemaJob: InferSchemaJob = new InferSchemaJob()
 
     "GetSeparatorSemiColon" should "succeed" in {
-      inferSchemaJob.getSeparator(csvLines) shouldBe ";"
+      inferSchemaJob.getSeparator(
+        csvLines.head
+      ) shouldBe ";"
     }
 
     "GetSeparatorPipe" should "succeed" in {
-      inferSchemaJob.getSeparator(psvLines) shouldBe "|"
+      inferSchemaJob.getSeparator(psvLines.head) shouldBe "|"
     }
 
     "GetFormatCSV" should "succeed" in {
-      inferSchemaJob.getFormatFile("ignore", csvLines) shouldBe "DSV"
+      inferSchemaJob.getFormatFile(
+        "src/test/resources/sample/SCHEMA-VALID-NOHEADER.dsv"
+      ) shouldBe "DSV"
     }
 
     "GetFormatJson" should "succeed" in {
-      inferSchemaJob.getFormatFile("ignore", jsonLines) shouldBe "JSON"
+      inferSchemaJob.getFormatFile("src/test/resources/sample/json/complex.json") shouldBe "JSON"
     }
 
     "GetFormatXML" should "succeed" in {
-      inferSchemaJob.getFormatFile("ignore", xmlLines) shouldBe "XML"
+      inferSchemaJob.getFormatFile("src/test/resources/sample/xml/locations.xml") shouldBe "XML"
     }
 
     "GetFormatArrayJson" should "succeed" in {
-      inferSchemaJob.getFormatFile("ignore", jsonArrayLines) shouldBe "JSON_ARRAY"
+      inferSchemaJob.getFormatFile(
+        "src/test/resources/quickstart/incoming/hr/sellers-2018-01-01.json"
+      ) shouldBe "JSON_ARRAY"
     }
 
     "GetFormatArrayJsonMultiline" should "succeed" in {
-      inferSchemaJob.getFormatFile("ignore", jsonArrayMultilinesLines) shouldBe "JSON_ARRAY"
+      inferSchemaJob.getFormatFile(
+        "src/test/resources/sample/simple-json-locations/locations.json"
+      ) shouldBe "JSON_ARRAY"
     }
     "Ingest Flat Locations JSON" should "produce file in accepted" in {
       new SpecTrait(

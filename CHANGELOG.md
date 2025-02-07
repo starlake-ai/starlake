@@ -1,6 +1,12 @@
 
 # Release notes
 
+# 1.4.0
+
+__Improvement__:
+- minimize memory usage inference-schema and adjust attributes types
+- inference-schema detects more timestamp pattern
+
 # 1.3.0
 __New Feature__:
 - Extract Starlake schema from OpenAPI definition
