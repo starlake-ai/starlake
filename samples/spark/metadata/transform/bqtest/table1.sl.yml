@@ -1,6 +1,7 @@
 version: 1
 task:
   name: table1
+  table: table1111
   writeStrategy:
     type: OVERWRITE_BY_PARTITION
   sink:

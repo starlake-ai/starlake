@@ -1019,7 +1019,7 @@ object BigQueryJobBase extends StrictLogging {
 
     project
       .map(project => TableId.of(project, dataset, table))
-      .getOrElse(TableId.of(ServiceOptions.getDefaultProjectId(), dataset, table))
+      .getOrElse(TableId.of(projectId(None, None), dataset, table))
   }
 
   def extractProjectDataset(value: String): DatasetId = {
@@ -1032,7 +1032,7 @@ object BigQueryJobBase extends StrictLogging {
 
     project
       .map(project => DatasetId.of(project, dataset))
-      .getOrElse(DatasetId.of(ServiceOptions.getDefaultProjectId(), dataset))
+      .getOrElse(DatasetId.of(projectId(None, None), dataset))
   }
 
   private def getProjectIdPrefix(
@@ -1044,17 +1044,20 @@ object BigQueryJobBase extends StrictLogging {
     connectionProjectId: Option[String],
     outputDatabase: scala.Option[String]
   ): String = {
-    val result =
+    val projectId =
       outputDatabase
         .filter(_.nonEmpty)
         .orElse(connectionProjectId)
         .orElse(getPropertyOrEnv("SL_DATABASE"))
         .orElse(getPropertyOrEnv("GCP_PROJECT"))
-        .orElse(getPropertyOrEnv("GOOGLE_CLOUD_PROJECT"))
-        .orElse(scala.Option(ServiceOptions.getDefaultProjectId()))
-        .getOrElse(throw new Exception("GCP Project ID must be defined"))
-    logger.info(s"Using project $result")
-    result
+        .orElse(scala.Option(ServiceOptions.getDefaultProjectId))
+        .getOrElse(throw new Exception("""GCP Project ID must be defined in one of the following ways:
+                            |  - Set the environment variable GOOGLE_CLOUD_PROJECT
+                            |  - Use the gcloud command `gcloud config set project YOUR_PROJECT_ID`
+                            |  - Use the `database:YOUR_PROJECT_ID` attribute in your metadata/application.sl.yml
+                            |""".stripMargin))
+    logger.info(s"Using project $projectId")
+    projectId
   }
 
   private def getPropertyOrEnv(envVar: String): scala.Option[String] =

@@ -55,7 +55,7 @@ application:
       type: "bigquery"
       sparkFormat: "bigquery"
       options:
-        writeMethod: "indirect" # direct or indirect (indirect mode requires GOOGLE_APPLICATION_CREDENTIALS env variable when run from your desktop)
+        writeMethod: "direct" # direct or indirect (indirect mode requires GOOGLE_APPLICATION_CREDENTIALS env variable when run from your desktop)
         location: "europe-west1" # EU or US
         gcsBucket: "starlake-app" # required in indirect mode only
         authType: "APPLICATION_DEFAULT" #reference to the application default credentials in the GOOGLE_APPLICATION_CREDENTIALS env variable
