@@ -229,12 +229,21 @@ object ColLineage {
             |    left join departure_dates d on r.departure_date = d.departure_date
             |    left join arrival_dates a on a.arrival_date = r.arrival_date
             |""".stripMargin
-    val lineage = lineageFromQuery(query)
+    println(query)
+    val lineage = lineageFromQuery(Array.empty, query)
     val diagramAsStr =
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(lineage)
     println(diagramAsStr)
   }
-  def lineageFromQuery(query: String) = {
+  def lineageFromQuery(
+    inputTables: Array[(String, Array[(String, String)])],
+    query: String
+  ): Lineage = {
+    val tables =
+      inputTables.map { case (tableName, columns) =>
+        Table("", tableName, columns.map(_._1).toList, isTask = false)
+
+      }
     val metaData: JdbcMetaData = new JdbcMetaData("", "")
       .addTable(
         "sales",
@@ -263,7 +272,7 @@ object ColLineage {
 
     val relations =
       extractRelations("domain", "table", res)
-    val allTables = ColLineage.tablesInRelations(relations)
+    val allTables = ColLineage.tablesInRelations(relations) ++ tables.toList
     val finalTables = allTables
       .groupBy(t => (t.domain, t.table))
       .map { case ((domainName, tableName), table) =>
