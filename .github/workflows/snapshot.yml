@@ -139,6 +139,8 @@ jobs:
       - name: Checkout
         id: vcs
         uses: actions/checkout@v4
+      - name: Setup sbt launcher
+        uses: sbt/setup-sbt@v1
 
       - name: Env
         run: |
