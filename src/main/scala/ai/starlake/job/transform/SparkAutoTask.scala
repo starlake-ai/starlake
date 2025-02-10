@@ -573,6 +573,27 @@ class SparkAutoTask(
 
   private def sinkToBQ(loadedDF: DataFrame, slSchema: Option[Schema] = None): Try[JobResult] = {
     val twoSteps = strategy.isMerge()
+    val isDirect = sinkConnection.options.getOrElse("writeMethod", "direct") == "direct"
+    slSchema.foreach { schema =>
+      val variantAttribute =
+        schema.attributes.find(
+          _.primitiveType(settings.schemaHandler())
+            .getOrElse(PrimitiveType.string) == PrimitiveType.variant
+        )
+      (isDirect, variantAttribute) match {
+        case (true, Some(attribute)) =>
+          throw new Exception(
+            s"""direct write method is not supported for BigQuery when sinking file with variant attribute.
+               |Please use indirect write method instead.
+               |schema: ${taskDesc.domain}.${schema.name}
+               |variant attribute: ${attribute.name}: ${attribute.`type`}
+               |Connection: ${sinkConnection.options}
+               |""".stripMargin
+          )
+        case _ =>
+      }
+    }
+
     if (twoSteps) {
       val (overwriteCreateDisposition: String, overwriteWriteDisposition: String) =
         Utils.getDBDisposition(WriteMode.OVERWRITE)
