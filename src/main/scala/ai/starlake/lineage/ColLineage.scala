@@ -1,9 +1,8 @@
 package ai.starlake.lineage
 
 import ai.starlake.config.Settings
-import ai.starlake.lineage.ColLineage.{Column, Relation, Table}
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler, TableWithNameOnly}
-import ai.starlake.schema.model.AutoTaskDesc
+import ai.starlake.lineage.ColLineage.Table
+import ai.starlake.schema.handlers.{SchemaHandler, TableWithNameOnly}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLColumResolver
 import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData, JdbcResultSetMetaData}
