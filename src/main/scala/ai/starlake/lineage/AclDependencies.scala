@@ -28,6 +28,12 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     StringUtils.replaceNonAlphanumericWithUnderscore(name)
   }
 
+  private def userNameWithPrefix(userName: String) = {
+    val userNamePrefix = prefixes.exists(userName.startsWith)
+    val finalUserName = if (userNamePrefix) userName else s"user:$userName"
+    finalUserName
+  }
+
   def run(args: Array[String]): Try[Unit] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
     AclDependenciesCmd.run(args.toIndexedSeq, schemaHandler).map(_ => ())
@@ -449,7 +455,9 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
         val schemaName = schema.finalName
         acls
           .flatMap { ace =>
-            ace.grants.map(userName => (userName, ace.role, schemaName, domainName))
+            ace.grants.map { userName =>
+              (userNameWithPrefix(userName), ace.role, schemaName, domainName)
+            }
           }
           .filter { case (userName, aceRole, schemaName, domainName) =>
             config.all || config.grantees.contains(userName)
@@ -470,9 +478,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     val aclTaskRelations = aclAclTasks.flatMap { desc =>
       desc.acl.flatMap { ace =>
         ace.grants.map { userName =>
-          val userNamePrefix = prefixes.exists(userName.startsWith)
-          val finalUserName = if (userNamePrefix) userName else s"user:$userName"
-          (finalUserName, ace.role, desc.table, desc.domain)
+          (userNameWithPrefix(userName), ace.role, desc.table, desc.domain)
         }
       }
     }
@@ -518,7 +524,9 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
         val schemaName = schema.finalName
         acls
           .flatMap { ace =>
-            ace.grants.map(userName => (userName, ace.role, schemaName, domainName))
+            ace.grants.map { userName =>
+              (userNameWithPrefix(userName), ace.role, schemaName, domainName)
+            }
           }
           .filter { case (userName, aceRole, schemaName, domainName) =>
             config.all || config.grantees.contains(userName)
@@ -538,7 +546,9 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     }
     val aclTaskRelations = aclAclTasks.flatMap { desc =>
       desc.acl.flatMap { ace =>
-        ace.grants.map(userName => (userName, ace.role, desc.table, desc.domain))
+        ace.grants.map { userName =>
+          (userNameWithPrefix(userName), ace.role, desc.table, desc.domain)
+        }
       }
     }
 
@@ -582,9 +592,13 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       tablesMap.toList.flatMap { case (tableName, rls) =>
         rls.flatMap { r =>
           r.grants.map { userName =>
-            val userNamePrefix = prefixes.exists(userName.startsWith)
-            val finalUserName = if (userNamePrefix) userName else s"user:$userName"
-            (finalUserName, r.name, Option(r.predicate).getOrElse("TRUE"), tableName, domainName)
+            (
+              userNameWithPrefix(userName),
+              r.name,
+              Option(r.predicate).getOrElse("TRUE"),
+              tableName,
+              domainName
+            )
           }
         }
       }
@@ -596,15 +610,15 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     val rlsTaskRelations = rlsTasks.flatMap { rlsTask =>
       rlsTask.rls
         .flatMap { r =>
-          r.grants.map(userName =>
+          r.grants.map { userName =>
             (
-              userName,
+              userNameWithPrefix(userName),
               r.name,
               Option(r.predicate).getOrElse("TRUE"),
               rlsTask.table,
               rlsTask.domain
             )
-          )
+          }
         }
     }
 
@@ -648,9 +662,15 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     val rlsTableRelations = rlsTables.toList.flatMap { case (domainName, tablesMap) =>
       tablesMap.toList.flatMap { case (tableName, rls) =>
         rls.flatMap { r =>
-          r.grants.map(userName =>
-            (userName, r.name, Option(r.predicate).getOrElse("TRUE"), tableName, domainName)
-          )
+          r.grants.map { userName =>
+            (
+              userNameWithPrefix(userName),
+              r.name,
+              Option(r.predicate).getOrElse("TRUE"),
+              tableName,
+              domainName
+            )
+          }
         }
       }
     }
@@ -661,15 +681,15 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     val rlsTaskRelations = rlsTasks.flatMap { rlsTask =>
       rlsTask.rls
         .flatMap { r =>
-          r.grants.map(userName =>
+          r.grants.map { userName =>
             (
-              userName,
+              userNameWithPrefix(userName),
               r.name,
               Option(r.predicate).getOrElse("TRUE"),
               rlsTask.table,
               rlsTask.domain
             )
-          )
+          }
         }
     }
 
