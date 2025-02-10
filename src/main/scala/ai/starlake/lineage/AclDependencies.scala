@@ -11,6 +11,7 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.util.Try
 
 class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
+  private val prefixes = List("user", "group", "domain", "serviceAccount")
 
   private val aclPrefix = """
                  |digraph {
@@ -468,7 +469,11 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     }
     val aclTaskRelations = aclAclTasks.flatMap { desc =>
       desc.acl.flatMap { ace =>
-        ace.grants.map(userName => (userName, ace.role, desc.table, desc.domain))
+        ace.grants.map { userName =>
+          val userNamePrefix = prefixes.exists(userName.startsWith)
+          val finalUserName = if (userNamePrefix) userName else s"user:$userName"
+          (finalUserName, ace.role, desc.table, desc.domain)
+        }
       }
     }
 
@@ -576,9 +581,11 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     val rlsTableRelations = rlsTables.toList.flatMap { case (domainName, tablesMap) =>
       tablesMap.toList.flatMap { case (tableName, rls) =>
         rls.flatMap { r =>
-          r.grants.map(userName =>
-            (userName, r.name, Option(r.predicate).getOrElse("TRUE"), tableName, domainName)
-          )
+          r.grants.map { userName =>
+            val userNamePrefix = prefixes.exists(userName.startsWith)
+            val finalUserName = if (userNamePrefix) userName else s"user:$userName"
+            (finalUserName, r.name, Option(r.predicate).getOrElse("TRUE"), tableName, domainName)
+          }
         }
       }
     }
