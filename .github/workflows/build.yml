@@ -47,7 +47,7 @@ jobs:
       - name: Set up Temurin 11
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulutemurin' # See 'Supported distributions' for available options
+          distribution: 'zulu' # See 'Supported distributions' for available options
           java-version: '11'
       #      - uses: vemonet/setup-spark@v1
       #        with:
@@ -155,7 +155,9 @@ jobs:
         uses: actions/setup-java@v2
         with:
           distribution: 'zulu' # See 'Supported distributions' for available options
-          java-version: '11'
+          java-version: '11' # See 'Java versions' for available options
+      - name: Setup sbt launcher
+        uses: sbt/setup-sbt@v1
       - name: Formatting
         run: sbt scalafmtSbtCheck scalafmtCheck test:scalafmtCheck
   docker:
@@ -168,6 +170,8 @@ jobs:
       - name: Checkout
         id: vcs
         uses: actions/checkout@v4
+      - name: Setup sbt launcher
+        uses: sbt/setup-sbt@v1
 
       - name: Env
         run: |
