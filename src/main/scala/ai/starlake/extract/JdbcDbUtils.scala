@@ -289,6 +289,7 @@ object JdbcDbUtils extends LazyLogging {
   def execute(script: String, connection: SQLConnection): Try[Boolean] = {
     val statement = connection.createStatement()
     val result = Try {
+      logger.info(s"execute statement: $script")
       statement.execute(script)
     }
     result match {
