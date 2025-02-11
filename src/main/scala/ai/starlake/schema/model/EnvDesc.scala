@@ -231,14 +231,38 @@ object EnvDesc extends StrictLogging {
       val envVarsWithNoDefault = vars.keys.toSet -- defaultEnv.keys.toSet
       if (envVarsWithNoDefault.nonEmpty) {
         errors = errors :+ ValidationMessage(
-          Severity.Error,
+          Severity.Warning,
           "Env",
           s"Specific env file ${path
-              .getName()} has variables with no default: ${envVarsWithNoDefault.mkString(", ")}"
+              .getName()} has variables defined as empty strings: ${envVarsWithNoDefault.mkString(", ")}"
         )
       }
     }
 
     errors
+  }
+
+  def allEnvVars(implicit
+    storageHandler: StorageHandler,
+    settings: Settings
+  ): Set[String] = {
+    var errors = List.empty[ValidationMessage]
+    val defaultEnvPath = DatasetArea.env()
+    val defaultEnv = loadEnv(defaultEnvPath).map(_.env.keys).getOrElse(List.empty).toSet
+    val allSpecificEnvVars =
+      storageHandler
+        .list(DatasetArea.metadata, extension = ".sl.yml", recursive = false)
+        .filter { file =>
+          val filename = file.path.getName()
+          filename.startsWith("env.") && filename != "env.sl.yml"
+        }
+        .flatMap { file =>
+          val path = file.path
+          val env = loadEnv(path)
+          env.map(e => e.env.keys)
+        }
+        .flatten
+        .toSet
+    allSpecificEnvVars ++ defaultEnv
   }
 }

@@ -386,7 +386,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val activeEnvName =
       env // passed as argument (by the API)
-        .orElse(Option(System.getProperties().get("env"))) // passed as a system property
+        .orElse(Option(System.getProperties.get("env"))) // passed as a system property
         .orElse(Option(System.getenv().get("SL_ENV"))) // passed as an environment variable
         .orElse(globalEnvVars.get("SL_ENV")) // defined in the default env file
         .getOrElse(settings.appConfig.env) // defined in the application.sl.yml
@@ -420,8 +420,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     // Please note below how profile specific vars override default profile vars.
     val activeEnvVars = externalProps ++ slDateVars ++ globalEnvVars ++ localEnvVars ++ cliEnv
-
-    this._activeEnvVars = activeEnvVars
+    val undefinedVars = EnvDesc.allEnvVars(settings.storageHandler(), settings)
+    val emptyVars = undefinedVars.flatMap { key =>
+      if (activeEnvVars.contains(key)) None
+      else {
+        logger.warn(s"Variable $key defined to empty string in current execution environment")
+        Some(key -> "")
+      }
+    }
+    this._activeEnvVars = activeEnvVars ++ emptyVars.toMap
     this._activeEnvVars
   }
 
