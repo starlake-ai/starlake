@@ -1,6 +1,7 @@
 package ai.starlake.tests
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.Main
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.ConnectionType.JDBC
@@ -598,6 +599,10 @@ object StarlakeTestData {
             Utils.withResources(
               DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
             ) { conn =>
+              JdbcDbUtils.execute("INSTALL SPATIAL;", conn)
+              JdbcDbUtils.execute("LOAD SPATIAL;", conn)
+              JdbcDbUtils.execute("INSTALL JSON;", conn)
+              JdbcDbUtils.execute("LOAD JSON;", conn)
               createSchema(domainName, conn)
               rootData.foreach(_.load(conn))
               domainData.foreach(_.load(conn))
