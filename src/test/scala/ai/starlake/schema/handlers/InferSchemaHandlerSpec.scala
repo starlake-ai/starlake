@@ -1,7 +1,7 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.{Attribute, Format}
+import ai.starlake.schema.model.Attribute
 
 class InferSchemaHandlerSpec extends TestHelper {
 
