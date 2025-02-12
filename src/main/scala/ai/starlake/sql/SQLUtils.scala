@@ -518,7 +518,24 @@ object SQLUtils extends StrictLogging {
     if (timestamps.nonEmpty) {
       logger.info(s"Transpiling SQL with timestamps: $timestamps")
     }
-    Try(JSQLTranspiler.transpileQuery(sql, transpilerDialect(conn), timestamps.asJava)) match {
+    val dialect = transpilerDialect(conn)
+    val unpipedQuery = Try {
+      if (dialect != JSQLTranspiler.Dialect.GOOGLE_BIG_QUERY) {
+        JSQLTranspiler.unpipe(sql)
+      } else {
+        sql
+      }
+    } match {
+      case Success(unpiped) =>
+        unpiped
+      case Failure(e) =>
+        logger.error(s"Failed to unpipe SQL, sending as is to the dataware: $sql")
+        Utils.logException(logger, e)
+        sql
+    }
+    Try(
+      JSQLTranspiler.transpileQuery(unpipedQuery, transpilerDialect(conn), timestamps.asJava)
+    ) match {
       case Success(transpiled) =>
         transpiled
       case Failure(e) =>
