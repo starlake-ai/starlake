@@ -408,12 +408,12 @@ object JdbcDbUtils extends LazyLogging {
   def extractSchemasAndTableNames(connectionSettings: Connection)(implicit
     settings: Settings
   ): Try[List[(DomainName, List[TableName])]] = {
-    val schemas = extractJDBCSchemas(connectionSettings)
+    val schemaNames = extractJDBCSchemas(connectionSettings)
     val result =
-      schemas.map { schemas =>
+      schemaNames.map { schemaNames =>
         val result =
-          schemas.map { schema =>
-            val jdbcSchema = JDBCSchema(schema = schema)
+          schemaNames.map { schemaName =>
+            val jdbcSchema = JDBCSchema(schema = schemaName, tableTypes = List("TABLE"))
             implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
               ParUtils.createForkSupport(None)
             val tables = extractJDBCTables(
@@ -422,7 +422,7 @@ object JdbcDbUtils extends LazyLogging {
               skipRemarks = true,
               keepOriginalName = true
             )
-            schema -> tables.keys.toList.sorted
+            schemaName -> tables.keys.toList.sorted
           }
         result.sortBy(_._1)
       }
