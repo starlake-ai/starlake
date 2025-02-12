@@ -327,7 +327,7 @@ class JdbcAutoTask(
       JdbcJobResult(headerAsSeq.toList, result.toList)
     } catch {
       case e: Exception =>
-        logger.error(s"Error running interactive query $mainSql", e)
+        throw new Exception(s"Error running interactive query: \n$mainSql\n", e)
         throw e
     } finally {
       stmt.close()
