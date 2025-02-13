@@ -175,6 +175,33 @@ object Settings extends StrictLogging {
     options: Map[String, String] = Map.empty,
     _transpileDialect: Option[String] = None
   ) {
+
+    def getCatalog(): String = {
+      val catalog = this.getJdbcEngineName().toString match {
+        case "snowflake" =>
+          val dbName =
+            options
+              .get("db")
+              .orElse(options.get("sfDatabase"))
+              .orNull
+          dbName
+        case "spark" =>
+          val dbName =
+            options
+              .get("dbName")
+              .orNull
+          dbName
+        case "postgresql" =>
+          val dbName =
+            options
+              .get("DatabaseName")
+              .orNull
+          dbName
+        case _ =>
+          null
+      }
+      catalog
+    }
     override def toString: String = {
       val redactOptions = Utils.redact(options)
       s"""Connection(

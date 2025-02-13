@@ -434,8 +434,9 @@ object JdbcDbUtils extends LazyLogging {
   ): Try[List[String]] = {
 
     withJDBCConnection(readOnlyConnection(connectionSettings).options) { connection =>
+      val catalog = connectionSettings.getCatalog()
       val databaseMetaData = connection.getMetaData()
-      Using(databaseMetaData.getSchemas()) { resultSet =>
+      Using(databaseMetaData.getSchemas(catalog, null)) { resultSet =>
         new Iterator[String] {
           override def hasNext: Boolean = resultSet.next()
 
@@ -641,7 +642,7 @@ object JdbcDbUtils extends LazyLogging {
       Using
         .Manager { use =>
           selectedTables.toList.map { case (tableName, tableRemarks) =>
-            ExtractUtils.timeIt(s"Table's schema extraction of $tableName") {
+            ExtractUtils.timeIt(s"Table's schema extraction of $schemaName.$tableName") {
               logger.info(
                 s"Extracting table's schema '$schemaName.$tableName' with remarks '$tableRemarks'"
               )
