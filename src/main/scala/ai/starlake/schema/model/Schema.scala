@@ -80,7 +80,8 @@ case class Schema(
   rename: Option[String] = None,
   sample: Option[String] = None,
   filter: Option[String] = None,
-  patternSample: Option[String] = None
+  patternSample: Option[String] = None,
+  streams: List[String] = Nil
 ) extends Named {
 
   def this() = this(
@@ -363,6 +364,24 @@ case class Schema(
           )
       }
     }
+
+    val fullTableName = s"${domainName}_${name}"
+    val streamsErrors = streams.map { stream =>
+      if (!stream.startsWith(fullTableName)) {
+        Left(
+          List(
+            ValidationMessage(
+              Error,
+              s"Table $domainName.$name",
+              s"stream: $stream is not a valid stream. Stream should start with $fullTableName"
+            )
+          )
+        )
+      } else {
+        Right(true)
+      }
+    }
+    errorList ++= streamsErrors.collect { case Left(errors) => errors }.flatten
 
     if (errorList.nonEmpty)
       Left(errorList.toList)

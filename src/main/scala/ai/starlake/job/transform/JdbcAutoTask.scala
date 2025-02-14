@@ -15,7 +15,6 @@ import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import java.sql.{Connection, Timestamp}
 import java.time.Instant
-import java.util
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 

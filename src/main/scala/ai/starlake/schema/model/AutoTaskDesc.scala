@@ -58,7 +58,8 @@ case class AutoTaskDesc(
   _auditTableName: Option[String] = None,
   taskTimeoutMs: Option[Long] = None,
   _dbComment: Option[String] = None,
-  connectionRef: Option[String] = None
+  connectionRef: Option[String] = None,
+  streams: List[String] = Nil
 ) extends Named {
 
   @JsonIgnore
@@ -147,6 +148,22 @@ case class AutoTaskDesc(
         }
         .getOrElse(Right(true))
 
+    val fullTableName = s"${this.domain}_${this.table}"
+    val streamsErrors = streams.map { stream =>
+      if (!stream.startsWith(fullTableName)) {
+        Left(
+          List(
+            ValidationMessage(
+              Error,
+              s"Task $name",
+              s"stream: $stream is not a valid stream. Stream should start with $fullTableName"
+            )
+          )
+        )
+      } else {
+        Right(true)
+      }
+    }
     // merge all errors
     val allErrors =
       List(sinkErrors, freshnessErrors, writeStrategyErrors, scheduleErrors, dagRefErrors)
