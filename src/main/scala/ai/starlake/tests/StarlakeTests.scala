@@ -599,10 +599,9 @@ object StarlakeTestData {
             Utils.withResources(
               DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
             ) { conn =>
+              // TODO logger.info(s"installing extensions")
               JdbcDbUtils.execute("INSTALL SPATIAL;", conn)
-              JdbcDbUtils.execute("LOAD SPATIAL;", conn)
               JdbcDbUtils.execute("INSTALL JSON;", conn)
-              JdbcDbUtils.execute("LOAD JSON;", conn)
               createSchema(domainName, conn)
               rootData.foreach(_.load(conn))
               domainData.foreach(_.load(conn))

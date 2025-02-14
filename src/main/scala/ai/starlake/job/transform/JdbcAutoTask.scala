@@ -15,8 +15,32 @@ import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import java.sql.{Connection, Timestamp}
 import java.time.Instant
+import java.util
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
+
+case class TaskSQLStatements(
+  name: String,
+  createSchemaSql: List[String],
+  preActions: List[String],
+  preSqls: List[String],
+  mainSqlIfExists: List[String],
+  mainSqlIfNotExists: List[String],
+  postSqls: List[String],
+  addSCD2ColumnsSqls: List[String]
+) {
+  def asMap(): Map[String, List[String]] = {
+    Map(
+      "createSchemaSql"    -> createSchemaSql,
+      "preActions"         -> preActions,
+      "preSqls"            -> preSqls,
+      "mainSqlIfExists"    -> mainSqlIfExists,
+      "mainSqlIfNotExists" -> mainSqlIfNotExists,
+      "postSqls"           -> postSqls,
+      "addSCD2ColumnsSqls" -> addSCD2ColumnsSqls
+    )
+  }
+}
 
 class JdbcAutoTask(
   appId: Option[String],
@@ -121,6 +145,7 @@ class JdbcAutoTask(
       case _ =>
     }
   }
+
   override protected lazy val sinkConnection: Settings.Connection = {
     if (interactive.isDefined) {
       JdbcDbUtils.readOnlyConnection(

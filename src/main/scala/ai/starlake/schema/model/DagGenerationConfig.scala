@@ -1,6 +1,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
+import ai.starlake.job.transform.TaskSQLStatements
 import ai.starlake.lineage.TaskViewDependencyNode
 import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.utils.Formatter.RichFormatter
@@ -186,9 +187,14 @@ case class LoadDagGenerationContext(
 case class TransformDagGenerationContext(
   config: DagGenerationConfig,
   deps: List[TaskViewDependencyNode],
-  cron: Option[String]
+  cron: Option[String],
+  sqls: List[TaskSQLStatements]
 ) {
   def asMap: util.HashMap[String, Object] = {
+    val sqlsAsMap = sqls.map { taskSQLStatements =>
+      taskSQLStatements.name -> taskSQLStatements.asMap
+    }.toMap
+
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
       val cal1 = Calendar.getInstance
       val tz = cal1.getTimeZone();
@@ -199,11 +205,14 @@ case class TransformDagGenerationContext(
     val updatedConfig = config.copy(options = updatedOptions)
     val depsAsJsonString =
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(deps)
+    val sqlsAsJsonString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(sqlsAsMap)
 
     new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
       put("cron", cron.getOrElse("None"))
       put("dependencies", depsAsJsonString)
+      put("statements", sqlsAsJsonString)
     }
   }
 }

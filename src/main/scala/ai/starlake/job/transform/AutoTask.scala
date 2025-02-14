@@ -29,6 +29,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
 import com.typesafe.scalalogging.StrictLogging
 
@@ -40,6 +41,9 @@ import scala.util.{Failure, Success, Try}
   *
   * @param name
   *   : Job Name as defined in the YML job description file
+  * @param interactive
+  *   : If the task is interactive, it will not be materialized. Just the select statement will be
+  *   executed
   * @param defaultArea
   *   : Where the resulting dataset is stored by default if not specified in the task
   * @param taskDesc
@@ -106,7 +110,7 @@ abstract class AutoTask(
   protected lazy val preSql = {
     val testMacros =
       if (this.test) {
-        JSQLTranspiler.getMacroArray.toList
+        List("LOAD SPATIAL", "LOAD JSON") ++ JSQLTranspiler.getMacroArray.toList
       } else
         Nil
     testMacros ++ parseJinja(taskDesc.presql, allVars).filter(_.trim.nonEmpty)
@@ -261,6 +265,59 @@ abstract class AutoTask(
     taskDesc.sink
       .flatMap(_.materializedView)
       .getOrElse(Materialization.TABLE)
+  }
+
+  private def buildAddSCD2ColumnsSqls(engineName: Engine): List[String] = {
+    this.taskDesc.writeStrategy match {
+      case Some(strategyOptions) if strategyOptions.getEffectiveType() == WriteStrategyType.SCD2 =>
+        val startTsCol = strategyOptions.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val endTsCol = strategyOptions.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
+        val scd2Columns = List(startTsCol, endTsCol)
+        val alterTableSqls = scd2Columns.map { column =>
+          if (engineName.toString.toLowerCase() == "redshift")
+            s"ALTER TABLE $fullTableName ADD COLUMN $column TIMESTAMP"
+          else
+            s"ALTER TABLE $fullTableName ADD COLUMN IF NOT EXISTS $column TIMESTAMP NULL"
+        }
+        alterTableSqls
+      case _ =>
+        List.empty
+    }
+  }
+
+  def buildListOfSQLStatements(): TaskSQLStatements = {
+    val createSchemaSql =
+      if (settings.appConfig.createSchemaIfNotExists) {
+        // Creating a schema requires its own connection if called before a Spark save
+        List(s"CREATE SCHEMA IF NOT EXISTS $fullDomainName")
+      } else {
+        List.empty
+      }
+
+    val mainSqlIfExists = buildAllSQLQueries(None, Some(true)).splitSql()
+    val mainSqlIfNotExists = buildAllSQLQueries(None, Some(false)).splitSql()
+
+    val parsedPreActions =
+      Utils
+        .parseJinja(
+          jdbcSinkEngine.preActions.getOrElse(""),
+          Map("schema" -> taskDesc.domain)
+        )
+        .splitSql(";")
+    val preSqls = preSql
+    val postSqls = postSql
+
+    val addSCD2ColumnsSqls = buildAddSCD2ColumnsSqls(sinkConnection.getJdbcEngineName())
+    TaskSQLStatements(
+      taskDesc.name,
+      createSchemaSql,
+      parsedPreActions,
+      preSqls,
+      mainSqlIfExists,
+      mainSqlIfNotExists,
+      postSqls,
+      addSCD2ColumnsSqls
+    )
   }
 }
 
@@ -521,4 +578,5 @@ object AutoTask extends StrictLogging {
         throw e
     }
   }
+
 }

@@ -1,6 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.job.transform.{AutoTask, JdbcAutoTask}
 import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Severity, _}
@@ -147,10 +148,33 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val configs = taskConfigs.map { case (_, config) => config.taskDesc.name }
         val autoTaskDepsConfig = AutoTaskDependenciesConfig(tasks = Some(configs))
         val deps = depsEngine.jobsDependencyTree(autoTaskDepsConfig)
+
+        val taskSqlStatements =
+          if (config.orchestrator.isDefined) {
+            taskConfigs.map { case (_, config) =>
+              val task = AutoTask.task(
+                appId = None,
+                taskDesc = config.taskDesc,
+                configOptions = Map.empty,
+                interactive = None,
+                truncate = false,
+                test = false,
+                config.taskDesc.getRunEngine(),
+                logExecution = false,
+                accessToken = None,
+                resultPageSize = 1,
+                dryRun = false
+              )(settings, settings.storageHandler(), schemaHandler)
+              task.buildListOfSQLStatements()
+            }
+          } else
+            List.empty
+
         val context = TransformDagGenerationContext(
           config = dagConfig,
           deps = deps,
-          cron = Option(cronIfNone)
+          cron = Option(cronIfNone),
+          sqls = taskSqlStatements
         )
         applyJ2AndSave(
           outputDir,
@@ -183,6 +207,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
          |""".stripMargin
     result
   }
+
   private def optionsWithProjectIdAndName(
     config: DagGenerateConfig,
     options: util.HashMap[String, Object]
@@ -208,6 +233,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     logger.info(s"Cleaning output directory $outputDir")
     settings.storageHandler().delete(outputDir)
   }
+
   def generateDomainDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {

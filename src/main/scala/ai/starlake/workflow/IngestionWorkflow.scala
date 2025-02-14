@@ -884,7 +884,7 @@ class IngestionWorkflow(
     Utils.logFailure(result, logger)
   }
 
-  private def buildTask(
+  def buildTask(
     config: TransformConfig
   ): AutoTask = {
     val taskDesc =
@@ -918,7 +918,7 @@ class IngestionWorkflow(
     )
   }
 
-  def compileAutoJob(config: TransformConfig): Try[String] = Try {
+  def compileAutoJob(config: TransformConfig): Try[(String, String)] = Try {
     val action = buildTask(config)
     // TODO Interactive compilation should check table existence
     val sqlWhenTableDontExist = action.buildAllSQLQueries(None, Some(false))
@@ -935,17 +935,20 @@ class IngestionWorkflow(
         (sqlWhenTableDontExist, sqlWhenTableExist)
       }
 
-    val tableExistsStr = tableExists.map(_.toString).getOrElse("Unknown")
     val result =
-      s"""
-         |-- Table exists: $tableExistsStr
+      (
+        s"""
          |-- SQL when table does not exist
         |$formattedDontExist
+        |""".stripMargin,
+        s"""
         |-- SQL when table exists
         |$formattedExist
         |
         |""".stripMargin
-    logger.info(result)
+      )
+    logger.info(result._1)
+    logger.info(result._2)
     result
   }
 
