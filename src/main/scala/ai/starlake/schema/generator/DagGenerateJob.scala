@@ -1,10 +1,10 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.transform.{AutoTask, JdbcAutoTask}
+import ai.starlake.job.transform.AutoTask
 import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Severity, _}
+import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
