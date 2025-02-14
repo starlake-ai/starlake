@@ -45,15 +45,16 @@ application:
         driver: "com.amazon.redshift.Driver"
         user: "{{REDSHIFT_USER}}"
         password: "{{REDSHIFT_PASSWORD}}"
-        quoteIdentifiers: false
+        quoteIdentifiers: "false"
         tempdir: "s3a://starlake-app/data"
         aws_iam_role: "{{REDSHIFT_ROLE}}"
     snowflake:
-      type: jdbc
+      type: "jdbc"
       loader: "native"
       options:
         url: "jdbc:snowflake://{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com/"
         driver: "net.snowflake.client.jdbc.SnowflakeDriver"
+        account: "{{SNOWFLAKE_ACCOUNT}}"
         user: "{{SNOWFLAKE_USER}}"
         password: "{{SNOWFLAKE_PASSWORD}}"
         warehouse: "{{SNOWFLAKE_WAREHOUSE}}"
@@ -61,17 +62,18 @@ application:
         keep_column_case: "off"
         preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
     snowflake_spark:
-      type: jdbc
-      sparkFormat: snowflake
+      type: "jdbc"
+      sparkFormat: "snowflake"
       options:
         sfUrl: "{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com" # make sure you do not prefix by jdbc:snowflake://. This is done by the snowflaek driver
         driver: "net.snowflake.client.jdbc.SnowflakeDriver"
+        sfAccount: "{{SNOWFLAKE_ACCOUNT}}"
         sfUser: "{{SNOWFLAKE_USER}}"
         sfPassword: "{{SNOWFLAKE_PASSWORD}}"
         sfWarehouse: "{{SNOWFLAKE_WAREHOUSE}}"
         sfDatabase: "{{SNOWFLAKE_DB}}"
         keep_column_case: "off"
-        autopushdown: on
+        autopushdown: "on"
         preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
   dagRef:
     load: "airflow_load_shell"

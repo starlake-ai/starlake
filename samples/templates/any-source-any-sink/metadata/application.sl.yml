@@ -37,6 +37,7 @@ application:
       options:
         url: "jdbc:snowflake://{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com/"
         driver: "net.snowflake.client.jdbc.SnowflakeDriver"
+        account: "{{SNOWFLAKE_ACCOUNT}}"
         user: "{{SNOWFLAKE_USER}}"
         password: "{{SNOWFLAKE_PASSWORD}}"
         warehouse: "{{SNOWFLAKE_WAREHOUSE}}"
@@ -49,6 +50,7 @@ application:
       options:
         sfUrl: "{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com" # make sure you do not prefix by jdbc:snowflake://. This is done by the snowflaek driver
         #sfDriver: "net.snowflake.client.jdbc.SnowflakeDriver"
+        sfAccount: {{SNOWFLAKE_ACCOUNT}}
         sfUser: "{{SNOWFLAKE_USER}}"
         sfPassword: "{{SNOWFLAKE_PASSWORD}}"
         sfWarehouse: "{{SNOWFLAKE_WAREHOUSE}}"
