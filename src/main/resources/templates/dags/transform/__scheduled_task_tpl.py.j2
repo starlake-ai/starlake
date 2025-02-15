@@ -64,13 +64,14 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
         transform_options = pipeline.sl_transform_options(cron_expr)
 
         # create a task
-        def create_task(task_id: str, task_name: str, task_type: StarlakeDependencyType):
-            if (task_type == StarlakeDependencyType.task):
+        def create_task(task_id: str, task_name: str, task_type: StarlakeDependencyType, task_sink: Optional[str] = None) -> Union[AbstractTask, AbstractTaskGroup]:
+            if (task_type == StarlakeDependencyType.TASK):
                 return pipeline.sl_transform(
                     task_id=task_id, 
                     transform_name=task_name,
                     transform_options=transform_options,
                     spark_config=pipeline.sl_spark_config(task_name.lower()),
+                    sink=task_sink,
                     params={'cron':cron, 'cron_expr':cron_expr},
                 )
             else:
@@ -90,10 +91,8 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
             task_name = task.name
             task_group_id = sanitize_id(task_name)
             task_type = task.dependency_type
-            if (task_type == StarlakeDependencyType.task):
-                task_id = task_group_id + "_task"
-            else:
-                task_id = task_group_id + "_table"
+            task_sink = task.sink
+            task_id = f"{task_group_id}_{task_type}"
             
             if load_dependencies and parent_group_id:
                 task_id = parent_group_id + "_" + task_id # to ensure task_id uniqueness
@@ -113,7 +112,7 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
                     task << upstream_tasks
                 return task_group
             else:
-                task = create_task(task_id=task_id, task_name=task_name, task_type=task_type)
+                task = create_task(task_id=task_id, task_name=task_name, task_type=task_type, task_sink=task_sink)
                 return task
 
         all_transform_tasks = [generate_task_group_for_task(task) for task in dependencies if task.name not in all_dependencies]

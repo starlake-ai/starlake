@@ -8,10 +8,17 @@ from typing import List, Optional, Set, Union
 
 from enum import Enum
 
-StarlakeDependencyType = Enum("StarlakeDependencyType", ["task", "table"])
+class StarlakeDependencyType(str, Enum):
+    TASK = "task"
+    TABLE = "table"
+
+    def __str__(self):
+        return self.value
+
+#StarlakeDependencyType = Enum("StarlakeDependencyType", ["task", "table"])
 
 class StarlakeDependency():
-    def __init__(self, name: str, dependency_type: StarlakeDependencyType, cron: Optional[str]= None, dependencies: List[StarlakeDependency]= [], **kwargs):
+    def __init__(self, name: str, dependency_type: StarlakeDependencyType, cron: Optional[str]= None, dependencies: List[StarlakeDependency]= [], sink: Optional[str]= None, stream: Optional[str]= None, **kwargs):
         """Initializes a new StarlakeDependency instance.
 
         Args:
@@ -19,6 +26,8 @@ class StarlakeDependency():
             dependency_type (StarlakeDependencyType): The required dependency dependency_type.
             cron (str): The optional cron.
             dependencies (List[StarlakeDependency]): The optional dependencies.
+            sink (str): The optional sink.
+            stream (str): The optional stream.
         """
         self.name = name
         self.dependency_type = dependency_type
@@ -29,6 +38,8 @@ class StarlakeDependency():
                 raise ValueError(f"Invalid cron expression: {cron} for dependency {name}")
         self.cron = cron
         self.dependencies = dependencies
+        self.sink = sink
+        self.stream = stream
 
 class StarlakeDependencies():
     def __init__(self, dependencies: Union[str, List[StarlakeDependency]], **kwargs):
@@ -41,17 +52,23 @@ class StarlakeDependencies():
             data: dict = task.get('data', {})
 
             if data.get('typ', None) == 'task':
-                dependency_type = StarlakeDependencyType.task
+                dependency_type = StarlakeDependencyType.TASK
             else:
-                dependency_type = StarlakeDependencyType.table
+                dependency_type = StarlakeDependencyType.TABLE
 
             cron: Optional[str] = data.get('cron', None)
+
+            sink: Optional[str] = data.get('sink', None)
+
+            stream: Optional[str] = data.get('stream', None)
 
             return StarlakeDependency(
                 name=data["name"], 
                 dependency_type=dependency_type, 
                 cron=cron, 
-                dependencies=[generate_dependency(subtask) for subtask in task.get('children', [])]
+                dependencies=[generate_dependency(subtask) for subtask in task.get('children', [])],
+                sink=sink,
+                stream=stream
             )
 
         if isinstance(dependencies, str):

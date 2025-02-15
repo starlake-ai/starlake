@@ -31,6 +31,7 @@ from enum import Enum
 class StarlakeOrchestrator(str, Enum):
     AIRFLOW = "airflow"
     DAGSTER = "dagster"
+    SNOWFLAKE = "snowflake"
 
     def __str__(self):
         return self.value
@@ -41,6 +42,7 @@ class StarlakeExecutionEnvironment(str, Enum):
     DATAPROC = "dataproc"
     FARGATE = "fargate"
     SHELL = "shell"
+    SQL = "sql"
 
     def __str__(self):
         return self.value
@@ -302,7 +304,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
             )
         return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
 
-    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: Optional[StarlakeSparkConfig]=None, **kwargs) -> T:
+    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: Optional[StarlakeSparkConfig]=None, sink: Optional[str] = None, **kwargs) -> T:
         """Transform job.
         Generate the scheduler task that will run the starlake `transform` command.
 
@@ -311,6 +313,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
             transform_name (str): The transform to run.
             transform_options (str): The optional transform options to use.
             spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+            sink (Optional[str], optional): The optional sink to write the transformed data.
         
         Returns:
             T: The scheduler task.
