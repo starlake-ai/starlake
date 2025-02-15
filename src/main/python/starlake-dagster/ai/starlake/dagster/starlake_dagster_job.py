@@ -89,7 +89,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
         kwargs.update({'description': f"Starlake table '{domain}.{table}' loaded"})
         return super().sl_load(task_id=task_id, domain=domain, table=table, spark_config=spark_config, **kwargs)
 
-    def sl_transform(self, task_id: str, transform_name: str, transform_options: str = None, spark_config: StarlakeSparkConfig = None, **kwargs) -> NodeDefinition:
+    def sl_transform(self, task_id: str, transform_name: str, transform_options: str = None, spark_config: StarlakeSparkConfig = None, sink: Optional[str] = None, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_transform()
         Generate the Dagster node that will run the starlake `transform` command.
 
@@ -97,6 +97,8 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
             task_id (str): The optional task id ({transform_name} by default).
             transform_name (str): The required transform name.
             transform_options (str, optional): The optional transform options. Defaults to None.
+            spark_config (StarlakeSparkConfig, optional): The optional spark configuration. Defaults to None.
+            sink (Optional[str], optional): The optional sink to write the transformed data.
 
         Returns:
             NodeDefinition: The Dagster node.
