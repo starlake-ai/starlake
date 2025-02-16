@@ -23,6 +23,7 @@ package ai.starlake.job.transform
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.{AuditLog, Step}
+import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.job.strategies.StrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -35,6 +36,42 @@ import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
 import scala.util.{Failure, Success, Try}
+
+case class TaskSQLStatements(
+  name: String,
+  createSchemaSql: List[String],
+  preActions: List[String],
+  preSqls: List[String],
+  mainSqlIfExists: List[String],
+  mainSqlIfNotExists: List[String],
+  postSqls: List[String],
+  addSCD2ColumnsSqls: List[String]
+) {
+
+  def asPython(): String = {
+    val map = asMap()
+    val entries = map.map { case (k, list) =>
+      val value = list
+        .map { v =>
+          s"""'''$v'''"""
+        }
+        .mkString(",\n")
+      s""""$k": [$value]"""
+    }
+    s"{\n${entries.mkString(",\n")}\n}"
+  }
+  def asMap(): Map[String, List[String]] = {
+    Map(
+      "createSchemaSql"    -> createSchemaSql,
+      "preActions"         -> preActions,
+      "preSqls"            -> preSqls,
+      "mainSqlIfExists"    -> mainSqlIfExists,
+      "mainSqlIfNotExists" -> mainSqlIfNotExists,
+      "postSqls"           -> postSqls,
+      "addSCD2ColumnsSqls" -> addSCD2ColumnsSqls
+    )
+  }
+}
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it
   * as a Hive Table. If analyze support is active, also compute basic statistics for twhe dataset.
@@ -84,6 +121,18 @@ abstract class AutoTask(
     taskDesc.sink.flatMap(_.format).getOrElse(settings.appConfig.defaultWriteFormat)
 
   val sinkConfig = taskDesc.getSinkConfig()
+
+  val sinkOptions =
+    if (sinkConnection.isDuckDb()) {
+      val duckDbEnableExternalAccess =
+        settings.appConfig.duckDbEnableExternalAccess || sinkConnection.isMotherDuckDb()
+      sinkConnection.options.updated(
+        "enable_external_access",
+        duckDbEnableExternalAccess.toString
+      )
+    } else {
+      sinkConnection.options
+    }
 
   def fullTableName: String
 
@@ -186,7 +235,6 @@ abstract class AutoTask(
         )
       sqlWithParametersTranspiledIfInTest
     }
-
   }
 
   private def parseJinja(sql: String, vars: Map[String, Any]): String = parseJinja(
@@ -214,14 +262,30 @@ abstract class AutoTask(
     result
   }
 
-  private def logAudit(
+  def auditTableCreateSQL(): List[String] = {
+    // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
+    logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
+    val entry = taskDesc._auditTableName.getOrElse(
+      throw new Exception(
+        s"audit table for output ${taskDesc.table} is not defined in engine $jdbcSinkEngineName"
+      )
+    )
+    val scriptTemplate = jdbcSinkEngine.tables(entry).createSql
+    val script = scriptTemplate.richFormat(
+      Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
+      Map.empty
+    )
+    List(JdbcDbUtils.schemaCreateSQL(fullDomainName), script)
+  }
+
+  private def auditLog(
     start: Timestamp,
     end: Timestamp,
     jobResultCount: Long,
     success: Boolean,
     message: String,
     test: Boolean
-  ): Unit = {
+  ): Option[AuditLog] = {
     if (taskDesc._auditTableName.isEmpty) { // avoid recursion when logging audit
       val log = AuditLog(
         applicationId(),
@@ -240,15 +304,26 @@ abstract class AutoTask(
         settings.appConfig.tenant,
         test
       )
-      AuditLog.sink(log)
+      Some(log)
+    } else {
+      None
     }
   }
 
-  def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long, test: Boolean): Unit =
-    logAudit(start, end, jobResultCount, success = true, "success", test)
+  def logAuditSuccess(
+    start: Timestamp,
+    end: Timestamp,
+    jobResultCount: Long,
+    test: Boolean
+  ): Unit = {
+    val log = auditLog(start, end, jobResultCount, success = true, "success", test)
+    log.foreach(AuditLog.sink)
+  }
 
-  def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable, test: Boolean): Unit =
-    logAudit(start, end, -1, success = false, Utils.exceptionAsString(e), test)
+  def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable, test: Boolean): Unit = {
+    val log = auditLog(start, end, -1, success = false, Utils.exceptionAsString(e), test)
+    log.foreach(AuditLog.sink)
+  }
 
   def dependencies(): List[String] = {
     val result = SQLUtils.extractTableNamesUsingRegEx(parseJinja(taskDesc.getSql(), Map.empty))
@@ -285,11 +360,51 @@ abstract class AutoTask(
     }
   }
 
+  def expectationStatements(): List[ExpectationItem] = {
+    if (settings.appConfig.expectations.active) {
+      // TODO Implement Expectations
+      new ExpectationJob(
+        Option(applicationId()),
+        taskDesc.database,
+        taskDesc.domain,
+        taskDesc.table,
+        taskDesc.expectations,
+        storageHandler,
+        schemaHandler,
+        new JdbcExpectationAssertionHandler(sinkOptions)
+      ).buildStatementsList() match {
+        case Success(expectations) =>
+          expectations
+        case Failure(e) =>
+          throw e
+      }
+    } else {
+      List.empty
+    }
+  }
+
+  def auditStatements(): Option[TaskSQLStatements] = {
+    if (settings.appConfig.audit.active.getOrElse(true)) {
+      val auditStatements =
+        auditLog(
+          new Timestamp(System.currentTimeMillis()),
+          new Timestamp(System.currentTimeMillis()),
+          0,
+          success = true,
+          "success",
+          test
+        ).flatMap(AuditLog.buildListOfSQLStatements)
+      auditStatements
+    } else {
+      None
+    }
+  }
+
   def buildListOfSQLStatements(): TaskSQLStatements = {
-    val createSchemaSql =
+    val createSchemaAndTableSql =
       if (settings.appConfig.createSchemaIfNotExists) {
         // Creating a schema requires its own connection if called before a Spark save
-        List(s"CREATE SCHEMA IF NOT EXISTS $fullDomainName")
+        this.auditTableCreateSQL()
       } else {
         List.empty
       }
@@ -308,9 +423,10 @@ abstract class AutoTask(
     val postSqls = postSql
 
     val addSCD2ColumnsSqls = buildAddSCD2ColumnsSqls(sinkConnection.getJdbcEngineName())
+
     TaskSQLStatements(
       taskDesc.name,
-      createSchemaSql,
+      createSchemaAndTableSql,
       parsedPreActions,
       preSqls,
       mainSqlIfExists,

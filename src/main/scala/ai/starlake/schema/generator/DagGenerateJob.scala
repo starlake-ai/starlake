@@ -1,7 +1,8 @@
 package ai.starlake.schema.generator
 
+import ai.starlake.config.DatasetArea.expectations
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.transform.AutoTask
+import ai.starlake.job.transform.{AutoTask, TaskSQLStatements}
 import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
@@ -149,7 +150,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val autoTaskDepsConfig = AutoTaskDependenciesConfig(tasks = Some(configs))
         val deps = depsEngine.jobsDependencyTree(autoTaskDepsConfig)
 
-        val taskSqlStatements =
+        val taskStatements
+          : List[(TaskSQLStatements, List[ExpectationItem], Option[TaskSQLStatements])] =
           if (config.orchestrator.isDefined) {
             taskConfigs.map { case (_, config) =>
               val task = AutoTask.task(
@@ -165,17 +167,23 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 resultPageSize = 1,
                 dryRun = false
               )(settings, settings.storageHandler(), schemaHandler)
-              task.buildListOfSQLStatements()
+              (
+                task.buildListOfSQLStatements(),
+                task.expectationStatements(),
+                task.auditStatements()
+              )
             }
-          } else
-            List.empty
+          } else {
+            Nil
+          }
 
         val context = TransformDagGenerationContext(
           config = dagConfig,
           deps = deps,
           cron = Option(cronIfNone),
-          sqls = taskSqlStatements
+          statements = taskStatements
         )
+
         applyJ2AndSave(
           outputDir,
           jEnv,

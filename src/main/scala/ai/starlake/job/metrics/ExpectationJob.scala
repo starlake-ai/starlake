@@ -135,6 +135,7 @@ class ExpectationJob(
     extends SparkJob {
 
   private var _failOnError: Boolean = false
+
   def failOnError(): Boolean = _failOnError
 
   override def name: String = "Check Expectations"
@@ -153,12 +154,11 @@ class ExpectationJob(
   }
 
   override def run(): Try[JobResult] = {
-    var bqSlThisCTE = ""
     val fullTableName = database match {
       case Some(db) => s"$db.$domainName.$schemaName"
       case None     => s"$domainName.$schemaName"
     }
-    bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $fullTableName)\n"
+    val bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $fullTableName)\n"
 
     val macros = schemaHandler.jinjavaMacros
     val expectationReports = expectations.map { expectation =>
@@ -168,13 +168,12 @@ class ExpectationJob(
           expectationWithMacroDefinitions,
           schemaHandler.activeEnvVars()
         )
-      val assertion = Utils.parseJinja(expectation.expected, schemaHandler.activeEnvVars())
       logger.info(
-        s"Applying expectation: ${expectation.query} with request $sql"
+        s"Applying expectation: ${expectation.expect} with request $sql"
       )
       Try {
-        val expectationResult = sqlRunner.handle(sql, assertion)
-        val success = expectationResult("assertion").asInstanceOf[Boolean]
+        val expectationResult = sqlRunner.handle(sql)
+        val success = expectationResult == 0
         if (!success) _failOnError = true
         ExpectationReport(
           applicationId(),
@@ -183,9 +182,9 @@ class ExpectationJob(
           schemaName,
           Timestamp.from(Instant.now()),
           "",
-          expectation.query,
+          expectation.expect,
           Some(sql),
-          Some(expectationResult("count").asInstanceOf[Long]),
+          Some(expectationResult),
           None,
           success = success
         )
@@ -201,7 +200,7 @@ class ExpectationJob(
             schemaName,
             Timestamp.from(Instant.now()),
             "",
-            expectation.query,
+            expectation.expect,
             None,
             None,
             Some(Utils.exceptionAsString(e)),
@@ -218,7 +217,7 @@ class ExpectationJob(
             schemaName,
             Timestamp.from(Instant.now()),
             "",
-            expectation.query,
+            expectation.expect,
             Some(sql),
             None,
             Some(Utils.exceptionAsString(e)),
@@ -290,5 +289,28 @@ class ExpectationJob(
     } else {
       result
     }
+  }
+
+  def buildStatementsList(): Try[List[ExpectationItem]] = Try {
+    val fullTableName = database match {
+      case Some(db) => s"$db.$domainName.$schemaName"
+      case None     => s"$domainName.$schemaName"
+    }
+    val bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $fullTableName)\n"
+
+    val macros = schemaHandler.jinjavaMacros
+    val sqls = expectations.map { expectation =>
+      val expectationWithMacroDefinitions = List(macros, expectation.queryCall()).mkString("\n")
+      val sql = bqSlThisCTE +
+        Utils.parseJinja(
+          expectationWithMacroDefinitions,
+          schemaHandler.activeEnvVars()
+        )
+      logger.info(
+        s"Applying expectation: ${expectation.expect} with request $sql"
+      )
+      expectation.copy(expect = sql)
+    }
+    sqls
   }
 }

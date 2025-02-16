@@ -21,7 +21,7 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
-import ai.starlake.job.transform.AutoTask
+import ai.starlake.job.transform.{AutoTask, TaskSQLStatements}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{GcpUtils, JobResult, Utils}
@@ -191,19 +191,44 @@ object AuditLog extends StrictLogging {
     None,
     None
   )
-
   def sink(log: AuditLog)(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Try[JobResult] = {
+    this.createTask(log).map { task =>
+      val res = task.run()
+      Utils.logFailure(res, logger)
+    } match {
+      case Some(res) => res
+      case None      => Success(new JobResult {})
+    }
+  }
+
+  def buildListOfSQLStatements(log: AuditLog)(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): Option[TaskSQLStatements] = {
+    createTask(log).map { task =>
+      val statements = task.buildListOfSQLStatements()
+      statements
+    }
+  }
+
+  private def createTask(log: AuditLog)(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): Option[AutoTask] = {
     if (settings.appConfig.audit.isActive() && !log.test) {
       val auditSink = settings.appConfig.audit.getSink()
       auditSink.getConnectionType() match {
         case ConnectionType.GCPLOG =>
           val logName = settings.appConfig.audit.getDomain()
+          // TODO handle gcp log when builing statements
           GcpUtils.sinkToGcpCloudLogging(log.asMap(), "audit", logName)
-          Success(new JobResult {})
+          None
         case _ =>
           val selectSql =
             log.asSelect(auditSink.getConnection().getJdbcEngineName())
@@ -240,11 +265,10 @@ object AuditLog extends StrictLogging {
               engine = engine,
               logExecution = false // We do not log the job that write the logs :)
             )
-          val res = task.run()
-          Utils.logFailure(res, logger)
+          Some(task)
       }
     } else {
-      Success(new JobResult {})
+      None
     }
   }
 }

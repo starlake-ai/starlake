@@ -188,11 +188,21 @@ case class TransformDagGenerationContext(
   config: DagGenerationConfig,
   deps: List[TaskViewDependencyNode],
   cron: Option[String],
-  sqls: List[TaskSQLStatements]
+  statements: List[(TaskSQLStatements, List[ExpectationItem], Option[TaskSQLStatements])]
 ) {
   def asMap: util.HashMap[String, Object] = {
-    val sqlsAsMap = sqls.map { taskSQLStatements =>
-      taskSQLStatements.name -> taskSQLStatements.asMap
+    val statementsAsMap = statements.map { case (statements, expectations, audit) =>
+      statements.name -> statements.asMap
+    }.toMap
+
+    val expectationsAsMap = statements.map { case (statements, expectations, audit) =>
+      statements.name -> expectations
+    }.toMap
+
+    val auditAsMap = statements.flatMap { case (statements, expectations, audit) =>
+      audit.map { audit =>
+        statements.name -> audit.asMap
+      }
     }.toMap
 
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
@@ -205,14 +215,20 @@ case class TransformDagGenerationContext(
     val updatedConfig = config.copy(options = updatedOptions)
     val depsAsJsonString =
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(deps)
-    val sqlsAsJsonString =
-      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(sqlsAsMap)
+    val statementsAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(statementsAsMap)
+    val expectationsAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(expectationsAsMap)
+    val auditAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(auditAsMap)
 
     new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
       put("cron", cron.getOrElse("None"))
       put("dependencies", depsAsJsonString)
-      put("statements", sqlsAsJsonString)
+      put("statements", statementsAsString)
+      put("expectations", expectationsAsString)
+      put("audit", auditAsString)
     }
   }
 }
