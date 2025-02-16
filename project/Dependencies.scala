@@ -90,7 +90,7 @@ object Dependencies {
   val redshift = Seq(
     "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % "provided" excludeAll (jacksonExclusions: _*),
     "org.apache.hadoop" % "hadoop-aws" % "3.3.4" % "provided" excludeAll (jacksonExclusions: _*),
-    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.780" % "provided" excludeAll (jacksonExclusions: _*)
+    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.781" % "provided" excludeAll (jacksonExclusions: _*)
   )
 
   val scalaTest = Seq(
