@@ -201,11 +201,14 @@ case class TransformDagGenerationContext(
       statements.name -> expectations
     }.toMap
 
-    val auditAsMap = statements.flatMap { case (statements, expectations, audit, acl) =>
-      audit.map { audit =>
-        statements.name -> audit.asMap
+    val auditAsMap = statements
+      .flatMap { case (statements, expectations, audit, acl) =>
+        audit.map { audit =>
+          audit.asMap
+        }
       }
-    }.toMap
+      .headOption
+      .getOrElse(Map.empty)
 
     val aclAsMap = statements.flatMap { case (statements, expectations, audit, acl) =>
       audit.map { audit =>
