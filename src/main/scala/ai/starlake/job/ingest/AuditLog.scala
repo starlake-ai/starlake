@@ -94,26 +94,7 @@ case class AuditLog(
   def asSelect(engineName: Engine)(implicit settings: Settings): String = {
     import ai.starlake.utils.Formatter._
     timestamp.setNanos(0)
-    val template = settings.appConfig.jdbcEngines
-      .get(engineName.toString.toLowerCase())
-      .flatMap(_.tables("audit").selectSql)
-      .getOrElse("""
-             SELECT
-               '{{jobid}}' as JOBID,
-               '{{paths}}' as PATHS,
-               '{{domain}}' as DOMAIN,
-               '{{schema}}' as SCHEMA,
-               {{success}} as SUCCESS,
-               {{count}} as COUNT,
-               {{countAccepted}} as COUNTACCEPTED,
-               {{countRejected}} as COUNTREJECTED,
-               TO_TIMESTAMP('{{timestamp}}') as TIMESTAMP,
-               {{duration}} as DURATION,
-               '{{message}}' as MESSAGE,
-               '{{step}}' as STEP,
-               '{{database}}' as DATABASE,
-               '{{tenant}}' as TENANT
-           """)
+    val template: String = AuditLog.selectTemplate(engineName)
     val selectStatement = template.richFormat(
       Map(
         "jobid"         -> jobid,
@@ -156,6 +137,29 @@ case class AuditLog(
 }
 
 object AuditLog extends StrictLogging {
+  def selectTemplate(engineName: Engine)(implicit settings: Settings): String = {
+    val template = settings.appConfig.jdbcEngines
+      .get(engineName.toString.toLowerCase())
+      .flatMap(_.tables("audit").selectSql)
+      .getOrElse("""
+             SELECT
+               '{{jobid}}' as JOBID,
+               '{{paths}}' as PATHS,
+               '{{domain}}' as DOMAIN,
+               '{{schema}}' as SCHEMA,
+               {{success}} as SUCCESS,
+               {{count}} as COUNT,
+               {{countAccepted}} as COUNTACCEPTED,
+               {{countRejected}} as COUNTREJECTED,
+               TO_TIMESTAMP('{{timestamp}}') as TIMESTAMP,
+               {{duration}} as DURATION,
+               '{{message}}' as MESSAGE,
+               '{{step}}' as STEP,
+               '{{database}}' as DATABASE,
+               '{{tenant}}' as TENANT
+           """)
+    template
+  }
 
   private val auditCols = List(
     ("jobid", StandardSQLTypeName.STRING, StringType),
@@ -210,9 +214,11 @@ object AuditLog extends StrictLogging {
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Option[TaskSQLStatements] = {
+    val auditSink = settings.appConfig.audit.getSink()
+    val template = AuditLog.selectTemplate(auditSink.getConnection().getJdbcEngineName())
     createTask(log).map { task =>
       val statements = task.buildListOfSQLStatements()
-      statements
+      statements.copy(mainSqlIfExists = List(template), mainSqlIfNotExists = List(template))
     }
   }
 
@@ -242,7 +248,7 @@ object AuditLog extends StrictLogging {
             postsql = Nil,
             connectionRef = settings.appConfig.audit.sink.connectionRef,
             sink = Some(settings.appConfig.audit.sink),
-            parseSQL = Some(true),
+            parseSQL = Some(false),
             _auditTableName = Some("audit"),
             taskTimeoutMs = Some(settings.appConfig.shortJobTimeoutMs)
           )

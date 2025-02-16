@@ -210,7 +210,6 @@ abstract class AutoTask(
           SQLUtils.extractColumnNames(sqlWithParametersTranspiledIfInTest)
         )
         val jdbcRunEngineName: Engine = runConnection.getJdbcEngineName()
-
         val jdbcRunEngine = settings.appConfig.jdbcEngines(jdbcRunEngineName.toString)
 
         val tblExists =
@@ -276,12 +275,7 @@ abstract class AutoTask(
   def auditTableCreateSQL(): List[String] = {
     // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
     logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
-    val entry = taskDesc._auditTableName.getOrElse(
-      throw new Exception(
-        s"audit table for output ${taskDesc.table} is not defined in engine $jdbcSinkEngineName"
-      )
-    )
-    val scriptTemplate = jdbcSinkEngine.tables(entry).createSql
+    val scriptTemplate = jdbcSinkEngine.tables("audit").createSql
     val script = scriptTemplate.richFormat(
       Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
       Map.empty
@@ -415,7 +409,10 @@ abstract class AutoTask(
     val createSchemaAndTableSql =
       if (settings.appConfig.createSchemaIfNotExists) {
         // Creating a schema requires its own connection if called before a Spark save
-        this.auditTableCreateSQL()
+        if (taskDesc._auditTableName.isDefined)
+          this.auditTableCreateSQL()
+        else
+          List.empty
       } else {
         List.empty
       }

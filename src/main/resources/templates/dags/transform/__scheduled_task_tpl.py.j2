@@ -33,6 +33,8 @@ expectations = {{ context.expectations }}
 
 audit = {{ context.audit }}
 
+acl = {{ context.acl }}
+
 with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
     with orchestration.sl_create_pipeline(dependencies=dependencies) as pipeline:
 
