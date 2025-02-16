@@ -150,8 +150,9 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val autoTaskDepsConfig = AutoTaskDependenciesConfig(tasks = Some(configs))
         val deps = depsEngine.jobsDependencyTree(autoTaskDepsConfig)
 
-        val taskStatements
-          : List[(TaskSQLStatements, List[ExpectationItem], Option[TaskSQLStatements])] =
+        val taskStatements: List[
+          (TaskSQLStatements, List[ExpectationItem], Option[TaskSQLStatements], List[String])
+        ] =
           if (config.orchestrator.isDefined) {
             taskConfigs.map { case (_, config) =>
               val task = AutoTask.task(
@@ -170,7 +171,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               (
                 task.buildListOfSQLStatements(),
                 task.expectationStatements(),
-                task.auditStatements()
+                task.auditStatements(),
+                task.extractAclSQL()
               )
             }
           } else {
