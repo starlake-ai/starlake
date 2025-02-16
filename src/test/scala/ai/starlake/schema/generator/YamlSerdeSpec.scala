@@ -946,11 +946,10 @@ object YamlConfigGenerators {
 
   implicit val expectationItem: Arbitrary[ExpectationItem] = Arbitrary {
     for {
-      query  <- arbitrary[String].map(_.replace("=>", "_").replace(")", "_"))
-      expect <- arbitrary[String]
+      expect      <- arbitrary[String]
+      failOnError <- arbitrary[Boolean]
     } yield {
-      val eie = ExpectationItemExpect(query = query, expected = expect)
-      ExpectationItem(eie)
+      ExpectationItem(expect, failOnError)
     }
   }
 

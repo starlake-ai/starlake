@@ -18,29 +18,6 @@ import java.time.Instant
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
-case class TaskSQLStatements(
-  name: String,
-  createSchemaSql: List[String],
-  preActions: List[String],
-  preSqls: List[String],
-  mainSqlIfExists: List[String],
-  mainSqlIfNotExists: List[String],
-  postSqls: List[String],
-  addSCD2ColumnsSqls: List[String]
-) {
-  def asMap(): Map[String, List[String]] = {
-    Map(
-      "createSchemaSql"    -> createSchemaSql,
-      "preActions"         -> preActions,
-      "preSqls"            -> preSqls,
-      "mainSqlIfExists"    -> mainSqlIfExists,
-      "mainSqlIfNotExists" -> mainSqlIfNotExists,
-      "postSqls"           -> postSqls,
-      "addSCD2ColumnsSqls" -> addSCD2ColumnsSqls
-    )
-  }
-}
-
 class JdbcAutoTask(
   appId: Option[String],
   taskDesc: AutoTaskDesc,
@@ -100,30 +77,19 @@ class JdbcAutoTask(
       exists
   }
 
+  @throws[Exception]
   def createAuditTable(): Boolean = {
     // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
     JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-      logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
-      val entry = taskDesc._auditTableName.getOrElse(
-        throw new Exception(
-          s"audit table for output ${taskDesc.table} is not defined in engine $jdbcSinkEngineName"
-        )
-      )
-      val scriptTemplate = jdbcSinkEngine.tables(entry).createSql
-      JdbcDbUtils.createSchema(conn, fullDomainName)
-
-      val script = scriptTemplate.richFormat(
-        Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
-        Map.empty
-      )
-      JdbcDbUtils.createSchema(conn, fullDomainName)
-      JdbcDbUtils.executeUpdate(script, conn) match {
-        case Success(_) =>
-          true
-        case Failure(e) =>
-          logger.error(s"Error creating table $fullTableName", e)
-          throw e
+      auditTableCreateSQL().foreach { sql =>
+        JdbcDbUtils.executeUpdate(sql, conn) match {
+          case Success(_) =>
+          case Failure(e) =>
+            logger.error(s"Error executing $sql", e)
+            throw e
+        }
       }
+      true
     }
   }
 
@@ -177,17 +143,6 @@ class JdbcAutoTask(
             allVars
           )
           mainSql
-        }
-      val sinkOptions =
-        if (sinkConnection.isDuckDb()) {
-          val duckDbEnableExternalAccess =
-            settings.appConfig.duckDbEnableExternalAccess || sinkConnection.isMotherDuckDb()
-          sinkConnection.options.updated(
-            "enable_external_access",
-            duckDbEnableExternalAccess.toString
-          )
-        } else {
-          sinkConnection.options
         }
 
       interactive match {
