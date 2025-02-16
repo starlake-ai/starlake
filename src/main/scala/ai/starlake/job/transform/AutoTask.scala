@@ -107,6 +107,17 @@ abstract class AutoTask(
     case None     => taskDesc.domain
   }
 
+  def extractAclSQL(): List[String] = {
+    val sinkEngine = sinkConnection.getJdbcEngineName()
+    taskDesc.acl.flatMap { ace =>
+      /*
+        https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
+        https://hevodata.com/learn/snowflake-grant-role-to-user/
+       */
+      ace.asSql(fullTableName, sinkEngine)
+    }
+  }
+
   override def applicationId(): String = appId.getOrElse(super.applicationId())
 
   def attDdl(): Map[String, Map[String, String]] =

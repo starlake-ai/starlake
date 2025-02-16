@@ -188,20 +188,28 @@ case class TransformDagGenerationContext(
   config: DagGenerationConfig,
   deps: List[TaskViewDependencyNode],
   cron: Option[String],
-  statements: List[(TaskSQLStatements, List[ExpectationItem], Option[TaskSQLStatements])]
+  statements: List[
+    (TaskSQLStatements, List[ExpectationItem], Option[TaskSQLStatements], List[String])
+  ]
 ) {
   def asMap: util.HashMap[String, Object] = {
-    val statementsAsMap = statements.map { case (statements, expectations, audit) =>
+    val statementsAsMap = statements.map { case (statements, expectations, audi, acl) =>
       statements.name -> statements.asMap
     }.toMap
 
-    val expectationsAsMap = statements.map { case (statements, expectations, audit) =>
+    val expectationsAsMap = statements.map { case (statements, expectations, audit, acl) =>
       statements.name -> expectations
     }.toMap
 
-    val auditAsMap = statements.flatMap { case (statements, expectations, audit) =>
+    val auditAsMap = statements.flatMap { case (statements, expectations, audit, acl) =>
       audit.map { audit =>
         statements.name -> audit.asMap
+      }
+    }.toMap
+
+    val aclAsMap = statements.flatMap { case (statements, expectations, audit, acl) =>
+      audit.map { audit =>
+        statements.name -> acl
       }
     }.toMap
 
@@ -221,6 +229,8 @@ case class TransformDagGenerationContext(
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(expectationsAsMap)
     val auditAsString =
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(auditAsMap)
+    val aclAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(aclAsMap)
 
     new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
@@ -229,6 +239,7 @@ case class TransformDagGenerationContext(
       put("statements", statementsAsString)
       put("expectations", expectationsAsString)
       put("audit", auditAsString)
+      put("acl", aclAsString)
     }
   }
 }

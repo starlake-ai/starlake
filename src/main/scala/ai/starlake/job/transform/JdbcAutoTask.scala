@@ -40,21 +40,11 @@ class JdbcAutoTask(
       resultPageSize
     ) {
 
-  def extractJdbcAcl(): List[String] = {
-    taskDesc.acl.flatMap { ace =>
-      /*
-        https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
-        https://hevodata.com/learn/snowflake-grant-role-to-user/
-       */
-      ace.asJdbcSql(fullTableName)
-    }
-  }
-
   def applyJdbcAcl(connection: Connection, forceApply: Boolean): Try[Unit] =
-    AccessControlEntry.applyJdbcAcl(connection, extractJdbcAcl(), forceApply)
+    AccessControlEntry.applyJdbcAcl(connection, extractAclSQL(), forceApply)
 
   def applyJdbcAcl(jdbcConnection: Settings.Connection, forceApply: Boolean): Try[Unit] =
-    AccessControlEntry.applyJdbcAcl(jdbcConnection, extractJdbcAcl(), forceApply)
+    AccessControlEntry.applyJdbcAcl(jdbcConnection, extractAclSQL(), forceApply)
 
   override def run(): Try[JobResult] = {
     runJDBC(None)
