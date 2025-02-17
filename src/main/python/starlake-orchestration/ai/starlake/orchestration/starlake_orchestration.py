@@ -413,7 +413,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
 
     @property
     def scheduled_datasets(self) -> dict:
-        return {dataset.uri: dataset.cron for dataset in self.datasets or [] if dataset.cron is not None and dataset.uri is not None}
+        return {dataset.sink: dataset.cron for dataset in self.datasets or [] if dataset.cron is not None and dataset.sink is not None}
 
     @final
     @property
@@ -421,13 +421,13 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         least_frequent_datasets: List[StarlakeDataset] = []
         if set(self.scheduled_datasets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
             # we sort the cron datasets by frequency (most frequent first)
-            sorted_crons = sort_crons_by_frequency(set(self.scheduled_datasets.values()), period=self.get_context_var(var_name='cron_period_frequency', default_value='week'))
+            sorted_crons = sort_crons_by_frequency(set(self.scheduled_datasets.values()), period=self.job.cron_period_frequency())
             # we exclude the most frequent cron dataset
             least_frequent_crons = set([expr for expr, _ in sorted_crons[1:sorted_crons.__len__()]])
-            for dataset, cron in self.scheduled_datasets.items() :
+            for sink, cron in self.scheduled_datasets.items() :
                 # we republish the least frequent scheduled datasets
                 if cron in least_frequent_crons:
-                    least_frequent_datasets.append(StarlakeDataset(uri=dataset, cron=cron))
+                    least_frequent_datasets.append(StarlakeDataset(sink=sink, cron=cron))
         return least_frequent_datasets
 
     @final

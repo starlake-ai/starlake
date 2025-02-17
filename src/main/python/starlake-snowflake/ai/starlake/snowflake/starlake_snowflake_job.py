@@ -181,9 +181,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, str], StarlakeOptions, Snowflak
                             table = schemaAndTable[1]
 
                             # create SQL schema
-                            createSchemaSql = statements.get(f"CREATE SCHEMA IF NOT EXISTS {schema}", None)
-                            if createSchemaSql:
-                                session.sql(query=createSchemaSql).collect()
+                            session.sql(query=f"CREATE SCHEMA IF NOT EXISTS {schema}").collect() # use templating
 
                             # execute preActions
                             preActions: List[str] = statements.get('preActions', [])
@@ -199,7 +197,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, str], StarlakeOptions, Snowflak
 
                             # check if the sink exists
                             df: DataFrame = session.sql(query=f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '{schema}'
-  AND TABLE_NAME = '{table}'")
+  AND TABLE_NAME = '{table}'") # use templating
                             rows: List[Row] = df.collect()
                             if rows.__len__() > 0:
                                 # execute mainSqlIfExists

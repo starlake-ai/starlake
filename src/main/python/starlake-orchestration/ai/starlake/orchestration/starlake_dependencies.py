@@ -17,29 +17,71 @@ class StarlakeDependencyType(str, Enum):
 
 #StarlakeDependencyType = Enum("StarlakeDependencyType", ["task", "table"])
 
+import warnings
+
+warnings.simplefilter("default", DeprecationWarning)
+
 class StarlakeDependency():
-    def __init__(self, name: str, dependency_type: StarlakeDependencyType, cron: Optional[str]= None, dependencies: List[StarlakeDependency]= [], sink: Optional[str]= None, stream: Optional[str]= None, **kwargs):
+    def __init__(self, sink: str, dependency_type: StarlakeDependencyType, cron: Optional[str]= None, dependencies: List[StarlakeDependency]= [], stream: Optional[str]= None, **kwargs):
         """Initializes a new StarlakeDependency instance.
 
         Args:
-            name (str): The required dependency name.
+            sink (str): The required dependency sink.
             dependency_type (StarlakeDependencyType): The required dependency dependency_type.
             cron (str): The optional cron.
             dependencies (List[StarlakeDependency]): The optional dependencies.
-            sink (str): The optional sink.
             stream (str): The optional stream.
         """
-        self.name = name
-        self.dependency_type = dependency_type
+        self._sink = sink
+        domain_table = sink.split(".")
+        self._domain = domain_table[0]
+        self._table = domain_table[-1]
+        self._dependency_type = dependency_type
         if cron is not None:
             if cron.lower().strip() == 'none':
                 cron = None
             elif not is_valid_cron(cron):
-                raise ValueError(f"Invalid cron expression: {cron} for dependency {name}")
-        self.cron = cron
-        self.dependencies = dependencies
-        self.sink = sink
-        self.stream = stream
+                raise ValueError(f"Invalid cron expression: {cron} for dependency {sink}")
+        self._cron = cron
+        self._dependencies = dependencies
+        self._stream = stream
+
+    @property
+    def name(self) -> str:
+        warnings.warn("name is deprecated, use sink instead", DeprecationWarning)
+        return self.sink
+
+    @property
+    def sink(self) -> str:
+        return self._sink
+
+    @property
+    def uri(self) -> str:
+        return sanitize_id(self.sink).lower()
+
+    @property
+    def domain(self) -> str:
+        return self._domain
+
+    @property
+    def table(self) -> str:
+        return self._table
+
+    @property
+    def dependency_type(self) -> StarlakeDependencyType:
+        return self._dependency_type
+
+    @property
+    def cron(self) -> Optional[str]:
+        return self._cron
+
+    @property
+    def dependencies(self) -> List[StarlakeDependency]:
+        return self._dependencies
+
+    @property
+    def stream(self) -> Optional[str]:
+        return self._stream
 
 class StarlakeDependencies():
     def __init__(self, dependencies: Union[str, List[StarlakeDependency]], **kwargs):
@@ -51,6 +93,10 @@ class StarlakeDependencies():
         def generate_dependency(task: dict) -> StarlakeDependency:
             data: dict = task.get('data', {})
 
+            name = data.get('name', None)
+            if name is None:
+                raise ValueError(f"Missing name in task {task}")
+
             if data.get('typ', None) == 'task':
                 dependency_type = StarlakeDependencyType.TASK
             else:
@@ -58,23 +104,21 @@ class StarlakeDependencies():
 
             cron: Optional[str] = data.get('cron', None)
 
-            sink: Optional[str] = data.get('sink', None)
+            sink = data.get('sink', name)
 
             stream: Optional[str] = data.get('stream', None)
 
             return StarlakeDependency(
-                name=data["name"], 
+                sink=sink,
                 dependency_type=dependency_type, 
                 cron=cron, 
-                dependencies=[generate_dependency(subtask) for subtask in task.get('children', [])],
-                sink=sink,
+                dependencies=[generate_dependency(dependency) for dependency in task.get('children', [])],
                 stream=stream
             )
 
         if isinstance(dependencies, str):
             import json
-            tasks: List[dict] = json.loads(dependencies)
-            self.dependencies = [generate_dependency(task) for task in tasks]
+            self.dependencies = [generate_dependency(task) for task in json.loads(dependencies)]
         else:
             self.dependencies = dependencies
 
@@ -84,14 +128,14 @@ class StarlakeDependencies():
 
         def load_task_dependencies(task: StarlakeDependency):
             if len(task.dependencies) > 0:
-                for subtask in task.dependencies:
-                    all_dependencies.add(subtask.name)
-                    load_task_dependencies(subtask)
+                for dependency in task.dependencies:
+                    all_dependencies.add(dependency.sink)
+                    load_task_dependencies(dependency)
 
         for task in self.dependencies:
-            name = task.name
-            first_level_tasks.add(name)
-            filtered_datasets.add(sanitize_id(name).lower())
+            sink = task.sink
+            first_level_tasks.add(sink)
+            filtered_datasets.add(task.uri)
             load_task_dependencies(task)
 
         self.all_dependencies = all_dependencies
@@ -123,18 +167,19 @@ class StarlakeDependencies():
 
             def load_datasets(task: StarlakeDependency):
                 if len(task.dependencies) > 0:
-                    for child in task.dependencies:
-                        uri = sanitize_id(child.name).lower()
+                    for dependency in task.dependencies:
+                        sink = dependency.sink
+                        uri = dependency.uri
                         if uri not in uris and uri not in temp_filtered_datasets:
                             kw = dict()
-                            if child.cron is not None:
-                                kw['cron'] = child.cron
+                            if dependency.cron is not None:
+                                kw['cron'] = dependency.cron
                             if sl_schedule_parameter_name is not None:
                                 kw['sl_schedule_parameter_name'] = sl_schedule_parameter_name
                             if sl_schedule_format is not None:
                                 kw['sl_schedule_format'] = sl_schedule_format
-                            dataset = StarlakeDataset(uri, **kw)
-                            uris.add(dataset.uri)
+                            dataset = StarlakeDataset(sink, **kw)
+                            uris.add(uri)
                             datasets.append(dataset)
 
             for task in self.dependencies:
