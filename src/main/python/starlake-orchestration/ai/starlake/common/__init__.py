@@ -15,6 +15,30 @@ def sanitize_id(id: str):
 class MissingEnvironmentVariable(Exception):
     pass
 
+from enum import Enum
+
+class StarlakeCronPeriod(str, Enum):
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"
+    YEAR = "year"
+
+    def __str__(self):
+        return self.value
+
+    @classmethod
+    def from_str(cls, value: str):
+        if value.lower() == 'day':
+            return cls.DAY
+        elif value.lower() == 'week':
+            return cls.WEEK
+        elif value.lower() == 'month':
+            return cls.MONTH
+        elif value.lower() == 'year':
+            return cls.YEAR
+        else:
+            raise ValueError(f"Unsupported cron period: {value}")
+
 TODAY = datetime.today().strftime('%Y-%m-%d')
 
 def asQueryParameters(parameters: Union[dict,None]=None) -> str:
@@ -35,27 +59,29 @@ def sl_schedule(cron: str, start_time: datetime = cron_start_time(), format: str
     from croniter import croniter
     return croniter(cron, start_time).get_prev(datetime).strftime(format)
 
-def get_cron_frequency(cron_expression, start_time: datetime, period='day'):
+def get_cron_frequency(cron_expression, start_time: datetime, period=StarlakeCronPeriod.DAY):
     """
     Calculate the frequency of a cron expression within a specific time period.
 
     :param cron_expression: A string representing the cron expression.
     :param start_time: The starting datetime to evaluate from.
-    :param period: The time period ('day', 'week', 'month') over which to calculate frequency.
+    :param period: The time period ('day', 'week', 'month', 'year') over which to calculate frequency.
     :return: The frequency of runs in the given period.
     """
     from croniter import croniter
     iter = croniter(cron_expression, start_time)
     end_time = start_time
 
-    if period == 'day':
+    if period == StarlakeCronPeriod.DAY:
         end_time += timedelta(days=1)
-    elif period == 'week':
+    elif period == StarlakeCronPeriod.WEEK:
         end_time += timedelta(weeks=1)
-    elif period == 'month':
+    elif period == StarlakeCronPeriod.MONTH:
         end_time += timedelta(days=30)  # Approximate a month
+    elif period == StarlakeCronPeriod.YEAR:
+        end_time += timedelta(days=365)
     else:
-        raise ValueError("Unsupported period. Choose from 'day', 'week', 'month'.")
+        raise ValueError("Unsupported period. Choose from 'day', 'week', 'month', 'year.")
 
     frequency = 0
     while True:
@@ -66,12 +92,12 @@ def get_cron_frequency(cron_expression, start_time: datetime, period='day'):
             break
     return frequency
 
-def sort_crons_by_frequency(cron_expressions, period='day'):
+def sort_crons_by_frequency(cron_expressions, period=StarlakeCronPeriod.DAY):
     """
     Sort cron expressions by their frequency.
 
     :param cron_expressions: A list of cron expressions.
-    :param period: The period over which to calculate frequency ('day', 'week', 'month').
+    :param period: The period over which to calculate frequency ('day', 'week', 'month', 'year').
     :return: A sorted list of cron expressions by frequency (most frequent first).
     """
     start_time = cron_start_time()

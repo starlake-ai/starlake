@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 
-from ai.starlake.common import MissingEnvironmentVariable, sl_schedule_format
+from ai.starlake.common import MissingEnvironmentVariable, StarlakeCronPeriod, sl_schedule_format
 
 from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 from ai.starlake.job.starlake_options import StarlakeOptions
@@ -119,6 +119,8 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
 
         self._events: List[E] = []
 
+        self._cron_period_frequency = StarlakeCronPeriod.from_str(__class__.get_context_var('cron_period_frequency', default_value='week', options=self.options))
+
     @classmethod
     def sl_orchestrator(cls) -> Union[StarlakeOrchestrator, str, None]:
         """Returns the orchestrator to use.
@@ -159,8 +161,8 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         pass
 
     @final
-    def __add_event(self, uri: str, **kwargs) -> E:
-        event = self.to_event(StarlakeDataset(uri, **kwargs), source=kwargs.get('source', self.source))
+    def __add_event(self, sink: str, **kwargs) -> E:
+        event = self.to_event(StarlakeDataset(sink, **kwargs), source=kwargs.get('source', self.source))
         events = self.events
         events.append(event)
         self.events = events
@@ -320,7 +322,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         """
         task_id = kwargs.get("task_id", f"{transform_name}") if not task_id else task_id
         kwargs.pop("task_id", None)
-        tuple_events = self.update_events(self.__add_event(transform_name, **kwargs))
+        tuple_events = self.update_events(self.__add_event(transform_name if not sink else sink, **kwargs))
         kwargs.update({tuple_events[0]: tuple_events[1]})
         arguments = ["transform", "--name", transform_name]
         options = list()
@@ -415,6 +417,15 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         if not found:
             env.update(self.sl_env_vars) # Add/overwrite with sl env variables
         return env
+
+    @property
+    def cron_period_frequency(self) -> StarlakeCronPeriod:
+        """Returns the cron period frequency.
+
+        Returns:
+            StarlakeCronPeriod: The cron period frequency.
+        """
+        return self._cron_period_frequency
 
 class StarlakeJobFactory:
     _registry = {}
