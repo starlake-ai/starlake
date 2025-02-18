@@ -36,7 +36,11 @@ abstract class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[Stri
 
   lazy val mergedMetadata: Metadata = ingestionJob.mergedMetadata
 
-  lazy val sinkConnection: Settings.Connection = mergedMetadata.getSink().getConnection()
+  lazy val sinkConnection: Settings.Connection =
+    mergedMetadata
+      .getSink()
+      .getConnection()
+      .copy(sparkFormat = None) // we are forcing native load.
 
   lazy val tempTableName: String = SQLUtils.temporaryTableName(starlakeSchema.finalName)
 
