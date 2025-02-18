@@ -3,7 +3,11 @@ package ai.starlake.job.ingest
 import ai.starlake.config.{CometColumns, DatasetArea, Settings}
 import ai.starlake.exceptions.DisallowRejectRecordException
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.ingest.loaders.{BigQueryNativeLoader, DuckDbNativeLoader}
+import ai.starlake.job.ingest.loaders.{
+  BigQueryNativeLoader,
+  DuckDbNativeLoader,
+  SnowflakeNativeLoader
+}
 import ai.starlake.job.metrics._
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.transform.{SparkAutoTask, SparkExportTask}
@@ -213,7 +217,7 @@ trait IngestionJob extends SparkJob {
 
     val loader =
       if (nativeCandidate) {
-        val loaders = Set("bigquery", "duckdb", "spark")
+        val loaders = Set("bigquery", "duckdb", "spark", "snowflake")
         if (loaders.contains(dbName))
           dbName
         else
@@ -333,6 +337,27 @@ trait IngestionJob extends SparkJob {
       case Right(_) =>
     }
   }
+  def buildListOfSQLStatementsAsJsonString(orchestrator: String): String = {
+    // Run selected ingestion engine
+    val result =
+      orchestrator match {
+        case "bigquery" =>
+          ???
+        case "duckdb" =>
+          ???
+        case "spark" =>
+          ???
+        case "snowflake" =>
+          val statementsMap = new SnowflakeNativeLoader(this).buildSQLStatements()
+          val json =
+            JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(statementsMap)
+          println(json)
+          json
+        case other =>
+          throw new Exception(s"Unsupported engine $other")
+      }
+    result
+  }
 
   def run(): Try[JobResult] = {
     // Make sure domain is valid
@@ -362,20 +387,24 @@ trait IngestionJob extends SparkJob {
       }
       .map { case counters @ IngestionCounters(inputCount, acceptedCount, rejectedCount) =>
         // On success log counters
-        logLoadInAudit(now, inputCount, acceptedCount, rejectedCount) match {
-          case Failure(exception) => throw exception
-          case Success(auditLog) =>
-            if (auditLog.success) {
-              // run expectations
-              val expectationsResult = runExpectations()
+        if (!counters.ignore) {
+          logLoadInAudit(now, inputCount, acceptedCount, rejectedCount) match {
+            case Failure(exception) => throw exception
+            case Success(auditLog) =>
+              if (auditLog.success) {
+                // run expectations
+                val expectationsResult = runExpectations()
 
-              expectationsResult match {
-                case Failure(exception) if settings.appConfig.expectations.failOnError =>
-                  throw exception
-                case _ =>
-              }
-              SparkJobResult(None, Some(counters))
-            } else throw new DisallowRejectRecordException()
+                expectationsResult match {
+                  case Failure(exception) if settings.appConfig.expectations.failOnError =>
+                    throw exception
+                  case _ =>
+                }
+                SparkJobResult(None, Some(counters))
+              } else throw new DisallowRejectRecordException()
+          }
+        } else {
+          SparkJobResult(None, Some(counters))
         }
       }
   }

@@ -1,7 +1,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
-import ai.starlake.job.transform.TaskSQLStatements
+import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.lineage.TaskViewDependencyNode
 import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.utils.Formatter.RichFormatter
@@ -167,7 +167,8 @@ case class DagGenerationConfig(
 
 case class LoadDagGenerationContext(
   config: DagGenerationConfig,
-  schedules: List[DagSchedule]
+  schedules: List[DagSchedule],
+  statements: String
 ) {
   def asMap: util.HashMap[String, Object] = {
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
@@ -181,6 +182,7 @@ case class LoadDagGenerationContext(
     new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
       put("schedules", schedules.asJava)
+      put("statements", statements)
     }
   }
 }
@@ -188,11 +190,32 @@ case class TransformDagGenerationContext(
   config: DagGenerationConfig,
   deps: List[TaskViewDependencyNode],
   cron: Option[String],
-  sqls: List[TaskSQLStatements]
+  statements: List[
+    (TaskSQLStatements, List[ExpectationItem], Option[TaskSQLStatements], List[String])
+  ]
 ) {
   def asMap: util.HashMap[String, Object] = {
-    val sqlsAsMap = sqls.map { taskSQLStatements =>
-      taskSQLStatements.name -> taskSQLStatements.asMap
+    val statementsAsMap = statements.map { case (statements, expectations, audi, acl) =>
+      statements.name -> statements.asMap()
+    }.toMap
+
+    val expectationsAsMap = statements.map { case (statements, expectations, audit, acl) =>
+      statements.name -> expectations
+    }.toMap
+
+    val auditAsMap = statements
+      .flatMap { case (statements, expectations, audit, acl) =>
+        audit.map { audit =>
+          audit.asMap()
+        }
+      }
+      .headOption
+      .getOrElse(Map.empty)
+
+    val aclAsMap = statements.flatMap { case (statements, expectations, audit, acl) =>
+      audit.map { audit =>
+        statements.name -> acl
+      }
     }.toMap
 
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
@@ -205,14 +228,23 @@ case class TransformDagGenerationContext(
     val updatedConfig = config.copy(options = updatedOptions)
     val depsAsJsonString =
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(deps)
-    val sqlsAsJsonString =
-      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(sqlsAsMap)
+    val statementsAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(statementsAsMap)
+    val expectationsAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(expectationsAsMap)
+    val auditAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(auditAsMap)
+    val aclAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(aclAsMap)
 
     new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
       put("cron", cron.getOrElse("None"))
       put("dependencies", depsAsJsonString)
-      put("statements", sqlsAsJsonString)
+      put("statements", statementsAsString)
+      put("expectations", expectationsAsString)
+      put("audit", auditAsString)
+      put("acl", aclAsString)
     }
   }
 }
