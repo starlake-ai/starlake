@@ -2,6 +2,10 @@
 [![Maven Central Starlake Spark 3](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-core_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-core_2.12)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
+# Sister projects
+
+- [Starlake Docker](https://github.com/starlake-ai/starlake-docker): Run Starlake in a docker container
+- [Starlake JSQLTranspiler](https://github.com/starlake-ai/jsqltranspiler): Starlake powerful toolbox, also available at [labs.starlake.ai](https://labs.starlake.ai)
 
 
 
