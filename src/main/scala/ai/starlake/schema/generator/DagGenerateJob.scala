@@ -1,8 +1,9 @@
 package ai.starlake.schema.generator
 
-import ai.starlake.config.DatasetArea.expectations
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.transform.{AutoTask, TaskSQLStatements}
+import ai.starlake.job.common.TaskSQLStatements
+import ai.starlake.job.ingest.DummyIngestionJob
+import ai.starlake.job.transform.AutoTask
 import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
@@ -310,13 +311,32 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 k -> Utils.parseJinja(v, envVars)
               }
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
+              val statements =
+                config.orchestrator match {
+                  case Some(orchestrator) =>
+                    new DummyIngestionJob(
+                      domain = domain,
+                      schema = table,
+                      types = schemaHandler.types(),
+                      path = Nil,
+                      storageHandler = settings.storageHandler(),
+                      schemaHandler = schemaHandler,
+                      options = options,
+                      accessToken = None,
+                      test = false
+                    ).buildListOfSQLStatementsAsJsonString(orchestrator)
+                  case None =>
+                    "None"
+                }
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
-                schedules
+                schedules,
+                statements = statements
               )
 
               scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
+
               applyJ2AndSave(
                 outputDir,
                 jEnv,
@@ -372,9 +392,11 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 k -> Utils.parseJinja(v, envVars)
               }
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
+
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
-                schedules
+                schedules,
+                statements = "None"
               )
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
               applyJ2AndSave(
@@ -396,7 +418,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             val comment = Utils.parseJinja(dagConfig.comment, envVars)
             val context = LoadDagGenerationContext(
               config = dagConfig.copy(options = options, comment = comment),
-              schedules
+              schedules,
+              statements = "None"
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
             applyJ2AndSave(
@@ -451,7 +474,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
-                List(schedule)
+                List(schedule),
+                statements = "None"
               )
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
               applyJ2AndSave(
@@ -468,7 +492,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             val comment = Utils.parseJinja(dagConfig.comment, envVars)
             val context = LoadDagGenerationContext(
               config = dagConfig.copy(options = options, comment = comment),
-              schedules = dagSchedules
+              schedules = dagSchedules,
+              statements = "None"
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
             applyJ2AndSave(

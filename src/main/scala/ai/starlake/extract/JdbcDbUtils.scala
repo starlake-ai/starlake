@@ -7,7 +7,7 @@ import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
 import ai.starlake.job.Main
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
-import ai.starlake.tests.StarlakeTestData.{domainNames, DomainName}
+import ai.starlake.tests.StarlakeTestData.DomainName
 import ai.starlake.utils.{SparkUtils, Utils}
 import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.LazyLogging
@@ -234,9 +234,12 @@ object JdbcDbUtils extends LazyLogging {
     s"CREATE SCHEMA IF NOT EXISTS $domainName"
   }
 
+  def buildDropTableSQL(tableName: String): String = {
+    s"DROP TABLE IF EXISTS $tableName"
+  }
   @throws[Exception]
   def dropTable(conn: SQLConnection, tableName: String): Unit = {
-    executeUpdate(s"DROP TABLE IF EXISTS $tableName", conn) match {
+    executeUpdate(buildDropTableSQL(tableName), conn) match {
       case Success(_) =>
       case Failure(e) =>
         logger.error(s"Error creating schema $tableName", e)

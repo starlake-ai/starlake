@@ -21,7 +21,8 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
-import ai.starlake.job.transform.{AutoTask, TaskSQLStatements}
+import ai.starlake.job.common.TaskSQLStatements
+import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{GcpUtils, JobResult, Utils}
