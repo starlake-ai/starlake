@@ -270,7 +270,7 @@ trait TestHelper
   }
 
   abstract class WithSettings(configuration: Config = testConfiguration) {
-    implicit val settings = Settings(configuration, None, None)
+    implicit val settings: Settings = Settings(configuration, None, None)
     settings.appConfig.connections.values.foreach(_.checkValidity())
     implicit def withSettings: WithSettings = this
     def storageHandler = settings.storageHandler()

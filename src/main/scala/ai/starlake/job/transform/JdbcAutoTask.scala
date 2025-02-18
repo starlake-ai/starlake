@@ -321,7 +321,16 @@ class JdbcAutoTask(
     }
   }
 
-  def updateJdbcTableSchema(incomingSchema: StructType, tableName: String): Unit = {
+  /** @param incomingSchema
+    * @param tableName
+    * @return
+    *   (list of sql to execute, if the table exists) if (table exists, sqls are actually alter
+    *   table statements, else these are create schema / table statements
+    */
+  def buildTableSchemaSQL(
+    incomingSchema: StructType,
+    tableName: String
+  ): (List[String], Boolean) = {
     // update target table schema if needed
     val isSCD2 = strategy.getEffectiveType() == WriteStrategyType.SCD2
     val incomingSchemaWithSCD2 =
@@ -379,26 +388,45 @@ class JdbcAutoTask(
           logger.debug(s"alter table ${alterTableAddColumns.mkString("\n")}")
         }
 
-        alterTableDropColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
-        alterTableAddColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
-        // At this point if the table exists, it has the same schema as the dataframe
-        // And if it's a SCD2, it has the 2 extra timestamp columns
+        val allAlter = alterTableDropColumns ++ alterTableAddColumns
+        (allAlter.toList, true)
       } else {
         val optionsWrite =
           new JdbcOptionsInWrite(jdbcUrl, tableName, sinkConnectionRefOptions)
         logger.info(
           s"Table $tableName not found, creating it with schema $incomingSchemaWithSCD2"
         )
-
-        SparkUtils.createTable(
-          conn,
-          tableName,
-          incomingSchemaWithSCD2,
-          caseSensitive = false,
-          optionsWrite,
-          attDdl()
-        )
+        val (createSchema, createTable, commentSQL) =
+          SparkUtils.buildCreateTableSQL(
+            tableName,
+            incomingSchemaWithSCD2,
+            caseSensitive = false,
+            optionsWrite,
+            attDdl()
+          )
+        val allSqls = List(createSchema, createTable, commentSQL.getOrElse(""))
+        (allSqls, false)
       }
+    }
+  }
+
+  def updateJdbcTableSchema(incomingSchema: StructType, tableName: String): Unit = {
+    buildTableSchemaSQL(incomingSchema, tableName) match {
+      case (sqls, exists) =>
+        JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+          sqls.filter(_.isEmpty).foreach { sql =>
+            if (exists) {
+              JdbcDbUtils.executeAlterTable(sql, conn)
+            } else {
+              JdbcDbUtils.executeUpdate(sql, conn) match {
+                case Success(_) =>
+                case Failure(e) =>
+                  logger.error(s"Error executing $sql", e)
+                  throw e
+              }
+            }
+          }
+        }
     }
   }
 }

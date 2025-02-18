@@ -42,7 +42,8 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
               )
             ).asJava
           )
-        )
+        ),
+        statements = "None"
       )
       val jContext = context.asMap
 

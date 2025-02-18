@@ -1,7 +1,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
-import ai.starlake.job.transform.TaskSQLStatements
+import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.lineage.TaskViewDependencyNode
 import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.utils.Formatter.RichFormatter
@@ -167,7 +167,8 @@ case class DagGenerationConfig(
 
 case class LoadDagGenerationContext(
   config: DagGenerationConfig,
-  schedules: List[DagSchedule]
+  schedules: List[DagSchedule],
+  statements: String
 ) {
   def asMap: util.HashMap[String, Object] = {
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
@@ -181,6 +182,7 @@ case class LoadDagGenerationContext(
     new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
       put("schedules", schedules.asJava)
+      put("statements", statements)
     }
   }
 }
@@ -194,7 +196,7 @@ case class TransformDagGenerationContext(
 ) {
   def asMap: util.HashMap[String, Object] = {
     val statementsAsMap = statements.map { case (statements, expectations, audi, acl) =>
-      statements.name -> statements.asMap
+      statements.name -> statements.asMap()
     }.toMap
 
     val expectationsAsMap = statements.map { case (statements, expectations, audit, acl) =>
@@ -204,7 +206,7 @@ case class TransformDagGenerationContext(
     val auditAsMap = statements
       .flatMap { case (statements, expectations, audit, acl) =>
         audit.map { audit =>
-          audit.asMap
+          audit.asMap()
         }
       }
       .headOption

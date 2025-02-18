@@ -22,6 +22,7 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
+import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.BigQueryJobBase
@@ -36,42 +37,6 @@ import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Timestamp
 import scala.util.{Failure, Success, Try}
-
-case class TaskSQLStatements(
-  name: String,
-  createSchemaSql: List[String],
-  preActions: List[String],
-  preSqls: List[String],
-  mainSqlIfExists: List[String],
-  mainSqlIfNotExists: List[String],
-  postSqls: List[String],
-  addSCD2ColumnsSqls: List[String]
-) {
-
-  def asPython(): String = {
-    val map = asMap()
-    val entries = map.map { case (k, list) =>
-      val value = list
-        .map { v =>
-          s"""'''$v'''"""
-        }
-        .mkString(",\n")
-      s""""$k": [$value]"""
-    }
-    s"{\n${entries.mkString(",\n")}\n}"
-  }
-  def asMap(): Map[String, List[String]] = {
-    Map(
-      "createSchemaSql"    -> createSchemaSql,
-      "preActions"         -> preActions,
-      "preSqls"            -> preSqls,
-      "mainSqlIfExists"    -> mainSqlIfExists,
-      "mainSqlIfNotExists" -> mainSqlIfNotExists,
-      "postSqls"           -> postSqls,
-      "addSCD2ColumnsSqls" -> addSCD2ColumnsSqls
-    )
-  }
-}
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it
   * as a Hive Table. If analyze support is active, also compute basic statistics for twhe dataset.
