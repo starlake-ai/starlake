@@ -378,7 +378,9 @@ trait IngestionJob extends SparkJob {
         val result = ingestWithSpark()
         result
       case other =>
-        throw new Exception(s"Unsupported engine $other")
+        logger.warn(s"Unsupported engine $other, falling back to spark")
+        val result = ingestWithSpark()
+        result
     }
     jobResult
       .recoverWith { case exception =>

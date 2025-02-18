@@ -62,11 +62,18 @@ class JdbcExpectationAssertionHandler(jdbcProperties: Map[String, String])
       val statement = connection.createStatement()
       try {
         val rs = statement.executeQuery(sql)
+
         val count =
-          if (rs != null) {
+          if (rs != null && rs.next()) {
             // get row count
-            rs.last()
-            rs.getRow
+            try {
+              rs.last()
+              rs.getRow
+            } catch {
+              // Some drivrs don't support rs.last() and throw an exception
+              case _: Throwable =>
+                Integer.MAX_VALUE
+            }
           } else
             0
         count
