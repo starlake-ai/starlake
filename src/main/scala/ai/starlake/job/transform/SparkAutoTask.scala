@@ -81,7 +81,7 @@ class SparkAutoTask(
       ).isSuccess
       if (isGrantSupported) {
         if (forceApply || settings.appConfig.accessPolicies.apply) {
-          val sqls = extractHiveTableAcl()
+          val sqls = this.extractAclSQL()
           sqls.foreach { sql =>
             logger.info(sql)
             SparkUtils.sql(session, sql)
@@ -93,30 +93,6 @@ class SparkAutoTask(
         )
       }
     }
-
-  private def extractHiveTableAcl(): List[String] = {
-
-    if (settings.appConfig.isHiveCompatible()) {
-      taskDesc.acl.flatMap { ace =>
-        if (Utils.isRunningInDatabricks()) {
-          /*
-        GRANT
-          privilege_type [, privilege_type ] ...
-          ON (CATALOG | DATABASE <database-name> | TABLE <table-name> | VIEW <view-name> | FUNCTION <function-name> | ANONYMOUS FUNCTION | ANY FILE)
-          TO principal
-
-        privilege_type
-          : SELECT | CREATE | MODIFY | READ_METADATA | CREATE_NAMED_FUNCTION | ALL PRIVILEGES
-           */
-          ace.asDatabricksSql(fullTableName)
-        } else { // Hive
-          ace.asHiveSql(fullTableName)
-        }
-      }
-    } else {
-      Nil
-    }
-  }
 
   val fullTableName = s"${taskDesc.domain}.${taskDesc.table}"
 

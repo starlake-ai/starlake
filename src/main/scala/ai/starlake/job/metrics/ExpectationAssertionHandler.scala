@@ -12,41 +12,14 @@ import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
 trait ExpectationAssertionHandler extends StrictLogging {
-  def handle(sql: String, assertion: String)(implicit settings: Settings): Map[String, Any]
-
-  protected def submitExpectation(
-    assertion: String,
-    count: Long,
-    result: Seq[Any],
-    results: Seq[Seq[Any]]
-  ): Map[String, Any] = {
-    val context =
-      Map("count" -> count, "result" -> result, "results" -> results)
-    logger.info(s"Submitting expectation: $assertion with context $context")
-    val assertionCode = assertion
-    val assertionFunction = CompilerUtils.compileExpectation(assertionCode)
-    val assertionResult = assertionFunction(context)
-    context ++ Map("assertion" -> assertionResult)
-  }
+  def handle(sql: String)(implicit settings: Settings): Long
 }
 
 class SparkExpectationAssertionHandler(session: SparkSession) extends ExpectationAssertionHandler {
-  def handle(sql: String, assertion: String)(implicit settings: Settings): Map[String, Any] = {
+  def handle(sql: String)(implicit settings: Settings): Long = {
     val df = SparkUtils.sql(session, sql)
     val count = df.count()
-    val result = if (df.count() == 1) {
-      val row = df.collect().head
-      row.toSeq
-    } else {
-      null
-    }
-    val results = if (df.count() >= 1) {
-      val rows = df.collect()
-      rows.map(row => row.toSeq).toSeq
-    } else {
-      null
-    }
-    submitExpectation(assertion, count, result, results)
+    count
   }
 }
 
@@ -56,35 +29,15 @@ class SparkExpectationAssertionHandler(session: SparkSession) extends Expectatio
   */
 class BigQueryExpectationAssertionHandler(runner: BigQueryNativeJob)
     extends ExpectationAssertionHandler {
-  override def handle(sql: String, assertion: String)(implicit
+  override def handle(sql: String)(implicit
     settings: Settings
-  ): Map[String, Any] = {
-    runner
-      .runInteractiveQuery(Some(sql)) match {
+  ): Long = {
+    runner.runInteractiveQuery(Some(sql)) match {
       case Success(result) =>
         result.tableResult
           .map { tableResult =>
             val count = tableResult.getTotalRows
-            val schema = tableResult.getSchema.getFields.asScala.map(_.getType()).toSeq
-            val result = if (count == 1) {
-              val values = tableResult.iterateAll().asScala.head.asScala.toSeq
-              BigQueryUtils.anyRefToAny(values, schema)
-            } else {
-              null
-            }
-            val results = if (count > 1) {
-              tableResult
-                .iterateAll()
-                .asScala
-                .map { row =>
-                  val values = row.asScala.toSeq
-                  BigQueryUtils.anyRefToAny(values, schema)
-                }
-                .toSeq
-            } else {
-              null
-            }
-            submitExpectation(assertion, count, result, results)
+            count
           }
           .getOrElse(
             throw new Exception("Query did not return result object. Should never happen !!!")
@@ -102,26 +55,24 @@ class BigQueryExpectationAssertionHandler(runner: BigQueryNativeJob)
   */
 class JdbcExpectationAssertionHandler(jdbcProperties: Map[String, String])
     extends ExpectationAssertionHandler {
-  override def handle(sql: String, assertion: String)(implicit
+  override def handle(sql: String)(implicit
     settings: Settings
-  ): Map[String, Any] = {
+  ): Long = {
     JdbcDbUtils.withJDBCConnection(jdbcProperties) { connection =>
       val statement = connection.createStatement()
-      var count = 0
-      var results = Seq.empty[Seq[Any]]
       try {
         val rs = statement.executeQuery(sql)
-        val rsMetaData = rs.getMetaData
-        val colCount = rsMetaData.getColumnCount
-        while (rs.next()) {
-          count = count + 1
-          val cols = for (i <- 1 to colCount) yield rs.getObject(i)
-          results = results :+ cols
-        }
+        val count =
+          if (rs != null) {
+            // get row count
+            rs.last()
+            rs.getRow
+          } else
+            0
+        count
       } finally {
         statement.close()
       }
-      submitExpectation(assertion, count, results, results)
     }
   }
 }
