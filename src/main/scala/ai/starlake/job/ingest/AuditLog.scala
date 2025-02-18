@@ -249,7 +249,7 @@ object AuditLog extends StrictLogging {
             postsql = Nil,
             connectionRef = settings.appConfig.audit.sink.connectionRef,
             sink = Some(settings.appConfig.audit.sink),
-            parseSQL = Some(false),
+            parseSQL = Some(true),
             _auditTableName = Some("audit"),
             taskTimeoutMs = Some(settings.appConfig.shortJobTimeoutMs)
           )
