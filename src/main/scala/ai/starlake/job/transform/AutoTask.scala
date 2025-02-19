@@ -34,6 +34,7 @@ import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 
 import java.sql.Timestamp
 import scala.util.{Failure, Success, Try}
@@ -302,10 +303,19 @@ abstract class AutoTask(
     log.foreach(AuditLog.sink)
   }
 
-  def dependencies(): List[String] = {
+  def dependencies(streams: CaseInsensitiveMap[String]): List[String] = {
     val result = SQLUtils.extractTableNamesUsingRegEx(parseJinja(taskDesc.getSql(), Map.empty))
-    logger.info(s"$name has ${result.length} dependencies: ${result.mkString(",")}")
-    result
+    val withStreamsResolved = result.map { table =>
+      if (streams.contains(table)) {
+        streams(table)
+      } else {
+        table
+      }
+    }
+    logger.info(
+      s"$name has ${withStreamsResolved.length} dependencies: ${withStreamsResolved.mkString(",")}"
+    )
+    withStreamsResolved
   }
 
   val (createDisposition, writeDisposition) =
