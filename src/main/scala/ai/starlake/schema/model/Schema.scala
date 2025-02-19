@@ -373,7 +373,7 @@ case class Schema(
             ValidationMessage(
               Error,
               s"Table $domainName.$name",
-              s"stream: $stream is not a valid stream. Stream should start with $fullTableName"
+              s"stream name error: $stream is not a valid stream name. Stream name should start with $fullTableName"
             )
           )
         )
