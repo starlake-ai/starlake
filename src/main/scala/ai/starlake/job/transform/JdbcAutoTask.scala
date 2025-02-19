@@ -414,7 +414,7 @@ class JdbcAutoTask(
     buildTableSchemaSQL(incomingSchema, tableName) match {
       case (sqls, exists) =>
         JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-          sqls.filter(_.isEmpty).foreach { sql =>
+          sqls.filter(_.nonEmpty).foreach { sql =>
             if (exists) {
               JdbcDbUtils.executeAlterTable(sql, conn)
             } else {

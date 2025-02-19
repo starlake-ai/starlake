@@ -722,7 +722,7 @@ trait IngestionJob extends SparkJob {
               None,
               truncate = false,
               test = test,
-              logExecution = true
+              logExecution = false
             )(
               settings,
               storageHandler,
@@ -736,7 +736,7 @@ trait IngestionJob extends SparkJob {
               None,
               truncate = false,
               test = test,
-              logExecution = true,
+              logExecution = false,
               schema = Some(schema)
             )(
               settings,
