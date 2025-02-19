@@ -3,12 +3,10 @@ package ai.starlake.job.metrics
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.sink.bigquery.BigQueryNativeJob
-import ai.starlake.utils.conversion.BigQueryUtils
-import ai.starlake.utils.{CompilerUtils, SparkUtils}
+import ai.starlake.utils.SparkUtils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.SparkSession
 
-import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
 trait ExpectationAssertionHandler extends StrictLogging {

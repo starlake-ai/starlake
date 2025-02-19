@@ -39,7 +39,10 @@ case class AccessControlEntry(role: String, grants: Set[String] = Set.empty, nam
   def asBigQuerySql(tableName: String): Set[String] = {
     this.grants.map { grant =>
       val principal =
-        if (!grant.startsWith("\"")) s"\"$grant\"" else grant
+        if (!grant.startsWith("\""))
+          s""""$grant""""
+        else
+          grant
       s"GRANT ${this.role} ON TABLE $tableName TO $principal"
     }
   }
