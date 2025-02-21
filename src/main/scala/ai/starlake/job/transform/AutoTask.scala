@@ -73,7 +73,7 @@ abstract class AutoTask(
     case None     => taskDesc.domain
   }
 
-  def extractAclSQL(): List[String] = {
+  def aclSQL(): List[String] = {
     val sinkEngine = sinkConnection.getJdbcEngineName()
     taskDesc.acl.flatMap { ace =>
       /*
@@ -347,7 +347,7 @@ abstract class AutoTask(
     }
   }
 
-  def expectationStatements(): List[ExpectationItem] = {
+  def expectationStatements(): List[ExpectationSQL] = {
     if (settings.appConfig.expectations.active) {
       // TODO Implement Expectations
       new ExpectationJob(
@@ -412,17 +412,20 @@ abstract class AutoTask(
     val preSqls = preSql
     val postSqls = postSql
 
-    val addSCD2ColumnsSqls = buildAddSCD2ColumnsSqls(sinkConnection.getJdbcEngineName())
+    val addSCD2ColumnsSqls =
+      buildAddSCD2ColumnsSqls(sinkConnection.getJdbcEngineName())
 
     TaskSQLStatements(
       taskDesc.name,
-      createSchemaAndTableSql,
-      parsedPreActions,
-      preSqls,
-      mainSqlIfExists,
-      mainSqlIfNotExists,
-      postSqls,
-      addSCD2ColumnsSqls
+      settings.appConfig.audit.getDomain(),
+      createSchemaAndTableSql.map(_.pyFormat()),
+      parsedPreActions.map(_.pyFormat()),
+      preSqls.map(_.pyFormat()),
+      mainSqlIfExists.map(_.pyFormat()),
+      mainSqlIfNotExists.map(_.pyFormat()),
+      postSqls.map(_.pyFormat()),
+      addSCD2ColumnsSqls.map(_.pyFormat()),
+      taskDesc.getSinkConnectionType()
     )
   }
 }

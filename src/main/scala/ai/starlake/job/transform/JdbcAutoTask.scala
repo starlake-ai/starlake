@@ -41,10 +41,10 @@ class JdbcAutoTask(
     ) {
 
   def applyJdbcAcl(connection: Connection, forceApply: Boolean): Try[Unit] =
-    AccessControlEntry.applyJdbcAcl(connection, extractAclSQL(), forceApply)
+    AccessControlEntry.applyJdbcAcl(connection, aclSQL(), forceApply)
 
   def applyJdbcAcl(jdbcConnection: Settings.Connection, forceApply: Boolean): Try[Unit] =
-    AccessControlEntry.applyJdbcAcl(jdbcConnection, extractAclSQL(), forceApply)
+    AccessControlEntry.applyJdbcAcl(jdbcConnection, aclSQL(), forceApply)
 
   override def run(): Try[JobResult] = {
     runJDBC(None)

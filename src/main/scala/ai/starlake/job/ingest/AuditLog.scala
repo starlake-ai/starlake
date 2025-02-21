@@ -25,6 +25,7 @@ import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{GcpUtils, JobResult, Utils}
 import com.google.cloud.bigquery.StandardSQLTypeName
 import com.typesafe.scalalogging.StrictLogging
@@ -216,10 +217,10 @@ object AuditLog extends StrictLogging {
     schemaHandler: SchemaHandler
   ): Option[TaskSQLStatements] = {
     val auditSink = settings.appConfig.audit.getSink()
-    val template = AuditLog.selectTemplate(auditSink.getConnection().getJdbcEngineName())
+    val template = AuditLog.selectTemplate(auditSink.getConnection().getJdbcEngineName()).pyFormat()
     createTask(log).map { task =>
       val statements = task.buildListOfSQLStatements()
-      statements.copy(mainSqlIfExists = List(template), mainSqlIfNotExists = List(template))
+      statements.copy(mainSqlIfExists = List(template), mainSqlIfNotExists = null)
     }
   }
 
