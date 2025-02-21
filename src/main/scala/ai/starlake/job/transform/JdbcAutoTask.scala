@@ -83,7 +83,7 @@ class JdbcAutoTask(
     }
   }
 
-  def addSCD2Columns(connection: Connection, engineName: Engine): Unit = {
+  private def buildAddSCD2ColumnsSqls(engineName: Engine): List[String] = {
     this.taskDesc.writeStrategy match {
       case Some(strategyOptions) if strategyOptions.getEffectiveType() == WriteStrategyType.SCD2 =>
         val startTsCol = strategyOptions.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
@@ -95,10 +95,15 @@ class JdbcAutoTask(
           else
             s"ALTER TABLE $fullTableName ADD COLUMN IF NOT EXISTS $column TIMESTAMP NULL"
         }
-        // ignore errors if columns already exist
-        Try(runSqls(connection, alterTableSqls, "addSCE2Columns"))
+        alterTableSqls
       case _ =>
+        List.empty
     }
+  }
+  def addSCD2Columns(connection: Connection, engineName: Engine): Unit = {
+    val alterTableSqls = buildAddSCD2ColumnsSqls(engineName)
+    // ignore errors if columns already exist
+    Try(runSqls(connection, alterTableSqls, "addSCE2Columns"))
   }
 
   override protected lazy val sinkConnection: Settings.Connection = {
