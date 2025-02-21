@@ -1,8 +1,9 @@
 package ai.starlake.job.ingest.loaders
 
 import ai.starlake.config.Settings
-import ai.starlake.job.common.TaskSQLStatements
-import ai.starlake.job.ingest.IngestionJob
+import ai.starlake.job.common.{TaskSQLStatements, WorkflowStatements}
+import ai.starlake.job.ingest.{AuditLog, IngestionJob, Step}
+import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
@@ -13,8 +14,9 @@ import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
 
 import java.nio.charset.Charset
+import java.sql.Timestamp
 import scala.jdk.CollectionConverters._
-import scala.util.Using
+import scala.util.{Failure, Success, Using}
 
 abstract class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
   val settings: Settings
@@ -35,6 +37,10 @@ abstract class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[Stri
   val strategy: WriteStrategy = ingestionJob.mergedMetadata.getStrategyOptions()
 
   lazy val mergedMetadata: Metadata = ingestionJob.mergedMetadata
+
+  lazy val database: Option[String] = schemaHandler.getDatabase(domain)
+
+  val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
 
   lazy val sinkConnection: Settings.Connection =
     mergedMetadata
@@ -204,7 +210,7 @@ abstract class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[Stri
   def secondStepSQLTask(
     firstStepTempTableNames: List[String]
   ): AutoTask = {
-    val incomingSparkSchema = starlakeSchema.targetSparkSchemaWithoutIgnore(schemaHandler)
+    // val incomingSparkSchema = starlakeSchema.targetSparkSchemaWithoutIgnore(schemaHandler)
 
     val tempTable =
       if (firstStepTempTableNames.length == 1) firstStepTempTableNames.head
@@ -212,7 +218,6 @@ abstract class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[Stri
         firstStepTempTableNames
           .map("SELECT * FROM " + _)
           .mkString("(", " UNION ALL ", ")")
-    val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
 
     val queryEngine = settings.appConfig.jdbcEngines.get(engineName.toString)
     val sqlWithTransformedFields =
@@ -257,9 +262,66 @@ abstract class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[Stri
 
   def secondStepSQL(
     firstStepTempTableNames: List[String]
-  ): TaskSQLStatements = {
+  ): WorkflowStatements = {
     val task = secondStepSQLTask(firstStepTempTableNames)
-    task.buildListOfSQLStatements()
+    WorkflowStatements(
+      task.buildListOfSQLStatements(), // main
+      task.expectationStatements(), // expectations
+      task.auditStatements(), // audit
+      task.aclSQL(), // acl
+      ExpectationJob.buildSQLStatements() // expectations
+    )
+  }
+
+  def expectationStatements(): List[ExpectationSQL] = {
+    if (settings.appConfig.expectations.active) {
+      // TODO Implement Expectations
+      new ExpectationJob(
+        Option("ignore"),
+        database,
+        domain.finalName,
+        starlakeSchema.finalName,
+        starlakeSchema.expectations,
+        storageHandler,
+        schemaHandler,
+        new JdbcExpectationAssertionHandler(sinkConnection.options)
+      ).buildStatementsList() match {
+        case Success(expectations) =>
+          expectations
+        case Failure(e) =>
+          throw e
+      }
+    } else {
+      List.empty
+    }
+  }
+
+  val now = new Timestamp(System.currentTimeMillis())
+  val auditLog = AuditLog(
+    "ignore",
+    Some(targetTableName),
+    domain.finalName,
+    starlakeSchema.finalName,
+    true,
+    0,
+    -1,
+    -1,
+    now,
+    0,
+    "",
+    Step.LOAD.toString,
+    database,
+    settings.appConfig.tenant,
+    test = false
+  )
+  def auditStatements(): Option[TaskSQLStatements] = {
+    if (settings.appConfig.audit.active.getOrElse(true)) {
+      val auditStatements =
+        AuditLog.buildListOfSQLStatements(auditLog)(settings, storageHandler, schemaHandler)
+      auditStatements
+    } else {
+      None
+    }
   }
 
 }

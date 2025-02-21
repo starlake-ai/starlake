@@ -2,7 +2,7 @@ package ai.starlake.job.ingest.loaders
 
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.job.ingest.IngestionJob
-import ai.starlake.utils.{IngestionCounters, SparkUtils}
+import ai.starlake.utils.{IngestionCounters, JsonSerializer, SparkUtils}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 
@@ -39,18 +39,30 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit
         val firstSTepCreateTableSqls = List(tempCreateSchemaSql, tempCreateTableSql)
         val addFileNameSql =
           s"ALTER TABLE $tempTableName ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '{{sl_input_file_name}}';"
-        val secondStepSQL = this.secondStepSQL(List(tempTableName))
+        val workflowStatements = this.secondStepSQL(List(tempTableName))
+
         val dropFirstStepTableSql = s"DROP TABLE IF EXISTS $tempTableName;"
-        Map(
-          "twoSteps"      -> "yes",
-          "incomingDir"   -> incomingDir,
-          "pattern"       -> pattern,
-          "format"        -> format,
-          "firstStep"     -> firstSTepCreateTableSqls,
-          "addFileName"   -> List(addFileNameSql),
-          "secondStep"    -> secondStepSQL.asMap(),
-          "dropFirstStep" -> dropFirstStepTableSql
+        val loadTaskSQL = Map(
+          "steps"           -> "2",
+          "incomingDir"     -> incomingDir,
+          "pattern"         -> pattern,
+          "format"          -> format,
+          "firstStep"       -> firstSTepCreateTableSqls,
+          "addFileName"     -> List(addFileNameSql),
+          "secondStep"      -> workflowStatements.task.asMap(),
+          "dropFirstStep"   -> dropFirstStepTableSql,
+          "tempTableName"   -> tempTableName,
+          "targetTableName" -> targetTableName,
+          "domain"          -> domain.finalName,
+          "table"           -> starlakeSchema.finalName,
+          "writeStrategy"   -> writeDisposition
         )
+        workflowStatements
+          .asMap()
+          .updated(
+            "task",
+            JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(loadTaskSQL)
+          )
       } else {
         val (createSchemaSql, createTableSql, _) = SparkUtils.buildCreateTableSQL(
           targetTableName,
@@ -60,13 +72,24 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit
           ddlMap
         )
         val createTableSqls = List(createSchemaSql, createTableSql)
-        Map(
-          "twoSteps"    -> "no",
-          "incomingDir" -> incomingDir,
-          "pattern"     -> pattern,
-          "format"      -> format,
-          "createTable" -> createTableSqls
+        val workflowStatements = this.secondStepSQL(List(targetTableName))
+        val loadTaskSQL = Map(
+          "steps"           -> "1",
+          "incomingDir"     -> incomingDir,
+          "pattern"         -> pattern,
+          "format"          -> format,
+          "createTable"     -> createTableSqls,
+          "targetTableName" -> targetTableName,
+          "domain"          -> domain.finalName,
+          "table"           -> starlakeSchema.finalName,
+          "writeStrategy"   -> writeDisposition
         )
+        workflowStatements
+          .asMap()
+          .updated(
+            "task",
+            JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(loadTaskSQL)
+          )
       }
     result
   }

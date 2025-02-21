@@ -337,7 +337,7 @@ trait IngestionJob extends SparkJob {
       case Right(_) =>
     }
   }
-  def buildListOfSQLStatementsAsJsonString(orchestrator: String): String = {
+  def buildListOfSQLStatementsAsMap(orchestrator: String): Map[String, Any] = {
     // Run selected ingestion engine
     val result =
       orchestrator match {
@@ -349,10 +349,7 @@ trait IngestionJob extends SparkJob {
           ???
         case "snowflake" =>
           val statementsMap = new SnowflakeNativeLoader(this).buildSQLStatements()
-          val json =
-            JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(statementsMap)
-          println(json)
-          json
+          statementsMap
         case other =>
           throw new Exception(s"Unsupported engine $other")
       }
