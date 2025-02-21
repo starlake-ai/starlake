@@ -3,6 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.ingest.DummyIngestionJob
+import ai.starlake.job.metrics.ExpectationJob
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
 import ai.starlake.schema.handlers.SchemaHandler
@@ -152,7 +153,14 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val deps = depsEngine.jobsDependencyTree(autoTaskDepsConfig)
 
         val taskStatements: List[
-          (TaskSQLStatements, List[ExpectationItem], Option[TaskSQLStatements], List[String])
+          (
+            TaskSQLStatements, // main statements
+            List[ExpectationSQL], // expectation item statements
+            Option[TaskSQLStatements], // audit statements
+            List[String], // ACL statements
+            Option[TaskSQLStatements] // expectations table statements
+
+          )
         ] =
           if (config.orchestrator.isDefined) {
             taskConfigs.map { case (_, config) =>
@@ -173,7 +181,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 task.buildListOfSQLStatements(),
                 task.expectationStatements(),
                 task.auditStatements(),
-                task.extractAclSQL()
+                task.aclSQL(),
+                ExpectationJob.buildSQLStatements()
               )
             }
           } else {

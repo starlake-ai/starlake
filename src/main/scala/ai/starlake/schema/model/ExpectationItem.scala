@@ -12,8 +12,52 @@ case class ExpectationItem(
   override def toString: String = s"$expect"
 
   @JsonIgnore
-  def name: String = expect.replaceAll("[\"']", "").replaceAll("[^a-zA-Z0-9]", "_");
+  def name: String = {
+    val last = expect.indexOf("(")
+    if (last == -1) {
+      expect
+    } else {
+      expect.substring(0, last)
+    }
+  }
+
+  def params: String = {
+    val last = expect.indexOf("(")
+    if (last == -1) {
+      ""
+    } else {
+      expect.substring(last + 1, expect.trim.length - 1)
+    }
+  }
 
   @JsonIgnore
   def queryCall(): String = "{{" + expect + "}}"
+}
+
+case class ExpectationSQL(
+  name: String,
+  params: String,
+  query: String,
+  failOnError: Boolean
+) {
+  def asMap(): Map[String, Any] = {
+    Map(
+      "name"        -> name,
+      "params"      -> params,
+      "query"       -> query,
+      "failOnError" -> (if (failOnError) "yes" else "no")
+    )
+  }
+
+}
+
+object ExpectationSQL {
+  def apply(expectationItem: ExpectationItem, sql: String): ExpectationSQL = {
+    ExpectationSQL(
+      expectationItem.name,
+      expectationItem.params,
+      sql,
+      expectationItem.failOnError
+    )
+  }
 }

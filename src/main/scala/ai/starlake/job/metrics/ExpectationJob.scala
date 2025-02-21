@@ -1,9 +1,11 @@
 package ai.starlake.job.metrics
 
 import ai.starlake.config.Settings
+import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
 
@@ -51,23 +53,7 @@ case class ExpectationReport(
   def asSelect(engineName: Engine)(implicit settings: Settings): String = {
     import ai.starlake.utils.Formatter._
     timestamp.setNanos(0)
-    val template = settings.appConfig.jdbcEngines
-      .get(engineName.toString)
-      .flatMap(_.tables("expectations").selectSql)
-      .getOrElse("""
-         |SELECT
-         |'{{jobid}}' as JOBID,
-         |'{{database}}' as DATABASE,
-         |'{{domain}}' as DOMAIN,
-         |'{{schema}}' as SCHEMA,
-         |TO_TIMESTAMP('{{timestamp}}') as TIMESTAMP,
-         |'{{name}}' as NAME,
-         |'{{params}}' as PARAMS,
-         |'{{sql}}' as SQL,
-         |{{count}} as COUNT,
-         |'{{exception}}' as EXCEPTION,
-         |{{success}} as SUCCESS
-         """.stripMargin)
+    val template = ExpectationJob.selectTemplate(engineName)
     val selectStatement = template.richFormat(
       Map(
         "jobid"     -> jobId,
@@ -291,7 +277,7 @@ class ExpectationJob(
     }
   }
 
-  def buildStatementsList(): Try[List[ExpectationItem]] = Try {
+  def buildStatementsList(): Try[List[ExpectationSQL]] = Try {
     val fullTableName = database match {
       case Some(db) => s"$db.$domainName.$schemaName"
       case None     => s"$domainName.$schemaName"
@@ -309,8 +295,102 @@ class ExpectationJob(
       logger.info(
         s"Applying expectation: ${expectation.expect} with request $sql"
       )
-      expectation.copy(expect = sql)
+      ExpectationSQL(expectation, sql)
     }
     sqls
+  }
+}
+
+object ExpectationJob {
+  def apply(
+    appId: Option[String],
+    database: Option[String],
+    domainName: String,
+    schemaName: String,
+    expectations: List[ExpectationItem],
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler,
+    sqlRunner: ExpectationAssertionHandler
+  )(implicit settings: Settings): ExpectationJob = {
+    new ExpectationJob(
+      appId,
+      database,
+      domainName,
+      schemaName,
+      expectations,
+      storageHandler,
+      schemaHandler,
+      sqlRunner
+    )
+  }
+  def buildSQLStatements()(implicit settings: Settings): Option[TaskSQLStatements] = {
+    if (settings.appConfig.expectations.active) {
+      val auditSink = settings.appConfig.audit.getSink()
+      val templateSelect = selectTemplate(auditSink.getConnection().getJdbcEngineName())
+      val templateCreate = createTemplate(auditSink.getConnection().getJdbcEngineName())
+      Some(
+        TaskSQLStatements(
+          name = "audit.expectations",
+          domain = settings.appConfig.audit.getDomain(),
+          createSchemaSql = List(templateCreate.pyFormat()),
+          preActions = Nil,
+          preSqls = Nil,
+          mainSqlIfExists = List(templateSelect.pyFormat()),
+          mainSqlIfNotExists = null,
+          postSqls = Nil,
+          addSCD2ColumnsSqls = Nil,
+          settings.appConfig.audit.getSink().getConnection().`type`
+        )
+      )
+    } else
+      None
+  }
+
+  def selectTemplate(engineName: Engine)(implicit settings: Settings): String = {
+    val template = settings.appConfig.jdbcEngines
+      .get(engineName.toString.toLowerCase())
+      .flatMap(_.tables("expectations").selectSql)
+      .getOrElse("""
+          SELECT
+            '{{jobid}}' AS JOBID,
+            '{{database}}' AS DATABASE,
+            '{{domain}}' AS DOMAIN,
+            '{{schema}}' AS SCHEMA,
+            TO_TIMESTAMP('{{timestamp}}', 'YYYY-MM-DD HH24:MI:SS') AS TIMESTAMP,
+            '{{name}}' AS NAME,
+            '{{params}}' AS PARAMS,
+            '{{sql}}' AS SQL,
+            {{count}} AS COUNT,
+            '{{exception}}' AS EXCEPTION,
+            {{success}} AS SUCCESS
+           """)
+    template
+  }
+
+  def createTemplate(engineName: Engine)(implicit settings: Settings): String = {
+    val template = settings.appConfig.jdbcEngines
+      .get(engineName.toString.toLowerCase())
+      .map(_.tables("expectations").createSql)
+      .getOrElse("""
+            CREATE TABLE IF NOT EXISTS {{table}} (
+                            JOBID TEXT NOT NULL,
+                            DATABASE TEXT,
+                            DOMAIN TEXT NOT NULL,
+                            SCHEMA TEXT NOT NULL,
+                            TIMESTAMP TIMESTAMP NOT NULL,
+                            NAME TEXT NOT NULL,
+                            PARAMS TEXT NOT NULL,
+                            SQL TEXT NOT NULL,
+                            COUNT BIGINT NOT NULL,
+                            EXCEPTION TEXT NOT NULL,
+                            SUCCESS BOOLEAN NOT NULL
+                          )
+""")
+    template.richFormat(
+      Map(
+        "table" -> (settings.appConfig.audit.getDomain() + ".expectations")
+      ),
+      Map.empty
+    )
   }
 }

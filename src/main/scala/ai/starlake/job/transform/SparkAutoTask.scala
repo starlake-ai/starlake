@@ -81,7 +81,7 @@ class SparkAutoTask(
       ).isSuccess
       if (isGrantSupported) {
         if (forceApply || settings.appConfig.accessPolicies.apply) {
-          val sqls = this.extractAclSQL()
+          val sqls = this.aclSQL()
           sqls.foreach { sql =>
             logger.info(sql)
             SparkUtils.sql(session, sql)

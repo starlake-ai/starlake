@@ -191,20 +191,28 @@ case class TransformDagGenerationContext(
   deps: List[TaskViewDependencyNode],
   cron: Option[String],
   statements: List[
-    (TaskSQLStatements, List[ExpectationItem], Option[TaskSQLStatements], List[String])
+    (
+      TaskSQLStatements,
+      List[ExpectationSQL],
+      Option[TaskSQLStatements],
+      List[String],
+      Option[TaskSQLStatements]
+    )
   ]
 ) {
   def asMap: util.HashMap[String, Object] = {
-    val statementsAsMap = statements.map { case (statements, expectations, audi, acl) =>
-      statements.name -> statements.asMap()
+    val statementsAsMap = statements.map {
+      case (statements, expectationItems, audi, acl, expectations) =>
+        statements.name -> statements.asMap()
     }.toMap
 
-    val expectationsAsMap = statements.map { case (statements, expectations, audit, acl) =>
-      statements.name -> expectations
+    val expectationItemsAsMap = statements.map {
+      case (statements, expectationItems, audit, acl, expectations) =>
+        statements.name -> expectationItems.map(_.asMap()).asJava
     }.toMap
 
     val auditAsMap = statements
-      .flatMap { case (statements, expectations, audit, acl) =>
+      .flatMap { case (statements, expectationItems, audit, acl, expectations) =>
         audit.map { audit =>
           audit.asMap()
         }
@@ -212,11 +220,21 @@ case class TransformDagGenerationContext(
       .headOption
       .getOrElse(Map.empty)
 
-    val aclAsMap = statements.flatMap { case (statements, expectations, audit, acl) =>
-      audit.map { audit =>
-        statements.name -> acl
-      }
+    val aclAsMap = statements.flatMap {
+      case (statements, expectationItems, audit, acl, expectations) =>
+        audit.map { audit =>
+          statements.name -> acl
+        }
     }.toMap
+
+    val expectationsAsMap = statements
+      .flatMap { case (statements, expectationItems, audit, acl, expectations) =>
+        expectations.map { expectations =>
+          expectations.asMap()
+        }
+      }
+      .headOption
+      .getOrElse(Map.empty)
 
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
       val cal1 = Calendar.getInstance
@@ -230,20 +248,27 @@ case class TransformDagGenerationContext(
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(deps)
     val statementsAsString =
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(statementsAsMap)
-    val expectationsAsString =
-      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(expectationsAsMap)
+    val expectationItemsAsString =
+      JsonSerializer.mapper
+        .writerWithDefaultPrettyPrinter()
+        .writeValueAsString(expectationItemsAsMap)
     val auditAsString =
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(auditAsMap)
     val aclAsString =
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(aclAsMap)
+    val expectationsAsString =
+      JsonSerializer.mapper
+        .writerWithDefaultPrettyPrinter()
+        .writeValueAsString(expectationsAsMap)
 
     new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
       put("cron", cron.getOrElse("None"))
       put("dependencies", depsAsJsonString)
       put("statements", statementsAsString)
-      put("expectations", expectationsAsString)
+      put("expectationItems", expectationItemsAsString)
       put("audit", auditAsString)
+      put("expectations", expectationsAsString)
       put("acl", aclAsString)
     }
   }
