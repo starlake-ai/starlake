@@ -168,7 +168,7 @@ case class DagGenerationConfig(
 case class LoadDagGenerationContext(
   config: DagGenerationConfig,
   schedules: List[DagSchedule],
-  statements: String
+  workflowStatements: Map[String, Any]
 ) {
   def asMap: util.HashMap[String, Object] = {
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
@@ -179,11 +179,14 @@ case class LoadDagGenerationContext(
       config.options
     }
     val updatedConfig = config.copy(options = updatedOptions)
-    new java.util.HashMap[String, Object]() {
+    val res = new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
       put("schedules", schedules.asJava)
-      put("statements", statements)
     }
+    workflowStatements.foreach { case (k, v) =>
+      res.put(k, v.asInstanceOf[Object])
+    }
+    res
   }
 }
 case class TransformDagGenerationContext(
