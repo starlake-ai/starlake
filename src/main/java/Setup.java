@@ -134,6 +134,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     public static boolean ENABLE_REDSHIFT = ENABLE_ALL || envIsTrue("ENABLE_REDSHIFT");
     public static boolean ENABLE_POSTGRESQL = ENABLE_ALL || envIsTrue("ENABLE_POSTGRESQL");
     public static boolean ENABLE_DUCKDB = ENABLE_ALL || envIsTrue("ENABLE_DUCKDB");
+    public static boolean ENABLE_KAFKA = ENABLE_ALL || envIsTrue("ENABLE_KAFKA");
 
     private static final boolean[] ALL_ENABLERS = new boolean[] {
             ENABLE_BIGQUERY,
@@ -141,7 +142,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
             ENABLE_SNOWFLAKE,
             ENABLE_REDSHIFT,
             ENABLE_POSTGRESQL,
-            ENABLE_DUCKDB
+            ENABLE_DUCKDB,
+            ENABLE_KAFKA
     };
 
     // SCALA 2.12 by default until spark redshift is available for 2.13
@@ -193,6 +195,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
         }
     }
 
+    private static final String CONFLUENT_VERSION = getEnv("CONFLUENT_VERSION").orElse("7.7.2");
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // DUCKDB
@@ -231,6 +235,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
     }
     private static final ResourceDependency STARLAKE_SNAPSHOT_JAR = new ResourceDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core"+ "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
     private static final ResourceDependency STARLAKE_RELEASE_JAR = new ResourceDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-spark3" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
+    private static final ResourceDependency CONFLUENT_KAFKA_SCHEMA_REGISTRY_CLIENT = new ResourceDependency("kafka-schema-registry-client", "https://packages.confluent.io/maven/io/confluent/kafka-schema-registry-client/" + CONFLUENT_VERSION + "/kafka-schema-registry-client-" + CONFLUENT_VERSION + ".jar");
+    private static final ResourceDependency CONFLUENT_KAFKA_AVRO_SERIALIZER = new ResourceDependency("kafka-avro-serializer", "https://packages.confluent.io/maven/io/confluent/kafka-avro-serializer/" + CONFLUENT_VERSION + "/kafka-avro-serializer-" + CONFLUENT_VERSION + ".jar");
 
     private static final ResourceDependency[] snowflakeDependencies = {
             SNOWFLAKE_JDBC_JAR,
@@ -265,6 +271,11 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency[] sparkDependencies = {
             DELTA_SPARK_JAR,
             DELTA_STORAGE_JAR
+    };
+
+    private static final ResourceDependency[] confluentDependencies = {
+            CONFLUENT_KAFKA_SCHEMA_REGISTRY_CLIENT,
+            CONFLUENT_KAFKA_AVRO_SERIALIZER
     };
 
     private static Optional<String> getEnv(String env) {
@@ -315,6 +326,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             variableWriter.apply(writer).accept("ENABLE_SNOWFLAKE", String.valueOf(ENABLE_SNOWFLAKE));
             variableWriter.apply(writer).accept("ENABLE_POSTGRESQL", String.valueOf(ENABLE_POSTGRESQL));
             variableWriter.apply(writer).accept("ENABLE_REDSHIFT", String.valueOf(ENABLE_REDSHIFT));
+            variableWriter.apply(writer).accept("ENABLE_KAFKA", String.valueOf(ENABLE_KAFKA));
             variableWriter.apply(writer).accept("SL_VERSION", SL_VERSION);
             variableWriter.apply(writer).accept("SCALA_VERSION", SCALA_VERSION);
             variableWriter.apply(writer).accept("SPARK_VERSION", SPARK_VERSION);
@@ -341,6 +353,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 variableWriter.apply(writer).accept("HADOOP_AWS_VERSION", HADOOP_AWS_VERSION);
                 variableWriter.apply(writer).accept("REDSHIFT_JDBC_VERSION", REDSHIFT_JDBC_VERSION);
                 variableWriter.apply(writer).accept("SPARK_REDSHIFT_VERSION", SPARK_REDSHIFT_VERSION());
+            }
+            if (ENABLE_KAFKA || !anyDependencyEnabled()) {
+                variableWriter.apply(writer).accept("CONFLUENT_VERSION", CONFLUENT_VERSION);
             }
         } finally {
             writer.close();
@@ -457,9 +472,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
                     ENABLE_REDSHIFT = true;
                     ENABLE_POSTGRESQL = true;
                     ENABLE_DUCKDB = true;
+                    ENABLE_KAFKA = true;
                 } else {
                     System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
-                    System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC");
+                    System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA");
                     System.exit(1);
                 }
             } catch (IOException e) {
@@ -492,6 +508,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 ENABLE_REDSHIFT = true;
                 ENABLE_POSTGRESQL = true;
                 ENABLE_DUCKDB = true;
+                ENABLE_KAFKA = true;
             }
             final File binDir = new File(targetDir, "bin");
 
@@ -553,6 +570,11 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 downloadAndDisplayProgress(postgresqlDependencies, depsDir, true);
             } else {
                 deleteDependencies(postgresqlDependencies, depsDir);
+            }
+            if (ENABLE_KAFKA) {
+                downloadAndDisplayProgress(confluentDependencies, depsDir, true);
+            } else {
+                deleteDependencies(confluentDependencies, depsDir);
             }
 
             boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
