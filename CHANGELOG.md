@@ -6,6 +6,8 @@
 __Improvement__:
 - minimize memory usage inference-schema and adjust attributes types
 - inference-schema detects more timestamp pattern
+- add confluent setup that can be enabled via ENABLE_KAFKA
+
 
 # 1.3.0
 __New Feature__:
