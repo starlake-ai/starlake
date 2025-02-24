@@ -21,9 +21,11 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
+import ai.starlake.core.utils.NamingUtils
 import ai.starlake.schema.exceptions.InvalidFieldNameException
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerde
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -217,7 +219,7 @@ object DataTypesToInt extends Enumeration {
   }
 }
 
-object InferSchemaHandler {
+object InferSchemaHandler extends StrictLogging {
 
   val identifierRegex = "^([a-zA-Z_][a-zA-Z\\d_:.-]*)$".r
 
@@ -434,7 +436,7 @@ object InferSchemaHandler {
       val result =
         currentSchema match {
           case st: StructType =>
-            val rename = container.name.replaceAll("[:.-]", "_")
+            val rename = NamingUtils.normalizeAttributeName(container.name, toSnakeCase = false)
             val renamedField = if (rename != container.name) Some(rename) else None
             try {
               val attributes = st.map { field =>
@@ -456,7 +458,8 @@ object InferSchemaHandler {
                 sample = None // currentLines.map(Option(_)).headOption.flatten.map(_.toString)
               )
             } catch {
-              case _: InvalidFieldNameException =>
+              case e: InvalidFieldNameException =>
+                logger.error(e.getMessage, e)
                 Attribute(
                   name = container.name,
                   `type` = PrimitiveType.variant.value,
@@ -490,7 +493,7 @@ object InferSchemaHandler {
           case _ =>
             val cellType =
               adjustedAttributes.getOrElse(fieldPath, PrimitiveType.from(currentSchema).value)
-            val rename = container.name.replaceAll("[:.-]", "_")
+            val rename = NamingUtils.normalizeAttributeName(container.name, toSnakeCase = false)
             val renamedField = if (rename != container.name) Some(rename) else None
             Attribute(
               name = container.name,
@@ -502,17 +505,26 @@ object InferSchemaHandler {
             )
         }
 
-      if (!forcePattern || identifierRegex.pattern.matcher(result.name).matches)
+      if (
+        !forcePattern || identifierRegex.pattern
+          .matcher(result.rename.getOrElse(result.name))
+          .matches
+      )
         result
       else
         throw new InvalidFieldNameException(result.name)
     }
-    createAttribute(
+    val attributes = createAttribute(
       schema,
       StructField("_ROOT_", StructType(Nil)),
       "",
       forcePattern
     ).attributes
+    if (attributes.isEmpty) {
+      throw new RuntimeException("Inferred schema is empty, please check logs")
+    } else {
+      attributes
+    }
   }
 
   /** * builds the Metadata case class. check case class metadata for attribute definition
