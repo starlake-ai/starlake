@@ -981,6 +981,13 @@
           "$ref": "#/definitions/ConvertibleToString",
           "description": "free text"
         },
+        "streams": {
+          "type": "array",
+          "description": "attach streams to table (Snowflake only)",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          }
+        },
         "presql": {
           "type": "array",
           "description": "Reserved for future use.",
@@ -1169,6 +1176,13 @@
         "sql": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Main SQL request to execute (do not forget to prefix table names with the database name to avoid conflicts)"
+        },
+        "streams": {
+          "type": "array",
+          "description": "attach streams to task (Snowflake only)",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          }
         },
         "database": {
           "$ref": "#/definitions/ConvertibleToString",

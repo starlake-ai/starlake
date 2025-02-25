@@ -21,9 +21,11 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
+import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{GcpUtils, JobResult, Utils}
 import com.google.cloud.bigquery.StandardSQLTypeName
 import com.typesafe.scalalogging.StrictLogging
@@ -94,26 +96,7 @@ case class AuditLog(
   def asSelect(engineName: Engine)(implicit settings: Settings): String = {
     import ai.starlake.utils.Formatter._
     timestamp.setNanos(0)
-    val template = settings.appConfig.jdbcEngines
-      .get(engineName.toString.toLowerCase())
-      .flatMap(_.tables("audit").selectSql)
-      .getOrElse("""
-             SELECT
-               '{{jobid}}' as JOBID,
-               '{{paths}}' as PATHS,
-               '{{domain}}' as DOMAIN,
-               '{{schema}}' as SCHEMA,
-               {{success}} as SUCCESS,
-               {{count}} as COUNT,
-               {{countAccepted}} as COUNTACCEPTED,
-               {{countRejected}} as COUNTREJECTED,
-               TO_TIMESTAMP('{{timestamp}}') as TIMESTAMP,
-               {{duration}} as DURATION,
-               '{{message}}' as MESSAGE,
-               '{{step}}' as STEP,
-               '{{database}}' as DATABASE,
-               '{{tenant}}' as TENANT
-           """)
+    val template: String = AuditLog.selectTemplate(engineName)
     val selectStatement = template.richFormat(
       Map(
         "jobid"         -> jobid,
@@ -156,6 +139,29 @@ case class AuditLog(
 }
 
 object AuditLog extends StrictLogging {
+  def selectTemplate(engineName: Engine)(implicit settings: Settings): String = {
+    val template = settings.appConfig.jdbcEngines
+      .get(engineName.toString.toLowerCase())
+      .flatMap(_.tables("audit").selectSql)
+      .getOrElse("""
+             SELECT
+               '{{jobid}}' as JOBID,
+               '{{paths}}' as PATHS,
+               '{{domain}}' as DOMAIN,
+               '{{schema}}' as SCHEMA,
+               {{success}} as SUCCESS,
+               {{count}} as COUNT,
+               {{countAccepted}} as COUNTACCEPTED,
+               {{countRejected}} as COUNTREJECTED,
+               TO_TIMESTAMP('{{timestamp}}') as TIMESTAMP,
+               {{duration}} as DURATION,
+               '{{message}}' as MESSAGE,
+               '{{step}}' as STEP,
+               '{{database}}' as DATABASE,
+               '{{tenant}}' as TENANT
+           """)
+    template
+  }
 
   private val auditCols = List(
     ("jobid", StandardSQLTypeName.STRING, StringType),
@@ -191,19 +197,46 @@ object AuditLog extends StrictLogging {
     None,
     None
   )
-
   def sink(log: AuditLog)(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Try[JobResult] = {
+    this.createTask(log).map { task =>
+      val res = task.run()
+      Utils.logFailure(res, logger)
+    } match {
+      case Some(res) => res
+      case None      => Success(new JobResult {})
+    }
+  }
+
+  def buildListOfSQLStatements(log: AuditLog)(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): Option[TaskSQLStatements] = {
+    val auditSink = settings.appConfig.audit.getSink()
+    val template = AuditLog.selectTemplate(auditSink.getConnection().getJdbcEngineName()).pyFormat()
+    createTask(log).map { task =>
+      val statements = task.buildListOfSQLStatements()
+      statements.copy(mainSqlIfExists = List(template), mainSqlIfNotExists = null)
+    }
+  }
+
+  private def createTask(log: AuditLog)(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): Option[AutoTask] = {
     if (settings.appConfig.audit.isActive() && !log.test) {
       val auditSink = settings.appConfig.audit.getSink()
       auditSink.getConnectionType() match {
         case ConnectionType.GCPLOG =>
           val logName = settings.appConfig.audit.getDomain()
+          // TODO handle gcp log when builing statements
           GcpUtils.sinkToGcpCloudLogging(log.asMap(), "audit", logName)
-          Success(new JobResult {})
+          None
         case _ =>
           val selectSql =
             log.asSelect(auditSink.getConnection().getJdbcEngineName())
@@ -240,11 +273,10 @@ object AuditLog extends StrictLogging {
               engine = engine,
               logExecution = false // We do not log the job that write the logs :)
             )
-          val res = task.run()
-          Utils.logFailure(res, logger)
+          Some(task)
       }
     } else {
-      Success(new JobResult {})
+      None
     }
   }
 }

@@ -254,7 +254,7 @@ case class Schema(
   def targetSparkSchemaWithoutIgnore(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, attr => !attr.resolveIgnore())
 
-  def targetSparkSchema(schemaHandler: SchemaHandler): StructType =
+  def targetSparkSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, _ => true)
 
   def targetBqSchemaWithoutIgnore(schemaHandler: SchemaHandler): BQSchema = {
@@ -262,7 +262,7 @@ case class Schema(
   }
 
   def targetBqSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(targetSparkSchema(schemaHandler))
+    BigQueryUtils.bqSchema(targetSparkSchemaWithIgnoreAndScript(schemaHandler))
   }
 
   /** return the list of renamed attributes
@@ -373,7 +373,7 @@ case class Schema(
             ValidationMessage(
               Error,
               s"Table $domainName.$name",
-              s"stream: $stream is not a valid stream. Stream should start with $fullTableName"
+              s"stream name error: $stream is not a valid stream name. Stream name should start with $fullTableName"
             )
           )
         )
