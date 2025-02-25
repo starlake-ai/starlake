@@ -42,7 +42,8 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
               )
             ).asJava
           )
-        )
+        ),
+        workflowStatements = Map.empty[String, Any]
       )
       val jContext = context.asMap
 

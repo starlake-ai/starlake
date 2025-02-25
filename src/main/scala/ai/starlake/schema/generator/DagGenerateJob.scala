@@ -1,6 +1,9 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.job.common.TaskSQLStatements
+import ai.starlake.job.ingest.DummyIngestionJob
+import ai.starlake.job.metrics.ExpectationJob
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
 import ai.starlake.schema.handlers.SchemaHandler
@@ -149,7 +152,16 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val autoTaskDepsConfig = AutoTaskDependenciesConfig(tasks = Some(configs))
         val deps = depsEngine.jobsDependencyTree(autoTaskDepsConfig)
 
-        val taskSqlStatements =
+        val taskStatements: List[
+          (
+            TaskSQLStatements, // main statements
+            List[ExpectationSQL], // expectation item statements
+            Option[TaskSQLStatements], // audit statements
+            List[String], // ACL statements
+            Option[TaskSQLStatements] // expectations table statements
+
+          )
+        ] =
           if (config.orchestrator.isDefined) {
             taskConfigs.map { case (_, config) =>
               val task = AutoTask.task(
@@ -165,17 +177,25 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 resultPageSize = 1,
                 dryRun = false
               )(settings, settings.storageHandler(), schemaHandler)
-              task.buildListOfSQLStatements()
+              (
+                task.buildListOfSQLStatements(),
+                task.expectationStatements(),
+                task.auditStatements(),
+                task.aclSQL(),
+                ExpectationJob.buildSQLStatements()
+              )
             }
-          } else
-            List.empty
+          } else {
+            Nil
+          }
 
         val context = TransformDagGenerationContext(
           config = dagConfig,
           deps = deps,
           cron = Option(cronIfNone),
-          sqls = taskSqlStatements
+          statements = taskStatements
         )
+
         applyJ2AndSave(
           outputDir,
           jEnv,
@@ -300,13 +320,32 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 k -> Utils.parseJinja(v, envVars)
               }
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
+              val statements =
+                config.orchestrator match {
+                  case Some(orchestrator) =>
+                    new DummyIngestionJob(
+                      domain = domain,
+                      schema = table,
+                      types = schemaHandler.types(),
+                      path = Nil,
+                      storageHandler = settings.storageHandler(),
+                      schemaHandler = schemaHandler,
+                      options = options,
+                      accessToken = None,
+                      test = false
+                    ).buildListOfSQLStatementsAsMap(orchestrator)
+                  case None =>
+                    Map.empty[String, Any]
+                }
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
-                schedules
+                schedules,
+                workflowStatements = statements
               )
 
               scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
+
               applyJ2AndSave(
                 outputDir,
                 jEnv,
@@ -362,9 +401,11 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 k -> Utils.parseJinja(v, envVars)
               }
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
+
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
-                schedules
+                schedules,
+                workflowStatements = Map.empty[String, Any]
               )
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
               applyJ2AndSave(
@@ -386,7 +427,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             val comment = Utils.parseJinja(dagConfig.comment, envVars)
             val context = LoadDagGenerationContext(
               config = dagConfig.copy(options = options, comment = comment),
-              schedules
+              schedules,
+              workflowStatements = Map.empty[String, Any]
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
             applyJ2AndSave(
@@ -441,7 +483,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
-                List(schedule)
+                List(schedule),
+                workflowStatements = Map.empty[String, Any]
               )
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
               applyJ2AndSave(
@@ -458,7 +501,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             val comment = Utils.parseJinja(dagConfig.comment, envVars)
             val context = LoadDagGenerationContext(
               config = dagConfig.copy(options = options, comment = comment),
-              schedules = dagSchedules
+              schedules = dagSchedules,
+              workflowStatements = Map.empty[String, Any]
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
             applyJ2AndSave(

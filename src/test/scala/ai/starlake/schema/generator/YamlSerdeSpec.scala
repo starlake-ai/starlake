@@ -946,11 +946,10 @@ object YamlConfigGenerators {
 
   implicit val expectationItem: Arbitrary[ExpectationItem] = Arbitrary {
     for {
-      query  <- arbitrary[String].map(_.replace("=>", "_").replace(")", "_"))
-      expect <- arbitrary[String]
+      expect      <- arbitrary[String]
+      failOnError <- arbitrary[Boolean]
     } yield {
-      val eie = ExpectationItemExpect(query = query, expected = expect)
-      ExpectationItem(eie)
+      ExpectationItem(expect, failOnError)
     }
   }
 
@@ -980,6 +979,7 @@ object YamlConfigGenerators {
       filter        <- Gen.option(arbitrary[String])
       patternSample <- Gen.option(arbitrary[String])
       pattern       <- arbitrary[Pattern]
+      streams       <- arbitrary[List[String]]
     } yield Schema(
       name = name,
       attributes = attributes,
@@ -996,7 +996,8 @@ object YamlConfigGenerators {
       sample = sample,
       filter = filter,
       patternSample = patternSample,
-      pattern = pattern
+      pattern = pattern,
+      streams = streams
     )
   }
 
@@ -1533,6 +1534,7 @@ object YamlConfigGenerators {
       dagRef         <- Gen.option(arbitrary[String])
       taskTimeoutMs  <- Gen.option(arbitrary[Long])
       parseSQL       <- Gen.option(arbitrary[Boolean])
+      streams        <- arbitrary[List[String]]
     } yield {
       val autoTask = AutoTaskDesc(
         name = name,
@@ -1554,7 +1556,8 @@ object YamlConfigGenerators {
         schedule = schedule,
         dagRef = dagRef,
         taskTimeoutMs = taskTimeoutMs,
-        parseSQL = parseSQL
+        parseSQL = parseSQL,
+        streams = streams
       )
       autoTask.copy(
         // fill with default value in order to match with deserialization

@@ -1,7 +1,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
-import ai.starlake.job.transform.TaskSQLStatements
+import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.lineage.TaskViewDependencyNode
 import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.utils.Formatter.RichFormatter
@@ -167,7 +167,8 @@ case class DagGenerationConfig(
 
 case class LoadDagGenerationContext(
   config: DagGenerationConfig,
-  schedules: List[DagSchedule]
+  schedules: List[DagSchedule],
+  workflowStatements: Map[String, Any]
 ) {
   def asMap: util.HashMap[String, Object] = {
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
@@ -178,22 +179,65 @@ case class LoadDagGenerationContext(
       config.options
     }
     val updatedConfig = config.copy(options = updatedOptions)
-    new java.util.HashMap[String, Object]() {
+    val res = new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
       put("schedules", schedules.asJava)
     }
+    workflowStatements.foreach { case (k, v) =>
+      res.put(k, v.asInstanceOf[Object])
+    }
+    res
   }
 }
 case class TransformDagGenerationContext(
   config: DagGenerationConfig,
   deps: List[TaskViewDependencyNode],
   cron: Option[String],
-  sqls: List[TaskSQLStatements]
+  statements: List[
+    (
+      TaskSQLStatements,
+      List[ExpectationSQL],
+      Option[TaskSQLStatements],
+      List[String],
+      Option[TaskSQLStatements]
+    )
+  ]
 ) {
   def asMap: util.HashMap[String, Object] = {
-    val sqlsAsMap = sqls.map { taskSQLStatements =>
-      taskSQLStatements.name -> taskSQLStatements.asMap
+    val statementsAsMap = statements.map {
+      case (statements, expectationItems, audi, acl, expectations) =>
+        statements.name -> statements.asMap()
     }.toMap
+
+    val expectationItemsAsMap = statements.map {
+      case (statements, expectationItems, audit, acl, expectations) =>
+        statements.name -> expectationItems.map(_.asMap()).asJava
+    }.toMap
+
+    val auditAsMap = statements
+      .flatMap { case (statements, expectationItems, audit, acl, expectations) =>
+        audit.map { audit =>
+          audit.asMap()
+        }
+      }
+      .headOption
+      .getOrElse(Map.empty)
+
+    val aclAsMap = statements.flatMap {
+      case (statements, expectationItems, audit, acl, expectations) =>
+        audit.map { audit =>
+          statements.name -> acl
+        }
+    }.toMap
+
+    val expectationsAsMap = statements
+      .flatMap { case (statements, expectationItems, audit, acl, expectations) =>
+        expectations.map { expectations =>
+          expectations.asMap()
+        }
+      }
+      .headOption
+      .getOrElse(Map.empty)
 
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
       val cal1 = Calendar.getInstance
@@ -205,14 +249,30 @@ case class TransformDagGenerationContext(
     val updatedConfig = config.copy(options = updatedOptions)
     val depsAsJsonString =
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(deps)
-    val sqlsAsJsonString =
-      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(sqlsAsMap)
+    val statementsAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(statementsAsMap)
+    val expectationItemsAsString =
+      JsonSerializer.mapper
+        .writerWithDefaultPrettyPrinter()
+        .writeValueAsString(expectationItemsAsMap)
+    val auditAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(auditAsMap)
+    val aclAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(aclAsMap)
+    val expectationsAsString =
+      JsonSerializer.mapper
+        .writerWithDefaultPrettyPrinter()
+        .writeValueAsString(expectationsAsMap)
 
     new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
       put("cron", cron.getOrElse("None"))
       put("dependencies", depsAsJsonString)
-      put("statements", sqlsAsJsonString)
+      put("statements", statementsAsString)
+      put("expectationItems", expectationItemsAsString)
+      put("audit", auditAsString)
+      put("expectations", expectationsAsString)
+      put("acl", aclAsString)
     }
   }
 }

@@ -5,7 +5,11 @@ import ai.starlake.config.Settings
 import java.util.regex.Pattern
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
-object Formatter extends Formatter
+object Formatter extends Formatter {
+  val jinjaVar = """\{\{([a-zA-Z0-9]+)\}\}""".r
+  val obfuscatedVar = """__SL__([a-zA-Z0-9]+)__SL__""".r
+
+}
 
 trait Formatter {
 
@@ -43,6 +47,18 @@ trait Formatter {
         result.append(pattern.group(1))
 
       result.toSet
+    }
+
+    def pyFormat(): String = {
+      Formatter.jinjaVar.replaceAllIn(str, m => s"{${m.group(1)}}")
+    }
+
+    def obfuscateJinjaVar(): String = {
+      Formatter.jinjaVar.replaceAllIn(str, m => s"__SL__${m.group(1)}__SL__")
+    }
+
+    def unObfuscateJinjaVar(): String = {
+      Formatter.obfuscatedVar.replaceAllIn(str, m => s"{{${m.group(1)}}}")
     }
 
     def splitSql(separator: String = ";\n"): List[String] = {

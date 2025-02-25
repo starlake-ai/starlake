@@ -9,66 +9,34 @@ import ai.starlake.job.sink.bigquery.{
   BigQueryLoadConfig,
   BigQueryNativeJob
 }
-import ai.starlake.job.transform.{AutoTask, BigQueryAutoTask}
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.job.transform.BigQueryAutoTask
 import ai.starlake.schema.model._
-import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.{IngestionCounters, JobResult, Utils}
 import com.google.cloud.bigquery
 import com.google.cloud.bigquery.{Field, JobInfo, StandardSQLTypeName, TableId}
 import com.typesafe.scalalogging.StrictLogging
-import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
-import org.apache.hadoop.fs.Path
 
-import java.nio.charset.Charset
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try, Using}
+import scala.util.{Failure, Success, Try}
 
 class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
-  val settings: Settings
-) extends StrictLogging {
+  settings: Settings
+) extends NativeLoader(ingestionJob, accessToken)
+    with StrictLogging {
+  lazy val effectiveSchema: Schema = computeEffectiveInputSchema()
+  lazy val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
 
-  val domain: Domain = ingestionJob.domain
-
-  val schema: Schema = ingestionJob.schema
-
-  val storageHandler: StorageHandler = ingestionJob.storageHandler
-
-  val schemaHandler: SchemaHandler = ingestionJob.schemaHandler
-
-  val path: List[Path] = ingestionJob.path
-
-  val options: Map[String, String] = ingestionJob.options
-
-  val strategy: WriteStrategy = ingestionJob.mergedMetadata.getStrategyOptions()
-
-  lazy val mergedMetadata: Metadata = ingestionJob.mergedMetadata
-
-  private def requireTwoSteps(schema: Schema): Boolean = {
-    // renamed attribute can be loaded directly so it's not in the condition
-    schema
-      .hasTransformOrIgnoreOrScriptColumns() ||
-    strategy.isMerge() ||
-    schema.filter.nonEmpty ||
-    settings.appConfig.archiveTable
-  }
+  lazy val targetTableId =
+    BigQueryJobBase.extractProjectDatasetAndTable(
+      schemaHandler.getDatabase(domain),
+      domain.finalName,
+      effectiveSchema.finalName
+    )
 
   def run(): Try[IngestionCounters] = {
     Try {
-      val effectiveSchema: Schema = computeEffectiveInputSchema()
-      val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-        strategy.toWriteMode()
-      )
       val bqSink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
-      val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
-
-      val targetTableId =
-        BigQueryJobBase.extractProjectDatasetAndTable(
-          schemaHandler.getDatabase(domain),
-          domain.finalName,
-          effectiveSchema.finalName
-        )
 
       val targetConfig =
         BigQueryLoadConfig(
@@ -90,7 +58,6 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           outputDatabase = schemaHandler.getDatabase(domain),
           accessToken = accessToken
         )
-      val twoSteps = requireTwoSteps(effectiveSchema)
       if (twoSteps) {
         val (loadResults, tempTableIds, tableInfos) =
           path
@@ -101,7 +68,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                   BigQueryJobBase.extractProjectDatasetAndTable(
                     schemaHandler.getDatabase(domain),
                     domain.finalName,
-                    SQLUtils.temporaryTableName(effectiveSchema.finalName)
+                    tempTableName
                   )
                 val firstStepConfig =
                   targetConfig
@@ -167,7 +134,13 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
             tempTableIds,
             globalLoadResult
           )
-        tempTableIds.zip(tableInfos).foreach { case (id, info) => archiveTable(id, info) }
+
+        tempTableIds.zip(tableInfos).foreach { case (id, info) =>
+          val database = Option(id.getProject()).getOrElse("")
+          val schema = Option(id.getDataset()).getOrElse("")
+          val table = Option(id.getTable()).getOrElse("")
+          archiveTableTask(database, schema, table, info).foreach(_.run())
+        }
         Try(tempTableIds.foreach(new BigQueryNativeJob(targetConfig, "").dropTable))
           .flatMap(_ => output)
           .recoverWith { case exception =>
@@ -197,58 +170,6 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
     }
   }
 
-  private def archiveTable(firstStepTempTable: TableId, firstStepTableInfo: TableInfo) = {
-    if (settings.appConfig.archiveTable) {
-      val (
-        archiveDatabaseName: Option[String],
-        archiveDomainName: String,
-        archiveTableName: String
-      ) = getArchiveTableComponents()
-
-      val targetTable = OutputRef(
-        firstStepTempTable.getProject(),
-        firstStepTempTable.getDataset(),
-        firstStepTempTable.getTable()
-      ).toSQLString(mergedMetadata.getSink().getConnection())
-      val firstStepFields = firstStepTableInfo.maybeSchema
-        .map { schema =>
-          schema.getFields.asScala.map(_.getName)
-        }
-        .getOrElse(
-          throw new Exception(
-            "Should never happen in Ingestion mode. We know the fields we are loading using the yml files"
-          )
-        )
-      val req =
-        s"SELECT ${firstStepFields.mkString(",")}, '${ingestionJob.applicationId()}' as JOBID FROM $targetTable"
-      val taskDesc = AutoTaskDesc(
-        s"archive-${ingestionJob.applicationId()}",
-        Some(req),
-        database = archiveDatabaseName,
-        archiveDomainName,
-        archiveTableName,
-        sink = Some(mergedMetadata.getSink().toAllSinks()),
-        connectionRef = Option(mergedMetadata.getSinkConnectionRef())
-      )
-
-      val autoTask = AutoTask.task(
-        Option(ingestionJob.applicationId()),
-        taskDesc,
-        Map.empty,
-        None,
-        truncate = false,
-        test = false,
-        Engine.BQ,
-        logExecution = true
-      )(
-        settings,
-        storageHandler,
-        schemaHandler
-      )
-      autoTask.run()
-    }
-  }
-
   private def applyBigQuerySecondStep(
     targetConfig: BigQueryLoadConfig,
     firstStepTempTable: List[TableId],
@@ -262,8 +183,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           targetBigqueryJob.cliConfig.outputTableId
             .map { _ =>
               applyBigQuerySecondStepSQL(
-                firstStepTempTable,
-                schema
+                firstStepTempTable.map(BigQueryUtils.tableIdToTableName)
               )
             }
             .getOrElse(throw new Exception("Should never happen"))
@@ -284,15 +204,6 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           .recoverWith { case ex: NullValueFoundException =>
             updateRejectedCount(ex.nbRecord)
           }
-      /*
-          .flatMap { case (_, nullCountValues) =>
-            updateRejectedCount(nullCountValues)
-          } // keep loading stats
-          .recoverWith { case ex: NullValueFoundException =>
-            updateRejectedCount(ex.nbRecord)
-          }
-
-       */
       case res @ Failure(_) =>
         res
     }
@@ -301,7 +212,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
   private def getArchiveTableComponents(): (Option[String], String, String) = {
     val fullArchiveTableName = Utils.parseJinja(
       settings.appConfig.archiveTablePattern,
-      Map("domain" -> domain.finalName, "table" -> schema.finalName)
+      Map("domain" -> domain.finalName, "table" -> starlakeSchema.finalName)
     )
     val archiveTableComponents = fullArchiveTableName.split('.')
     val (archiveDatabaseName, archiveDomainName, archiveTableName) =
@@ -325,108 +236,14 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
     (archiveDatabaseName, archiveDomainName, archiveTableName)
   }
 
-  private def computeEffectiveInputSchema(): Schema = {
-    mergedMetadata.resolveFormat() match {
-      case Format.DSV =>
-        (mergedMetadata.resolveWithHeader(), path.map(_.toString).headOption) match {
-          case (java.lang.Boolean.TRUE, Some(sourceFile)) =>
-            val csvHeaders = storageHandler.readAndExecute(
-              new Path(sourceFile),
-              Charset.forName(mergedMetadata.resolveEncoding())
-            ) { is =>
-              Using.resource(is) { reader =>
-                assert(
-                  mergedMetadata.resolveQuote().length <= 1,
-                  "quote must be a single character"
-                )
-                assert(
-                  mergedMetadata.resolveEscape().length <= 1,
-                  "quote must be a single character"
-                )
-                val csvParserSettings = new CsvParserSettings()
-                val format = new CsvFormat()
-                format.setDelimiter(mergedMetadata.resolveSeparator())
-                mergedMetadata.resolveQuote().headOption.foreach(format.setQuote)
-                mergedMetadata.resolveEscape().headOption.foreach(format.setQuoteEscape)
-                csvParserSettings.setFormat(format)
-                // allocate twice the declared columns. If fail a strange exception is thrown: https://github.com/uniVocity/univocity-parsers/issues/247
-                csvParserSettings.setMaxColumns(schema.attributes.length * 2)
-                csvParserSettings.setNullValue(mergedMetadata.resolveNullValue())
-                csvParserSettings.setHeaderExtractionEnabled(true)
-                csvParserSettings.setMaxCharsPerColumn(-1)
-                val csvParser = new CsvParser(csvParserSettings)
-                csvParser.beginParsing(reader)
-                // call this in order to get the headers even if there is no record
-                csvParser.parseNextRecord()
-                csvParser.getRecordMetadata.headers().toList
-              }
-            }
-            val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
-            val csvAttributesInOrders =
-              csvHeaders.map(h =>
-                attributesMap.getOrElse(h, Attribute(h, ignore = Some(true), required = None))
-              )
-            // attributes not in csv input file must not be required but we don't force them to optional.
-            val effectiveAttributes =
-              csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
-            schema.copy(attributes = effectiveAttributes)
-          case _ => schema
-        }
-      case _ => schema
-    }
-  }
-
   def applyBigQuerySecondStepSQL(
-    firstStepTempTableId: List[TableId],
-    starlakeSchema: Schema
+    firstStepTempTableTableNames: List[String]
   ): Try[JobResult] = {
+    val task = this.secondStepSQLTask(firstStepTempTableTableNames)
+    val bqTask = task.asInstanceOf[BigQueryAutoTask]
     val incomingSparkSchema = starlakeSchema.targetSparkSchemaWithoutIgnore(schemaHandler)
-
-    val tempTable = firstStepTempTableId
-      .map(BigQueryUtils.tableIdToTableName)
-      .map("SELECT * FROM " + _)
-      .mkString("(", " UNION ALL ", ")")
-    val targetTableName = s"${domain.finalName}.${schema.finalName}"
-
-    val bigqueryEngine = settings.appConfig.jdbcEngines.get("bigquery")
-    val sqlWithTransformedFields =
-      starlakeSchema.buildSqlSelectOnLoad(tempTable, bigqueryEngine)
-
-    val taskDesc = AutoTaskDesc(
-      name = targetTableName,
-      sql = Some(sqlWithTransformedFields),
-      database = schemaHandler.getDatabase(domain),
-      domain = domain.finalName,
-      table = schema.finalName,
-      presql = schema.presql,
-      postsql = schema.postsql,
-      sink = mergedMetadata.sink,
-      rls = schema.rls,
-      expectations = schema.expectations,
-      acl = schema.acl,
-      comment = schema.comment,
-      tags = schema.tags,
-      writeStrategy = mergedMetadata.writeStrategy,
-      parseSQL = Some(true),
-      connectionRef = Option(mergedMetadata.getSinkConnectionRef())
-    )
-    val job =
-      new BigQueryAutoTask(
-        Option(ingestionJob.applicationId()),
-        taskDesc,
-        Map.empty,
-        None,
-        truncate = false,
-        test = false,
-        logExecution = true
-      )(
-        settings,
-        storageHandler,
-        schemaHandler
-      )
-
-    job.updateBigQueryTableSchema(incomingSparkSchema)
-    val jobResult = job.run()
+    bqTask.updateBigQueryTableSchema(incomingSparkSchema)
+    val jobResult = bqTask.run()
     jobResult
   }
 

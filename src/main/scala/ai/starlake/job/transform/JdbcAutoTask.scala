@@ -18,29 +18,6 @@ import java.time.Instant
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
-case class TaskSQLStatements(
-  name: String,
-  createSchemaSql: List[String],
-  preActions: List[String],
-  preSqls: List[String],
-  mainSqlIfExists: List[String],
-  mainSqlIfNotExists: List[String],
-  postSqls: List[String],
-  addSCD2ColumnsSqls: List[String]
-) {
-  def asMap(): Map[String, List[String]] = {
-    Map(
-      "createSchemaSql"    -> createSchemaSql,
-      "preActions"         -> preActions,
-      "preSqls"            -> preSqls,
-      "mainSqlIfExists"    -> mainSqlIfExists,
-      "mainSqlIfNotExists" -> mainSqlIfNotExists,
-      "postSqls"           -> postSqls,
-      "addSCD2ColumnsSqls" -> addSCD2ColumnsSqls
-    )
-  }
-}
-
 class JdbcAutoTask(
   appId: Option[String],
   taskDesc: AutoTaskDesc,
@@ -63,21 +40,11 @@ class JdbcAutoTask(
       resultPageSize
     ) {
 
-  def extractJdbcAcl(): List[String] = {
-    taskDesc.acl.flatMap { ace =>
-      /*
-        https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
-        https://hevodata.com/learn/snowflake-grant-role-to-user/
-       */
-      ace.asJdbcSql(fullTableName)
-    }
-  }
-
   def applyJdbcAcl(connection: Connection, forceApply: Boolean): Try[Unit] =
-    AccessControlEntry.applyJdbcAcl(connection, extractJdbcAcl(), forceApply)
+    AccessControlEntry.applyJdbcAcl(connection, aclSQL(), forceApply)
 
   def applyJdbcAcl(jdbcConnection: Settings.Connection, forceApply: Boolean): Try[Unit] =
-    AccessControlEntry.applyJdbcAcl(jdbcConnection, extractJdbcAcl(), forceApply)
+    AccessControlEntry.applyJdbcAcl(jdbcConnection, aclSQL(), forceApply)
 
   override def run(): Try[JobResult] = {
     runJDBC(None)
@@ -100,34 +67,23 @@ class JdbcAutoTask(
       exists
   }
 
+  @throws[Exception]
   def createAuditTable(): Boolean = {
     // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
     JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-      logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
-      val entry = taskDesc._auditTableName.getOrElse(
-        throw new Exception(
-          s"audit table for output ${taskDesc.table} is not defined in engine $jdbcSinkEngineName"
-        )
-      )
-      val scriptTemplate = jdbcSinkEngine.tables(entry).createSql
-      JdbcDbUtils.createSchema(conn, fullDomainName)
-
-      val script = scriptTemplate.richFormat(
-        Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
-        Map.empty
-      )
-      JdbcDbUtils.createSchema(conn, fullDomainName)
-      JdbcDbUtils.executeUpdate(script, conn) match {
-        case Success(_) =>
-          true
-        case Failure(e) =>
-          logger.error(s"Error creating table $fullTableName", e)
-          throw e
+      auditTableCreateSQL().foreach { sql =>
+        JdbcDbUtils.executeUpdate(sql, conn) match {
+          case Success(_) =>
+          case Failure(e) =>
+            logger.error(s"Error executing $sql", e)
+            throw e
+        }
       }
+      true
     }
   }
 
-  def addSCD2Columns(connection: Connection, engineName: Engine): Unit = {
+  private def buildAddSCD2ColumnsSqls(engineName: Engine): List[String] = {
     this.taskDesc.writeStrategy match {
       case Some(strategyOptions) if strategyOptions.getEffectiveType() == WriteStrategyType.SCD2 =>
         val startTsCol = strategyOptions.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
@@ -139,10 +95,15 @@ class JdbcAutoTask(
           else
             s"ALTER TABLE $fullTableName ADD COLUMN IF NOT EXISTS $column TIMESTAMP NULL"
         }
-        // ignore errors if columns already exist
-        Try(runSqls(connection, alterTableSqls, "addSCE2Columns"))
+        alterTableSqls
       case _ =>
+        List.empty
     }
+  }
+  def addSCD2Columns(connection: Connection, engineName: Engine): Unit = {
+    val alterTableSqls = buildAddSCD2ColumnsSqls(engineName)
+    // ignore errors if columns already exist
+    Try(runSqls(connection, alterTableSqls, "addSCE2Columns"))
   }
 
   override protected lazy val sinkConnection: Settings.Connection = {
@@ -177,17 +138,6 @@ class JdbcAutoTask(
             allVars
           )
           mainSql
-        }
-      val sinkOptions =
-        if (sinkConnection.isDuckDb()) {
-          val duckDbEnableExternalAccess =
-            settings.appConfig.duckDbEnableExternalAccess || sinkConnection.isMotherDuckDb()
-          sinkConnection.options.updated(
-            "enable_external_access",
-            duckDbEnableExternalAccess.toString
-          )
-        } else {
-          sinkConnection.options
         }
 
       interactive match {
@@ -376,7 +326,16 @@ class JdbcAutoTask(
     }
   }
 
-  def updateJdbcTableSchema(incomingSchema: StructType, tableName: String): Unit = {
+  /** @param incomingSchema
+    * @param tableName
+    * @return
+    *   (list of sql to execute, if the table exists) if (table exists, sqls are actually alter
+    *   table statements, else these are create schema / table statements
+    */
+  def buildTableSchemaSQL(
+    incomingSchema: StructType,
+    tableName: String
+  ): (List[String], Boolean) = {
     // update target table schema if needed
     val isSCD2 = strategy.getEffectiveType() == WriteStrategyType.SCD2
     val incomingSchemaWithSCD2 =
@@ -434,26 +393,45 @@ class JdbcAutoTask(
           logger.debug(s"alter table ${alterTableAddColumns.mkString("\n")}")
         }
 
-        alterTableDropColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
-        alterTableAddColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
-        // At this point if the table exists, it has the same schema as the dataframe
-        // And if it's a SCD2, it has the 2 extra timestamp columns
+        val allAlter = alterTableDropColumns ++ alterTableAddColumns
+        (allAlter.toList, true)
       } else {
         val optionsWrite =
           new JdbcOptionsInWrite(jdbcUrl, tableName, sinkConnectionRefOptions)
         logger.info(
           s"Table $tableName not found, creating it with schema $incomingSchemaWithSCD2"
         )
-
-        SparkUtils.createTable(
-          conn,
-          tableName,
-          incomingSchemaWithSCD2,
-          caseSensitive = false,
-          optionsWrite,
-          attDdl()
-        )
+        val (createSchema, createTable, commentSQL) =
+          SparkUtils.buildCreateTableSQL(
+            tableName,
+            incomingSchemaWithSCD2,
+            caseSensitive = false,
+            optionsWrite,
+            attDdl()
+          )
+        val allSqls = List(createSchema, createTable, commentSQL.getOrElse(""))
+        (allSqls, false)
       }
+    }
+  }
+
+  def updateJdbcTableSchema(incomingSchema: StructType, tableName: String): Unit = {
+    buildTableSchemaSQL(incomingSchema, tableName) match {
+      case (sqls, exists) =>
+        JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+          sqls.filter(_.nonEmpty).foreach { sql =>
+            if (exists) {
+              JdbcDbUtils.executeAlterTable(sql, conn)
+            } else {
+              JdbcDbUtils.executeUpdate(sql, conn) match {
+                case Success(_) =>
+                case Failure(e) =>
+                  logger.error(s"Error executing $sql", e)
+                  throw e
+              }
+            }
+          }
+        }
     }
   }
 }
