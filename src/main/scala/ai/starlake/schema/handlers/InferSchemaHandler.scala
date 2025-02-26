@@ -34,6 +34,7 @@ import org.apache.spark.sql.functions.{
   lit,
   max,
   reduce,
+  regexp_like,
   trim,
   udf,
   when
@@ -353,7 +354,10 @@ object InferSchemaHandler {
               ((currentColumn: Column) => {
                 val strColumn = currentColumn.cast(StringType)
                 when(strColumn.isNull, lit(DataTypesToInt.NULL.id))
-                  .when(strColumn.startsWith(lit("0")), lit(DataTypesToInt.STRING.id))
+                  .when(
+                    strColumn.startsWith(lit("0")).and(regexp_like(strColumn, lit("^0+[1-9]+.*"))),
+                    lit(DataTypesToInt.STRING.id)
+                  )
                   .otherwise(lit(DataTypesToInt.dataTypeToTypeInt(currentSchema)))
               }) -> currentPath,
               (
