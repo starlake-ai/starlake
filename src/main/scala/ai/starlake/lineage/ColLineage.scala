@@ -133,7 +133,33 @@ object ColLineage {
   case class Table(domain: String, table: String, columns: List[String], isTask: Boolean) {
     def fullName: String = s"$domain.$table"
   }
-  case class Lineage(tables: List[Table], relations: List[Relation])
+  case class Lineage(tables: List[Table], relations: List[Relation]) {
+    def diff(other: Lineage) = {
+      // list all tables and columns present in one of the lineages and not in the other + all the common ones
+      val inThis = this.tables.map(_.table).diff(other.tables.map(_.table))
+      val inOther = other.tables.map(_.table).diff(this.tables.map(_.table))
+      val inThisColumns = this.tables.map { table =>
+        val otherTable = other.tables.find(_.table == table.table)
+        otherTable match {
+          case Some(otherTable) =>
+            table.columns.diff(otherTable.columns)
+          case None =>
+            table.columns
+        }
+        (table.table, table.columns)
+      }
+      val inOtherColumns = other.tables.map { table =>
+        val thisTable = this.tables.find(_.table == table.table)
+        thisTable match {
+          case Some(thisTable) =>
+            table.columns.diff(thisTable.columns)
+          case None =>
+            table.columns
+        }
+        (table.table, table.columns)
+      }
+    }
+  }
 
   def main(args: Array[String]) = {
     val query =
@@ -428,5 +454,4 @@ object ColLineage {
       }
     tables
   }
-
 }
