@@ -269,27 +269,34 @@ object ColLineage {
         Table("", tableName, columns.map(_._1).toList, isTask = false)
 
       }
-    val metaData: JdbcMetaData = new JdbcMetaData("", "")
-      .addTable(
-        "sales",
-        "orders",
-        new JdbcColumn("customer_id"),
-        new JdbcColumn("order_id"),
-        new JdbcColumn("amount"),
-        new JdbcColumn("seller_id")
-      )
-      .addTable(
-        "sales",
-        "customers",
-        new JdbcColumn("id"),
-        new JdbcColumn("signup"),
-        new JdbcColumn("contact"),
-        new JdbcColumn("birthdate"),
-        new JdbcColumn("name1"),
-        new JdbcColumn("name2"),
-        new JdbcColumn("id1")
-      )
 
+    val metaData: JdbcMetaData = new JdbcMetaData("", "")
+
+    metaData.addTable(
+      "sales",
+      "orders",
+      new JdbcColumn("customer_id"),
+      new JdbcColumn("order_id"),
+      new JdbcColumn("amount"),
+      new JdbcColumn("seller_id")
+    )
+    metaData.addTable(
+      "sales",
+      "customers",
+      new JdbcColumn("id"),
+      new JdbcColumn("signup"),
+      new JdbcColumn("contact"),
+      new JdbcColumn("birthdate"),
+      new JdbcColumn("name1"),
+      new JdbcColumn("name2"),
+      new JdbcColumn("id1")
+    )
+
+    inputTables
+      .foreach { case (tableName, columns) =>
+        val jdbcColumns = columns.map { case (attrName, attrType) => new JdbcColumn(attrName) }
+        metaData.addTable("", "", tableName, jdbcColumns.toList.asJava)
+      }
     val res: JdbcResultSetMetaData =
       JSQLColumResolver
         .getResultSetMetaData(query, JdbcMetaData.copyOf(metaData))

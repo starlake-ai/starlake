@@ -442,7 +442,7 @@ case class Schema(
       .getOrElse {
         """
          |{
-         |  "index_patterns": ["${domain}.${schema}", "${domain}.${schema}-*"],
+         |  "index_patterns": ["${domain}.${table}", "${domain}.${table}-*"],
          |  "settings": {
          |    "number_of_shards": "1",
          |    "number_of_replicas": "0"

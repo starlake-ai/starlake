@@ -104,8 +104,14 @@ class InferSchemaHandlerSpec extends TestHelper {
         InferSchemaHandler.createAttributes(Map.empty, df1.schema, forcePattern = false)
 
       val dsv1: List[Attribute] = List(
-        Attribute("first name", "string", Some(false), required = None),
-        Attribute("last name", "string", Some(false), required = None),
+        Attribute(
+          "first name",
+          "string",
+          Some(false),
+          required = None,
+          rename = Some("first_name")
+        ),
+        Attribute("last name", "string", Some(false), required = None, rename = Some("last_name")),
         Attribute("age", "string", Some(false), required = None),
         Attribute("ok", "string", Some(false), required = None)
       )
@@ -125,9 +131,9 @@ class InferSchemaHandlerSpec extends TestHelper {
       val dsv: List[Attribute] = InferSchemaHandler.createAttributes(Map.empty, df1.schema)
 
       val dsv1: List[Attribute] = List(
-        Attribute("_c0", "string", Some(false), required = None),
-        Attribute("_c1", "string", Some(false), required = None),
-        Attribute("_c2", "int", Some(false), required = None)
+        Attribute("_c0", "string", Some(false), required = None, rename = Some("c0")),
+        Attribute("_c1", "string", Some(false), required = None, rename = Some("c1")),
+        Attribute("_c2", "int", Some(false), required = None, rename = Some("c2"))
       )
       dsv shouldBe dsv1
 
