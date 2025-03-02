@@ -2,24 +2,24 @@
 version: 1
 table:
   name: "order_lines"
-  pattern: "order-lines.*.csv"
+  pattern: "order-lines_.*.csv"
   attributes:
   - name: "order_id"
     type: "int"
     array: false
-    sample: "1"
+    sample: "99"
   - name: "product_id"
     type: "int"
     array: false
-    sample: "10"
+    sample: "9"
   - name: "quantity"
     type: "int"
     array: false
-    sample: "2"
+    sample: "5"
   - name: "sale_price"
     type: "double"
     array: false
-    sample: "18.18"
+    sample: "8.68"
   metadata:
     format: "DSV"
     withHeader: true

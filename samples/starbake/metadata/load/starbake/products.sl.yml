@@ -7,27 +7,27 @@ table:
   - name: "category"
     type: "string"
     array: false
-    sample: "Cakes"
+    sample: "Pies"
   - name: "cost"
     type: "double"
     array: false
-    sample: "14.55"
+    sample: "9.66"
   - name: "description"
     type: "string"
     array: false
-    sample: "Description for Chocolate Cake"
+    sample: "Description for Whole Wheat Bread"
   - name: "name"
     type: "string"
     array: false
-    sample: "Chocolate Cake"
+    sample: "Whole Wheat Bread"
   - name: "price"
     type: "double"
     array: false
-    sample: "17.12"
+    sample: "8.68"
   - name: "product_id"
     type: "long"
     array: false
-    sample: "1"
+    sample: "9"
   metadata:
     format: "XML"
     withHeader: true

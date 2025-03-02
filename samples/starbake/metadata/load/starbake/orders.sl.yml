@@ -7,19 +7,19 @@ table:
   - name: "customer_id"
     type: "long"
     array: false
-    sample: "6"
+    sample: "9"
   - name: "order_id"
     type: "long"
     array: false
-    sample: "1"
+    sample: "99"
   - name: "status"
     type: "string"
     array: false
-    sample: "Cancelled"
+    sample: "Pending"
   - name: "timestamp"
     type: "iso_date_time"
     array: false
-    sample: "2024-02-05T21:19:15.454Z"
+    sample: "2024-03-01T09:01:12.529Z"
   metadata:
     format: "JSON_FLAT"
     array: true
