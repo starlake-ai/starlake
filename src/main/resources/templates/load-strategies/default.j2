@@ -1,0 +1,32 @@
+{% macro renderStrategyKeyAsNullPseudo(columnNames) %}
+    {% for columnName in columnNames %} NULL AS SL_PSEUDO_{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%}
+{% endmacro %}
+
+{% macro renderStrategyKeyAsPseudo(columnNames, tableName) %}
+    {% for columnName in columnNames %} {{ tableName }}.{{ columnName }} AS SL_PSEUDO_{{ columnName }}{% if not loop.last %}, {% endif %}{%endfor%}
+{% endmacro %}
+
+{% macro renderStrategyJoinConditionWithPseudo(table1, table2, columnNames) %}
+    {% for columnName in columnNames %} {{ table1 }}.SL_PSEUDO_{{ columnName }} = {{ table2 }}.{{ columnName }}{% if not loop.last %}AND {% endif %}{%endfor%}
+{% endmacro %}
+
+{% macro unquote(col, q) %}{% set trimmed_column = col|trim %}{% if trimmed_column and trimmed_column|length > 2 and trimmed_column[0:1] == q and trimmed_column[-1:trimmed_column|length] == q %}{{ trimmed_column[1:-1] }}{% else %}{{ trimmed_column }}{% endif %}{% endmacro %}
+
+{% macro renderColumnsWithoutScd2(columnNames, prefix) %}
+    {% set scd2Cols = ['{{ strategyStartTs }}', '{{ strategyEndTs }}'] %}
+    {% set resAsList = columnNames|difference(scd2Cols)  %}
+    {% for column in resAsList %}{{ prefix }}{{ quote }}{{ unquote(column, quote) }}{{ quote }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endmacro %}
+
+{% macro renderStrategyKeyJoinCondition(table1, table2, columnNames) %}
+    {% for columnName in columnNames %}{{table1}}.{{ quote }}{{ unquote(columnName, quote) }}{{ quote }} = {{table2}}.{{ quote }}{{ unquote(columnName, quote) }}{{ quote }}{% if not loop.last %} AND {% endif %}{%endfor%}
+{% endmacro %}
+
+{% macro renderStrategyKeyIsNull(table, columnNames) %}
+    {% for columnName in columnNames %}{{table}}.{{ quote }}{{ unquote(columnName, quote) }}{{ quote }} IS NULL {% if not loop.last %} AND {% endif %}{%endfor%}
+{% endmacro %}
+
+{% macro renderTableColumns(table, columnNames) %}
+    {% for columnName in columnNames %}{{ table }}.{{ quote }}{{ unquote(columnName, quote) }}{{ quote }}{% if not loop.last %}, {% endif %}{%endfor%}
+{% endmacro %}
+

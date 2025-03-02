@@ -2,6 +2,7 @@ version: 1
 application:
   dagRef:
     load: "{{ dag_ref }}"
+    transform: "airflow_transform_shell"
   loader: "{{ loader }}" # native or spark depending on the env.LOCAL.sl.yml & env.BQ.sl.yml files
   accessPolicies:
     apply: true

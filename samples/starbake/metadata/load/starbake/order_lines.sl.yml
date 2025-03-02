@@ -1,0 +1,32 @@
+---
+version: 1
+table:
+  name: "order_lines"
+  pattern: "order-lines.*.csv"
+  attributes:
+  - name: "order_id"
+    type: "int"
+    array: false
+    sample: "1"
+  - name: "product_id"
+    type: "int"
+    array: false
+    sample: "10"
+  - name: "quantity"
+    type: "int"
+    array: false
+    sample: "2"
+  - name: "sale_price"
+    type: "double"
+    array: false
+    sample: "18.18"
+  metadata:
+    format: "DSV"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "APPEND"
+  sample: "[1,10,2,18.18]\n[2,11,2,10.72]\n[3,12,1,16.84]\n[4,4,1,21.05]\n[5,8,2,15.0]\n\
+    [6,10,4,18.18]\n[7,3,5,28.91]\n[8,5,1,8.68]\n[9,11,2,10.72]\n[10,4,5,21.05]\n\
+    [11,7,5,17.06]\n[12,2,4,14.71]\n[13,12,3,16.84]\n[14,2,4,14.71]\n[15,10,1,18.18]\n\
+    [16,6,4,27.81]\n[17,2,2,14.71]\n[18,8,3,15.0]\n[19,7,5,17.06]\n[20,6,5,27.81]"

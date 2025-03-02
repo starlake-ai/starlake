@@ -1,0 +1,54 @@
+---
+version: 1
+table:
+  name: "orders"
+  pattern: "orders_.*.json"
+  attributes:
+  - name: "customer_id"
+    type: "long"
+    array: false
+    sample: "6"
+  - name: "order_id"
+    type: "long"
+    array: false
+    sample: "1"
+  - name: "status"
+    type: "string"
+    array: false
+    sample: "Cancelled"
+  - name: "timestamp"
+    type: "iso_date_time"
+    array: false
+    sample: "2024-02-05T21:19:15.454Z"
+  metadata:
+    format: "JSON_FLAT"
+    array: true
+    withHeader: true
+    writeStrategy:
+      type: "APPEND"
+  sample: "[{\"customer_id\":6,\"order_id\":1,\"status\":\"Cancelled\",\"timestamp\"\
+    :\"2024-02-05T21:19:15.454Z\"};{\"customer_id\":23,\"order_id\":2,\"status\":\"\
+    Delivered\",\"timestamp\":\"2024-01-02T10:44:37.590Z\"};{\"customer_id\":20,\"\
+    order_id\":3,\"status\":\"Delivered\",\"timestamp\":\"2024-02-10T22:10:30.685Z\"\
+    };{\"customer_id\":6,\"order_id\":4,\"status\":\"Delivered\",\"timestamp\":\"\
+    2024-01-17T18:31:22.917Z\"};{\"customer_id\":17,\"order_id\":5,\"status\":\"Pending\"\
+    ,\"timestamp\":\"2024-01-19T00:26:06.674Z\"};{\"customer_id\":13,\"order_id\"\
+    :6,\"status\":\"Cancelled\",\"timestamp\":\"2024-01-01T11:51:52.263Z\"};{\"customer_id\"\
+    :15,\"order_id\":7,\"status\":\"Cancelled\",\"timestamp\":\"2024-02-26T23:40:00.325Z\"\
+    };{\"customer_id\":6,\"order_id\":8,\"status\":\"Pending\",\"timestamp\":\"2024-01-23T19:47:53.667Z\"\
+    };{\"customer_id\":12,\"order_id\":9,\"status\":\"Cancelled\",\"timestamp\":\"\
+    2024-02-25T05:10:16.062Z\"};{\"customer_id\":4,\"order_id\":10,\"status\":\"Pending\"\
+    ,\"timestamp\":\"2024-02-16T07:23:53.556Z\"};{\"customer_id\":10,\"order_id\"\
+    :11,\"status\":\"Pending\",\"timestamp\":\"2024-01-27T15:46:36.263Z\"};{\"customer_id\"\
+    :27,\"order_id\":12,\"status\":\"Delivered\",\"timestamp\":\"2024-02-20T17:58:51.483Z\"\
+    };{\"customer_id\":26,\"order_id\":13,\"status\":\"Pending\",\"timestamp\":\"\
+    2024-02-19T04:47:12.048Z\"};{\"customer_id\":11,\"order_id\":14,\"status\":\"\
+    Cancelled\",\"timestamp\":\"2024-02-06T11:49:18.403Z\"};{\"customer_id\":5,\"\
+    order_id\":15,\"status\":\"Cancelled\",\"timestamp\":\"2024-01-12T15:28:28.442Z\"\
+    };{\"customer_id\":17,\"order_id\":16,\"status\":\"Pending\",\"timestamp\":\"\
+    2024-02-23T23:47:08.783Z\"};{\"customer_id\":27,\"order_id\":17,\"status\":\"\
+    Pending\",\"timestamp\":\"2024-01-26T14:05:09.174Z\"};{\"customer_id\":14,\"order_id\"\
+    :18,\"status\":\"Cancelled\",\"timestamp\":\"2024-01-26T07:16:39.151Z\"};{\"customer_id\"\
+    :28,\"order_id\":19,\"status\":\"Pending\",\"timestamp\":\"2024-01-28T02:55:36.247Z\"\
+    };{\"customer_id\":11,\"order_id\":20,\"status\":\"Cancelled\",\"timestamp\":\"\
+    2024-01-08T08:39:21.509Z\"}]"

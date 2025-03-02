@@ -332,6 +332,7 @@ object ExpectationJob {
         TaskSQLStatements(
           name = "audit.expectations",
           domain = settings.appConfig.audit.getDomain(),
+          table = "expectations",
           createSchemaSql = List(templateCreate.pyFormat()),
           preActions = Nil,
           preSqls = Nil,

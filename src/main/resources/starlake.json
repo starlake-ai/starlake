@@ -2050,6 +2050,10 @@
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Location where are located user defined write strategies; Default is ${metadata}/write-strategies"
         },
+        "loadStrategies": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Location where are located user defined load strategies; Default is ${metadata}/load-strategies"
+        },
         "metadata": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "default metadata folder name. May be also set using the SL_METADATA environment variable"

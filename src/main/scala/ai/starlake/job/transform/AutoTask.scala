@@ -26,7 +26,7 @@ import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.BigQueryJobBase
-import ai.starlake.job.strategies.StrategiesBuilder
+import ai.starlake.job.strategies.TransformStrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
@@ -169,7 +169,7 @@ abstract class AutoTask(
             this.test
           )
 
-        val tableComponents = StrategiesBuilder.TableComponents(
+        val tableComponents = TransformStrategiesBuilder.TableComponents(
           taskDesc.database.getOrElse(""), // Convert it to "" for jinjava to work
           taskDesc.domain,
           taskDesc.table,
@@ -182,7 +182,7 @@ abstract class AutoTask(
           tableExistsForcedValue.getOrElse(
             tableExists
           ) // If tableExistsForcedValue is defined, use it, otherwise use tableExists
-        val mainSql = StrategiesBuilder().run(
+        val mainSql = TransformStrategiesBuilder().buildTransform(
           strategy,
           sqlWithParametersTranspiledIfInTest,
           tableComponents,
@@ -417,7 +417,8 @@ abstract class AutoTask(
 
     TaskSQLStatements(
       taskDesc.name,
-      settings.appConfig.audit.getDomain(),
+      taskDesc.domain,
+      taskDesc.table,
       createSchemaAndTableSql.map(_.pyFormat()),
       parsedPreActions.map(_.pyFormat()),
       preSqls.map(_.pyFormat()),

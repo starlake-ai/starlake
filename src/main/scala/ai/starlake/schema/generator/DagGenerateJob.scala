@@ -8,7 +8,7 @@ import ai.starlake.job.transform.AutoTask
 import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
-import ai.starlake.utils.Utils
+import ai.starlake.utils.{JsonSerializer, Utils}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
@@ -177,13 +177,22 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 resultPageSize = 1,
                 dryRun = false
               )(settings, settings.storageHandler(), schemaHandler)
-              (
-                task.buildListOfSQLStatements(),
-                task.expectationStatements(),
-                task.auditStatements(),
-                task.aclSQL(),
-                ExpectationJob.buildSQLStatements()
-              )
+              Try {
+                (
+                  task.buildListOfSQLStatements(),
+                  task.expectationStatements(),
+                  task.auditStatements(),
+                  task.aclSQL(),
+                  ExpectationJob.buildSQLStatements()
+                )
+              } match {
+                case scala.util.Success(value) => value
+                case scala.util.Failure(exception) =>
+                  throw new Exception(
+                    s"Failed to build statements for task ${task.name}: ${exception.getMessage}",
+                    exception
+                  )
+              }
             }
           } else {
             Nil
@@ -353,6 +362,18 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 optionsWithProjectIdAndName(config, context.asMap),
                 filename
               )
+            /*
+              val loadTemplateContent =
+                new LoadStrategyTemplateLoader().loadTemplate("snowflake/default.j2")
+
+              applyJ2AndSave(
+                outputDir,
+                jEnv,
+                loadTemplateContent,
+                optionsWithProjectIdAndName(config, context.asMap),
+                filename
+              )
+             */
             }
           }
         }
@@ -526,9 +547,11 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     context: util.HashMap[String, Object],
     filename: String
   )(implicit settings: Settings): Unit = {
+    val json = JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(context)
     val paramMap = Map(
       "context" -> context,
-      "env"     -> jEnv.asJava
+      "env"     -> jEnv.asJava,
+      "json"    -> json
     )
     val jinjaOutput = Utils.parseJinjaTpl(dagTemplateContent, paramMap)
     val dagPath = new Path(outputDir, filename)

@@ -12,6 +12,12 @@ case class AccessControlEntry(role: String, grants: Set[String] = Set.empty, nam
   override def toString: String = {
     s"AccessControlEntry(role=$role, grants=$grants)"
   }
+
+  def asMap() = Map(
+    "aceRole"   -> role,
+    "aceGrants" -> grants.mkString(",")
+  )
+
   def this() = this("", Set.empty) // Should never be called. Here for Jackson deserialization only
 
   def compare(other: AccessControlEntry): ListDiff[Named] =
