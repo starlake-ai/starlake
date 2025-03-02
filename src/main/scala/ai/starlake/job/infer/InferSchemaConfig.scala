@@ -37,7 +37,7 @@ case class InferSchemaConfig(
   def extractTableNameAndWriteMode(): (String, WriteMode) = {
     val file: File = File(inputPath)
     val fileNameWithoutExt = file.nameWithoutExtension(includeAll = true)
-    val pattern = Pattern.compile("[._-]")
+    val pattern = Pattern.compile("[._-][0-9]")
     val matcher = pattern.matcher(fileNameWithoutExt)
     if (matcher.find()) {
       val matchedChar = fileNameWithoutExt.charAt(matcher.start())
@@ -45,7 +45,7 @@ case class InferSchemaConfig(
       val name = fileNameWithoutExt.substring(0, lastIndex)
       val deltaPart = fileNameWithoutExt.substring(lastIndex + 1)
       if (deltaPart.nonEmpty && deltaPart(1).isDigit) {
-        (name, WriteMode.APPEND)
+        (name.replaceAll("\\.", "_").replaceAll("-", "_"), WriteMode.APPEND)
       } else {
         (fileNameWithoutExt, WriteMode.OVERWRITE)
       }
