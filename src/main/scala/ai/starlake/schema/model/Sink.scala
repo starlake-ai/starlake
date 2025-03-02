@@ -91,6 +91,8 @@ sealed abstract class Sink {
   val connectionRef: Option[String]
   def toAllSinks(): AllSinks
 
+  def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = toAllSinks().asMap(jdbcEngine)
+
   def getConnectionType()(implicit
     settings: Settings
   ): ConnectionType = {
@@ -168,7 +170,7 @@ final case class AllSinks(
   def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
     val map = scala.collection.mutable.Map.empty[String, Any]
     connectionRef.foreach(map += "sinkConnectionRef" -> _)
-    sharding.foreach(map += "sinkShardSuffix" -> _)
+    sharding.foreach(map += "sinkShardSuffix" -> _.asJava)
     clustering.foreach(map += "sinkClustering" -> _.asJava)
     days.foreach(map += "sinkDays" -> _)
     requirePartitionFilter.foreach(map += "sinkRequirePartitionFilter" -> _)

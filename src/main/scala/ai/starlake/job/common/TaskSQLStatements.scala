@@ -6,6 +6,7 @@ import ai.starlake.utils.JsonSerializer
 case class TaskSQLStatements(
   name: String,
   domain: String,
+  table: String,
   createSchemaSql: List[String],
   preActions: List[String],
   preSqls: List[String],
@@ -32,6 +33,7 @@ case class TaskSQLStatements(
   def asMap(): Map[String, List[String]] = {
     Map(
       "domain"             -> List(domain),
+      "table"              -> List(table),
       "createSchemaSql"    -> createSchemaSql,
       "preActions"         -> preActions,
       "preSqls"            -> preSqls,

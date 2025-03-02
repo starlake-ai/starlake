@@ -1,6 +1,6 @@
 package ai.starlake.job.ingest.loaders
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.job.common.{TaskSQLStatements, WorkflowStatements}
 import ai.starlake.job.ingest.{AuditLog, IngestionJob, Step}
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
@@ -8,17 +8,18 @@ import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
-import ai.starlake.utils.Utils
+import ai.starlake.utils.{JsonSerializer, SparkUtils, Utils}
 import com.typesafe.scalalogging.StrictLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 
 import java.nio.charset.Charset
 import java.sql.Timestamp
 import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Using}
+import scala.util.{Failure, Random, Success, Using}
 
-abstract class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
+class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
   val settings: Settings
 ) extends StrictLogging {
 
@@ -42,9 +43,10 @@ abstract class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[Stri
 
   val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
 
+  lazy val sink = mergedMetadata.getSink()
+
   lazy val sinkConnection: Settings.Connection =
-    mergedMetadata
-      .getSink()
+    sink
       .getConnection()
       .copy(sparkFormat = None) // we are forcing native load.
 
@@ -322,6 +324,105 @@ abstract class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[Stri
     } else {
       None
     }
+  }
+
+  def buildSQLStatements(): Map[String, Any] = {
+    val twoSteps = this.twoSteps
+    val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
+    val tempTableName = s"${domain.finalName}.${this.tempTableName}"
+    val incomingDir = domain.resolveDirectory()
+    val pattern = starlakeSchema.pattern.toString
+    val format = mergedMetadata.resolveFormat()
+
+    val incomingSparkSchema = starlakeSchema.targetSparkSchemaWithIgnoreAndScript(schemaHandler)
+    val ddlMap: Map[String, Map[String, String]] = schemaHandler.getDdlMapping(starlakeSchema)
+    val options =
+      new JdbcOptionsInWrite(sinkConnection.jdbcUrl, targetTableName, sinkConnection.options)
+
+    val stepMap =
+      if (twoSteps) {
+        val (tempCreateSchemaSql, tempCreateTableSql, _) = SparkUtils.buildCreateTableSQL(
+          tempTableName,
+          incomingSparkSchema,
+          caseSensitive = false,
+          options,
+          ddlMap
+        )
+        val schemaString = SparkUtils.schemaString(
+          incomingSparkSchema,
+          caseSensitive = false,
+          options.url,
+          ddlMap,
+          0
+        ) // options.createTableColumnTypes
+
+        val firstSTepCreateTableSqls = List(tempCreateSchemaSql, tempCreateTableSql)
+        val extraFileNameColumn =
+          s"ALTER TABLE $tempTableName ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '{{sl_input_file_name}}';"
+        val workflowStatements = this.secondStepSQL(List(tempTableName))
+
+        val dropFirstStepTableSql = s"DROP TABLE IF EXISTS $tempTableName;"
+        val loadTaskSQL = Map(
+          "steps"               -> "2",
+          "incomingDir"         -> incomingDir,
+          "pattern"             -> pattern,
+          "format"              -> format,
+          "firstStep"           -> firstSTepCreateTableSqls,
+          "extraFileNameColumn" -> List(extraFileNameColumn),
+          "secondStep"          -> workflowStatements.task.asMap(),
+          "dropFirstStep"       -> dropFirstStepTableSql,
+          "tempTableName"       -> tempTableName,
+          "targetTableName"     -> targetTableName,
+          "domain"              -> domain.finalName,
+          "table"               -> starlakeSchema.finalName,
+          "writeStrategy"       -> writeDisposition,
+          "schemaString"        -> schemaString
+        )
+        workflowStatements
+          .asMap()
+          .updated(
+            "task",
+            JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(loadTaskSQL)
+          )
+      } else {
+        val (createSchemaSql, createTableSql, _) = SparkUtils.buildCreateTableSQL(
+          targetTableName,
+          incomingSparkSchema,
+          caseSensitive = false,
+          options,
+          ddlMap
+        )
+        val createTableSqls = List(createSchemaSql, createTableSql)
+        val workflowStatements = this.secondStepSQL(List(targetTableName))
+        val loadTaskSQL = Map(
+          "steps"           -> "1",
+          "incomingDir"     -> incomingDir,
+          "pattern"         -> pattern,
+          "format"          -> format,
+          "createTable"     -> createTableSqls,
+          "targetTableName" -> targetTableName,
+          "domain"          -> domain.finalName,
+          "table"           -> starlakeSchema.finalName,
+          "writeStrategy"   -> writeDisposition
+        )
+        workflowStatements
+          .asMap()
+          .updated(
+            "task",
+            JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(loadTaskSQL)
+          )
+      }
+    val engine = settings.appConfig.jdbcEngines(engineName.toString)
+
+    val tempStage = s"starlake_load_stage_${Random.alphanumeric take 10 mkString ""}"
+    val commonOptionsMap = Map(
+      "schema"     -> starlakeSchema.asMap().asJava,
+      "sink"       -> sink.asMap(engine),
+      "fileSystem" -> settings.appConfig.fileSystem,
+      "tempStage"  -> tempStage
+    )
+    val result = stepMap ++ commonOptionsMap
+    result
   }
 
 }

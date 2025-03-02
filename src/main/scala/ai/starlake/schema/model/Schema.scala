@@ -35,6 +35,7 @@ import org.apache.spark.sql.types.{Metadata => SparkMetadata, _}
 
 import java.util.regex.Pattern
 import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 /** Dataset Schema
@@ -83,6 +84,29 @@ case class Schema(
   patternSample: Option[String] = None,
   streams: List[String] = Nil
 ) extends Named {
+
+  def asMap(): Map[String, Object] = {
+    Map(
+      "tableName"          -> name,
+      "tablePattern"       -> pattern.toString,
+      "tableAttributes"    -> attributes.map(_.asMap()).asJava,
+      "tableMetadata"      -> metadata.getOrElse(Metadata()).asMap().asJava,
+      "tableComment"       -> comment,
+      "tablePresql"        -> presql,
+      "tablePostsql"       -> postsql,
+      "tableTags"          -> tags,
+      "tableRls"           -> rls.map(_.asMap()).asJava,
+      "tableExpectations"  -> expectations.map(_.asMap()).asJava,
+      "tablePrimaryKey"    -> primaryKey,
+      "tableAcl"           -> acl.map(_.asMap()).asJava,
+      "tableRename"        -> rename,
+      "tableSample"        -> sample,
+      "tableFilter"        -> filter,
+      "tablePatternSample" -> patternSample,
+      "tableStreams"       -> streams,
+      "tableFinaleName"    -> finalName
+    )
+  }
 
   def this() = this(
     "",
@@ -411,7 +435,7 @@ case class Schema(
       "properties" -> properties,
       "attributes" -> attrs,
       "domain"     -> domainName.toLowerCase,
-      "schema"     -> finalName.toLowerCase
+      "table"      -> finalName.toLowerCase
     )
 
     template

@@ -21,6 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.JdbcEngine
 import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.WriteMode.APPEND
@@ -221,6 +222,22 @@ case class Metadata(
 
   @JsonIgnore
   def getClustering(): Option[Seq[String]] = sink.flatMap(_.clustering)
+
+  def asMap(): Map[String, String] = {
+    Map(
+      "metadataFormat"      -> resolveFormat().toString,
+      "metadataEncoding"    -> resolveEncoding(),
+      "metadataMultiline"   -> resolveMultiline().toString,
+      "metadataArray"       -> resolveArray().toString,
+      "metadataWithHeader"  -> resolveWithHeader().toString,
+      "metadataSeparator"   -> resolveSeparator(),
+      "metadataQuote"       -> resolveQuote(),
+      "metadataEscape"      -> resolveEscape(),
+      "metadataDirectory"   -> directory.getOrElse(""),
+      "metadataNullValue"   -> resolveNullValue(),
+      "metadataEmptyIsNull" -> resolveEmptyIsNull().toString
+    ) ++ options.getOrElse(Map.empty)
+  }
 
   override def toString: String =
     s"""

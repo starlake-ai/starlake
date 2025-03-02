@@ -88,6 +88,28 @@ case class Attribute(
     with LazyLogging {
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 
+  def asMap(): Map[String, Any] = {
+    Map(
+      "name"         -> name,
+      "type"         -> `type`,
+      "array"        -> resolveArray(),
+      "required"     -> resolveRequired(),
+      "privacy"      -> resolvePrivacy(),
+      "comment"      -> comment.orNull,
+      "rename"       -> getFinalName(),
+      "attributes"   -> attributes.map(_.asMap()),
+      "position"     -> position.map(_.asMap()).orNull,
+      "default"      -> default.orNull,
+      "tags"         -> tags.toList,
+      "trim"         -> trim.orNull,
+      "script"       -> resolveScript(),
+      "foreignKey"   -> foreignKey.orNull,
+      "ignore"       -> ignore.orNull,
+      "accessPolicy" -> accessPolicy.orNull,
+      "sample"       -> sample.orNull
+    )
+  }
+
   override def toString: String =
     // we pretend the "settings" field does not exist
     s"Attribute(${name},${`type`},${resolveArray()},${resolveRequired()},${resolvePrivacy()},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"

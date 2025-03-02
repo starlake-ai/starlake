@@ -1,0 +1,41 @@
+{% set metadata = context.schema.tableMetadata %}
+{{ metadata.metadataArray }}
+
+{% if metadata.metadataFormat == 'DSV' %}
+
+{% if context.fileSystem == 'file://' %}
+
+CREATE TEMPORARY STAGE IF NOT EXISTS {{context.tempStage}};
+PUT {{incomingFile}} @{{context.tempStage}}/{{context.task.domain}};
+COPY INTO {{context.task.targetTableName}}
+FROM @{{context.tempStage}}
+
+
+{% else %}
+
+{% endif %}
+
+{% if context.schema.tableMetadata.metadataHeader == "true" %}
+{%   set skipHeader = 1 %}
+{% else %}
+{%   set skipHeader = 0 %}
+{% endif %}
+
+FROM @{{tempStage}} 
+FILE_FORMAT = (
+    TYPE = '{{ context.schema.tableMetadata.metadataFormat }}' 
+    FIELD_OPTIONALLY_ENCLOSED_BY = '{{ context.schema.tableMetadata.metadataQuote }}'
+    SKIP_HEADER = {{ skipHeader }}
+    FIELD_DELIMITER = '{{ context.schema.tableMetadata.metadataSeparator }}'
+    DATE_FORMAT = 'YYYY-MM-DD'
+    TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS'
+    TIME_FORMAT = 'HH24:MI:SS'
+    NULL_IF = ('NULL', 'null', ''
+);
+DROP STAGE {{tempStage}};
+
+{% endif %}
+
+context = {{ json }}
+
+context = {{ context.task }}

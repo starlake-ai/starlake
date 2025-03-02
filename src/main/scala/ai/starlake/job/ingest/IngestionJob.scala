@@ -3,11 +3,7 @@ package ai.starlake.job.ingest
 import ai.starlake.config.{CometColumns, DatasetArea, Settings}
 import ai.starlake.exceptions.DisallowRejectRecordException
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.ingest.loaders.{
-  BigQueryNativeLoader,
-  DuckDbNativeLoader,
-  SnowflakeNativeLoader
-}
+import ai.starlake.job.ingest.loaders.{BigQueryNativeLoader, DuckDbNativeLoader, NativeLoader}
 import ai.starlake.job.metrics._
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.transform.{SparkAutoTask, SparkExportTask}
@@ -348,7 +344,7 @@ trait IngestionJob extends SparkJob {
         case "spark" =>
           ???
         case "snowflake" =>
-          val statementsMap = new SnowflakeNativeLoader(this).buildSQLStatements()
+          val statementsMap = new NativeLoader(this, None).buildSQLStatements()
           statementsMap
         case other =>
           throw new Exception(s"Unsupported engine $other")
