@@ -21,7 +21,6 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.JdbcEngine
 import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.WriteMode.APPEND
