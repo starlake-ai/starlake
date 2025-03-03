@@ -534,7 +534,7 @@
       "properties": {
         "cacheStorageLevel": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "How the RDD are cached. Default is MEMORY_AND_DISK_SER.\nAvailable options are (https://spark.apache.org/docs/latest/api/java/index.html?org/apache/spark/storage/StorageLevel.html):\n- MEMORY_ONLY\n- MEMORY_AND_DISK\n- MEMORY_ONLY_SER\n- MEMORY_AND_DISK_SER\n- DISK_ONLY\n- OFF_HEAP"
+          "description": "How the dataframe are cached. Default is MEMORY_AND_DISK_SER.\nAvailable options are (https://spark.apache.org/docs/latest/api/java/index.html?org/apache/spark/storage/StorageLevel.html):\n- MEMORY_ONLY\n- MEMORY_AND_DISK\n- MEMORY_ONLY_SER\n- MEMORY_AND_DISK_SER\n- DISK_ONLY\n- OFF_HEAP"
         },
         "intermediateBigqueryFormat": {
           "$ref": "#/definitions/ConvertibleToString",
@@ -855,10 +855,6 @@
         },
         "sink": {
           "$ref": "#/definitions/AllSinksV1"
-        },
-        "ignore": {
-          "$ref": "#/definitions/ConvertibleToString",
-          "description": "Pattern to ignore or UDF to apply to ignore some lines"
         },
         "directory": {
           "$ref": "#/definitions/ConvertibleToString",
@@ -2047,6 +2043,10 @@
           "type": "boolean",
           "description": "Validate the YAML file when loading it. If set to true fails on any error"
         },
+        "rejectWithValue": {
+          "type": "boolean",
+          "description": "Add value along with the rejection error. Not enabled by default for security reason. Default: false"
+        },
         "audit": {
           "$ref": "#/definitions/AuditV1"
         },
@@ -2094,10 +2094,6 @@
           "description": "Default loader to use when none is specified in the schema. Valid values are 'spark' or 'native'. Default is 'spark'"
         },
         "rowValidatorClass": {
-          "$ref": "#/definitions/ConvertibleToString",
-          "description": ""
-        },
-        "treeValidatorClass": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": ""
         },

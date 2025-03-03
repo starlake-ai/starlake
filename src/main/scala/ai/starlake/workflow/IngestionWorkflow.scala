@@ -724,19 +724,7 @@ class IngestionWorkflow(
             accessToken,
             test
           ).run()
-        case Format.JSON_FLAT =>
-          new SimpleJsonIngestionJob(
-            domain,
-            schema,
-            schemaHandler.types(),
-            ingestingPath,
-            storageHandler,
-            schemaHandler,
-            optionsAndEnvVars,
-            accessToken,
-            test
-          ).run()
-        case Format.JSON =>
+        case Format.JSON_FLAT | Format.JSON =>
           new JsonIngestionJob(
             domain,
             schema,

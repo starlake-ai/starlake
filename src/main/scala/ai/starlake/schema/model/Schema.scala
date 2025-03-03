@@ -133,6 +133,12 @@ case class Schema(
   @JsonIgnore
   lazy val attributesWithoutScriptedFields: List[Attribute] = attributes.filter(_.script.isEmpty)
 
+  @JsonIgnore
+  lazy val attributesWithoutScriptedFieldsWithInputFileName: List[Attribute] =
+    attributesWithoutScriptedFields :+ Attribute(
+      name = CometColumns.cometInputFileNameColumn
+    )
+
   def scriptAndTransformAttributes(): List[Attribute] = {
     attributes.filter { attribute =>
       !attribute.resolveIgnore() && (attribute.script.nonEmpty || attribute.transform.nonEmpty)

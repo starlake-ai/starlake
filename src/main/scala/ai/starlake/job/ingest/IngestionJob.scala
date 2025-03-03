@@ -20,7 +20,6 @@ import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.sql.Timestamp
 import java.time.Instant
-import scala.annotation.nowarn
 import scala.util.{Failure, Success, Try}
 
 trait IngestionJob extends SparkJob {
@@ -38,11 +37,7 @@ trait IngestionJob extends SparkJob {
     Utils.loadInstance[GenericRowValidator](validatorClassName)
   }
 
-  protected lazy val treeRowValidator: GenericRowValidator = {
-    loadGenericValidator(settings.appConfig.treeValidatorClass)
-  }
-
-  protected lazy val flatRowValidator: GenericRowValidator =
+  protected lazy val rowValidator: GenericRowValidator =
     loadGenericValidator(settings.appConfig.rowValidatorClass)
 
   def domain: Domain
@@ -83,11 +78,44 @@ trait IngestionJob extends SparkJob {
 
   protected val sparkOptions = mergedMetadata.getOptions() ++ accessTokenOptions
 
-  /** ingestion algorithm
+  /** Apply the schema to the dataset. This is where all the magic happen Valid records are stored
+    * in the accepted path / table and invalid records in the rejected path / table
     *
     * @param dataset
+    *   : Spark Dataset
     */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long)
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
+    val validationResult = rowValidator.validate(
+      session,
+      mergedMetadata.resolveFormat(),
+      mergedMetadata.resolveSeparator(),
+      dataset,
+      schema.attributesWithoutScriptedFieldsWithInputFileName,
+      types,
+      schema.sourceSparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler),
+      settings.appConfig.privacy.options,
+      settings.appConfig.cacheStorageLevel,
+      settings.appConfig.sinkReplayToFile,
+      mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull),
+      settings.appConfig.rejectWithValue
+    )(schemaHandler)
+
+    saveRejected(
+      validationResult.errors,
+      validationResult.rejected.drop(CometColumns.cometInputFileNameColumn)
+    )(
+      settings,
+      storageHandler,
+      schemaHandler
+    ).flatMap { _ =>
+      saveAccepted(validationResult) // prefer to let Spark compute the final schema
+    } match {
+      case Failure(exception) =>
+        throw exception
+      case Success(rejectedRecordCount) =>
+        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
+    }
+  }
 
   protected def reorderTypes(orderedAttributes: List[Attribute]): (List[Type], StructType) = {
     val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
@@ -396,7 +424,7 @@ trait IngestionJob extends SparkJob {
     )
     val jobResult = {
       val start = Timestamp.from(Instant.now())
-      val dataset = loadDataSet(false)
+      val dataset = loadDataSet()
       dataset match {
         case Success(dataset) =>
           Try {
@@ -543,7 +571,7 @@ trait IngestionJob extends SparkJob {
   ): Try[Long] = {
     if (!settings.appConfig.rejectAllOnError || validationResult.rejected.isEmpty) {
       logger.whenDebugEnabled {
-        logger.debug(s"acceptedRDD SIZE ${validationResult.accepted.count()}")
+        logger.debug(s"accepted SIZE ${validationResult.accepted.count()}")
         logger.debug(validationResult.accepted.showString(1000))
       }
 
@@ -722,32 +750,20 @@ trait IngestionJob extends SparkJob {
     result.flatten
   }
 
-  @nowarn
-  protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
-    import session.implicits._
-    mergedMetadata.ignore.map { ignore =>
-      if (ignore.startsWith("udf:")) {
-        dfIn.filter(
-          !call_udf(ignore.substring("udf:".length), struct(dfIn.columns.map(dfIn(_)): _*))
-        )
-      } else {
-        dfIn.filter(!($"value" rlike ignore))
-      }
-    } getOrElse dfIn
-  }
+  def loadDataSet(): Try[DataFrame]
 
-  def loadDataSet(withSchema: Boolean): Try[DataFrame]
+  def defineOutputAsOriginalFormat(rejectedLines: DataFrame): DataFrameWriter[Row]
 
   protected def saveRejected(
     errMessagesDS: Dataset[String],
-    rejectedLinesDS: Dataset[String]
+    rejectedLinesDS: DataFrame
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Try[Path] = {
     logger.whenDebugEnabled {
-      logger.debug(s"rejectedRDD SIZE ${errMessagesDS.count()}")
+      logger.debug(s"rejected SIZE ${errMessagesDS.count()}")
       errMessagesDS.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
     }
     val domainName = domain.name
@@ -760,10 +776,10 @@ trait IngestionJob extends SparkJob {
       val replayArea = DatasetArea.replay(domainName)
       val targetPath =
         new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay")
-      rejectedLinesDS
-        .repartition(1)
-        .write
-        .format("text")
+      val formattedRejectedLinesDF: DataFrameWriter[Row] = defineOutputAsOriginalFormat(
+        rejectedLinesDS.repartition(1)
+      )
+      formattedRejectedLinesDF
         .save(targetPath.toString)
       storageHandler.moveSparkPartFile(
         targetPath,

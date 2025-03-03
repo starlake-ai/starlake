@@ -140,7 +140,7 @@ class KafkaJob(
             writeStreaming(transformedDF)
             SparkJobResult(None, None)
           } else {
-            assert(kafkaJobConfig.path.isDefined)
+            assert(kafkaJobConfig.path.isDefined, "Load path is required")
             val df = session.read
               .format(kafkaJobConfig.format)
               .load(

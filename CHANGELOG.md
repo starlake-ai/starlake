@@ -6,6 +6,18 @@
 __Improvement__:
 - minimize memory usage inference-schema and adjust attributes types
 - inference-schema detects more timestamp pattern
+- **BREAKING CHANGE** flat and tree row validator have been unified and is optimized by spark
+- **BREAKING CHANGE** schema inference consider Numbers starting with 0 as String, such as for company identifier
+- **BREAKING CHANGE** schema inference consider Numbers starting with + as String, such as a telephone number
+
+__Miscellaneous__:
+- **BREAKING CHANGE** default value don't apply on empty string directly. It depends on the definition of emptyIsNull instead. So if emptyIsNull=true then default value is used
+- removed RDD usage
+- revamped validation phase.
+
+__Bug fix__:
+- excluded table during data extraction defined in jdbcSchema are now taken into account
+
 
 # 1.3.0
 __New Feature__:

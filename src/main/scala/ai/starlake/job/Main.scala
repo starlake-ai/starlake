@@ -31,6 +31,8 @@ import buildinfo.BuildInfo
 import com.typesafe.scalalogging.StrictLogging
 
 import java.io.ByteArrayOutputStream
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, LocalDateTime, ZoneId}
 import scala.annotation.nowarn
 import scala.util.{Failure, Success, Try}
 
@@ -121,7 +123,16 @@ class Main extends StrictLogging {
   import Main.commands
   def printUsage(): Unit = {
     // scalastyle:off println
-    println(s"Starlake Version ${BuildInfo.version}")
+    val localDateTime: LocalDateTime = Instant
+      .ofEpochMilli(BuildInfo.buildTime)
+      .atZone(ZoneId.systemDefault())
+      .toLocalDateTime
+
+    // Format the output (optional)
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+    val formattedDateTime = localDateTime.format(formatter)
+
+    println(s"Starlake Version ${BuildInfo.version} built on $formattedDateTime")
     println("Usage:")
     println(s"\t${Main.shell} [command]")
     println("Available commands =>")

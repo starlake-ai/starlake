@@ -544,6 +544,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             new JDBCTable().copy(name = "*")
           )
         ),
+        Nil,
         Nil
       )
       updatedJdbcSchemas.tables should contain theSameElementsAs List(
@@ -565,7 +566,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             new JDBCTable().copy(name = "T3")
           )
         ),
-        List("T2")
+        List("T2"),
+        Nil
       )
       updatedJdbcSchemas.tables should contain theSameElementsAs List(
         new JDBCTable().copy(name = "T2")
@@ -584,7 +586,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             new JDBCTable().copy(name = "*", fullExport = Some(true))
           )
         ),
-        List("T2", "T3", "T4")
+        List("T2", "T3", "T4"),
+        Nil
       )
       updatedJdbcSchemas.tables should contain theSameElementsAs List(
         new JDBCTable().copy(name = "T2"),
@@ -599,7 +602,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val updatedJdbcSchemas = extractDataJob.computeEligibleTablesForExtraction(
         JDBCSchema(tables = Nil),
-        List("T2", "T3", "T4")
+        List("T2", "T3", "T4"),
+        Nil
       )
       updatedJdbcSchemas.tables should contain theSameElementsAs List(
         new JDBCTable().copy(name = "T2"),

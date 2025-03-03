@@ -101,7 +101,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
             config.ignoreExtractionFailure,
             config.cleanOnExtract,
             config.includeTables,
-            config.excludeTables,
+            config.excludeTables ++ jdbcSchema.exclude,
             fileFormat,
             dataConnectionSettings.mergeOptionsWith(jdbcSchema.connectionOptions),
             auditConnectionSettings
@@ -152,7 +152,11 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     val tableOutputDir = createDomainOutputDir(extractConfig.baseOutputDir, domainName)
 
     val filteredJdbcSchema: JDBCSchema =
-      computeEligibleTablesForExtraction(extractConfig.jdbcSchema, extractConfig.includeTables)
+      computeEligibleTablesForExtraction(
+        extractConfig.jdbcSchema,
+        extractConfig.includeTables,
+        extractConfig.excludeTables
+      )
 
     val doTablesExtraction =
       isProcessTablesExtraction(extractConfig, filteredJdbcSchema)
@@ -534,8 +538,8 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
               }
             }
           }
-        }.recoverWith { case _: Exception =>
-          println("========>failure")
+        }.recoverWith { case err: Exception =>
+          logger.error(err.getMessage, err)
           Failure(
             new DataExtractionException(
               extractConfig.jdbcSchema.schema,
@@ -805,7 +809,8 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     */
   private[extract] def computeEligibleTablesForExtraction(
     jdbcSchema: JDBCSchema,
-    includeTables: Seq[TableName]
+    includeTables: Seq[TableName],
+    excludedTables: Seq[TableName]
   ): JDBCSchema = {
     val updatedJdbcSchema = if (includeTables.nonEmpty) {
       val additionalTables = jdbcSchema.tables.find(_.name.trim == "*") match {
@@ -813,11 +818,14 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
           // Contains * table, meaning that tables in includeTables but not declared in jdbcSchema.tables inherit from * config
           includeTables
             .filterNot(t => jdbcSchema.tables.exists(_.name.equalsIgnoreCase(t)))
+            .filterNot(t => excludedTables.exists(n => n.equalsIgnoreCase(t)))
             .map(n => allTableDef.copy(name = n))
         case None =>
           if (jdbcSchema.tables.isEmpty) {
             // having jdbcSchema.tables empty means that we have an implicit * without special config
-            includeTables.map(JDBCTable(_, None, Nil, None, None, Map.empty, None, None))
+            includeTables
+              .filterNot(t => excludedTables.exists(n => n.equalsIgnoreCase(t)))
+              .map(JDBCTable(_, None, Nil, None, None, Map.empty, None, None))
           } else {
             Nil
           }

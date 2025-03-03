@@ -668,3 +668,9 @@ object Attribute {
     } ++ missingAttributes
   }
 }
+
+object Attributes {
+  def from(structType: StructType): List[Attribute] = {
+    structType.fields.map(field => Attribute(field)).toList
+  }
+}
