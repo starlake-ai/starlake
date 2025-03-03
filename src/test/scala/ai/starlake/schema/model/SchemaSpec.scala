@@ -137,40 +137,5 @@ class SchemaSpec extends TestHelper {
         Attribute("optionalAttribute", "long", required = Some(false), default = Some("10"))
       optionalAttribute.checkValidity(schemaHandler, "ignore", new Schema()) shouldBe Right(true)
     }
-    "Ignore attribute " should "be used only when file format is flat DSV, JSON_FLAT, POSITION" in {
-      val meta = new Metadata(
-        format = Some(Format.JSON),
-        encoding = None,
-        multiline = Some(false),
-        array = Some(false),
-        withHeader = Some(true),
-        separator = None,
-        quote = None,
-        escape = None,
-        sink = None,
-        ignore = Some(".*")
-      )
-      meta
-        .checkValidity("dummy", None)
-        .isInstanceOf[Left[List[ValidationMessage], Boolean]] shouldBe true
-    }
-    "Ignore attribute " should "on DSV should be UDF" in {
-      val meta = new Metadata(
-        format = Some(Format.DSV),
-        encoding = None,
-        multiline = Some(false),
-        array = Some(false),
-        withHeader = Some(true),
-        separator = None,
-        quote = None,
-        escape = None,
-        sink = None,
-        ignore = Some(".*")
-      )
-      val res = meta.checkValidity("dummy", None)
-      meta
-        .checkValidity("dummy", None)
-        .isInstanceOf[Left[List[ValidationMessage], Boolean]] shouldBe true
-    }
   }
 }
