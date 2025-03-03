@@ -20,18 +20,13 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.exceptions.NullValueFoundException
-import ai.starlake.config.{CometColumns, Settings}
-import ai.starlake.job.validator.CheckValidityResult
+import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.compareTypes
-import org.apache.spark.sql.functions.input_file_name
-import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row}
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /** Main class to XML file If your json contains only one level simple attribute aka. kind of dsv
   * but in json format please use JSON_FLAT instead. It's way faster
@@ -60,12 +55,12 @@ class XmlIngestionJob(
 )(implicit val settings: Settings)
     extends IngestionJob {
 
-  /** load the json as an RDD of String
+  /** load the json as a dataframe of String
     *
     * @return
     *   Spark Dataframe loaded using metadata options
     */
-  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  def loadDataSet(): Try[DataFrame] = {
     val xmlOptions = mergedMetadata.getXmlOptions()
     Try {
       val rowTag = xmlOptions.get("rowTag")
@@ -92,77 +87,18 @@ class XmlIngestionJob(
     }
   }
 
-  lazy val schemaSparkType: StructType = schema.sourceSparkSchema(schemaHandler)
-
-  /** Where the magic happen
-    *
-    * @param dataset
-    *   input dataset as a RDD of string
-    */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
-    import session.implicits._
-    val datasetSchema = dataset.schema
-    val errorList = compareTypes(schemaSparkType, datasetSchema)
-    val rejectedDS = errorList.toDS()
-    mergedMetadata.getXmlOptions().get("skipValidation") match {
+  override def defineOutputAsOriginalFormat(rejectedLines: DataFrame): DataFrameWriter[Row] = {
+    val xmlOptions = mergedMetadata.getXmlOptions()
+    xmlOptions.get("rowTag") match {
       case Some(_) =>
-        val rejectedDS = errorList.toDS()
-        saveRejected(rejectedDS, session.emptyDataset[String])(
-          settings,
-          storageHandler,
-          schemaHandler
-        ).flatMap { _ =>
-          saveAccepted(
-            CheckValidityResult(
-              session.emptyDataset[String],
-              session.emptyDataset[String],
-              dataset
-            )
-          )
-        } match {
-          case Failure(exception: NullValueFoundException) =>
-            (rejectedDS, dataset, exception.nbRecord)
-          case Failure(exception) =>
-            throw exception
-          case Success(rejectedRecordCount) => (rejectedDS, dataset, rejectedRecordCount);
-        }
+        rejectedLines.write
+          .format("com.databricks.spark.xml")
+          .options(xmlOptions)
+          .option("rootTag", xmlOptions.getOrElse("rootTag", schema.name))
+          .option("encoding", mergedMetadata.resolveEncoding())
+          .options(sparkOptions)
       case None =>
-        val withInputFileNameDS =
-          dataset.withColumn(CometColumns.cometInputFileNameColumn, input_file_name())
-
-        val validationSchema =
-          schema.sourceSparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
-
-        val validationResult =
-          treeRowValidator.validate(
-            session,
-            mergedMetadata.resolveFormat(),
-            mergedMetadata.resolveSeparator(),
-            withInputFileNameDS,
-            schema.attributes,
-            types,
-            validationSchema,
-            settings.appConfig.privacy.options,
-            settings.appConfig.cacheStorageLevel,
-            settings.appConfig.sinkReplayToFile,
-            mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
-          )
-
-        val allRejected = rejectedDS.union(validationResult.errors)
-        saveRejected(allRejected, validationResult.rejected)(
-          settings,
-          storageHandler,
-          schemaHandler
-        ).flatMap { _ =>
-          saveAccepted(validationResult)
-        } match {
-          case Failure(exception: NullValueFoundException) =>
-            (validationResult.errors, validationResult.accepted, exception.nbRecord)
-          case Failure(exception) =>
-            throw exception
-          case Success(rejectedRecordCount) =>
-            (validationResult.errors, validationResult.accepted, rejectedRecordCount);
-        }
+        throw new Exception(s"rowTag not found for schema ${domain.name}.${schema.name}")
     }
   }
 }

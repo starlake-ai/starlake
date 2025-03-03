@@ -65,8 +65,6 @@ import scala.collection.mutable
   *   : Write mode, APPEND by default
   * @param sink
   *   : should the dataset be indexed in elasticsearch after ingestion ?
-  * @param ignore
-  *   : Pattern to ignore or UDF to apply to ignore some lines
   * @param directory:
   *   Folder on the local filesystem where incoming files are stored. Typically, this folder will be
   *   scanned periodically to move the datasets to the cluster for ingestion. Files located in this
@@ -110,7 +108,6 @@ case class Metadata(
   quote: Option[String] = None,
   escape: Option[String] = None,
   sink: Option[AllSinks] = None,
-  ignore: Option[String] = None,
   directory: Option[String] = None,
   ack: Option[String] = None,
   options: Option[Map[String, String]] = None,
@@ -181,31 +178,12 @@ case class Metadata(
       }.flatten
 
     val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty
-    def isIgnoreUDF = ignore.forall(_.startsWith("udf:"))
-    if (!isIgnoreUDF && resolveFormat() == Format.DSV)
-      errorList += ValidationMessage(
-        Error,
-        "Table metadata",
-        "format: When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"
-      )
-
     this.dagRef.foreach { dagRef =>
       settings.schemaHandler().checkDagNameValidity(dagRef) match {
         case Left(err) => errorList ++= err
         case _         =>
       }
     }
-
-    import Format._
-    if (
-      ignore.isDefined &&
-      !List(DSV, JSON_FLAT, POSITION).contains(resolveFormat())
-    )
-      errorList += ValidationMessage(
-        Error,
-        "Table metadata",
-        s"ignore: ignore not yet supported for format ${resolveFormat()}"
-      )
 
     val allErrors = errors ++ errorList.toList
     if (allErrors.nonEmpty)
@@ -371,7 +349,6 @@ case class Metadata(
       quote = merge(this.quote, child.quote),
       escape = merge(this.escape, child.escape),
       sink = merge(this.sink, child.sink),
-      ignore = merge(this.ignore, child.ignore),
       directory = merge(this.directory, child.directory),
       ack = merge(this.ack, child.ack),
       options = merge(this.options, child.options),
@@ -404,7 +381,6 @@ case class Metadata(
       quote = if (parent.quote != this.quote) this.quote else None,
       escape = if (parent.escape != this.escape) this.escape else None,
       sink = if (parent.sink != this.sink) this.sink else None,
-      ignore = if (parent.ignore != this.ignore) this.ignore else None,
       directory = if (parent.directory != this.directory) this.directory else None,
       ack = if (parent.ack != this.ack) this.ack else None,
       options = if (parent.options != this.options) this.options else None,
@@ -425,7 +401,7 @@ case class Metadata(
     if (
       format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
       withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || writeStrategy.nonEmpty ||
-      sink.nonEmpty || ignore.nonEmpty || directory.nonEmpty ||
+      sink.nonEmpty || directory.nonEmpty ||
       ack.nonEmpty || options.nonEmpty || loader.nonEmpty || dagRef.nonEmpty ||
       freshness.nonEmpty || nullValue.nonEmpty || emptyIsNull.nonEmpty
     )

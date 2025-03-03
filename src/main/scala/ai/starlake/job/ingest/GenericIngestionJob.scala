@@ -169,7 +169,7 @@ class GenericIngestionJob(
     * @return
     *   Spark Dataset
     */
-  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  def loadDataSet(): Try[DataFrame] = {
     Try {
       val options = sparkOptions
       val timestampColumn = options.get("_timestamp")
@@ -255,15 +255,13 @@ class GenericIngestionJob(
         val sparkSchema = schema.sourceSparkSchemaWithoutScriptedFields(schemaHandler)
 
         session
-          .createDataFrame(session.sparkContext.emptyRDD[Row], StructType(sparkSchema))
+          .createDataFrame(rows = new java.util.ArrayList(), StructType(sparkSchema))
           .withColumn(
             CometColumns.cometInputFileNameColumn,
             org.apache.spark.sql.functions.input_file_name()
           )
       } else {
-        val df = applyIgnore(dfIn)
-
-        val datasetHeaders = df.columns.toList
+        val datasetHeaders = dfIn.columns.toList
         val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
         if (datasetHeaders.length == drop.length) {
           throw new Exception(s"""No attribute found in input dataset ${path.toString}
@@ -271,7 +269,7 @@ class GenericIngestionJob(
                                  | Dataset Headers : ${datasetHeaders.mkString(",")}
              """.stripMargin)
         }
-        val resDF = df.drop(drop: _*)
+        val resDF = dfIn.drop(drop: _*)
         resDF.withColumn(
           //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
           CometColumns.cometInputFileNameColumn,
@@ -281,43 +279,8 @@ class GenericIngestionJob(
     }
   }
 
-  /** Apply the schema to the dataset. This is where all the magic happen Valid records are stored
-    * in the accepted path / table and invalid records in the rejected path / table
-    *
-    * @param dataset
-    *   : Spark Dataset
-    */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
-    val orderedAttributes = reorderAttributes(dataset)
-    val (orderedTypes, orderedSparkTypes) = reorderTypes(orderedAttributes)
-    val validationResult = flatRowValidator.validate(
-      session,
-      mergedMetadata.resolveFormat(),
-      mergedMetadata.resolveSeparator(),
-      dataset,
-      orderedAttributes,
-      orderedTypes,
-      orderedSparkTypes,
-      settings.appConfig.privacy.options,
-      settings.appConfig.cacheStorageLevel,
-      settings.appConfig.sinkReplayToFile,
-      mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
-    )
-
-    saveRejected(validationResult.errors, validationResult.rejected)(
-      settings,
-      storageHandler,
-      schemaHandler
-    ).flatMap { _ =>
-      saveAccepted(validationResult)
-    } match {
-      case Failure(exception: NullValueFoundException) =>
-        (validationResult.errors, validationResult.accepted, exception.nbRecord)
-      case Failure(exception) =>
-        throw exception
-      case Success(rejectedRecordCount) =>
-        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
-    }
+  override def defineOutputAsOriginalFormat(rejectedLines: DataFrame): DataFrameWriter[Row] = {
+    rejectedLines.write.format(mergedMetadata.resolveFormat().value)
   }
 }
 

@@ -136,8 +136,7 @@ class PositionIngestionJobSpec extends TestHelper {
         cleanMetadata
         deliverSourceDomain()
         List(
-          "/sample/positionWithIgnore/DATAREGEX.sl.yml",
-          "/sample/positionWithIgnore/DATAUDF.sl.yml"
+          "/sample/positionWithIgnore/DATAREGEX.sl.yml"
         ).foreach(deliverSourceTable)
         loadPending
         // Accepted should contain data formatted correctly
@@ -152,26 +151,6 @@ class PositionIngestionJobSpec extends TestHelper {
             .load(location)
         acceptedDf.count() shouldBe 1
         sparkSession.sql("DROP TABLE IF EXISTS positionWithIgnore.DATAREGEX")
-      }
-    }
-
-    "Ingest Position UDF File with ignore string" should "ignore first line" in {
-      new SpecTrait(
-        sourceDomainOrJobPathname = "/sample/positionWithIgnore/positionWithIgnore.sl.yml",
-        datasetDomainName = "positionWithIgnore",
-        sourceDatasetPathName = "/sample/positionWithIgnore/dataudf-ignore.dat"
-      ) {
-        cleanMetadata
-        deliverSourceDomain()
-        List(
-          "/sample/positionWithIgnore/DATAREGEX.sl.yml",
-          "/sample/positionWithIgnore/DATAUDF.sl.yml"
-        ).foreach(deliverSourceTable)
-        loadPending
-        // Accepted should contain data formatted correctly
-        val acceptedDf = sparkSession.table(s"${datasetDomainName}.DATAUDF")
-        acceptedDf.count() shouldBe 1
-        sparkSession.sql("DROP TABLE IF EXISTS positionWithIgnore.DATAUDF")
       }
     }
   }

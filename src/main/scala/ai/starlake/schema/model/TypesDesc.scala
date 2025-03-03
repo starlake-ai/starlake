@@ -129,9 +129,9 @@ case class Type(
       primitiveType match {
         case PrimitiveType.struct => true
         case PrimitiveType.date =>
-          Try(date.fromString(value, pattern, zone.orNull)).isSuccess
+          Try(date.fromString(value, pattern, zone)).isSuccess
         case PrimitiveType.timestamp =>
-          Try(timestamp.fromString(value, pattern, zone.orNull)).isSuccess
+          Try(timestamp.fromString(value, pattern, zone)).isSuccess
         case PrimitiveType.boolean =>
           // We can get the pattern safely since checkValidity has been called by now
           booleanPattern match {
@@ -151,7 +151,7 @@ case class Type(
   }
 
   def sparkValue(value: String): Any = {
-    primitiveType.fromString(value, pattern, zone.orNull)
+    primitiveType.fromString(value, pattern, zone)
   }
 
   def sparkType(fieldName: String, nullable: Boolean, comment: Option[String]): StructField = {

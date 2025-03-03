@@ -819,7 +819,6 @@ object YamlConfigGenerators {
       escape        <- Gen.option(arbitrary[String])
       writeStrategy <- Gen.option(arbitrary[WriteStrategy])
       sink          <- Gen.option(arbitrary[AllSinks])
-      ignore        <- Gen.option(arbitrary[String])
       directory     <- Gen.option(arbitrary[String])
       ack           <- Gen.option(arbitrary[String])
       options       <- Gen.option(arbitrary[Map[String, String]])
@@ -840,7 +839,6 @@ object YamlConfigGenerators {
         quote = quote,
         escape = escape,
         sink = sink,
-        ignore = ignore,
         directory = directory,
         ack = ack,
         options = options,
@@ -1304,6 +1302,7 @@ object YamlConfigGenerators {
       metadata                   <- arbitrary[String]
       metrics                    <- arbitrary[Metrics]
       validateOnLoad             <- arbitrary[Boolean]
+      rejectWithValue            <- arbitrary[Boolean]
       audit                      <- arbitrary[Audit]
       archive                    <- arbitrary[Boolean]
       sinkReplayToFile           <- arbitrary[Boolean]
@@ -1317,7 +1316,6 @@ object YamlConfigGenerators {
       emptyIsNull                <- arbitrary[Boolean]
       loader                     <- arbitrary[String]
       rowValidatorClass          <- arbitrary[String]
-      treeValidatorClass         <- arbitrary[String]
       loadStrategyClass <- Gen.oneOf(
         IngestionNameStrategy.getClass.getName.replace("$", ""),
         IngestionTimeStrategy.getClass.getName.replace("$", "")
@@ -1383,6 +1381,7 @@ object YamlConfigGenerators {
       metadata = metadata,
       metrics = metrics,
       validateOnLoad = validateOnLoad,
+      rejectWithValue = rejectWithValue,
       audit = audit,
       archive = archive,
       sinkReplayToFile = sinkReplayToFile,
@@ -1396,7 +1395,6 @@ object YamlConfigGenerators {
       emptyIsNull = emptyIsNull,
       loader = loader,
       rowValidatorClass = rowValidatorClass,
-      treeValidatorClass = treeValidatorClass,
       loadStrategyClass = loadStrategyClass,
       grouped = grouped,
       groupedMax = groupedMax,

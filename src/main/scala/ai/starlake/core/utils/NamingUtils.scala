@@ -50,13 +50,13 @@ object NamingUtils {
     * @return
     *   A normalized string suitable for use as an attribute name.
     */
-  def normalizeAttributeName(input: String): String = {
-    addUnderscores(
-      removeTrailingUnderscore(
-        replaceConsecutiveUnderscores(
-          replaceNonAlphanumericWithUnderscore(removeAccents(input))
-        )
+  def normalizeAttributeName(input: String, toSnakeCase: Boolean = true): String = {
+    val sanitizedName = removeTrailingUnderscore(
+      replaceConsecutiveUnderscores(
+        replaceNonAlphanumericWithUnderscore(removeAccents(input))
       )
     )
+    if (toSnakeCase) addUnderscores(sanitizedName)
+    else sanitizedName
   }
 }

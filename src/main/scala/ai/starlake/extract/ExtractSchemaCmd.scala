@@ -49,6 +49,13 @@ object ExtractSchemaCmd extends Cmd[ExtractSchemaConfig] {
         .optional()
         .text(
           s"parallelism level of the extraction process. By default equals to the available cores"
+        ),
+      builder
+        .opt[Unit]("snakecase")
+        .action((_, c) => c.copy(snakeCase = true))
+        .optional()
+        .text(
+          """Apply snake case when name sanitization is done""".stripMargin
         )
     )
   }
