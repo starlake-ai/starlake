@@ -380,7 +380,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
 
   def deserializeYamlEnvConfig(content: String, path: String): EnvDesc = {
     val envSubPath = "env"
-    if (content.indexOf("env:") == -1) {
+    if (content.trim.isEmpty) {
       EnvDesc(latestSchemaVersion, Map.empty)
     } else {
       val dagNode = validateConfigFile(envSubPath, content, path, List(YamlMigrator.V1.EnvConfig))

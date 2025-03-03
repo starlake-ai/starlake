@@ -6,7 +6,7 @@ import ai.starlake.job.validator.CheckValidityResult
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, DataFrameWriter, Dataset, Row, SparkSession}
 
 import java.util.regex.Pattern
 import scala.util.{Failure, Success, Try}
@@ -46,7 +46,7 @@ class XmlSimplePrivacyJob(
     * @return
     *   Spark Dataframe loaded using metadata options
     */
-  override def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  override def loadDataSet(): Try[DataFrame] = {
     Try {
       require(
         settings.appConfig.defaultWriteFormat == "text",
@@ -70,7 +70,7 @@ class XmlSimplePrivacyJob(
     saveAccepted(
       CheckValidityResult(
         session.emptyDataset[String],
-        session.emptyDataset[String],
+        session.emptyDataFrame,
         acceptedPrivacyDF
       )
     ) match {
@@ -83,6 +83,9 @@ class XmlSimplePrivacyJob(
   }
 
   override def name: String = "privacy-" + super.name
+
+  override def defineOutputAsOriginalFormat(rejectedLines: DataFrame): DataFrameWriter[Row] =
+    rejectedLines.write.format("text")
 }
 
 object XmlSimplePrivacyJob {

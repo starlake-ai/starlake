@@ -283,7 +283,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             val field =
               line.substring(fieldIndex + 1) // no trim to keep leading and trailing spaces
             val startPosition = lastIndex + 1
-            val endPosition = startPosition + field.length
+            val endPosition = startPosition + field.length - 1
             lastIndex = endPosition
             Attribute(
               name = fieldName,

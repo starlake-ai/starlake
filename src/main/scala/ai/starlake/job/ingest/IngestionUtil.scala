@@ -4,11 +4,9 @@ import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.BigQueryJobResult
 import ai.starlake.job.transform.SparkAutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.Rejection.{ColInfo, ColResult}
-import ai.starlake.schema.model.Trim.{BOTH, LEFT, NONE, RIGHT}
 import ai.starlake.schema.model._
-import ai.starlake.utils.{GcpUtils, TransformEngine}
-import com.google.cloud.bigquery.{Field, LegacySQLTypeName, Schema => BQSchema}
+import ai.starlake.utils.GcpUtils
+import com.google.cloud.bigquery.LegacySQLTypeName
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{StringType, TimestampType}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
@@ -25,17 +23,6 @@ object IngestionUtil {
     ("error", LegacySQLTypeName.STRING, StringType),
     ("path", LegacySQLTypeName.STRING, StringType)
   )
-
-  private def bigqueryRejectedSchema(): BQSchema = {
-    val fields = rejectedCols map { case (attrName, attrLegacyType, attrStandardType) =>
-      Field
-        .newBuilder(attrName, attrLegacyType)
-        .setMode(Field.Mode.NULLABLE)
-        .setDescription("")
-        .build()
-    }
-    BQSchema.of(fields: _*)
-  }
 
   def sinkRejected(
     applicationId: String,
@@ -108,90 +95,6 @@ object IngestionUtil {
           Failure(new Exception("Failed to save rejected"))
         }
     }
-  }
-
-  def validateCol(
-    colRawValue: Option[String],
-    colAttribute: Attribute,
-    tpe: Type,
-    colMap: => Map[String, Option[String]],
-    allPrivacyLevels: Map[String, ((TransformEngine, List[String]), TransformInput)],
-    emptyIsNull: Boolean
-  ): ColResult = {
-    def ltrim(s: String) = s.replaceAll("^\\s+", "")
-
-    def rtrim(s: String) = s.replaceAll("\\s+$", "")
-
-    val trimmedColValue = colRawValue.map { colRawValue =>
-      colAttribute.trim match {
-        case Some(NONE) | None => colRawValue
-        case Some(LEFT)        => ltrim(colRawValue)
-        case Some(RIGHT)       => rtrim(colRawValue)
-        case Some(BOTH)        => colRawValue.trim()
-        case _                 => colRawValue
-      }
-    }
-
-    val colValue = colAttribute.default match {
-      case None =>
-        trimmedColValue
-      case Some(default) =>
-        trimmedColValue
-          .map(value => if (value.isEmpty) default else value)
-          .orElse(colAttribute.default)
-    }
-
-    def colValueIsNullOrEmpty = colValue match {
-      case None           => true
-      case Some(colValue) => colValue.isEmpty
-    }
-
-    def colValueIsNull = colValue.isEmpty
-
-    def optionalColIsEmpty = !colAttribute.resolveRequired() && colValueIsNullOrEmpty
-
-    def requiredColIsEmpty = {
-      if (emptyIsNull)
-        colAttribute.resolveRequired() && colValueIsNullOrEmpty
-      else
-        colAttribute.resolveRequired() && colValueIsNull
-    }
-
-    def colPatternIsValid = colValue.exists(tpe.matches)
-
-    val privacyLevel = colAttribute.resolvePrivacy()
-    val colValueWithPrivacyApplied =
-      if (privacyLevel == TransformInput.None || privacyLevel.sql) {
-        colValue
-      } else {
-        val ((privacyAlgo, privacyParams), _) = allPrivacyLevels(privacyLevel.value)
-        colValue.map(colValue => privacyLevel.crypt(colValue, colMap, privacyAlgo, privacyParams))
-
-      }
-
-    val colPatternOK = !requiredColIsEmpty && (optionalColIsEmpty || colPatternIsValid)
-
-    val (sparkValue, colParseOK) = {
-      (colPatternOK, colValueWithPrivacyApplied) match {
-        case (true, Some(colValueWithPrivacyApplied)) =>
-          Try(tpe.sparkValue(colValueWithPrivacyApplied)) match {
-            case Success(res) => (Some(res), true)
-            case Failure(_)   => (None, false)
-          }
-        case (colPatternResult, _) =>
-          (None, colPatternResult)
-      }
-    }
-    ColResult(
-      ColInfo(
-        colValue,
-        colAttribute.name,
-        tpe.name,
-        tpe.pattern,
-        colPatternOK && colParseOK
-      ),
-      sparkValue.orNull
-    )
   }
 }
 

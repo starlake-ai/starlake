@@ -20,7 +20,7 @@
 
 package ai.starlake
 
-import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.config.{DatasetArea, Settings, SparkEnv}
 import ai.starlake.job.ingest.{IngestConfig, LoadConfig, StageConfig}
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
@@ -99,6 +99,7 @@ trait TestHelper
 
   def baseConfigString =
     s"""
+       |SL_REJECT_WITH_VALUE=true
        |SL_VALIDATE_ON_LOAD=true
        |SL_ASSERTIONS_ACTIVE=true
        |SL_DEFAULT_WRITE_FORMAT=delta
@@ -148,7 +149,6 @@ trait TestHelper
        |  sql.warehouse.dir: "${starlakeTestRoot}"
        |}
        |
-       |
        |""".stripMargin
 
   def testConfiguration: Config = {
@@ -171,7 +171,7 @@ trait TestHelper
   val allTypes: List[FileToImport] = List(
     FileToImport(
       "default.sl.yml",
-      "/sample/default.sl.yml"
+      "/types/default.sl.yml"
     ),
     FileToImport(
       "types.sl.yml",
@@ -652,15 +652,7 @@ object TestHelper extends StrictLogging {
       // BetterFile("metastore_db").delete(swallowIOExceptions = true)
       // val settings: Settings = Settings(Settings.referenceConfig)
       // cleanDatasets(isettings.appConfig.datasets)
-      val job = new SparkJob {
-        override def name: String = s"test-${UUID.randomUUID()}"
-
-        override implicit def settings: Settings = isettings
-
-        override def run(): Try[JobResult] =
-          ??? // we just create a dummy job to get a valid Spark session
-      }
-      _session = job.session
+      _session = SparkEnv.get(s"test-${UUID.randomUUID()}", settings = isettings).session
       _testId = testId
     } else {
       logger.info(s"Reusing Spark session for test $testId")

@@ -40,7 +40,7 @@ class DateTypeSpec extends TestHelper {
       val result = date.fromString(
         "DEC2018",
         "MMMyyyy",
-        "en_EN"
+        Some("en_EN")
       )
       result shouldBe expected
 
@@ -48,7 +48,7 @@ class DateTypeSpec extends TestHelper {
         date.fromString(
           "DEC20888",
           "MMMyyyy",
-          "en_EN"
+          Some("en_EN")
         )
       }
     }

@@ -20,17 +20,15 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
-import org.apache.hadoop.io.{LongWritable, Text}
-import org.apache.hadoop.mapred.TextInputFormat
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /** Main class to ingest delimiter separated values file
   *
@@ -74,74 +72,46 @@ class PositionIngestionJob(
     * @return
     *   Spark DataFrame where each row holds a single string
     */
-  override def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  override def loadDataSet(): Try[DataFrame] = {
     Try {
       val dfIn = mergedMetadata.resolveEncoding().toUpperCase match {
         case "UTF-8" =>
           session.read.options(sparkOptions).text(path.map(_.toString): _*)
-        case _ => {
-          val rdd =
-            PositionIngestionUtil.loadDfWithEncoding(
-              session,
-              path,
-              mergedMetadata.resolveEncoding()
-            )
-          val schema: StructType = StructType(Array(StructField("value", StringType)))
-          session.createDataFrame(rdd.map(line => Row.fromSeq(Seq(line))), schema)
-        }
+        case _ =>
+          PositionIngestionUtil.loadDfWithEncoding(
+            session,
+            path,
+            mergedMetadata.resolveEncoding()
+          )
       }
       logger.whenDebugEnabled {
         logger.debug(dfIn.schemaString())
       }
-
-      val df = applyIgnore(dfIn)
-      if (withSchema) {
-        PositionIngestionUtil.prepare(session, df, schema.attributesWithoutScriptedFields)
-      } else
-        df
+      val preparedDF =
+        PositionIngestionUtil.prepare(session, dfIn, schema.attributesWithoutScriptedFields)
+      preparedDF
+        .withColumn(
+          CometColumns.cometInputFileNameColumn,
+          org.apache.spark.sql.functions.input_file_name()
+        )
     }
   }
 
-  /** Apply the schema to the dataset. This is where all the magic happen Valid records are stored
-    * in the accepted path / table and invalid records in the rejected path / table
-    *
-    * @param input
-    *   : Spark Dataset
-    */
-  override protected def ingest(input: DataFrame): (Dataset[String], Dataset[Row], Long) = {
-    val dataset: DataFrame =
-      PositionIngestionUtil.prepare(session, input, schema.attributesWithoutScriptedFields)
-
-    val orderedAttributes = reorderAttributes(dataset)
-    val (orderedTypes, orderedSparkTypes) = reorderTypes(orderedAttributes)
-
-    val validationResult = flatRowValidator.validate(
-      session,
-      mergedMetadata.resolveFormat(),
-      mergedMetadata.resolveSeparator(),
-      dataset,
-      orderedAttributes,
-      orderedTypes,
-      orderedSparkTypes,
-      settings.appConfig.privacy.options,
-      settings.appConfig.cacheStorageLevel,
-      settings.appConfig.sinkReplayToFile,
-      mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
-    )
-    saveRejected(validationResult.errors, validationResult.rejected)(
-      settings,
-      storageHandler,
-      schemaHandler
-    ).flatMap { _ =>
-      saveAccepted(validationResult)
-    } match {
-      case Failure(exception: NullValueFoundException) =>
-        (validationResult.errors, validationResult.accepted, exception.nbRecord)
-      case Failure(exception) =>
-        throw exception
-      case Success(rejectedRecordCount) =>
-        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
-    }
+  override def defineOutputAsOriginalFormat(rejectedLines: DataFrame): DataFrameWriter[Row] = {
+    rejectedLines
+      .select(
+        functions
+          .concat(
+            schema.attributesWithoutScriptedFields.map(attr => col(attr.name).cast(StringType)): _*
+          )
+          .as("input_line")
+      )
+      .write
+      .format("csv")
+      .option("encoding", mergedMetadata.resolveEncoding())
+      .option("header", false)
+      .option("delimiter", "\n")
+      .option("quote", "\n")
   }
 
 }
@@ -150,58 +120,39 @@ class PositionIngestionJob(
   */
 object PositionIngestionUtil {
 
-  def loadDfWithEncoding(session: SparkSession, path: List[Path], encoding: String) = {
-    path
-      .map(_.toString)
-      .map(
-        session.sparkContext
-          .hadoopFile[LongWritable, Text, TextInputFormat](_)
-          .map { case (_, content) => new String(content.getBytes, 0, content.getLength, encoding) }
-      )
-      .fold(session.sparkContext.emptyRDD)((r1, r2) => r1.union(r2))
+  def loadDfWithEncoding(
+    session: SparkSession,
+    path: List[Path],
+    encoding: String
+  ): DataFrame = {
+    // This is an hack of how to use CSV source as a text source and have the ability to specify an encoding.
+    // Using wholeTextFile requires the input to be in UTF-8
+    session.read
+      .schema(StructType(Array(StructField("value", StringType))))
+      .option("encoding", encoding)
+      .option("delimiter", "\n")
+      .csv(path.map(_.toString): _*)
   }
 
-  def prepare(session: SparkSession, input: DataFrame, attributes: List[Attribute]) = {
-    def getRow(inputLine: String, positions: List[Position]): Row = {
-      val columnArray = new Array[String](positions.length)
-      val inputLen = inputLine.length
-      for (i <- positions.indices) {
-        val first = positions(i).first
-        val last = positions(i).last + 1
-        columnArray(i) = if (last <= inputLen) inputLine.substring(first, last) else ""
-      }
-      Row.fromSeq(columnArray.toIndexedSeq)
-    }
-    val positions = attributes.flatMap(_.position)
-    val fieldTypeArray = new Array[StructField](positions.length)
-    /*
-    import org.apache.spark.sql.catalyst.encoders.RowEncoder
-    lazy val encoder =
-      RowEncoder.encoderFor(StructType(attributes.map(attr => StructField(attr.name, StringType))))
-
-
-    val dataset = input.map { row =>
-      val tupledRow = getRow(row.getString(0), positions)
-      tupledRow
-    }(encoder)
-
-     */
-
-    for (i <- attributes.indices) {
-      fieldTypeArray(i) = StructField(s"col$i", StringType)
+  def prepare(session: SparkSession, input: DataFrame, attributes: List[Attribute]): DataFrame = {
+    import org.apache.spark.sql.functions._
+    val attributesProjection = attributes.foldLeft(List[Column]()) { (projection, attribute) =>
+      val attributePosition = attribute.position.getOrElse(
+        throw new RuntimeException(s"Attribute ${attribute.name} does not have position set")
+      )
+      // spark substring is 1-based and last is the length in spark and not the position to exclude
+      projection :+ substring(
+        col("value"),
+        attributePosition.first + 1,
+        attributePosition.last - attributePosition.first + 1
+      ).as(attribute.name)
     }
 
-    val schema = StructType(fieldTypeArray)
-
-    val rdd = input.rdd.map { row =>
-      getRow(row.getString(0), positions)
-    }
-    val dataset =
-      session.createDataFrame(rdd, schema).toDF(attributes.map(_.name): _*)
-
-    dataset.withColumn(
-      CometColumns.cometInputFileNameColumn,
-      org.apache.spark.sql.functions.input_file_name()
-    )
+    input
+      .select(attributesProjection: _*)
+      .withColumn(
+        CometColumns.cometInputFileNameColumn,
+        org.apache.spark.sql.functions.input_file_name()
+      )
   }
 }
