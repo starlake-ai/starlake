@@ -333,7 +333,7 @@ trait IngestionJob extends SparkJob {
       case Right(_) =>
     }
   }
-  def buildListOfSQLStatementsAsMap(orchestrator: String): Map[String, Any] = {
+  def buildListOfSQLStatementsAsMap(orchestrator: String): Map[String, Object] = {
     // Run selected ingestion engine
     val result =
       orchestrator match {
