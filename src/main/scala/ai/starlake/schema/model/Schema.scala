@@ -87,24 +87,24 @@ case class Schema(
 
   def asMap(): Map[String, Object] = {
     Map(
-      "tableName"          -> name,
-      "tablePattern"       -> pattern.toString,
-      "tableAttributes"    -> attributes.map(_.asMap()).asJava,
-      "tableMetadata"      -> metadata.getOrElse(Metadata()).asMap().asJava,
-      "tableComment"       -> comment,
-      "tablePresql"        -> presql,
-      "tablePostsql"       -> postsql,
-      "tableTags"          -> tags,
-      "tableRls"           -> rls.map(_.asMap()).asJava,
-      "tableExpectations"  -> expectations.map(_.asMap()).asJava,
-      "tablePrimaryKey"    -> primaryKey,
-      "tableAcl"           -> acl.map(_.asMap()).asJava,
-      "tableRename"        -> rename,
-      "tableSample"        -> sample,
-      "tableFilter"        -> filter,
-      "tablePatternSample" -> patternSample,
-      "tableStreams"       -> streams,
-      "tableFinaleName"    -> finalName
+      "name"          -> name,
+      "pattern"       -> pattern.toString,
+      "attributes"    -> attributes.map(_.asMap()).asJava,
+      "metadata"      -> metadata.getOrElse(Metadata()).asMap().asJava,
+      "comment"       -> comment,
+      "presql"        -> presql,
+      "postsql"       -> postsql,
+      "tags"          -> tags,
+      "rls"           -> rls.map(_.asMap()).asJava,
+      "expectations"  -> expectations.map(_.asMap()).asJava,
+      "primaryKey"    -> primaryKey,
+      "acl"           -> acl.map(_.asMap()).asJava,
+      "rename"        -> rename,
+      "sample"        -> sample,
+      "filter"        -> filter,
+      "patternSample" -> patternSample,
+      "streams"       -> streams,
+      "finalName"     -> finalName
     )
   }
 

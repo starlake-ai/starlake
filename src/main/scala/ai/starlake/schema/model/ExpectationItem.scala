@@ -10,8 +10,8 @@ case class ExpectationItem(
   def this() = this("", true)
 
   def asMap(): Map[String, Any] = Map(
-    "expectQuery"       -> expect,
-    "expectFailOnError" -> failOnError
+    "query"       -> expect,
+    "failOnError" -> failOnError.toString
   )
 
   override def toString: String = s"$expect"

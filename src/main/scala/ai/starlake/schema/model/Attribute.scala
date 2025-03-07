@@ -92,8 +92,8 @@ case class Attribute(
     Map(
       "name"         -> name,
       "type"         -> `type`,
-      "array"        -> resolveArray(),
-      "required"     -> resolveRequired(),
+      "array"        -> resolveArray().toString,
+      "required"     -> resolveRequired().toString,
       "privacy"      -> resolvePrivacy(),
       "comment"      -> comment.orNull,
       "rename"       -> getFinalName(),
@@ -104,7 +104,7 @@ case class Attribute(
       "trim"         -> trim.orNull,
       "script"       -> resolveScript(),
       "foreignKey"   -> foreignKey.orNull,
-      "ignore"       -> ignore.orNull,
+      "ignore"       -> ignore.map(_.toString).orNull,
       "accessPolicy" -> accessPolicy.orNull,
       "sample"       -> sample.orNull
     )

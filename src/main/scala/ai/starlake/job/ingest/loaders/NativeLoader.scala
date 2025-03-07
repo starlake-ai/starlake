@@ -326,7 +326,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     }
   }
 
-  def buildSQLStatements(): Map[String, Any] = {
+  def buildSQLStatements(): Map[String, Object] = {
     val twoSteps = this.twoSteps
     val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
     val tempTableName = s"${domain.finalName}.${this.tempTableName}"
@@ -354,7 +354,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           options.url,
           ddlMap,
           0
-        ) // options.createTableColumnTypes
+        )
 
         val firstSTepCreateTableSqls = List(tempCreateSchemaSql, tempCreateTableSql)
         val extraFileNameColumn =
@@ -367,9 +367,9 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           "incomingDir"         -> incomingDir,
           "pattern"             -> pattern,
           "format"              -> format,
-          "firstStep"           -> firstSTepCreateTableSqls,
-          "extraFileNameColumn" -> List(extraFileNameColumn),
-          "secondStep"          -> workflowStatements.task.asMap(),
+          "firstStep"           -> firstSTepCreateTableSqls.asJava,
+          "extraFileNameColumn" -> List(extraFileNameColumn).asJava,
+          "secondStep"          -> workflowStatements.task.asMap().asJava,
           "dropFirstStep"       -> dropFirstStepTableSql,
           "tempTableName"       -> tempTableName,
           "targetTableName"     -> targetTableName,
@@ -378,11 +378,12 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           "writeStrategy"       -> writeDisposition,
           "schemaString"        -> schemaString
         )
+
         workflowStatements
           .asMap()
           .updated(
-            "task",
-            JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(loadTaskSQL)
+            "statements",
+            loadTaskSQL.asJava
           )
       } else {
         val (createSchemaSql, createTableSql, _) = SparkUtils.buildCreateTableSQL(
@@ -394,22 +395,23 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
         )
         val createTableSqls = List(createSchemaSql, createTableSql)
         val workflowStatements = this.secondStepSQL(List(targetTableName))
-        val loadTaskSQL = Map(
-          "steps"           -> "1",
-          "incomingDir"     -> incomingDir,
-          "pattern"         -> pattern,
-          "format"          -> format,
-          "createTable"     -> createTableSqls,
-          "targetTableName" -> targetTableName,
-          "domain"          -> domain.finalName,
-          "table"           -> starlakeSchema.finalName,
-          "writeStrategy"   -> writeDisposition
-        )
+        val loadTaskSQL =
+          Map(
+            "steps"           -> "1",
+            "incomingDir"     -> incomingDir,
+            "pattern"         -> pattern,
+            "format"          -> format.toString,
+            "createTable"     -> createTableSqls.asJava,
+            "targetTableName" -> targetTableName,
+            "domain"          -> domain.finalName,
+            "table"           -> starlakeSchema.finalName,
+            "writeStrategy"   -> writeDisposition
+          )
         workflowStatements
           .asMap()
           .updated(
-            "task",
-            JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(loadTaskSQL)
+            "statements",
+            loadTaskSQL.asJava
           )
       }
     val engine = settings.appConfig.jdbcEngines(engineName.toString)
@@ -417,7 +419,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     val tempStage = s"starlake_load_stage_${Random.alphanumeric take 10 mkString ""}"
     val commonOptionsMap = Map(
       "schema"     -> starlakeSchema.asMap().asJava,
-      "sink"       -> sink.asMap(engine),
+      "sink"       -> sink.asMap(engine).asJava,
       "fileSystem" -> settings.appConfig.fileSystem,
       "tempStage"  -> tempStage
     )

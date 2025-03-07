@@ -344,17 +344,17 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                       test = false
                     ).buildListOfSQLStatementsAsMap(orchestrator)
                   case None =>
-                    Map.empty[String, Any]
+                    Map.empty[String, Object]
                 }
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
                 schedules,
-                workflowStatements = statements
+                workflowStatements = List(statements)
               )
 
               scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
-
+              /*
               applyJ2AndSave(
                 outputDir,
                 jEnv,
@@ -362,7 +362,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 optionsWithProjectIdAndName(config, context.asMap),
                 filename
               )
-            /*
+               */
               val loadTemplateContent =
                 new LoadStrategyTemplateLoader().loadTemplate("snowflake/default.j2")
 
@@ -373,7 +373,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 optionsWithProjectIdAndName(config, context.asMap),
                 filename
               )
-             */
+
             }
           }
         }
@@ -426,7 +426,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
                 schedules,
-                workflowStatements = Map.empty[String, Any]
+                workflowStatements = List.empty[Map[String, Object]]
               )
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
               applyJ2AndSave(
@@ -449,7 +449,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             val context = LoadDagGenerationContext(
               config = dagConfig.copy(options = options, comment = comment),
               schedules,
-              workflowStatements = Map.empty[String, Any]
+              workflowStatements = List.empty[Map[String, Object]]
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
             applyJ2AndSave(
@@ -505,7 +505,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
                 List(schedule),
-                workflowStatements = Map.empty[String, Any]
+                workflowStatements = List.empty[Map[String, Object]]
               )
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
               applyJ2AndSave(
@@ -523,7 +523,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             val context = LoadDagGenerationContext(
               config = dagConfig.copy(options = options, comment = comment),
               schedules = dagSchedules,
-              workflowStatements = Map.empty[String, Any]
+              workflowStatements = List.empty[Map[String, Object]]
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
             applyJ2AndSave(
@@ -547,11 +547,18 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     context: util.HashMap[String, Object],
     filename: String
   )(implicit settings: Settings): Unit = {
-    val json = JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(context)
+    val context2 = context.clone().asInstanceOf[util.HashMap[String, Object]]
+
+    DagGenerationConfig.externalKeys.foreach { key =>
+      context2.remove(key)
+    }
+    val json = JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(context2)
+
     val paramMap = Map(
       "context" -> context,
       "env"     -> jEnv.asJava,
-      "json"    -> json
+      "json"    -> json,
+      "pyjson"  -> json.replace("\\", "\\\\")
     )
     val jinjaOutput = Utils.parseJinjaTpl(dagTemplateContent, paramMap)
     val dagPath = new Path(outputDir, filename)

@@ -28,7 +28,6 @@ import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
-import scala.collection.immutable.Seq
 import scala.jdk.CollectionConverters._
 
 /** Recognized file type format. This will select the correct parser
@@ -91,7 +90,7 @@ sealed abstract class Sink {
   val connectionRef: Option[String]
   def toAllSinks(): AllSinks
 
-  def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = toAllSinks().asMap(jdbcEngine)
+  def asMap(jdbcEngine: JdbcEngine): Map[String, Object] = toAllSinks().asMap(jdbcEngine)
 
   def getConnectionType()(implicit
     settings: Settings
@@ -167,26 +166,26 @@ final case class AllSinks(
 
   def this() = this(None)
 
-  def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
-    val map = scala.collection.mutable.Map.empty[String, Any]
-    connectionRef.foreach(map += "sinkConnectionRef" -> _)
-    sharding.foreach(map += "sinkShardSuffix" -> _.asJava)
-    clustering.foreach(map += "sinkClustering" -> _.asJava)
-    days.foreach(map += "sinkDays" -> _)
-    requirePartitionFilter.foreach(map += "sinkRequirePartitionFilter" -> _)
-    materializedView.foreach(map += "sinkMaterializedView" -> _)
-    enableRefresh.foreach(map += "sinkEnableRefresh" -> _)
-    refreshIntervalMs.foreach(map += "sinkRefreshIntervalMs" -> _)
-    id.foreach(map += "sinkId" -> _)
-    map += "sinkFormat" -> format.getOrElse("parquet") // TODO : default format
-    extension.foreach(map += "sinkExtension" -> _)
-    partition.foreach(map += "sinkPartition" -> _.asJava)
-    coalesce.foreach(map += "sinkCoalesce" -> _)
-    options.foreach(map += "sinkOptions" -> _.asJava)
+  def asMap(jdbcEngine: JdbcEngine): Map[String, Object] = {
+    val map = scala.collection.mutable.Map.empty[String, Object]
+    connectionRef.foreach(map += "connectionRef" -> _)
+    sharding.foreach(map += "shardSuffix" -> _.asJava)
+    clustering.foreach(map += "clustering" -> _.asJava)
+    days.foreach(it => map += "days" -> it.toString)
+    requirePartitionFilter.foreach(map += "requirePartitionFilter" -> _.toString)
+    materializedView.foreach(map += "materializedView" -> _.toString)
+    enableRefresh.foreach(map += "enableRefresh" -> _.toString)
+    refreshIntervalMs.foreach(map += "refreshIntervalMs" -> _.toString)
+    id.foreach(map += "id" -> _)
+    map += "format" -> format.getOrElse("parquet") // TODO : default format
+    extension.foreach(map += "extension" -> _)
+    partition.foreach(map += "partition" -> _.asJava)
+    coalesce.foreach(it => map += "coalesce" -> it.toString)
+    options.foreach(map += "options" -> _.asJava)
 
-    map += "sinkTableOptionsClause"    -> this.getTableOptionsClause(jdbcEngine)
-    map += "sinkTablePartitionClause"  -> this.getPartitionByClauseSQL(jdbcEngine)
-    map += "sinkTableClusteringClause" -> this.getClusterByClauseSQL(jdbcEngine)
+    map += "tableOptionsClause"    -> this.getTableOptionsClause(jdbcEngine)
+    map += "tablePartitionClause"  -> this.getPartitionByClauseSQL(jdbcEngine)
+    map += "tableClusteringClause" -> this.getClusterByClauseSQL(jdbcEngine)
 
     map.toMap
   }
