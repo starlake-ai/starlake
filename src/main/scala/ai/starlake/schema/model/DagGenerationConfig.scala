@@ -172,8 +172,9 @@ object DagGenerationConfig {
 case class LoadDagGenerationContext(
   config: DagGenerationConfig,
   schedules: List[DagSchedule],
-  workflowStatements: List[Map[String, Object]]
+  workflowStatementsIn: List[Map[String, Object]]
 ) {
+  val workflowStatements = workflowStatementsIn.filter(_.size > 0)
   def asMap: util.HashMap[String, Object] = {
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
       val cal1 = Calendar.getInstance
