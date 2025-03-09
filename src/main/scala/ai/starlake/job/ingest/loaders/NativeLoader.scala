@@ -8,7 +8,7 @@ import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
-import ai.starlake.utils.{JsonSerializer, SparkUtils, Utils}
+import ai.starlake.utils.{SparkUtils, Utils}
 import com.typesafe.scalalogging.StrictLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
@@ -345,6 +345,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           tempTableName,
           incomingSparkSchema,
           caseSensitive = false,
+          temporaryTable = true,
           options,
           ddlMap
         )
@@ -390,6 +391,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           targetTableName,
           incomingSparkSchema,
           caseSensitive = false,
+          temporaryTable = false,
           options,
           ddlMap
         )
