@@ -1,9 +1,7 @@
 package ai.starlake.job.common
 
 import ai.starlake.schema.model.{ConnectionType, ExpectationSQL}
-import ai.starlake.utils.JsonSerializer
 
-import java.util
 import scala.jdk.CollectionConverters._
 
 case class TaskSQLStatements(
