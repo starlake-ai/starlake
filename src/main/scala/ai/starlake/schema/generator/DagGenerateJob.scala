@@ -292,6 +292,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
       val filenameVars = dagConfig.getfilenameVars()
       if (filenameVars.exists(List("table", "finalTable", "renamedTable").contains)) {
+        // filename: "{{domain}}_{{table}}.py"
         if (!filenameVars.exists(List("domain", "finalDomain", "renamedDomain").contains))
           logger.warn(
             s"Dag Config $dagConfigName: filename contains table but not domain, this will generate multiple dags with the same name if the same table name appear in multiple domains"
@@ -329,9 +330,11 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 k -> Utils.parseJinja(v, envVars)
               }
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
-              val statements =
-                config.orchestrator match {
-                  case Some(orchestrator) =>
+              scheduleIndex = nextScheduleIndex
+              val filename = Utils.parseJinja(dagConfig.filename, envVars)
+              config.orchestrator match {
+                case Some(orchestrator) =>
+                  val statements =
                     new DummyIngestionJob(
                       domain = domain,
                       schema = table,
@@ -343,41 +346,40 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                       accessToken = None,
                       test = false
                     ).buildListOfSQLStatementsAsMap(orchestrator)
-                  case None =>
-                    Map.empty[String, Object]
-                }
-              val context = LoadDagGenerationContext(
-                config = dagConfig.copy(options = options, comment = comment),
-                schedules,
-                workflowStatements = List(statements)
-              )
-
-              scheduleIndex = nextScheduleIndex
-              val filename = Utils.parseJinja(dagConfig.filename, envVars)
-              /*
-              applyJ2AndSave(
-                outputDir,
-                jEnv,
-                dagTemplateContent,
-                optionsWithProjectIdAndName(config, context.asMap),
-                filename
-              )
-               */
-              val loadTemplateContent =
-                new LoadStrategyTemplateLoader().loadTemplate("snowflake/default.j2")
-
-              applyJ2AndSave(
-                outputDir,
-                jEnv,
-                loadTemplateContent,
-                optionsWithProjectIdAndName(config, context.asMap),
-                filename
-              )
-
+                  val context = LoadDagGenerationContext(
+                    config = dagConfig.copy(options = options, comment = comment),
+                    schedules,
+                    workflowStatements = List(statements)
+                  )
+                  val loadTemplateContent =
+                    new LoadStrategyTemplateLoader().loadTemplate(s"$orchestrator/default.j2")
+                  applyJ2AndSave(
+                    outputDir,
+                    jEnv,
+                    loadTemplateContent,
+                    optionsWithProjectIdAndName(config, context.asMap),
+                    filename
+                  )
+                case None =>
+                  val context = LoadDagGenerationContext(
+                    config = dagConfig.copy(options = options, comment = comment),
+                    schedules,
+                    workflowStatements = List(Map.empty)
+                  )
+                  applyJ2AndSave(
+                    outputDir,
+                    jEnv,
+                    dagTemplateContent,
+                    optionsWithProjectIdAndName(config, context.asMap),
+                    filename
+                  )
+              }
             }
           }
         }
       } else if (filenameVars.exists(List("domain", "finalDomain", "renamedDomain").contains)) {
+        // filename: "{{domain}}.py"
+
         // one dag per domain
         val domains = groupedBySchedule
           .flatMap { case (schedule, groupedByDomain) =>
