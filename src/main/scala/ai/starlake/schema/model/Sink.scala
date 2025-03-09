@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
+import scala.collection.immutable.Seq
 import scala.jdk.CollectionConverters._
 
 /** Recognized file type format. This will select the correct parser
@@ -168,24 +169,24 @@ final case class AllSinks(
 
   def asMap(jdbcEngine: JdbcEngine): Map[String, Object] = {
     val map = scala.collection.mutable.Map.empty[String, Object]
-    connectionRef.foreach(map += "connectionRef" -> _)
-    sharding.foreach(map += "shardSuffix" -> _.asJava)
-    clustering.foreach(map += "clustering" -> _.asJava)
-    days.foreach(it => map += "days" -> it.toString)
-    requirePartitionFilter.foreach(map += "requirePartitionFilter" -> _.toString)
-    materializedView.foreach(map += "materializedView" -> _.toString)
-    enableRefresh.foreach(map += "enableRefresh" -> _.toString)
-    refreshIntervalMs.foreach(map += "refreshIntervalMs" -> _.toString)
-    id.foreach(map += "id" -> _)
-    map += "format" -> format.getOrElse("parquet") // TODO : default format
-    extension.foreach(map += "extension" -> _)
-    partition.foreach(map += "partition" -> _.asJava)
-    coalesce.foreach(it => map += "coalesce" -> it.toString)
-    options.foreach(map += "options" -> _.asJava)
+    connectionRef.foreach(map += "sinkConnectionRef" -> _)
+    sharding.foreach(map += "sinkShardSuffix" -> _.asJava)
+    clustering.foreach(map += "sinkClustering" -> _.asJava)
+    days.foreach(it => map += "sinkDays" -> it.toString)
+    requirePartitionFilter.foreach(map += "sinkRequirePartitionFilter" -> _.toString)
+    materializedView.foreach(map += "sinkMaterializedView" -> _.toString)
+    enableRefresh.foreach(map += "sinkEnableRefresh" -> _.toString)
+    refreshIntervalMs.foreach(map += "sinkRefreshIntervalMs" -> _.toString)
+    id.foreach(map += "sinkId" -> _)
+    map += "sinkFormat" -> format.getOrElse("parquet") // TODO : default format
+    extension.foreach(map += "sinkExtension" -> _)
+    partition.foreach(map += "sinkPartition" -> _.asJava)
+    coalesce.foreach(it => map += "sinkCoalesce" -> it.toString)
+    options.foreach(map += "sinkOptions" -> _.asJava)
 
-    map += "tableOptionsClause"    -> this.getTableOptionsClause(jdbcEngine)
-    map += "tablePartitionClause"  -> this.getPartitionByClauseSQL(jdbcEngine)
-    map += "tableClusteringClause" -> this.getClusterByClauseSQL(jdbcEngine)
+    map += "sinkTableOptionsClause"    -> this.getTableOptionsClause(jdbcEngine)
+    map += "sinkTablePartitionClause"  -> this.getPartitionByClauseSQL(jdbcEngine)
+    map += "sinkTableClusteringClause" -> this.getClusterByClauseSQL(jdbcEngine)
 
     map.toMap
   }
