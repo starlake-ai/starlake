@@ -1,5 +1,6 @@
 package ai.starlake.job.validator
 
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Attribute, Format, Type}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -19,11 +20,12 @@ object NativeValidator extends GenericRowValidator {
     privacyOptions: Map[String, String],
     cacheStorageLevel: StorageLevel,
     sinkReplayToFile: Boolean,
-    emptyIsNull: Boolean
-  ): CheckValidityResult = {
+    emptyIsNull: Boolean,
+    rejectWithValue: Boolean
+  )(implicit schemaHandler: SchemaHandler): CheckValidityResult = {
     import session.implicits._
     val rejectedDS = session.emptyDataset[String]
-    val rejectedInputDS = session.emptyDataset[String]
+    val rejectedInputDS = session.emptyDataFrame
     val acceptedDS = dataset
     CheckValidityResult(rejectedDS, rejectedInputDS, acceptedDS)
   }

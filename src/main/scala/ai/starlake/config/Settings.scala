@@ -714,6 +714,7 @@ object Settings extends StrictLogging {
     metadata: String,
     metrics: Metrics,
     validateOnLoad: Boolean,
+    rejectWithValue: Boolean,
     audit: Audit,
     archive: Boolean,
     sinkReplayToFile: Boolean,
@@ -727,7 +728,6 @@ object Settings extends StrictLogging {
     emptyIsNull: Boolean,
     loader: String,
     rowValidatorClass: String,
-    treeValidatorClass: String,
     loadStrategyClass: String,
     grouped: Boolean,
     groupedMax: Int,
@@ -897,18 +897,6 @@ object Settings extends StrictLogging {
         case _ =>
       }
 
-      Try {
-        Utils
-          .loadInstance[GenericRowValidator](this.treeValidatorClass)
-      } match {
-        case scala.util.Failure(exception) =>
-          errors = errors :+ ValidationMessage(
-            Severity.Error,
-            "AppConfig",
-            s"treeValidatorClass ${this.treeValidatorClass} not found"
-          )
-        case _ =>
-      }
       Try {
         Utils
           .loadInstance[LoadStrategy](this.loadStrategyClass)

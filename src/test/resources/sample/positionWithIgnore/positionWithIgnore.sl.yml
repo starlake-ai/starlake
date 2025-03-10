@@ -10,4 +10,3 @@ load:
     writeStrategy:
       type: "OVERWRITE"
     encoding: "ISO-8859-1"
-    ignore: "IGNORE.*"

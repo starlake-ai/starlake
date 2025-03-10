@@ -143,6 +143,16 @@ object Utils extends StrictLogging {
     sw.toString
   }
 
+  def exceptionMessagesChainAsString(exception: Throwable): String = {
+    val messages = mutable.ListBuffer.empty[String]
+    var e = exception
+    while (e != null) {
+      messages += e.getMessage
+      e = e.getCause
+    }
+    messages.mkString("\n")
+  }
+
   def getDBDisposition(
     writeMode: WriteMode
   ): (String, String) = {
