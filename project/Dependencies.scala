@@ -191,7 +191,7 @@ object Dependencies {
     "com.manticore-projects.jsqlformatter" % "jsqlformatter" % Versions.jSqlFormatter
   )
 
-  val duckdb = Seq("org.duckdb" % "duckdb_jdbc" % Versions.duckdb % "provided")
+  val duckdb = Seq("org.duckdb" % "duckdb_jdbc" % Versions.duckdb)
 
   val jsonSchemaValidator = Seq(
     "com.networknt" % "json-schema-validator" % Versions.jsonSchemaValidator excludeAll (jacksonExclusions: _*)
@@ -220,10 +220,12 @@ object Dependencies {
     "com.github.ben-manes.caffeine" % "caffeine" % "3.2.0"
   )
 
+  val starlakeStreaming = Seq(
+    "ai.starlake" %% "starlake-streaming" % "1.3.3" % "provided"
+  )
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++
-    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler ++ cache ++ swaggerParser ++ Seq(
-      "org.duckdb" % "duckdb_jdbc" % Versions.duckdb
-    )
+    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler ++ cache ++ swaggerParser ++
+    starlakeStreaming
 }

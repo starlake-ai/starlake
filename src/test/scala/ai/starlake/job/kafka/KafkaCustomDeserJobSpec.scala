@@ -1,27 +1,12 @@
 package ai.starlake.job.kafka
 
 import ai.starlake.TestHelper
-import ai.starlake.job.sink.http.SinkTransformer
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.utils.Utils
 import better.files.File
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.config.ConfigFactory
-import org.apache.http.client.methods.HttpUriRequest
 import org.apache.spark.sql.SaveMode
 
 import scala.util.{Failure, Success}
-
-object TestSinkTransformer extends SinkTransformer {
-  val mapper: ObjectMapper = Utils.newJsonMapper()
-  def requestUris(url: String, rows: Array[Seq[String]]): Seq[HttpUriRequest] = {
-    rows.foreach { row =>
-      val jsonValue = row(1)
-      println("=========>" + jsonValue)
-    }
-    Nil
-  }
-}
 
 class KafkaCustomDeserJobSpec extends TestHelper {
   def kafkaConfig(cometOffsetsMode: String, cometOffsetTopicName: String) = ConfigFactory
@@ -90,7 +75,7 @@ class KafkaCustomDeserJobSpec extends TestHelper {
               writeFormat = "starlake-http",
               writeOptions = Map(
                 "url"         -> "http://localhost:9000",
-                "transformer" -> "ai.starlake.job.kafka.TestSinkTransformer"
+                "transformer" -> "ai.starlake.streaming.sink.http.ConsoleSinkTransformer"
               ),
               writeMode = SaveMode.Overwrite.toString,
               path = Some("/tmp/outdir.json"),
