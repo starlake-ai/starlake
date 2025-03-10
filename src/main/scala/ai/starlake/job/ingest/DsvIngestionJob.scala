@@ -25,7 +25,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StringType, StructType}
 
 import scala.util.{Failure, Success, Try}
 
@@ -61,33 +61,13 @@ class DsvIngestionJob(
     */
   val schemaHeaders: List[String] = schema.attributes.map(_.name)
 
-  /** remove any extra quote / BOM in the header
-    *
-    * @param header
-    *   : Header column name
-    * @return
-    */
-  private def cleanHeaderCol(header: String): String =
-    header.replaceAll("\"", "").replaceAll("\uFEFF", "")
-
-  /** @param datasetHeaders
-    *   : Headers found in the dataset
-    * @param schemaHeaders
-    *   : Headers defined in the schema
-    * @return
-    *   success if all headers in the schema exist in the dataset
-    */
-  private def validateHeader(datasetHeaders: List[String], schemaHeaders: List[String]): Boolean = {
-    schemaHeaders.forall(schemaHeader => datasetHeaders.contains(schemaHeader))
-  }
-
   /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
     * defined in the schema are dropped from the dataset (require datsets with a header)
     *
     * @return
     *   Spark Dataset
     */
-  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  def loadDataSet(): Try[DataFrame] = {
     Try {
       val dfInReader = session.read
         .option("header", mergedMetadata.resolveWithHeader().toString)
@@ -102,130 +82,49 @@ class DsvIngestionJob(
         .options(sparkOptions)
         .options(settings.appConfig.dsvOptions)
 
-      val dfInReaderWithSchema = if (withSchema) {
-        dfInReader.schema(schema.sourceSparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler))
-      } else {
+      val finalDfInReader = if (mergedMetadata.resolveWithHeader()) {
         dfInReader
+      } else {
+        // In a DSV file there is no depth so we can just traverse the first level
+        val inputSchema = Attribute(
+          name = "root",
+          `type` = PrimitiveType.struct.value,
+          attributes = schema.attributesWithoutScriptedFields
+        ).sparkType(
+          schemaHandler,
+          (_, sf) => sf.copy(dataType = StringType, nullable = true)
+        ) match {
+          case st: StructType => st
+          case _ =>
+            throw new RuntimeException(
+              "Should never happen since we just converted root of type struct to spark type."
+            )
+        }
+        dfInReader.schema(inputSchema)
       }
-      val dfIn = dfInReaderWithSchema.csv(path.map(_.toString): _*)
+
+      val dfIn = finalDfInReader.csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
-      if (dfIn.isEmpty) {
-        // empty dataframe with accepted schema
-        val sparkSchema = schema.sourceSparkSchemaWithoutScriptedFields(schemaHandler)
-
-        session
-          .createDataFrame(session.sparkContext.emptyRDD[Row], StructType(sparkSchema))
-          .withColumn(
-            CometColumns.cometInputFileNameColumn,
-            org.apache.spark.sql.functions.input_file_name()
-          )
-      } else {
-        val df = applyIgnore(dfIn)
-
-        val resDF = if (mergedMetadata.resolveWithHeader()) {
-          val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
-          val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
-          if (datasetHeaders.length == drop.length) {
-            throw new Exception(s"""No attribute found in input dataset ${path.toString}
-                 | SchemaHeaders : ${schemaHeaders.mkString(",")}
-                 | Dataset Headers : ${datasetHeaders.mkString(",")}
-             """.stripMargin)
-          }
-          // TODO: add warning or raise error when schemaHeader is optional or required
-          // Source: COL1 COL2
-          // schema: COL1 COL3 => Col3 should not be discarded silently
-          // Maybe we should complete the dataframe with null values for the missing columns
-          // This will allow failure on required attributes during validation
-          df.drop(drop: _*)
-        } else {
-          /* No header, let's make sure we take the first attributes
-             if there are more in the CSV file
-           */
-          val attributesWithoutScriptedFields = schema.attributesWithoutScriptedFields
-          val compare =
-            attributesWithoutScriptedFields.length.compareTo(df.columns.length)
-          compare match {
-            case 0 =>
-              df.toDF(
-                attributesWithoutScriptedFields
-                  .map(_.name)
-                  .take(attributesWithoutScriptedFields.length): _*
-              )
-            case c if c > 0 =>
-              val countMissing =
-                attributesWithoutScriptedFields.length - df.columns.length
-              throw new Exception(
-                s"$countMissing MISSING columns in the input DataFrame ${attributesWithoutScriptedFields
-                    .map(_.name)} != ${df.columns.toList}"
-              )
-            case _ => // compare < 0
-              val cols = df.columns
-              df.select(
-                cols.head,
-                cols.tail.take(attributesWithoutScriptedFields.length - 1).toIndexedSeq: _*
-              ).toDF(attributesWithoutScriptedFields.map(_.name): _*)
-          }
-        }
-        resDF.withColumn(
-          //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
+      dfIn
+        .withColumn(
           CometColumns.cometInputFileNameColumn,
           org.apache.spark.sql.functions.input_file_name()
         )
-      }
     }
   }
 
-  /** Apply the schema to the dataset. This is where all the magic happen Valid records are stored
-    * in the accepted path / table and invalid records in the rejected path / table
-    *
-    * @param dataset
-    *   : Spark Dataset
-    */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
-    val orderedAttributes = reorderAttributes(dataset)
-    def reorderTypes(): (List[Type], StructType) = {
-      val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
-      val (tpes, sparkFields) = orderedAttributes.map { attribute =>
-        val tpe = typeMap(attribute.`type`)
-        (tpe, tpe.sparkType(attribute.name, !attribute.resolveRequired(), attribute.comment))
-      }.unzip
-      (tpes, StructType(sparkFields))
-    }
-
-    val (orderedTypes, orderedSparkTypes) = reorderTypes()
-
-    val validationResult = flatRowValidator.validate(
-      session,
-      mergedMetadata.resolveFormat(),
-      mergedMetadata.resolveSeparator(),
-      dataset,
-      orderedAttributes,
-      orderedTypes,
-      orderedSparkTypes,
-      settings.appConfig.privacy.options,
-      settings.appConfig.cacheStorageLevel,
-      settings.appConfig.sinkReplayToFile,
-      mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
-    )
-
-    val rejectedResult =
-      saveRejected(validationResult.errors, validationResult.rejected)(
-        settings,
-        storageHandler,
-        schemaHandler
-      )
-    rejectedResult match {
-      case Success(_) =>
-        val acceptedResult = saveAccepted(validationResult)
-        acceptedResult match {
-          case Success(rejectedRecordCount) =>
-            (validationResult.errors, validationResult.accepted, rejectedRecordCount);
-          case Failure(exception) =>
-            throw exception
-        }
-      case Failure(exception) =>
-        throw exception
-    }
+  override def defineOutputAsOriginalFormat(rejectedLines: DataFrame): DataFrameWriter[Row] = {
+    rejectedLines.write
+      .format("csv")
+      .option("header", mergedMetadata.resolveWithHeader().toString)
+      .option("delimiter", mergedMetadata.resolveSeparator())
+      .option("quote", mergedMetadata.resolveQuote())
+      .option("escape", mergedMetadata.resolveEscape())
+      .option("nullValue", mergedMetadata.resolveNullValue())
+      .option("parserLib", "UNIVOCITY")
+      .option("encoding", mergedMetadata.resolveEncoding())
+      .options(sparkOptions)
+      .options(settings.appConfig.dsvOptions)
   }
 }

@@ -56,7 +56,8 @@ import scala.util.Try
 class OpenAPISchemaExtractor(
   private val extractConfig: OpenAPIExtractSchema,
   private val connectionSettings: Connection,
-  attributeSanitizeStrategy: SanitizeStrategy
+  attributeSanitizeStrategy: SanitizeStrategy,
+  applySnakeCaseOnName: Boolean
 ) extends SchemaExtractor
     with ExtractPathHelper
     with StrictLogging {
@@ -236,7 +237,7 @@ class OpenAPISchemaExtractor(
   private def expandRouteSchema(route: OpenAPIRoute, aei: ApiEssentialInformation) = {
     route.explode match {
       case Some(explodeConfig) =>
-        explodeStructureSchema(aei.schema.schema, explodeConfig.on).map {
+        explodeStructureSchema(aei.schema.schema, explodeConfig.on, explodeConfig.exclude).map {
           case (attributePath, (schema, attributeDescription)) =>
             aei.copy(
               attributePath = Some(attributePath),
@@ -278,7 +279,11 @@ class OpenAPISchemaExtractor(
     // keep description of the shortest path
 
     val routesStr =
-      connexInfos.map(_._2.apiPath).mkString(", ")
+      connexInfos
+        .map { case (_, aei) =>
+          aei.apiPath + aei.attributePath.map(" and property " + _).getOrElse("")
+        }
+        .mkString(", ")
     val slSchemaGenerator = openAPISchemaToStarlakeSchema(schema.schema, formatTypeMapping)
     logger.info(
       s"Generating starlake schema of OpenAPI Schema ${schema.schemaNamesStr} for routes: $routesStr"
@@ -536,7 +541,8 @@ class OpenAPISchemaExtractor(
     */
   private def explodeStructureSchema(
     responseSchema: OpenAPISwaggerSchema[_],
-    explosionStrategy: RouteExplosionStrategy
+    explosionStrategy: RouteExplosionStrategy,
+    excludeProperties: List[Pattern]
   ): Map[String, (OpenAPISwaggerSchema[_], Option[String])] = {
     def internalExplode(
       currentPath: String,
@@ -566,41 +572,46 @@ class OpenAPISchemaExtractor(
         }
       }
 
-      currentSchema match {
-        case os: ObjectSchema =>
-          handleObjectSchema(os)
-        case os: OpenAPISwaggerSchema[_] if isObjectSchema(os) =>
-          handleObjectSchema(os)
-        case as: ArraySchema
-            if as.getItems.isInstanceOf[ObjectSchema] || as.getItems
-              .isInstanceOf[OpenAPISwaggerSchema[_]] && isObjectSchema(
-              as.getItems
-            ) =>
-          if (explosionStrategy == All || explosionStrategy == Array) {
-            Map(
-              currentPath -> (as.getItems -> Option(as.getItems.getDescription)
-                .orElse(Option(as.getDescription)))
-            )
-          } else {
-            as.getItems.getProperties.asScala
-              .filter {
-                case (_, _: ObjectSchema) => true
-                case (_, s: OpenAPISwaggerSchema[_]) if isObjectSchema(s) =>
-                  true
-                case (_, s: ArraySchema)
-                    if s.getItems.isInstanceOf[ObjectSchema] || s.getItems
-                      .isInstanceOf[OpenAPISwaggerSchema[_]] && isObjectSchema(
-                      s.getItems
-                    ) =>
-                  true
-                case _ => false
-              }
-              .map { case (property, schema) =>
-                internalExplode(currentPath + "_" + property, schema)
-              }
-              .flatten
-              .toMap
-          }
+      if (excludeProperties.exists(_.matcher(currentPath).matches())) {
+        logger.info("Excluding property " + currentPath)
+        Map.empty
+      } else {
+        currentSchema match {
+          case os: ObjectSchema =>
+            handleObjectSchema(os)
+          case os: OpenAPISwaggerSchema[_] if isObjectSchema(os) =>
+            handleObjectSchema(os)
+          case as: ArraySchema
+              if as.getItems.isInstanceOf[ObjectSchema] || as.getItems
+                .isInstanceOf[OpenAPISwaggerSchema[_]] && isObjectSchema(
+                as.getItems
+              ) =>
+            if (explosionStrategy == All || explosionStrategy == Array) {
+              Map(
+                currentPath -> (as.getItems -> Option(as.getItems.getDescription)
+                  .orElse(Option(as.getDescription)))
+              )
+            } else {
+              as.getItems.getProperties.asScala
+                .filter {
+                  case (_, _: ObjectSchema) => true
+                  case (_, s: OpenAPISwaggerSchema[_]) if isObjectSchema(s) =>
+                    true
+                  case (_, s: ArraySchema)
+                      if s.getItems.isInstanceOf[ObjectSchema] || s.getItems
+                        .isInstanceOf[OpenAPISwaggerSchema[_]] && isObjectSchema(
+                        s.getItems
+                      ) =>
+                    true
+                  case _ => false
+                }
+                .map { case (property, schema) =>
+                  internalExplode(currentPath + "_" + property, schema)
+                }
+                .flatten
+                .toMap
+            }
+        }
       }
     }
     assert(
@@ -735,7 +746,8 @@ class OpenAPISchemaExtractor(
               }
               .orElse(Some(enums))
         }
-        val sanitizedFieldName = NamingUtils.normalizeAttributeName(fieldName)
+        val sanitizedFieldName =
+          NamingUtils.normalizeAttributeName(fieldName, toSnakeCase = applySnakeCaseOnName)
 
         new Attribute(
           name = if (attributeSanitizeStrategy == OnExtract) sanitizedFieldName else fieldName,

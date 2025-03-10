@@ -166,6 +166,7 @@ protected case class ApiEssentialInformation(
   ): String = {
     val nameToNormalize: String = rename
       .getOrElse {
+        // check if attribute is forced to a name
         val attributeRenamed = attributePath
           .flatMap { ap =>
             attributePathRename
@@ -175,9 +176,10 @@ protected case class ApiEssentialInformation(
         attributeRenamed
           .filter(_.nonEmpty)
           .getOrElse(
+            // if not then use {apiPath} and add _{attributePath} if it is defined
             apiBasePathOpt
               .map(apiBasePath => apiPath.replaceFirst("^" + apiBasePath, ""))
-              .getOrElse(apiPath) + attributeRenamed.map("_" + _).getOrElse("")
+              .getOrElse(apiPath) + attributePath.map("_" + _).getOrElse("")
           )
       }
     normalizeTableName(nameToNormalize)

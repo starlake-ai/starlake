@@ -7,5 +7,6 @@ case class ExtractSchemaConfig(
   parallelism: Option[Int] = None,
   external: Boolean = false,
   connectionRef: Option[String] = None,
-  accessToken: Option[String] = None
+  accessToken: Option[String] = None,
+  snakeCase: Boolean = false
 )

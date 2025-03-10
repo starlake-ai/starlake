@@ -26,8 +26,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
-import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.validateRecord
-import org.apache.spark.sql.types.{DataType, StringType, StructField}
+import org.apache.spark.sql.functions.col
 
 import scala.util.{Failure, Success, Try}
 
@@ -59,128 +58,65 @@ class JsonIngestionJob(
 )(implicit val settings: Settings)
     extends IngestionJob {
 
-  protected def loadJsonData(): Dataset[String] = {
-    if (mergedMetadata.resolveArray()) {
-      session.read
-        .option("multiLine", true)
-        .json(path.map(_.toString): _*)
-        .toJSON
+  protected def loadJsonData(): DataFrame = {
+    val readOptions = (if (mergedMetadata.resolveArray()) {
+                         // we force multiLine to true to keep current behavior where we allow only one array but we may disable it and allow multiple inline array as well, depending on user configuration
+                         List("multiLine" -> "true", "lineSep" -> "\n")
+                       } else
+                         List("multiLine" -> mergedMetadata.resolveMultiline().toString)) ++ List(
+      "encoding" -> mergedMetadata.resolveEncoding()
+    ) ++ sparkOptions.toList
+    val dfIn = session.read
+      .options(readOptions.toMap)
+      .json(path.map(_.toString): _*)
+      .withColumn(
+        //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
+        CometColumns.cometInputFileNameColumn,
+        org.apache.spark.sql.functions.input_file_name()
+      )
 
+    if (dfIn.columns.contains("_corrupt_record")) {
+      // TODO send rejected records to rejected area
+      dfIn.filter(col("_corrupt_record").isNotNull).show()
+      logger.whenDebugEnabled {
+        logger.debug(dfIn.filter(col("_corrupt_record").isNotNull).showString(1000, truncate = 0))
+      }
+      throw new Exception(
+        s"""Invalid JSON File: ${path
+            .map(_.toString)
+            .mkString(",")}"""
+      )
     } else {
-      session.read
-        .option("inferSchema", value = false)
-        .option("encoding", mergedMetadata.resolveEncoding())
-        .options(sparkOptions)
-        .textFile(path.map(_.toString): _*)
+      dfIn
     }
   }
 
-  /** load the json as an RDD of String
+  /** load the json as a dataframe of String
     *
     * @return
     *   Spark Dataframe loaded using metadata options
     */
-  def loadDataSet(withSchema: Boolean): Try[DataFrame] = {
+  def loadDataSet(): Try[DataFrame] = {
 
     Try {
       val dfIn = loadJsonData()
-      val dfInWithInputFilename = dfIn.select(
-        org.apache.spark.sql.functions
-          .input_file_name()
-          .alias(CometColumns.cometInputFileNameColumn),
-        org.apache.spark.sql.functions.col("value")
-      )
+      val dfInWithInputFilename = dfIn
+        .withColumn(
+          CometColumns.cometInputFileNameColumn,
+          org.apache.spark.sql.functions
+            .input_file_name()
+        )
       logger.whenDebugEnabled {
         logger.debug(dfIn.schemaString())
       }
-      val df = applyIgnore(dfInWithInputFilename)
-      df
+      dfInWithInputFilename
     }
   }
 
-  def parseDF(
-    inputDF: DataFrame,
-    schemaSparkType: DataType
-  ): (Dataset[String], Dataset[String]) = {
-    implicit val tuple3Encoder =
-      Encoders.tuple(
-        Encoders.STRING,
-        Encoders.STRING,
-        Encoders.STRING
-      )
-    val validatedDF = inputDF.map { row =>
-      val inputFilename = row.getAs[String](CometColumns.cometInputFileNameColumn)
-      val rowAsString = row.getAs[String]("value")
-      val errorList = validateRecord(rowAsString, schemaSparkType)
-      (rowAsString, errorList.mkString("\n"), inputFilename)
-    }
-
-    val withInvalidSchema =
-      validatedDF
-        .filter(_._2.nonEmpty)
-        .map { case (_, errorList, _) =>
-          errorList
-        }(Encoders.STRING)
-
-    val withValidSchema = validatedDF
-      .filter(_._2.isEmpty)
-      .map { case (rowAsString, _, inputFilename) =>
-        val (left, _) = rowAsString.splitAt(rowAsString.lastIndexOf("}"))
-        // Because Spark cannot detect the input files when session.read.json(session.createDataset(withValidSchema)(Encoders.STRING)),
-        // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
-        s"""$left, "${CometColumns.cometInputFileNameColumn}" : "$inputFilename" }"""
-      }(Encoders.STRING)
-    (withInvalidSchema, withValidSchema)
-  }
-
-  /** Where the magic happen
-    *
-    * @param dataset
-    *   input dataset as a RDD of string
-    */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
-    val validationSchema =
-      schema.sourceSparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
-    val persistedDF = dataset.persist(settings.appConfig.cacheStorageLevel)
-    val (withInvalidSchema, withValidSchema) = parseDF(persistedDF, validationSchema)
-    val loadSchema = schema
-      .sourceSparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler)
-      .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
-
-    val toValidate = session.read
-      .schema(loadSchema)
-      .json(withValidSchema)
-
-    val validationResult =
-      treeRowValidator.validate(
-        session,
-        mergedMetadata.resolveFormat(),
-        mergedMetadata.resolveSeparator(),
-        toValidate,
-        schema.attributes,
-        types,
-        validationSchema,
-        settings.appConfig.privacy.options,
-        settings.appConfig.cacheStorageLevel,
-        settings.appConfig.sinkReplayToFile,
-        mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull)
-      )
-    val rejectedDS = withInvalidSchema.union(validationResult.errors)
-    rejectedDS.persist(settings.appConfig.cacheStorageLevel)
-
-    saveRejected(rejectedDS, validationResult.rejected)(
-      settings,
-      storageHandler,
-      schemaHandler
-    ).flatMap { _ =>
-      saveAccepted(validationResult) // prefer to let Spark compute the final schema
-    } match {
-      case Failure(exception: NullValueFoundException) =>
-        (validationResult.errors.union(rejectedDS), validationResult.accepted, exception.nbRecord)
-      case Failure(exception) =>
-        throw exception
-      case Success(rejectedRecordCount) =>
-        (validationResult.errors.union(rejectedDS), validationResult.accepted, rejectedRecordCount);
-    }
+  override def defineOutputAsOriginalFormat(rejectedLines: DataFrame): DataFrameWriter[Row] = {
+    rejectedLines.write
+      .format("json")
+      .option("encoding", mergedMetadata.resolveEncoding())
+      .options(sparkOptions)
   }
 }
