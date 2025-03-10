@@ -97,6 +97,20 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     }
   }
 
+  def orchestratorFromTemplate(template: String): String = {
+    val pathIndex = template.lastIndexOf('/')
+    val templateName =
+      if (pathIndex > 0)
+        template.substring(pathIndex + 1)
+      else
+        template
+    val oIndex = templateName.indexOf("__")
+    if (oIndex > 0) {
+      templateName.substring(0, oIndex)
+    } else
+      "unknown"
+  }
+
   def generateTaskDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
@@ -151,6 +165,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val configs = taskConfigs.map { case (_, config) => config.taskDesc.name }
         val autoTaskDepsConfig = AutoTaskDependenciesConfig(tasks = Some(configs))
         val deps = depsEngine.jobsDependencyTree(autoTaskDepsConfig)
+        val orchestratorName = orchestratorFromTemplate(dagConfig.template).toLowerCase()
+        val nativeOrchestrator = Set("snowflake", "databricks").contains(orchestratorName)
 
         val taskStatements: List[
           (
@@ -162,7 +178,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
           )
         ] =
-          if (config.orchestrator.isDefined) {
+          if (nativeOrchestrator) {
             taskConfigs.map { case (_, config) =>
               val task = AutoTask.task(
                 appId = None,
@@ -332,47 +348,48 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
               scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
-              config.orchestrator match {
-                case Some(orchestrator) =>
-                  val statements =
-                    new DummyIngestionJob(
-                      domain = domain,
-                      schema = table,
-                      types = schemaHandler.types(),
-                      path = Nil,
-                      storageHandler = settings.storageHandler(),
-                      schemaHandler = schemaHandler,
-                      options = options,
-                      accessToken = None,
-                      test = false
-                    ).buildListOfSQLStatementsAsMap(orchestrator)
-                  val context = LoadDagGenerationContext(
-                    config = dagConfig.copy(options = options, comment = comment),
-                    schedules,
-                    workflowStatementsIn = List(statements)
-                  )
-                  val loadTemplateContent =
-                    new LoadStrategyTemplateLoader().loadTemplate(s"$orchestrator/default.j2")
-                  applyJ2AndSave(
-                    outputDir,
-                    jEnv,
-                    loadTemplateContent,
-                    optionsWithProjectIdAndName(config, context.asMap),
-                    filename
-                  )
-                case None =>
-                  val context = LoadDagGenerationContext(
-                    config = dagConfig.copy(options = options, comment = comment),
-                    schedules,
-                    workflowStatementsIn = List(Map.empty)
-                  )
-                  applyJ2AndSave(
-                    outputDir,
-                    jEnv,
-                    dagTemplateContent,
-                    optionsWithProjectIdAndName(config, context.asMap),
-                    filename
-                  )
+              val orchestratorName = orchestratorFromTemplate(dagConfig.template).toLowerCase()
+              val nativeOrchestrator = Set("snowflake", "databricks").contains(orchestratorName)
+              if (nativeOrchestrator) {
+                val statements =
+                  new DummyIngestionJob(
+                    domain = domain,
+                    schema = table,
+                    types = schemaHandler.types(),
+                    path = Nil,
+                    storageHandler = settings.storageHandler(),
+                    schemaHandler = schemaHandler,
+                    options = options,
+                    accessToken = None,
+                    test = false
+                  ).buildListOfSQLStatementsAsMap(orchestratorName)
+                val context = LoadDagGenerationContext(
+                  config = dagConfig.copy(options = options, comment = comment),
+                  schedules,
+                  workflowStatementsIn = List(statements)
+                )
+                val loadTemplateContent =
+                  new LoadStrategyTemplateLoader().loadTemplate(s"$orchestratorName/default.j2")
+                applyJ2AndSave(
+                  outputDir,
+                  jEnv,
+                  loadTemplateContent,
+                  optionsWithProjectIdAndName(config, context.asMap),
+                  filename
+                )
+              } else {
+                val context = LoadDagGenerationContext(
+                  config = dagConfig.copy(options = options, comment = comment),
+                  schedules,
+                  workflowStatementsIn = List(Map.empty)
+                )
+                applyJ2AndSave(
+                  outputDir,
+                  jEnv,
+                  dagTemplateContent,
+                  optionsWithProjectIdAndName(config, context.asMap),
+                  filename
+                )
               }
             }
           }
