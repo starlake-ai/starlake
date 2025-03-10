@@ -144,7 +144,9 @@ trait TestHelper
        |      "quoteIdentifiers": false
        |    }
        |  }
-       |
+       |spark {
+       |  sql.warehouse.dir: "${starlakeTestRoot}"
+       |}
        |
        |
        |""".stripMargin
