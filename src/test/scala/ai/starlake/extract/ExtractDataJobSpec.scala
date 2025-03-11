@@ -3835,7 +3835,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
 
       val localDateTime = LocalDateTime
         .of(2024, 4, 8, 0, 0)
-        .toInstant(OffsetDateTime.now(ZoneId.systemDefault()).getOffset)
+        .atZone(ZoneId.systemDefault())
+        .toInstant
         .toEpochMilli
       // stale case: extracted before but not fresh enough
       extractDataJob.isExtractionNeeded(
@@ -3851,10 +3852,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       extractDataJob.isExtractionNeeded(
         extractDataConfig.copy(extractionPredicate =
           Some(
-            _ < LocalDateTime
-              .of(2024, 4, 8, 0, 0)
-              .toInstant(OffsetDateTime.now(ZoneId.systemDefault()).getOffset)
-              .toEpochMilli
+            _ < localDateTime
           )
         ),
         partitionnedConfig.copy(table = "refreshed_table"),

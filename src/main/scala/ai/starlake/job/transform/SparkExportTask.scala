@@ -192,8 +192,6 @@ class SparkExportTask(
             )
 
         // retrieve the schema of the dataset
-        df.show(truncate = false)
-
         // create an iterator that will contain all the dataframe rows to sink to the xls file
         val rows = df.toLocalIterator()
 

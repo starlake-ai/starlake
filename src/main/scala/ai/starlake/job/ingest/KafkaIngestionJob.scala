@@ -21,12 +21,15 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
+import ai.starlake.config.CometColumns
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Mode, Schema, Type}
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.{JobResult, Utils}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.{col, from_json}
+import org.apache.spark.sql.types.{StringType, StructField}
 
 import scala.util.{Failure, Try}
 
@@ -78,7 +81,7 @@ class KafkaIngestionJob(
     * @return
     *   Spark DataFrame where each row holds a single string
     */
-  override protected def loadJsonData(): Dataset[String] = {
+  override protected def loadJsonData(): DataFrame = {
     val dfIn = mode match {
       case Mode.FILE =>
         Utils.withResources(new KafkaClient(settings.appConfig.kafka)) { kafkaClient =>
@@ -102,7 +105,13 @@ class KafkaIngestionJob(
     logger.whenDebugEnabled {
       logger.debug(dfIn.schemaString())
     }
-    finalDfIn
+    finalDfIn.select(
+      from_json(
+        col("value"),
+        schema
+          .sourceSparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler)
+      )
+    )
   }
 
   override def run(): Try[JobResult] = {
