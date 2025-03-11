@@ -368,12 +368,10 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                   schedules,
                   workflowStatementsIn = List(statements)
                 )
-                val loadTemplateContent =
-                  new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
                 applyJ2AndSave(
                   outputDir,
                   jEnv,
-                  loadTemplateContent,
+                  dagTemplateContent,
                   optionsWithProjectIdAndName(config, context.asMap),
                   filename
                 )

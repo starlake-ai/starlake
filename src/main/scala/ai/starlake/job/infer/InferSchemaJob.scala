@@ -103,15 +103,21 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     *   the file separator
     */
   def getSeparator(firstLine: String): String = {
-    val (separator, _) =
-      firstLine
+    val (separator, _) = {
+      val chars = firstLine
         .replaceAll("[A-Za-z0-9 \"'()@?!éèîàÀÉÈç+\\-_]", "")
         .toCharArray
         .map((_, 1))
         .groupBy(_._1)
         .mapValues(_.length)
         .toList
-        .maxBy { case (ch, count) => count }
+
+      if (chars.nonEmpty)
+        chars.maxBy { case (ch, count) => count }
+      else
+        // We assume "," is the separator
+        (',', 1)
+    }
     separator.toString
   }
 
@@ -283,7 +289,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             val field =
               line.substring(fieldIndex + 1) // no trim to keep leading and trailing spaces
             val startPosition = lastIndex + 1
-            val endPosition = startPosition + field.length
+            val endPosition = startPosition + field.length - 1
             lastIndex = endPosition
             Attribute(
               name = fieldName,

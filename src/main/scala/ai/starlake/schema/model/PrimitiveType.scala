@@ -24,9 +24,10 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
+import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 
-import java.sql.Timestamp
+import java.sql.{Date, Timestamp}
 import java.text.{DecimalFormat, NumberFormat, SimpleDateFormat}
 import java.time._
 import java.time.format.DateTimeFormatter._
@@ -46,7 +47,7 @@ import scala.util.{Failure, Success, Try}
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[PrimitiveTypeDeserializer])
 sealed abstract case class PrimitiveType(value: String) {
-  def fromString(str: String, pattern: String = null, zone: String = null): Any
+  def fromString(str: String, pattern: String, zone: Option[String] = None): Any
 
   override def toString: String = value
 
@@ -86,20 +87,20 @@ class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
 object PrimitiveType {
 
   object string extends PrimitiveType("string") {
-    def fromString(str: String, pattern: String, zone: String): Any = str
+    def fromString(str: String, pattern: String, zone: Option[String]): Any = str
 
     def sparkType(zone: Option[String]): DataType = StringType
   }
 
   object variant extends PrimitiveType("variant") {
-    def fromString(str: String, pattern: String, zone: String): Any = str
+    def fromString(str: String, pattern: String, zone: Option[String]): Any = str
 
     def sparkType(zone: Option[String]): DataType = StringType // VarcharType(Int.MaxValue)
   }
 
   object long extends PrimitiveType("long") {
 
-    def fromString(str: String, pattern: String, zone: String): Any =
+    def fromString(str: String, pattern: String, zone: Option[String]): Any =
       if (str == null || str.isEmpty) null else str.trim.toLong
 
     def sparkType(zone: Option[String]): DataType = LongType
@@ -107,7 +108,7 @@ object PrimitiveType {
 
   object int extends PrimitiveType("int") {
 
-    def fromString(str: String, pattern: String, zone: String): Any =
+    def fromString(str: String, pattern: String, zone: Option[String]): Any =
       if (str == null || str.isEmpty) null else str.trim.toInt
 
     def sparkType(zone: Option[String]): DataType = IntegerType
@@ -115,7 +116,7 @@ object PrimitiveType {
 
   object short extends PrimitiveType("short") {
 
-    def fromString(str: String, pattern: String, zone: String): Any =
+    def fromString(str: String, pattern: String, zone: Option[String]): Any =
       if (str == null || str.isEmpty) null else str.trim.toShort
 
     def sparkType(zone: Option[String]): DataType = ShortType
@@ -123,29 +124,43 @@ object PrimitiveType {
 
   object double extends PrimitiveType("double") {
 
-    def fromString(str: String, pattern: String, zone: String): Any = {
+    def fromString(str: String, pattern: String, zone: Option[String]): Any = {
       if (str == null || str.isEmpty)
         null
-      else if (zone == null)
-        str.trim.toDouble
       else {
-        val locale = zone.split('_')
-        val currentLocale: Locale = new Locale(locale(0), locale(1))
-        val numberFormatter =
-          NumberFormat.getNumberInstance(currentLocale).asInstanceOf[DecimalFormat]
-        if (str.head == '+')
-          numberFormatter.setPositivePrefix("+")
-        numberFormatter.parse(str.trim).doubleValue()
+        typedConvert(str, zone)
+      }
+    }
+
+    private def typedConvert(str: String, zone: Option[String]) = {
+      zone match {
+        case Some(zone) =>
+          val locale = zone.split('_')
+          val currentLocale: Locale = new Locale(locale(0), locale(1))
+          val numberFormatter =
+            NumberFormat.getNumberInstance(currentLocale).asInstanceOf[DecimalFormat]
+          if (str.head == '+')
+            numberFormatter.setPositivePrefix("+")
+          numberFormatter.parse(str.trim).doubleValue()
+        case None => str.trim.toDouble
       }
     }
 
     def sparkType(zone: Option[String]): DataType = DoubleType
+
+    def parseUDF(zone: Option[String]) = {
+      udf((input: String) => {
+        Option(input).flatMap(str => {
+          Try(typedConvert(str, zone)).toOption
+        })
+      }).withName("as_double")
+    }
   }
 
   object decimal extends PrimitiveType("decimal") {
     val defaultDecimalType = DataTypes.createDecimalType(38, 9)
     var decimals: mutable.Map[String, DecimalType] = mutable.Map.empty
-    def fromString(str: String, pattern: String, zone: String): Any =
+    def fromString(str: String, pattern: String, zone: Option[String]): Any =
       if (str == null || str.isEmpty) null else BigDecimal(str.trim)
 
     override def sparkType(zone: Option[String]): DataType = {
@@ -184,36 +199,81 @@ object PrimitiveType {
         .matches()
     }
 
-    def fromString(str: String, pattern: String, zone: String): Any = {
+    private def getPatterns(pattern: String) = {
+      if (pattern.indexOf("<-TF->") >= 0) {
+        val tf = pattern.split("<-TF->")
+        val (truePattern, falsePattern) = (
+          Pattern
+            .compile(tf(0), Pattern.DOTALL),
+          Pattern
+            .compile(tf(1), Pattern.DOTALL)
+        )
+        truePattern -> falsePattern
+      } else {
+        throw new Exception(
+          s"Boolean pattern must have '<-TF->' in its pattern $pattern to validate input and choose between true or false"
+        )
+      }
+    }
+
+    private def resolveBoolean(
+      truePattern: Pattern,
+      falsePattern: Pattern,
+      value: String,
+      trim: Boolean
+    ): Option[Boolean] = {
+      val str = if (trim) {
+        value.trim
+      } else {
+        value
+      }
+      if (truePattern.matcher(str.trim).matches())
+        Some(true)
+      else if (falsePattern.matcher(str.trim).matches())
+        Some(false)
+      else
+        None
+    }
+
+    def fromString(str: String, pattern: String, zone: Option[String]) = {
       if (str == null || str.isEmpty)
         null
-      else if (pattern.indexOf("<-TF->") >= 0) {
-        val tf = pattern.split("<-TF->")
-        if (Pattern.compile(tf(0), Pattern.MULTILINE).matcher(str.trim).matches())
-          true
-        else if (Pattern.compile(tf(1), Pattern.MULTILINE).matcher(str.trim).matches())
-          false
-        else
+      else {
+        val (truePattern, falsePattern) = getPatterns(pattern)
+        resolveBoolean(truePattern, falsePattern, str, trim = true).getOrElse(
           throw new Exception(s"value $str does not match $pattern")
-      } else {
-        throw new Exception(s"Operator <-TF-> required in pattern $pattern to validate $str")
+        )
       }
     }
 
     def sparkType(zone: Option[String]): DataType = BooleanType
+
+    def parseUDF(pattern: String) = {
+      val (truePattern, falsePattern) = getPatterns(pattern)
+      udf((str: String) => {
+        Option(str).flatMap { str =>
+          resolveBoolean(truePattern, falsePattern, str, trim = false)
+        }
+      }).withName("as_boolean")
+    }
   }
 
   object byte extends PrimitiveType("byte") {
 
-    def fromString(str: String, pattern: String, zone: String): Any =
+    def fromString(str: String, pattern: String, zone: Option[String]): Any =
       if (str == null || str.isEmpty) null else str.head.toByte
 
     def sparkType(zone: Option[String]): DataType = ByteType
+
+    // Could not find the equivalent spark sql expression
+    def parseUDF =
+      udf((str: String) => Option(str).flatMap(_.headOption).flatMap(c => Try(c.toByte).toOption))
+        .withName("as_byte")
   }
 
   object struct extends PrimitiveType("struct") {
 
-    def fromString(str: String, pattern: String, zone: String): Any =
+    def fromString(str: String, pattern: String, zone: Option[String]): Any =
       if (str == null || str.isEmpty) null else str.toByte
 
     def sparkType(zone: Option[String]): DataType = new StructType(Array.empty[StructField])
@@ -306,58 +366,77 @@ object PrimitiveType {
 
   object date extends PrimitiveType("date") {
 
-    def fromString(str: String, pattern: String, zone: String): Any = {
+    override def fromString(str: String, pattern: String, zone: Option[String]): Any = {
       if (str == null || str.isEmpty)
         null
       else {
-        val formatter = Option(zone) match {
-          case None => DateTimeFormatter.ofPattern(pattern)
-          case Some(zone) =>
-            val locale = zone.split('_')
-            val currentLocale: Locale = new Locale(locale(0), locale(1))
-            new DateTimeFormatterBuilder()
-              .parseCaseInsensitive()
-              .appendPattern(pattern)
-              .toFormatter
-              .withLocale(currentLocale)
-        }
-        Try {
-          val date = LocalDate.parse(str.trim, formatter)
-          java.sql.Date.valueOf(date)
-        } match {
-          case Success(value) => value
-          case Failure(_) => java.sql.Date.valueOf(YearMonth.parse(str.trim, formatter).atDay(1))
-        }
+        typedConvert(str, pattern, zone)
       }
     }
+
+    private def typedConvert(str: String, pattern: String, zone: Option[String]): Date = {
+      val formatter = zone match {
+        case None => DateTimeFormatter.ofPattern(pattern)
+        case Some(zone) =>
+          val locale = zone.split('_')
+          val currentLocale: Locale = new Locale(locale(0), locale(1))
+          new DateTimeFormatterBuilder()
+            .parseCaseInsensitive()
+            .appendPattern(pattern)
+            .toFormatter
+            .withLocale(currentLocale)
+      }
+      Try {
+        val date = LocalDate.parse(str.trim, formatter)
+        java.sql.Date.valueOf(date)
+      }.getOrElse(
+        java.sql.Date.valueOf(YearMonth.parse(str.trim, formatter).atDay(1))
+      )
+    }
+
     def sparkType(zone: Option[String]): DataType = DateType
+
+    def parseUDF(pattern: String, zone: Option[String]) =
+      udf((str: String) =>
+        Option(str).flatMap { str =>
+          Try(typedConvert(str, pattern, zone)).toOption
+        }
+      ).withName("as_date")
   }
 
   object timestamp extends PrimitiveType("timestamp") {
 
-    def fromString(str: String, timeFormat: String, zone: String): Any = {
-      val res = {
-        if (str == null || str.isEmpty)
-          null
-        else {
-          val zoneId = Option(zone) match {
-            case Some(z) => ZoneId.of(z)
-            case None    => ZoneId.of("UTC")
-          }
-
-          val instant = instantFromString(str.trim, timeFormat, zoneId)
-          val tsValue = Timestamp.from(instant)
-          tsValue
-        }
+    def fromString(str: String, timeFormat: String, zone: Option[String]): Any = {
+      if (str == null || str.isEmpty)
+        null
+      else {
+        typedConvert(str, timeFormat, zone)
       }
-      res
+    }
+
+    private def typedConvert(str: String, timeFormat: String, zone: Option[String]): Timestamp = {
+      val zoneId = zone match {
+        case Some(z) => ZoneId.of(z)
+        case None    => ZoneId.of("UTC")
+      }
+
+      val instant = instantFromString(str.trim, timeFormat, zoneId)
+      val tsValue = Timestamp.from(instant)
+      tsValue
     }
 
     def sparkType(zone: Option[String]): DataType = TimestampType
+
+    def parseUDF(timeFormat: String, zone: Option[String]) =
+      udf((str: String) =>
+        Option(str).flatMap { str =>
+          Try(typedConvert(str, timeFormat, zone)).toOption
+        }
+      ).withName("as_timestamp")
   }
 
   val primitiveTypes: Set[PrimitiveType] =
-    Set(string, long, int, double, short, decimal, boolean, byte, date, timestamp, struct)
+    Set(string, long, int, double, short, decimal, boolean, byte, date, timestamp, struct, variant)
 
   val dateFormatters: Map[String, DateTimeFormatter] = Map(
     // ISO_LOCAL_TIME, ISO_OFFSET_TIME and ISO_TIME patterns are specific to time handling, without a date

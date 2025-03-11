@@ -95,7 +95,10 @@ object Common {
             // val suffix = "T" + ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             currentVersion + " @ " + suffix
           } else currentVersion
-        }
+        },
+        BuildInfoKey.action("buildTime") {
+          System.currentTimeMillis
+        } // re-computed each time at compile
       )
     ) ++ gitSettings ++ assemlySettings
 
@@ -108,13 +111,17 @@ object Resolvers {
   val mulesoft =
     "Mulesoft repository" at "https://repository.mulesoft.org/nexus/content/repositories/public/"
 
+  val releases =
+    "Sonatype OSS Releases" at "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+
   val snapshots =
     "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots/"
 
   val allResolvers =
-    Seq(Resolver.mavenLocal, typeSafe, confluent, mulesoft, snapshots) ++ Resolver.sonatypeOssRepos(
-      "snapshots"
-    )
+    Seq(Resolver.mavenLocal, releases, typeSafe, confluent, mulesoft, snapshots) ++ Resolver
+      .sonatypeOssRepos(
+        "snapshots"
+      )
 
   val googleCloudBigDataMavenRepo = "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss"
 
