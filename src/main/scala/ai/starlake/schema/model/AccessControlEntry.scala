@@ -2,6 +2,7 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
+import ai.starlake.utils.Utils
 
 import scala.util.Try
 
@@ -11,6 +12,12 @@ case class AccessControlEntry(role: String, grants: Set[String] = Set.empty, nam
   override def toString: String = {
     s"AccessControlEntry(role=$role, grants=$grants)"
   }
+
+  def asMap() = Map(
+    "aceRole"   -> role,
+    "aceGrants" -> grants.mkString(",")
+  )
+
   def this() = this("", Set.empty) // Should never be called. Here for Jackson deserialization only
 
   def compare(other: AccessControlEntry): ListDiff[Named] =
@@ -35,7 +42,34 @@ case class AccessControlEntry(role: String, grants: Set[String] = Set.empty, nam
     }
   }
 
-  def asJdbcSql(tableName: String): Set[String] = asHiveSql(tableName)
+  def asBigQuerySql(tableName: String): Set[String] = {
+    this.grants.map { grant =>
+      val principal =
+        if (!grant.startsWith("\""))
+          s""""$grant""""
+        else
+          grant
+      s"GRANT ${this.role} ON TABLE $tableName TO $principal"
+    }
+  }
+
+  def asSql(tableName: String, engine: Engine): Set[String] = engine match {
+    case Engine.SPARK =>
+      if (Utils.isRunningInDatabricks())
+        asDatabricksSql(tableName)
+      else
+        asHiveSql(tableName)
+    case Engine.BQ => asBigQuerySql(tableName)
+    case _         => asJdbcSql(tableName)
+  }
+
+  def asJdbcSql(tableName: String): Set[String] = {
+    /*
+      https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
+      https://hevodata.com/learn/snowflake-grant-role-to-user/
+     */
+    asHiveSql(tableName)
+  }
 }
 
 object AccessControlEntry {

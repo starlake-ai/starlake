@@ -27,6 +27,7 @@ import ai.starlake.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude}
 
 import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 
 /** Specify Schema properties. These properties may be specified at the schema or domain level Any
   * property not specified at the schema level is taken from the one specified at the domain level
@@ -222,6 +223,23 @@ case class Metadata(
   @JsonIgnore
   def getClustering(): Option[Seq[String]] = sink.flatMap(_.clustering)
 
+  def asMap(): Map[String, Object] = {
+    Map(
+      "format"      -> resolveFormat().toString,
+      "encoding"    -> resolveEncoding(),
+      "multiline"   -> resolveMultiline().toString,
+      "array"       -> resolveArray().toString,
+      "withHeader"  -> resolveWithHeader().toString,
+      "separator"   -> resolveSeparator(),
+      "quote"       -> resolveQuote(),
+      "escape"      -> resolveEscape(),
+      "directory"   -> directory.getOrElse(""),
+      "nullValue"   -> resolveNullValue(),
+      "emptyIsNull" -> resolveEmptyIsNull().toString,
+      "options"     -> getOptions().map { case (k, v) => (k.toLowerCase(), v) }.asJava
+    )
+  }
+
   override def toString: String =
     s"""
        |format:${resolveFormat()}
@@ -283,7 +301,7 @@ case class Metadata(
     this.getSink().toAllSinks().partition.getOrElse(Nil)
   }
 
-  def resolveEmptyIsNull(): Boolean = emptyIsNull.getOrElse(true)
+  def resolveEmptyIsNull(): java.lang.Boolean = emptyIsNull.getOrElse(true).booleanValue()
 
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
 

@@ -47,7 +47,8 @@ object ConnectionType {
 
   def fromString(value: String): ConnectionType = {
     value.toUpperCase match {
-      case "GCPLOG"                                                        => ConnectionType.GCPLOG
+      case "SNOWFLAKE_LOG" => ConnectionType.SNOWFLAKE_LOG
+      case "GCPLOG"        => ConnectionType.GCPLOG
       case "LOCAL" | "FS" | "FILESYSTEM" | "HIVE" | "DATABRICKS" | "SPARK" => ConnectionType.FS
       case "JDBC"                                                          => ConnectionType.JDBC
       case "BIGQUERY" | "BQ"                                               => ConnectionType.BQ
@@ -64,6 +65,8 @@ object ConnectionType {
   object JDBC extends ConnectionType("JDBC")
 
   object GCPLOG extends ConnectionType("GCPLOG")
+
+  object SNOWFLAKE_LOG extends ConnectionType("SNOWFLAKE_LOG")
 
   val sinks: Set[ConnectionType] = Set(FS, BQ, ES, KAFKA, JDBC, GCPLOG)
 }
@@ -87,6 +90,8 @@ class ConnectionTypeDeserializer extends JsonDeserializer[ConnectionType] {
 sealed abstract class Sink {
   val connectionRef: Option[String]
   def toAllSinks(): AllSinks
+
+  def asMap(jdbcEngine: JdbcEngine): Map[String, Object] = toAllSinks().asMap(jdbcEngine)
 
   def getConnectionType()(implicit
     settings: Settings
@@ -162,21 +167,21 @@ final case class AllSinks(
 
   def this() = this(None)
 
-  def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
-    val map = scala.collection.mutable.Map.empty[String, Any]
+  def asMap(jdbcEngine: JdbcEngine): Map[String, Object] = {
+    val map = scala.collection.mutable.Map.empty[String, Object]
     connectionRef.foreach(map += "sinkConnectionRef" -> _)
-    sharding.foreach(map += "sinkShardSuffix" -> _)
+    sharding.foreach(map += "sinkShardSuffix" -> _.asJava)
     clustering.foreach(map += "sinkClustering" -> _.asJava)
-    days.foreach(map += "sinkDays" -> _)
-    requirePartitionFilter.foreach(map += "sinkRequirePartitionFilter" -> _)
-    materializedView.foreach(map += "sinkMaterializedView" -> _)
-    enableRefresh.foreach(map += "sinkEnableRefresh" -> _)
-    refreshIntervalMs.foreach(map += "sinkRefreshIntervalMs" -> _)
+    days.foreach(it => map += "sinkDays" -> it.toString)
+    requirePartitionFilter.foreach(map += "sinkRequirePartitionFilter" -> _.toString)
+    materializedView.foreach(map += "sinkMaterializedView" -> _.toString)
+    enableRefresh.foreach(map += "sinkEnableRefresh" -> _.toString)
+    refreshIntervalMs.foreach(map += "sinkRefreshIntervalMs" -> _.toString)
     id.foreach(map += "sinkId" -> _)
     map += "sinkFormat" -> format.getOrElse("parquet") // TODO : default format
     extension.foreach(map += "sinkExtension" -> _)
     partition.foreach(map += "sinkPartition" -> _.asJava)
-    coalesce.foreach(map += "sinkCoalesce" -> _)
+    coalesce.foreach(it => map += "sinkCoalesce" -> it.toString)
     options.foreach(map += "sinkOptions" -> _.asJava)
 
     map += "sinkTableOptionsClause"    -> this.getTableOptionsClause(jdbcEngine)
@@ -328,12 +333,13 @@ final case class AllSinks(
     val allSinksWithOptions = this.copy(options = Some(options), connectionRef = Some(ref))
     val connResult =
       connection.`type` match {
-        case ConnectionType.GCPLOG => GcpLogSink.fromAllSinks(allSinksWithOptions)
-        case ConnectionType.FS     => FsSink.fromAllSinks(allSinksWithOptions)
-        case ConnectionType.JDBC   => JdbcSink.fromAllSinks(allSinksWithOptions)
-        case ConnectionType.BQ     => BigQuerySink.fromAllSinks(allSinksWithOptions)
-        case ConnectionType.ES     => EsSink.fromAllSinks(allSinksWithOptions)
-        case ConnectionType.KAFKA  => KafkaSink.fromAllSinks(allSinksWithOptions)
+        case ConnectionType.SNOWFLAKE_LOG => SnowflakeLogSink.fromAllSinks(allSinksWithOptions)
+        case ConnectionType.GCPLOG        => GcpLogSink.fromAllSinks(allSinksWithOptions)
+        case ConnectionType.FS            => FsSink.fromAllSinks(allSinksWithOptions)
+        case ConnectionType.JDBC          => JdbcSink.fromAllSinks(allSinksWithOptions)
+        case ConnectionType.BQ            => BigQuerySink.fromAllSinks(allSinksWithOptions)
+        case ConnectionType.ES            => EsSink.fromAllSinks(allSinksWithOptions)
+        case ConnectionType.KAFKA         => KafkaSink.fromAllSinks(allSinksWithOptions)
         case _ => throw new Exception(s"Unsupported SinkType sink type ${connection.`type`}")
 
       }
@@ -536,6 +542,27 @@ case class GcpLogSink(
     AllSinks(
       connectionRef = connectionRef,
       options = options
+    )
+  }
+}
+case class SnowflakeLogSink(
+  connectionRef: Option[String] = None,
+  options: Option[Map[String, String]] = None
+) extends Sink {
+  def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
+  def toAllSinks(): AllSinks = {
+    AllSinks(
+      connectionRef = connectionRef,
+      options = options
+    )
+  }
+}
+
+object SnowflakeLogSink {
+  def fromAllSinks(allSinks: AllSinks): SnowflakeLogSink = {
+    SnowflakeLogSink(
+      allSinks.connectionRef,
+      allSinks.options
     )
   }
 }

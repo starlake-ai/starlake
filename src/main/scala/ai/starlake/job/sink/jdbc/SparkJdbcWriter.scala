@@ -86,6 +86,7 @@ class SparkJdbcWriter(
             cliConfig.outputDomainAndTableName,
             schema,
             caseSensitive = false,
+            temporaryTable = false,
             optionsWrite,
             Map.empty // No mapping because we are loading using the CLI
           )

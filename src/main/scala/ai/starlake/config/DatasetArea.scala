@@ -193,6 +193,9 @@ object DatasetArea extends StrictLogging {
   def writeStrategies(implicit settings: Settings): Path =
     new Path(settings.appConfig.writeStrategies)
 
+  def loadStrategies(implicit settings: Settings): Path =
+    new Path(settings.appConfig.loadStrategies)
+
   def expectations(implicit settings: Settings): Path =
     new Path(metadata, "expectations")
 

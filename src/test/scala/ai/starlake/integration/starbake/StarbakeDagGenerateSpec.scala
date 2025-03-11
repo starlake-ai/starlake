@@ -15,9 +15,9 @@ class StarbakeDagGenerateSpec extends IntegrationTestBase {
   override def sampleDataDir = localDir / "sample-data"
   logger.info(localDir.pathAsString)
   "Dag Generate" should "succeed" in {
-    withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "DUCKDB") {
+    withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "SNOWFLAKE") {
       copyFilesToIncomingDir(sampleDataDir)
-      assert(new Main().run(Array("dag-generate", "--clean")))
+      assert(new Main().run(Array("dag-generate", "--clean", "--orchestrator", "snowflake")))
     }
   }
 }

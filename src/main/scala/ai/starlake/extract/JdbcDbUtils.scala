@@ -221,7 +221,7 @@ object JdbcDbUtils extends LazyLogging {
 
   @throws[Exception]
   def createSchema(conn: SQLConnection, domainName: String): Unit = {
-    executeUpdate(s"CREATE SCHEMA IF NOT EXISTS $domainName", conn) match {
+    executeUpdate(schemaCreateSQL(domainName), conn) match {
       case Success(_) =>
       case Failure(e) =>
         logger.error(s"Error creating schema $domainName", e)
@@ -230,8 +230,16 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   @throws[Exception]
+  def schemaCreateSQL(domainName: String): String = {
+    s"CREATE SCHEMA IF NOT EXISTS $domainName"
+  }
+
+  def buildDropTableSQL(tableName: String): String = {
+    s"DROP TABLE IF EXISTS $tableName"
+  }
+  @throws[Exception]
   def dropTable(conn: SQLConnection, tableName: String): Unit = {
-    executeUpdate(s"DROP TABLE IF EXISTS $tableName", conn) match {
+    executeUpdate(buildDropTableSQL(tableName), conn) match {
       case Success(_) =>
       case Failure(e) =>
         logger.error(s"Error creating schema $tableName", e)
@@ -434,8 +442,9 @@ object JdbcDbUtils extends LazyLogging {
   ): Try[List[String]] = {
 
     withJDBCConnection(readOnlyConnection(connectionSettings).options) { connection =>
+      val catalog = connectionSettings.getCatalog()
       val databaseMetaData = connection.getMetaData()
-      Using(databaseMetaData.getSchemas()) { resultSet =>
+      Using(databaseMetaData.getSchemas(catalog, null)) { resultSet =>
         new Iterator[String] {
           override def hasNext: Boolean = resultSet.next()
 
@@ -641,7 +650,7 @@ object JdbcDbUtils extends LazyLogging {
       Using
         .Manager { use =>
           selectedTables.toList.map { case (tableName, tableRemarks) =>
-            ExtractUtils.timeIt(s"Table's schema extraction of $tableName") {
+            ExtractUtils.timeIt(s"Table's schema extraction of $schemaName.$tableName") {
               logger.info(
                 s"Extracting table's schema '$schemaName.$tableName' with remarks '$tableRemarks'"
               )

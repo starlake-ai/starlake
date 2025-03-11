@@ -35,6 +35,7 @@ import org.apache.spark.sql.types.{Metadata => SparkMetadata, _}
 
 import java.util.regex.Pattern
 import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 /** Dataset Schema
@@ -80,8 +81,32 @@ case class Schema(
   rename: Option[String] = None,
   sample: Option[String] = None,
   filter: Option[String] = None,
-  patternSample: Option[String] = None
+  patternSample: Option[String] = None,
+  streams: List[String] = Nil
 ) extends Named {
+
+  def asMap(): Map[String, Object] = {
+    Map(
+      "name"          -> name,
+      "pattern"       -> pattern.toString,
+      "attributes"    -> attributes.map(_.asMap()).asJava,
+      "metadata"      -> metadata.getOrElse(Metadata()).asMap().asJava,
+      "comment"       -> comment,
+      "presql"        -> presql,
+      "postsql"       -> postsql,
+      "tags"          -> tags,
+      "rls"           -> rls.map(_.asMap()).asJava,
+      "expectations"  -> expectations.map(_.asMap()).asJava,
+      "primaryKey"    -> primaryKey,
+      "acl"           -> acl.map(_.asMap()).asJava,
+      "rename"        -> rename,
+      "sample"        -> sample,
+      "filter"        -> filter,
+      "patternSample" -> patternSample,
+      "streams"       -> streams,
+      "finalName"     -> finalName
+    )
+  }
 
   def this() = this(
     "",
@@ -253,7 +278,7 @@ case class Schema(
   def targetSparkSchemaWithoutIgnore(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, attr => !attr.resolveIgnore())
 
-  def targetSparkSchema(schemaHandler: SchemaHandler): StructType =
+  def targetSparkSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, _ => true)
 
   def targetBqSchemaWithoutIgnore(schemaHandler: SchemaHandler): BQSchema = {
@@ -261,7 +286,7 @@ case class Schema(
   }
 
   def targetBqSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(targetSparkSchema(schemaHandler))
+    BigQueryUtils.bqSchema(targetSparkSchemaWithIgnoreAndScript(schemaHandler))
   }
 
   /** return the list of renamed attributes
@@ -364,6 +389,24 @@ case class Schema(
       }
     }
 
+    val fullTableName = s"${domainName}_${name}"
+    val streamsErrors = streams.map { stream =>
+      if (!stream.startsWith(fullTableName)) {
+        Left(
+          List(
+            ValidationMessage(
+              Error,
+              s"Table $domainName.$name",
+              s"stream name error: $stream is not a valid stream name. Stream name should start with $fullTableName"
+            )
+          )
+        )
+      } else {
+        Right(true)
+      }
+    }
+    errorList ++= streamsErrors.collect { case Left(errors) => errors }.flatten
+
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else
@@ -392,14 +435,14 @@ case class Schema(
       "properties" -> properties,
       "attributes" -> attrs,
       "domain"     -> domainName.toLowerCase,
-      "schema"     -> finalName.toLowerCase
+      "table"      -> finalName.toLowerCase
     )
 
     template
       .getOrElse {
         """
          |{
-         |  "index_patterns": ["${domain}.${schema}", "${domain}.${schema}-*"],
+         |  "index_patterns": ["${domain}.${table}", "${domain}.${table}-*"],
          |  "settings": {
          |    "number_of_shards": "1",
          |    "number_of_replicas": "0"

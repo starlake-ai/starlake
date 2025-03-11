@@ -22,15 +22,19 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
+import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.ingest.{AuditLog, Step}
+import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.BigQueryJobBase
-import ai.starlake.job.strategies.StrategiesBuilder
+import ai.starlake.job.strategies.TransformStrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 
 import java.sql.Timestamp
 import scala.util.{Failure, Success, Try}
@@ -40,6 +44,9 @@ import scala.util.{Failure, Success, Try}
   *
   * @param name
   *   : Job Name as defined in the YML job description file
+  * @param interactive
+  *   : If the task is interactive, it will not be materialized. Just the select statement will be
+  *   executed
   * @param defaultArea
   *   : Where the resulting dataset is stored by default if not specified in the task
   * @param taskDesc
@@ -66,6 +73,17 @@ abstract class AutoTask(
     case None     => taskDesc.domain
   }
 
+  def aclSQL(): List[String] = {
+    val sinkEngine = sinkConnection.getJdbcEngineName()
+    taskDesc.acl.flatMap { ace =>
+      /*
+        https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
+        https://hevodata.com/learn/snowflake-grant-role-to-user/
+       */
+      ace.asSql(fullTableName, sinkEngine)
+    }
+  }
+
   override def applicationId(): String = appId.getOrElse(super.applicationId())
 
   def attDdl(): Map[String, Map[String, String]] =
@@ -80,6 +98,18 @@ abstract class AutoTask(
     taskDesc.sink.flatMap(_.format).getOrElse(settings.appConfig.defaultWriteFormat)
 
   val sinkConfig = taskDesc.getSinkConfig()
+
+  val sinkOptions =
+    if (sinkConnection.isDuckDb()) {
+      val duckDbEnableExternalAccess =
+        settings.appConfig.duckDbEnableExternalAccess || sinkConnection.isMotherDuckDb()
+      sinkConnection.options.updated(
+        "enable_external_access",
+        duckDbEnableExternalAccess.toString
+      )
+    } else {
+      sinkConnection.options
+    }
 
   def fullTableName: String
 
@@ -106,7 +136,7 @@ abstract class AutoTask(
   protected lazy val preSql = {
     val testMacros =
       if (this.test) {
-        JSQLTranspiler.getMacroArray.toList
+        List("LOAD SPATIAL", "LOAD JSON") ++ JSQLTranspiler.getMacroArray.toList
       } else
         Nil
     testMacros ++ parseJinja(taskDesc.presql, allVars).filter(_.trim.nonEmpty)
@@ -139,21 +169,20 @@ abstract class AutoTask(
             this.test
           )
 
-        val tableComponents = StrategiesBuilder.TableComponents(
+        val tableComponents = TransformStrategiesBuilder.TableComponents(
           taskDesc.database.getOrElse(""), // Convert it to "" for jinjava to work
           taskDesc.domain,
           taskDesc.table,
           SQLUtils.extractColumnNames(sqlWithParametersTranspiledIfInTest)
         )
         val jdbcRunEngineName: Engine = runConnection.getJdbcEngineName()
-
         val jdbcRunEngine = settings.appConfig.jdbcEngines(jdbcRunEngineName.toString)
 
         val tblExists =
           tableExistsForcedValue.getOrElse(
             tableExists
           ) // If tableExistsForcedValue is defined, use it, otherwise use tableExists
-        val mainSql = StrategiesBuilder().run(
+        val mainSql = TransformStrategiesBuilder().buildTransform(
           strategy,
           sqlWithParametersTranspiledIfInTest,
           tableComponents,
@@ -182,7 +211,6 @@ abstract class AutoTask(
         )
       sqlWithParametersTranspiledIfInTest
     }
-
   }
 
   private def parseJinja(sql: String, vars: Map[String, Any]): String = parseJinja(
@@ -210,14 +238,32 @@ abstract class AutoTask(
     result
   }
 
-  private def logAudit(
+  def auditTableCreateSQL(): List[String] = {
+    // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
+    logger.info(s"Table ${taskDesc.table} not found in ${taskDesc.domain}")
+
+    val entry = taskDesc._auditTableName.getOrElse(
+      throw new Exception(
+        s"audit table for output ${taskDesc.table} is not defined in engine $jdbcSinkEngineName"
+      )
+    )
+    val scriptTemplate = jdbcSinkEngine.tables(entry).createSql
+
+    val script = scriptTemplate.richFormat(
+      Map("table" -> fullTableName, "writeFormat" -> settings.appConfig.defaultWriteFormat),
+      Map.empty
+    )
+    List(JdbcDbUtils.schemaCreateSQL(fullDomainName), script)
+  }
+
+  private def auditLog(
     start: Timestamp,
     end: Timestamp,
     jobResultCount: Long,
     success: Boolean,
     message: String,
     test: Boolean
-  ): Unit = {
+  ): Option[AuditLog] = {
     if (taskDesc._auditTableName.isEmpty) { // avoid recursion when logging audit
       val log = AuditLog(
         applicationId(),
@@ -236,20 +282,40 @@ abstract class AutoTask(
         settings.appConfig.tenant,
         test
       )
-      AuditLog.sink(log)
+      Some(log)
+    } else {
+      None
     }
   }
 
-  def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long, test: Boolean): Unit =
-    logAudit(start, end, jobResultCount, success = true, "success", test)
+  def logAuditSuccess(
+    start: Timestamp,
+    end: Timestamp,
+    jobResultCount: Long,
+    test: Boolean
+  ): Unit = {
+    val log = auditLog(start, end, jobResultCount, success = true, "success", test)
+    log.foreach(AuditLog.sink)
+  }
 
-  def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable, test: Boolean): Unit =
-    logAudit(start, end, -1, success = false, Utils.exceptionAsString(e), test)
+  def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable, test: Boolean): Unit = {
+    val log = auditLog(start, end, -1, success = false, Utils.exceptionAsString(e), test)
+    log.foreach(AuditLog.sink)
+  }
 
-  def dependencies(): List[String] = {
+  def dependencies(streams: CaseInsensitiveMap[String]): List[String] = {
     val result = SQLUtils.extractTableNamesUsingRegEx(parseJinja(taskDesc.getSql(), Map.empty))
-    logger.info(s"$name has ${result.length} dependencies: ${result.mkString(",")}")
-    result
+    val withStreamsResolved = result.map { table =>
+      if (streams.contains(table)) {
+        streams(table)
+      } else {
+        table
+      }
+    }
+    logger.info(
+      s"$name has ${withStreamsResolved.length} dependencies: ${withStreamsResolved.mkString(",")}"
+    )
+    withStreamsResolved
   }
 
   val (createDisposition, writeDisposition) =
@@ -261,6 +327,107 @@ abstract class AutoTask(
     taskDesc.sink
       .flatMap(_.materializedView)
       .getOrElse(Materialization.TABLE)
+  }
+
+  private def buildAddSCD2ColumnsSqls(engineName: Engine): List[String] = {
+    this.taskDesc.writeStrategy match {
+      case Some(strategyOptions) if strategyOptions.getEffectiveType() == WriteStrategyType.SCD2 =>
+        val startTsCol = strategyOptions.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val endTsCol = strategyOptions.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
+        val scd2Columns = List(startTsCol, endTsCol)
+        val alterTableSqls = scd2Columns.map { column =>
+          if (engineName.toString.toLowerCase() == "redshift")
+            s"ALTER TABLE $fullTableName ADD COLUMN $column TIMESTAMP"
+          else
+            s"ALTER TABLE $fullTableName ADD COLUMN IF NOT EXISTS $column TIMESTAMP NULL"
+        }
+        alterTableSqls
+      case _ =>
+        List.empty
+    }
+  }
+
+  def expectationStatements(): List[ExpectationSQL] = {
+    if (settings.appConfig.expectations.active) {
+      // TODO Implement Expectations
+      new ExpectationJob(
+        Option(applicationId()),
+        taskDesc.database,
+        taskDesc.domain,
+        taskDesc.table,
+        taskDesc.expectations,
+        storageHandler,
+        schemaHandler,
+        new JdbcExpectationAssertionHandler(sinkOptions)
+      ).buildStatementsList() match {
+        case Success(expectations) =>
+          expectations
+        case Failure(e) =>
+          throw e
+      }
+    } else {
+      List.empty
+    }
+  }
+
+  def auditStatements(): Option[TaskSQLStatements] = {
+    if (settings.appConfig.audit.active.getOrElse(true)) {
+      val auditStatements =
+        auditLog(
+          new Timestamp(System.currentTimeMillis()),
+          new Timestamp(System.currentTimeMillis()),
+          0,
+          success = true,
+          "success",
+          test
+        ).flatMap(AuditLog.buildListOfSQLStatements)
+      auditStatements
+    } else {
+      None
+    }
+  }
+
+  def buildListOfSQLStatements(): TaskSQLStatements = {
+    val createSchemaAndTableSql =
+      if (settings.appConfig.createSchemaIfNotExists) {
+        // Creating a schema requires its own connection if called before a Spark save
+        if (taskDesc._auditTableName.isDefined)
+          this.auditTableCreateSQL()
+        else
+          List.empty
+      } else {
+        List.empty
+      }
+
+    val mainSqlIfExists = buildAllSQLQueries(None, Some(true)).splitSql()
+    val mainSqlIfNotExists = buildAllSQLQueries(None, Some(false)).splitSql()
+
+    val parsedPreActions =
+      Utils
+        .parseJinja(
+          jdbcSinkEngine.preActions.getOrElse(""),
+          Map("schema" -> taskDesc.domain)
+        )
+        .splitSql(";")
+    val preSqls = preSql
+    val postSqls = postSql
+
+    val addSCD2ColumnsSqls =
+      buildAddSCD2ColumnsSqls(sinkConnection.getJdbcEngineName())
+
+    TaskSQLStatements(
+      taskDesc.name,
+      taskDesc.domain,
+      taskDesc.table,
+      createSchemaAndTableSql.map(_.pyFormat()),
+      parsedPreActions.map(_.pyFormat()),
+      preSqls.map(_.pyFormat()),
+      mainSqlIfExists.map(_.pyFormat()),
+      mainSqlIfNotExists.map(_.pyFormat()),
+      postSqls.map(_.pyFormat()),
+      addSCD2ColumnsSqls.map(_.pyFormat()),
+      taskDesc.getSinkConnectionType()
+    )
   }
 }
 
@@ -521,4 +688,5 @@ object AutoTask extends StrictLogging {
         throw e
     }
   }
+
 }

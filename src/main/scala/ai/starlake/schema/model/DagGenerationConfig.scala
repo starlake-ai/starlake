@@ -1,6 +1,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
+import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.lineage.TaskViewDependencyNode
 import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.utils.Formatter.RichFormatter
@@ -164,10 +165,16 @@ case class DagGenerationConfig(
   }
 }
 
+object DagGenerationConfig {
+  val externalKeys =
+    Set("name", "statements", "expectationItems", "audit", "acl", "expectations", "schedules")
+}
 case class LoadDagGenerationContext(
   config: DagGenerationConfig,
-  schedules: List[DagSchedule]
+  schedules: List[DagSchedule],
+  workflowStatementsIn: List[Map[String, Object]]
 ) {
+  val workflowStatements = workflowStatementsIn.filter(_.size > 0)
   def asMap: util.HashMap[String, Object] = {
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
       val cal1 = Calendar.getInstance
@@ -177,18 +184,128 @@ case class LoadDagGenerationContext(
       config.options
     }
     val updatedConfig = config.copy(options = updatedOptions)
-    new java.util.HashMap[String, Object]() {
+    val statementsAsMap = workflowStatements.map { it =>
+      val map = it("statements").asInstanceOf[java.util.Map[String, Object]]
+      it("name") -> map
+    }.toMap
+    val statementsAsString =
+      JsonSerializer.mapper
+        .writerWithDefaultPrettyPrinter()
+        .writeValueAsString(statementsAsMap)
+
+    val expectationItemsAsMap = workflowStatements.map { it =>
+      val map = it("expectationItems").asInstanceOf[java.util.List[java.util.Map[String, Any]]]
+      it("name") -> map
+    }.toMap
+
+    val expectationItemsAsString =
+      JsonSerializer.mapper
+        .writerWithDefaultPrettyPrinter()
+        .writeValueAsString(expectationItemsAsMap)
+
+    val auditAsMap = workflowStatements
+      .map { it =>
+        it("audit")
+      }
+      .headOption
+      .getOrElse(Map.empty)
+
+    val auditAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(auditAsMap)
+
+    val aclAsMap = workflowStatements.map { it =>
+      val map = it("acl").asInstanceOf[java.util.List[java.util.Map[String, Any]]]
+      it("name") -> map
+    }
+    val aclAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(aclAsMap)
+
+    val expectationsAsMap = workflowStatements
+      .map { it =>
+        it("expectations")
+      }
+      .headOption
+      .getOrElse(Map.empty)
+
+    val expectationsAsString =
+      JsonSerializer.mapper
+        .writerWithDefaultPrettyPrinter()
+        .writeValueAsString(expectationsAsMap)
+
+    val res = new java.util.HashMap[String, Object]() {
+
+      workflowStatements.foreach { tableConfig =>
+        val tableAsJava = new java.util.HashMap[String, Object]() {
+          tableConfig.foreach { case (k, v) =>
+            if (!DagGenerationConfig.externalKeys.contains(k))
+              put(k, v)
+          }
+        }
+        if (!tableAsJava.isEmpty)
+          put(tableConfig("name").toString, tableAsJava)
+      }
       put("config", updatedConfig.asMap)
       put("schedules", schedules.asJava)
+
+      put("statements", statementsAsString)
+      put("expectationItems", expectationItemsAsString)
+      put("audit", auditAsString)
+      put("expectations", expectationsAsString)
+      put("acl", aclAsString)
     }
+    res
   }
 }
 case class TransformDagGenerationContext(
   config: DagGenerationConfig,
   deps: List[TaskViewDependencyNode],
-  cron: Option[String]
+  cron: Option[String],
+  statements: List[
+    (
+      TaskSQLStatements,
+      List[ExpectationSQL],
+      Option[TaskSQLStatements],
+      List[String],
+      Option[TaskSQLStatements]
+    )
+  ]
 ) {
   def asMap: util.HashMap[String, Object] = {
+    val statementsAsMap = statements.map {
+      case (statements, expectationItems, audi, acl, expectations) =>
+        statements.name -> statements.asMap()
+    }.toMap
+
+    val expectationItemsAsMap = statements.map {
+      case (statements, expectationItems, audit, acl, expectations) =>
+        statements.name -> expectationItems.map(_.asMap()).asJava
+    }.toMap
+
+    val auditAsMap = statements
+      .flatMap { case (statements, expectationItems, audit, acl, expectations) =>
+        audit.map { audit =>
+          audit.asMap()
+        }
+      }
+      .headOption
+      .getOrElse(Map.empty)
+
+    val aclAsMap = statements.flatMap {
+      case (statements, expectationItems, audit, acl, expectations) =>
+        audit.map { audit =>
+          statements.name -> acl
+        }
+    }.toMap
+
+    val expectationsAsMap = statements
+      .flatMap { case (statements, expectationItems, audit, acl, expectations) =>
+        expectations.map { expectations =>
+          expectations.asMap()
+        }
+      }
+      .headOption
+      .getOrElse(Map.empty)
+
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
       val cal1 = Calendar.getInstance
       val tz = cal1.getTimeZone();
@@ -199,11 +316,31 @@ case class TransformDagGenerationContext(
     val updatedConfig = config.copy(options = updatedOptions)
     val depsAsJsonString =
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(deps)
+    val statementsAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(statementsAsMap)
+    val expectationItemsAsString =
+      JsonSerializer.mapper
+        .writerWithDefaultPrettyPrinter()
+        .writeValueAsString(expectationItemsAsMap)
+    val auditAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(auditAsMap)
+    val aclAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(aclAsMap)
+    val expectationsAsString =
+      JsonSerializer.mapper
+        .writerWithDefaultPrettyPrinter()
+        .writeValueAsString(expectationsAsMap)
 
     new java.util.HashMap[String, Object]() {
       put("config", updatedConfig.asMap)
       put("cron", cron.getOrElse("None"))
       put("dependencies", depsAsJsonString)
+
+      put("statements", statementsAsString)
+      put("expectationItems", expectationItemsAsString)
+      put("audit", auditAsString)
+      put("expectations", expectationsAsString)
+      put("acl", aclAsString)
     }
   }
 }

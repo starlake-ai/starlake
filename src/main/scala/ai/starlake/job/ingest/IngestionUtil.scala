@@ -71,7 +71,7 @@ object IngestionUtil {
     val auditSink = settings.appConfig.audit.getSink()
     auditSink.getConnectionType() match {
       case ConnectionType.GCPLOG =>
-        val logName = settings.appConfig.audit.getDomainExpectation()
+        val logName = settings.appConfig.audit.getDomainRejected()
         limitedRejectedTypedDS.collect().map { rejectedRecord =>
           GcpUtils.sinkToGcpCloudLogging(rejectedRecord.asMap(), "rejected", logName)
         }
