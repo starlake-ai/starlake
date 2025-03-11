@@ -30,6 +30,10 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
         self._packages = list(packages)
         timezone = kwargs.get('timezone', __class__.get_context_var(var_name='timezone', default_value='UTC', options=self.options))
         self._timezone = timezone
+        try:
+            self._sl_incoming_file_stage = kwargs.get('sl_incoming_file_stage', __class__.get_context_var(var_name='sl_incoming_file_stage', options=self.options))
+        except MissingEnvironmentVariable:
+            self._sl_incoming_file_stage = None
 
     @property
     def stage_location(self) -> Optional[str]:
@@ -46,6 +50,10 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
     @property
     def timezone(self) -> str:
         return self._timezone
+
+    @property
+    def sl_incoming_file_stage(self) -> Optional[str]:
+        return self._sl_incoming_file_stage
 
     @classmethod
     def sl_orchestrator(cls) -> Union[StarlakeOrchestrator, str]:
@@ -723,7 +731,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                     import json
                     context = json.loads(json_context).get(sink, None)
                     if context:
-                        temp_stage = context.get('tempStage', None)
+                        temp_stage = self.sl_incoming_file_stage or context.get('tempStage', None)
                         if not temp_stage:
                             raise ValueError(f"Temp stage for {sink} not found")
                         context_schema: dict = context.get('schema', dict())
