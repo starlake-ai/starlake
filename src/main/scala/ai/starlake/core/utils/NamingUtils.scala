@@ -43,20 +43,20 @@ object NamingUtils {
     *   - Replaces non-alphanumeric characters with underscores.
     *   - Replaces consecutive underscores with a single underscore.
     *   - Removes trailing and leading underscores.
-    *   - Adds underscores to camel case naming.
+    *   - Adds underscores to camel case naming if toSnakeCase is true.
     *
     * @param input
     *   The input string representing the attribute name to normalize.
     * @return
     *   A normalized string suitable for use as an attribute name.
     */
-  def normalizeAttributeName(input: String): String = {
-    addUnderscores(
-      removeTrailingUnderscore(
-        replaceConsecutiveUnderscores(
-          replaceNonAlphanumericWithUnderscore(removeAccents(input))
-        )
+  def normalizeAttributeName(input: String, toSnakeCase: Boolean = true): String = {
+    val sanitizedName = removeTrailingUnderscore(
+      replaceConsecutiveUnderscores(
+        replaceNonAlphanumericWithUnderscore(removeAccents(input))
       )
     )
+    if (toSnakeCase) addUnderscores(sanitizedName)
+    else sanitizedName
   }
 }

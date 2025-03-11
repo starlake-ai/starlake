@@ -11,7 +11,9 @@ import java.io.{ByteArrayOutputStream, PrintStream}
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
-case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCount: Long)
+case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCount: Long) {
+  def ignore: Boolean = inputCount == -1 && rejectedCount == -1 && acceptedCount == -1
+}
 
 trait JobResult {
   def asMap(): List[Map[String, Any]] = Nil

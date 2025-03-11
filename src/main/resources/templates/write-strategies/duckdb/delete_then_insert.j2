@@ -15,7 +15,7 @@ WHERE {{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKe
 
 CREATE OR REPLACE VIEW SL_VIEW_WITH_ROWNUM AS (
 SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY  {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
-FROM #SL_INCOMING
+FROM SL_INCOMING
 );
 
 DELETE FROM {{ tableFullName }}

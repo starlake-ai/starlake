@@ -3,7 +3,7 @@ package ai.starlake.job.ingest
 import ai.starlake.config.{CometColumns, DatasetArea, Settings}
 import ai.starlake.exceptions.DisallowRejectRecordException
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.ingest.loaders.{BigQueryNativeLoader, DuckDbNativeLoader}
+import ai.starlake.job.ingest.loaders.{BigQueryNativeLoader, DuckDbNativeLoader, NativeLoader}
 import ai.starlake.job.metrics._
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.transform.{SparkAutoTask, SparkExportTask}
@@ -213,7 +213,7 @@ trait IngestionJob extends SparkJob {
 
     val loader =
       if (nativeCandidate) {
-        val loaders = Set("bigquery", "duckdb", "spark")
+        val loaders = Set("bigquery", "duckdb", "spark", "snowflake")
         if (loaders.contains(dbName))
           dbName
         else
@@ -333,6 +333,24 @@ trait IngestionJob extends SparkJob {
       case Right(_) =>
     }
   }
+  def buildListOfSQLStatementsAsMap(orchestrator: String): Map[String, Object] = {
+    // Run selected ingestion engine
+    val result =
+      orchestrator match {
+        case "bigquery" =>
+          ???
+        case "duckdb" =>
+          ???
+        case "spark" =>
+          ???
+        case "snowflake" =>
+          val statementsMap = new NativeLoader(this, None).buildSQLStatements()
+          statementsMap
+        case other =>
+          throw new Exception(s"Unsupported engine $other")
+      }
+    result
+  }
 
   def run(): Try[JobResult] = {
     // Make sure domain is valid
@@ -353,7 +371,9 @@ trait IngestionJob extends SparkJob {
         val result = ingestWithSpark()
         result
       case other =>
-        throw new Exception(s"Unsupported engine $other")
+        logger.warn(s"Unsupported engine $other, falling back to spark")
+        val result = ingestWithSpark()
+        result
     }
     jobResult
       .recoverWith { case exception =>
@@ -362,20 +382,24 @@ trait IngestionJob extends SparkJob {
       }
       .map { case counters @ IngestionCounters(inputCount, acceptedCount, rejectedCount) =>
         // On success log counters
-        logLoadInAudit(now, inputCount, acceptedCount, rejectedCount) match {
-          case Failure(exception) => throw exception
-          case Success(auditLog) =>
-            if (auditLog.success) {
-              // run expectations
-              val expectationsResult = runExpectations()
+        if (!counters.ignore) {
+          logLoadInAudit(now, inputCount, acceptedCount, rejectedCount) match {
+            case Failure(exception) => throw exception
+            case Success(auditLog) =>
+              if (auditLog.success) {
+                // run expectations
+                val expectationsResult = runExpectations()
 
-              expectationsResult match {
-                case Failure(exception) if settings.appConfig.expectations.failOnError =>
-                  throw exception
-                case _ =>
-              }
-              SparkJobResult(None, Some(counters))
-            } else throw new DisallowRejectRecordException()
+                expectationsResult match {
+                  case Failure(exception) if settings.appConfig.expectations.failOnError =>
+                    throw exception
+                  case _ =>
+                }
+                SparkJobResult(None, Some(counters))
+              } else throw new DisallowRejectRecordException()
+          }
+        } else {
+          SparkJobResult(None, Some(counters))
         }
       }
   }
@@ -691,7 +715,7 @@ trait IngestionJob extends SparkJob {
               None,
               truncate = false,
               test = test,
-              logExecution = true
+              logExecution = false
             )(
               settings,
               storageHandler,
@@ -705,7 +729,7 @@ trait IngestionJob extends SparkJob {
               None,
               truncate = false,
               test = test,
-              logExecution = true,
+              logExecution = false,
               schema = Some(schema)
             )(
               settings,

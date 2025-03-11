@@ -45,11 +45,11 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     schema.filter.nonEmpty ||
     settings.appConfig.archiveTable
   }
+  lazy val effectiveSchema: Schema = computeEffectiveInputSchema()
+  lazy val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
 
   def run(): Try[IngestionCounters] = {
     Try {
-      val effectiveSchema: Schema = computeEffectiveInputSchema()
-      val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
       val sinkConnection = mergedMetadata.getSinkConnection()
       val twoSteps = requireTwoSteps(effectiveSchema)
       if (twoSteps) {
@@ -106,7 +106,10 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             schemaHandler
           )
         job.run()
-        job.updateJdbcTableSchema(schema.targetSparkSchema(schemaHandler), targetTableName)
+        job.updateJdbcTableSchema(
+          schema.targetSparkSchemaWithIgnoreAndScript(schemaHandler),
+          targetTableName
+        )
 
         // TODO archive if set
         tempTables.foreach { tempTable =>
@@ -187,7 +190,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
   def singleStepLoad(domain: String, table: String, schema: Schema, path: List[Path]) = {
     val sinkConnection = mergedMetadata.getSinkConnection()
-    val incomingSparkSchema = schema.targetSparkSchema(schemaHandler)
+    val incomingSparkSchema = schema.targetSparkSchemaWithIgnoreAndScript(schemaHandler)
     val domainAndTableName = domain + "." + table
     val optionsWrite =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, domainAndTableName, sinkConnection.options)
@@ -216,6 +219,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
               domainAndTableName,
               incomingSparkSchema,
               caseSensitive = true,
+              temporaryTable = false,
               optionsWrite,
               ddlMap
             )
@@ -227,6 +231,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             domainAndTableName,
             incomingSparkSchema,
             caseSensitive = true,
+            temporaryTable = false,
             optionsWrite,
             ddlMap
           )

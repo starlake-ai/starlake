@@ -19,7 +19,7 @@ import scala.collection.mutable.ListBuffer
 
 // https://github.com/bluejoe2008/spark-http-stream/blob/master/src/main/scala/org/apache/spark/sql/execution/streaming/http/ActionsHandler.scala
 //  https://github.com/hienluu/wikiedit-streaming/blob/master/streaming-receiver/src/main/scala/org/twitterstreaming/receiver/TwitterStreamingSource.scala
-
+// https://blog.damavis.com/en/custom-data-source-in-spark-3/
 case class HttpPayload(url: String, data: String)
 class HttpSource(sqlContext: SQLContext, parameters: Map[String, String])
     extends HttpSourceProxy

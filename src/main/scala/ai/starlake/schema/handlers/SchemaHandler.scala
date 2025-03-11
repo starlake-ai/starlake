@@ -34,6 +34,7 @@ import better.files.Resource
 import com.databricks.spark.xml.util.XSDToSchema
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
@@ -1700,5 +1701,27 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val updatedTable = table.copy(attributes = tableWithFK)
     val updatedTableDesc = tableDesc.copy(table = updatedTable)
     YamlSerde.serializeToPath(path, updatedTableDesc)(settings.storageHandler())
+  }
+
+  def streams(): CaseInsensitiveMap[String] = {
+    val tableStreams =
+      domains().flatMap { domain =>
+        domain.tables.flatMap { table =>
+          table.streams.map { stream =>
+            stream -> s"${domain.finalName}.${table.finalName}"
+          }
+        }
+      }.toMap
+
+    val taskStreams =
+      jobs().flatMap { job =>
+        job.tasks.flatMap { task =>
+          task.streams.map { stream =>
+            stream -> s"${job.getName()}.${task.getName()}"
+          }
+        }
+      }.toMap
+
+    CaseInsensitiveMap(tableStreams ++ taskStreams)
   }
 }

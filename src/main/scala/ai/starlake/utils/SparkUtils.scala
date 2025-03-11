@@ -83,7 +83,24 @@ object SparkUtils extends StrictLogging {
     domainAndTableName: String,
     sparkSchema: StructType,
     attributesWithDDLType: Map[String, String]
-  ) = {
+  ): Unit = {
+    buildUpdateJdbcTableSchemaSQL(
+      conn,
+      jdbcOptions,
+      domainAndTableName,
+      sparkSchema,
+      attributesWithDDLType
+    )
+      .foreach(JdbcDbUtils.executeAlterTable(_, conn))
+  }
+
+  def buildUpdateJdbcTableSchemaSQL(
+    conn: Connection,
+    jdbcOptions: Map[String, String],
+    domainAndTableName: String,
+    sparkSchema: StructType,
+    attributesWithDDLType: Map[String, String]
+  ): Seq[String] = {
     val url = jdbcOptions("url")
     if (isFlat(sparkSchema)) {
       val existingSchema = getSchemaOption(conn, jdbcOptions, domainAndTableName)
@@ -110,9 +127,9 @@ object SparkUtils extends StrictLogging {
         )
         logger.debug(s"alter table ${alterTableAddColumns.mkString("\n")}")
       }
-      alterTableDropColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
-      alterTableAddColumns.foreach(JdbcDbUtils.executeAlterTable(_, conn))
-    }
+      alterTableDropColumns ++ alterTableAddColumns
+    } else
+      Seq.empty
   }
 
   /** Creates a table with a given schema. Updated from Spark 3.0.1
@@ -165,11 +182,47 @@ object SparkUtils extends StrictLogging {
     domainAndTableName: String,
     schema: StructType,
     caseSensitive: Boolean,
+    temporaryTable: Boolean,
     options: JdbcOptionsInWrite,
     attrDdlMapping: Map[String, Map[String, String]]
   )(implicit settings: Settings): Unit = {
+    val (createSchemaSql, createTableSql, commentSql) =
+      buildCreateTableSQL(
+        domainAndTableName,
+        schema,
+        caseSensitive,
+        temporaryTable,
+        options,
+        attrDdlMapping
+      )
     val statement = conn.createStatement
-    val jdbcDialect = dialect(options.url)
+    try {
+      statement.setQueryTimeout(options.queryTimeout)
+      statement.executeUpdate(createSchemaSql)
+      statement.executeUpdate(createTableSql)
+      commentSql.foreach { comment =>
+        try {
+          statement.executeUpdate(comment)
+        } catch {
+          case _: Exception =>
+            logger.warn(s"Cannot create JDBC table comment on $domainAndTableName. Skipping it.")
+        }
+      }
+    } finally {
+      statement.close()
+    }
+  }
+
+  /** Creates a table with a given schema. Updated from Spark 3.0.1
+    */
+  def buildCreateTableSQL(
+    domainAndTableName: String,
+    schema: StructType,
+    caseSensitive: Boolean,
+    temporaryTable: Boolean,
+    options: JdbcOptionsInWrite,
+    attrDdlMapping: Map[String, Map[String, String]]
+  )(implicit settings: Settings): (String, String, Option[String]) = {
     val strSchema =
       schemaString(
         schema,
@@ -178,38 +231,26 @@ object SparkUtils extends StrictLogging {
         attrDdlMapping,
         0
       ) // options.createTableColumnTypes
-    try {
-      statement.setQueryTimeout(options.queryTimeout)
-      val createTableOptions = options.createTableOptions
-      val finalStrSchema =
-        if (options.parameters.getOrElse("quoteIdentifiers", "false").toBoolean)
-          strSchema
-        else
-          strSchema.replaceAll("\"", "")
+    val createTableOptions = options.createTableOptions
+    val finalStrSchema =
+      if (options.parameters.getOrElse("quoteIdentifiers", "false").toBoolean)
+        strSchema
+      else
+        strSchema.replaceAll("\"", "")
 
-      val domainName = domainAndTableName.split('.').head
-      statement.executeUpdate(
-        s"CREATE SCHEMA IF NOT EXISTS $domainName"
-      )
-      logger.info(
-        s"Creating table $domainAndTableName with schema $finalStrSchema and options $createTableOptions"
-      )
-      statement.executeUpdate(
-        s"CREATE TABLE $domainAndTableName ($finalStrSchema) $createTableOptions"
-      )
-      if (options.tableComment.nonEmpty) {
-        try {
-          val tableCommentQuery =
-            jdbcDialect.getTableCommentQuery(domainAndTableName, options.tableComment)
-          statement.executeUpdate(tableCommentQuery)
-        } catch {
-          case e: Exception =>
-            logger.warn("Cannot create JDBC table comment. The table comment will be ignored.")
-        }
-      }
-    } finally {
-      statement.close()
-    }
+    val domainName = domainAndTableName.split('.').head
+    val createSchemaSQL = s"CREATE SCHEMA IF NOT EXISTS $domainName"
+    val temporary = if (temporaryTable) "TEMP" else ""
+    val createTableSQL =
+      s"CREATE $temporary TABLE IF NOT EXISTS $domainAndTableName ($finalStrSchema) $createTableOptions"
+
+    val commentSQL =
+      if (options.tableComment.nonEmpty)
+        Some(s"COMMENT ON TABLE $domainAndTableName IS '${options.tableComment}'")
+      else
+        None
+
+    (createSchemaSQL, createTableSQL, commentSQL)
   }
 
   def isFlat(fields: StructType): Boolean = {

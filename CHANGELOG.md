@@ -6,6 +6,8 @@
 __Improvement__:
 - minimize memory usage inference-schema and adjust attributes types
 - inference-schema detects more timestamp pattern
+- add confluent setup that can be enabled via ENABLE_KAFKA
+
 
 # 1.3.0
 __New Feature__:
@@ -185,6 +187,11 @@ __Feature__:
 - sink become optional in spark job and can fallback into global connection ref settings
 - add dynamicPartitionOverwrite sink options. Available for bigquery sink and file sink. No need to set
   spark.sql.sources.partitionOverwriteMode.
+
+__Bug fix__:
+- excluded table during data extraction defined in jdbcSchema are now taken into account
+- if column is renamed, check pattern of renamed column instead of original name since it is the target table column's name during schema extraction
+- **BREAKING CHANGE** when no fields could be inferred from input, inferred schema now fails
 
 
 __Bug Fix__:

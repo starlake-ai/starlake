@@ -4,6 +4,7 @@ connections:
         format: "jdbc"
         options:
             url: "jdbc:snowflake://"${SNOWFLAKE_ACCOUNT}".snowflakecomputing.com",
+            account: "{{SNOWFLAKE_ACCOUNT}}"
             driver: "net.snowflake.client.jdbc.SnowflakeDriver"
             user: ${SNOWFLAKE_USER}
             password: ${SNOWFLAKE_PASSWORD}
@@ -18,6 +19,7 @@ connections:
     options:
         url: "jdbc:snowflake://"${SNOWFLAKE_ACCOUNT}".snowflakecomputing.com",
         driver: "net.snowflake.client.jdbc.SnowflakeDriver"
+        account: "{{SNOWFLAKE_ACCOUNT}}"
         user: ${SNOWFLAKE_USER}
         password: ${SNOWFLAKE_PASSWORD}
         warehouse: ${SNOWFLAKE_WAREHOUSE}
