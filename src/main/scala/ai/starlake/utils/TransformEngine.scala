@@ -40,7 +40,7 @@ object TransformEngine {
   }
 }
 
-trait TransformEngine {
+trait TransformEngine extends Serializable {
 
   /** @param s:
     *   String => Input string to encrypt

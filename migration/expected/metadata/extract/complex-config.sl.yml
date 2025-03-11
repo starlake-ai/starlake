@@ -1,6 +1,7 @@
 ---
 version: 1
 extract:
+  sanitizeAttributeName: "ON_EXTRACT"
   connectionRef: databaseConn
   auditConnectionRef: auditConn
   output:

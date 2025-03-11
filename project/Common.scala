@@ -95,7 +95,10 @@ object Common {
             // val suffix = "T" + ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             currentVersion + " @ " + suffix
           } else currentVersion
-        }
+        },
+        BuildInfoKey.action("buildTime") {
+          System.currentTimeMillis
+        } // re-computed each time at compile
       )
     ) ++ gitSettings ++ assemlySettings
 

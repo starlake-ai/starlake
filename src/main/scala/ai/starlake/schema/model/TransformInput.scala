@@ -25,6 +25,9 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
+import org.apache.spark.sql.functions.udf
+
+import scala.util.Try
 
 /** How (the attribute should be transformed at ingestion time ?
   *
@@ -44,6 +47,19 @@ sealed case class TransformInput(value: String, sql: Boolean) {
   ): String = {
     // val ((privacyAlgo, privacyParams), _) = allPrivacyLevels(value)
     transformAlgo.crypt(s, colMap, transformParams)
+  }
+
+  /** @param colMap
+    * @param transformAlgo
+    * @param transformParams
+    * @return
+    */
+  def cryptUDF(transformAlgo: TransformEngine, transformParams: List[String]) = {
+    udf((column: String) =>
+      Option(column).map(c =>
+        Try(transformAlgo.crypt(c, Map.empty, transformParams)).getOrElse(null)
+      )
+    ).withName("crypt_it") // TODO: remove colMap
   }
 }
 

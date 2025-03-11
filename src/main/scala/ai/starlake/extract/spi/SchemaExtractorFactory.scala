@@ -14,7 +14,12 @@ object SchemaExtractorFactory {
     val connection = resolveConnection(extractSchemaCliConfig, extractSchemas, settings)
     extractSchemas.openAPI match {
       case Some(openAPIConfig) =>
-        new OpenAPISchemaExtractor(openAPIConfig, connection, extractSchemas.sanitizeAttributeName)
+        new OpenAPISchemaExtractor(
+          openAPIConfig,
+          connection,
+          extractSchemas.sanitizeAttributeName,
+          extractSchemaCliConfig.snakeCase
+        )
       case None =>
         throw new RuntimeException(
           "Could not create an instance of SchemaExtractor with the given information"
