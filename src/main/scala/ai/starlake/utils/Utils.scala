@@ -137,6 +137,16 @@ object Utils extends StrictLogging {
     logger.error(exceptionAsString(exception))
   }
 
+  def exceptionMessagesChainAsString(exception: Throwable): String = {
+    val messages = mutable.ListBuffer.empty[String]
+    var currentException = exception
+    while (currentException != null) {
+      messages += currentException.getMessage
+      currentException = currentException.getCause
+    }
+    messages.mkString("\n\t")
+  }
+
   def exceptionAsString(exception: Throwable): String = {
     val sw = new StringWriter
     exception.printStackTrace(new PrintWriter(sw))

@@ -8,7 +8,7 @@ import ai.starlake.job.transform.AutoTask
 import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
-import ai.starlake.utils.Utils
+import ai.starlake.utils.{JsonSerializer, Utils}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
@@ -97,6 +97,20 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     }
   }
 
+  def orchestratorFromTemplate(template: String): String = {
+    val pathIndex = template.lastIndexOf('/')
+    val templateName =
+      if (pathIndex > 0)
+        template.substring(pathIndex + 1)
+      else
+        template
+    val oIndex = templateName.indexOf("__")
+    if (oIndex > 0) {
+      templateName.substring(0, oIndex)
+    } else
+      "unknown"
+  }
+
   def generateTaskDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
@@ -151,6 +165,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val configs = taskConfigs.map { case (_, config) => config.taskDesc.name }
         val autoTaskDepsConfig = AutoTaskDependenciesConfig(tasks = Some(configs))
         val deps = depsEngine.jobsDependencyTree(autoTaskDepsConfig)
+        val orchestratorName = orchestratorFromTemplate(dagConfig.template).toLowerCase()
+        val nativeOrchestrator = Set("snowflake", "databricks").contains(orchestratorName)
 
         val taskStatements: List[
           (
@@ -162,7 +178,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
           )
         ] =
-          if (config.orchestrator.isDefined) {
+          if (nativeOrchestrator) {
             taskConfigs.map { case (_, config) =>
               val task = AutoTask.task(
                 appId = None,
@@ -177,13 +193,22 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 resultPageSize = 1,
                 dryRun = false
               )(settings, settings.storageHandler(), schemaHandler)
-              (
-                task.buildListOfSQLStatements(),
-                task.expectationStatements(),
-                task.auditStatements(),
-                task.aclSQL(),
-                ExpectationJob.buildSQLStatements()
-              )
+              Try {
+                (
+                  task.buildListOfSQLStatements(),
+                  task.expectationStatements(),
+                  task.auditStatements(),
+                  task.aclSQL(),
+                  ExpectationJob.buildSQLStatements()
+                )
+              } match {
+                case scala.util.Success(value) => value
+                case scala.util.Failure(exception) =>
+                  throw new Exception(
+                    s"Failed to build statements for task ${task.name}: ${exception.getMessage}",
+                    exception
+                  )
+              }
             }
           } else {
             Nil
@@ -283,6 +308,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
       val filenameVars = dagConfig.getfilenameVars()
       if (filenameVars.exists(List("table", "finalTable", "renamedTable").contains)) {
+        // filename: "{{domain}}_{{table}}.py"
         if (!filenameVars.exists(List("domain", "finalDomain", "renamedDomain").contains))
           logger.warn(
             s"Dag Config $dagConfigName: filename contains table but not domain, this will generate multiple dags with the same name if the same table name appear in multiple domains"
@@ -320,43 +346,57 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 k -> Utils.parseJinja(v, envVars)
               }
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
-              val statements =
-                config.orchestrator match {
-                  case Some(orchestrator) =>
-                    new DummyIngestionJob(
-                      domain = domain,
-                      schema = table,
-                      types = schemaHandler.types(),
-                      path = Nil,
-                      storageHandler = settings.storageHandler(),
-                      schemaHandler = schemaHandler,
-                      options = options,
-                      accessToken = None,
-                      test = false
-                    ).buildListOfSQLStatementsAsMap(orchestrator)
-                  case None =>
-                    Map.empty[String, Any]
-                }
-              val context = LoadDagGenerationContext(
-                config = dagConfig.copy(options = options, comment = comment),
-                schedules,
-                workflowStatements = statements
-              )
-
               scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
-
-              applyJ2AndSave(
-                outputDir,
-                jEnv,
-                dagTemplateContent,
-                optionsWithProjectIdAndName(config, context.asMap),
-                filename
-              )
+              val orchestratorName = orchestratorFromTemplate(dagConfig.template).toLowerCase()
+              val nativeOrchestrator = Set("snowflake", "databricks").contains(orchestratorName)
+              if (nativeOrchestrator) {
+                val statements =
+                  new DummyIngestionJob(
+                    domain = domain,
+                    schema = table,
+                    types = schemaHandler.types(),
+                    path = Nil,
+                    storageHandler = settings.storageHandler(),
+                    schemaHandler = schemaHandler,
+                    options = options,
+                    accessToken = None,
+                    test = false
+                  ).buildListOfSQLStatementsAsMap(orchestratorName)
+                val context = LoadDagGenerationContext(
+                  config = dagConfig.copy(options = options, comment = comment),
+                  schedules,
+                  workflowStatementsIn = List(statements)
+                )
+                val loadTemplateContent =
+                  new LoadStrategyTemplateLoader().loadTemplate(s"$orchestratorName/default.j2")
+                applyJ2AndSave(
+                  outputDir,
+                  jEnv,
+                  loadTemplateContent,
+                  optionsWithProjectIdAndName(config, context.asMap),
+                  filename
+                )
+              } else {
+                val context = LoadDagGenerationContext(
+                  config = dagConfig.copy(options = options, comment = comment),
+                  schedules,
+                  workflowStatementsIn = List(Map.empty)
+                )
+                applyJ2AndSave(
+                  outputDir,
+                  jEnv,
+                  dagTemplateContent,
+                  optionsWithProjectIdAndName(config, context.asMap),
+                  filename
+                )
+              }
             }
           }
         }
       } else if (filenameVars.exists(List("domain", "finalDomain", "renamedDomain").contains)) {
+        // filename: "{{domain}}.py"
+
         // one dag per domain
         val domains = groupedBySchedule
           .flatMap { case (schedule, groupedByDomain) =>
@@ -405,7 +445,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
                 schedules,
-                workflowStatements = Map.empty[String, Any]
+                workflowStatementsIn = List.empty[Map[String, Object]]
               )
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
               applyJ2AndSave(
@@ -428,7 +468,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             val context = LoadDagGenerationContext(
               config = dagConfig.copy(options = options, comment = comment),
               schedules,
-              workflowStatements = Map.empty[String, Any]
+              workflowStatementsIn = List.empty[Map[String, Object]]
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
             applyJ2AndSave(
@@ -484,7 +524,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               val context = LoadDagGenerationContext(
                 config = dagConfig.copy(options = options, comment = comment),
                 List(schedule),
-                workflowStatements = Map.empty[String, Any]
+                workflowStatementsIn = List.empty[Map[String, Object]]
               )
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
               applyJ2AndSave(
@@ -502,7 +542,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             val context = LoadDagGenerationContext(
               config = dagConfig.copy(options = options, comment = comment),
               schedules = dagSchedules,
-              workflowStatements = Map.empty[String, Any]
+              workflowStatementsIn = List.empty[Map[String, Object]]
             )
             val filename = Utils.parseJinja(dagConfig.filename, envVars)
             applyJ2AndSave(
@@ -526,9 +566,18 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     context: util.HashMap[String, Object],
     filename: String
   )(implicit settings: Settings): Unit = {
+    val context2 = context.clone().asInstanceOf[util.HashMap[String, Object]]
+
+    DagGenerationConfig.externalKeys.foreach { key =>
+      context2.remove(key)
+    }
+    val json = JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(context2)
+
     val paramMap = Map(
       "context" -> context,
-      "env"     -> jEnv.asJava
+      "env"     -> jEnv.asJava,
+      "json"    -> json,
+      "pyjson"  -> json.replace("\\", "\\\\")
     )
     val jinjaOutput = Utils.parseJinjaTpl(dagTemplateContent, paramMap)
     val dagPath = new Path(outputDir, filename)

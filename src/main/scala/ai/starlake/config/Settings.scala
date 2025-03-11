@@ -710,6 +710,7 @@ object Settings extends StrictLogging {
     dags: String,
     tests: String,
     writeStrategies: String,
+    loadStrategies: String,
     metadata: String,
     metrics: Metrics,
     validateOnLoad: Boolean,
@@ -1154,7 +1155,8 @@ object Settings extends StrictLogging {
             metrics = loadedConfig.metrics
               .copy(path = pathFromRoot(loadedConfig.metrics.path)),
             dags = pathFromRoot(loadedConfig.dags),
-            writeStrategies = pathFromRoot(loadedConfig.writeStrategies)
+            writeStrategies = pathFromRoot(loadedConfig.writeStrategies),
+            loadStrategies = pathFromRoot(loadedConfig.loadStrategies)
           )
         }
         .getOrElse(loadedConfig)
@@ -1191,6 +1193,10 @@ object Settings extends StrictLogging {
         .withValue(
           "writeStrategies",
           ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.writeStrategies)
+        )
+        .withValue(
+          "loadStrategies",
+          ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.loadStrategies)
         )
 
     val withUpdatedEnvConfig =

@@ -406,6 +406,7 @@ class JdbcAutoTask(
             tableName,
             incomingSchemaWithSCD2,
             caseSensitive = false,
+            temporaryTable = false,
             optionsWrite,
             attDdl()
           )

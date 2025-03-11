@@ -2,7 +2,7 @@ package ai.starlake.sql
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
-import ai.starlake.job.strategies.StrategiesBuilder
+import ai.starlake.job.strategies.TransformStrategiesBuilder
 import ai.starlake.schema.model.ConnectionType.FS
 import ai.starlake.schema.model.{
   AllSinks,
@@ -232,11 +232,11 @@ class SQLUtilsSpec extends TestHelper {
         )
 
       val sqlMerge =
-        new StrategiesBuilder()
-          .run(
+        new TransformStrategiesBuilder()
+          .buildTransform(
             strategy,
             selectWithCTEs,
-            StrategiesBuilder.TableComponents(
+            TransformStrategiesBuilder.TableComponents(
               "starlake-project-id",
               "dataset3",
               "transactions_v3",

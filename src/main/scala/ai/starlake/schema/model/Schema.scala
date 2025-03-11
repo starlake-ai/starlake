@@ -35,6 +35,7 @@ import org.apache.spark.sql.types.{Metadata => SparkMetadata, _}
 
 import java.util.regex.Pattern
 import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 /** Dataset Schema
@@ -83,6 +84,29 @@ case class Schema(
   patternSample: Option[String] = None,
   streams: List[String] = Nil
 ) extends Named {
+
+  def asMap(): Map[String, Object] = {
+    Map(
+      "name"          -> name,
+      "pattern"       -> pattern.toString,
+      "attributes"    -> attributes.map(_.asMap()).asJava,
+      "metadata"      -> metadata.getOrElse(Metadata()).asMap().asJava,
+      "comment"       -> comment,
+      "presql"        -> presql,
+      "postsql"       -> postsql,
+      "tags"          -> tags,
+      "rls"           -> rls.map(_.asMap()).asJava,
+      "expectations"  -> expectations.map(_.asMap()).asJava,
+      "primaryKey"    -> primaryKey,
+      "acl"           -> acl.map(_.asMap()).asJava,
+      "rename"        -> rename,
+      "sample"        -> sample,
+      "filter"        -> filter,
+      "patternSample" -> patternSample,
+      "streams"       -> streams,
+      "finalName"     -> finalName
+    )
+  }
 
   def this() = this(
     "",
@@ -411,14 +435,14 @@ case class Schema(
       "properties" -> properties,
       "attributes" -> attrs,
       "domain"     -> domainName.toLowerCase,
-      "schema"     -> finalName.toLowerCase
+      "table"      -> finalName.toLowerCase
     )
 
     template
       .getOrElse {
         """
          |{
-         |  "index_patterns": ["${domain}.${schema}", "${domain}.${schema}-*"],
+         |  "index_patterns": ["${domain}.${table}", "${domain}.${table}-*"],
          |  "settings": {
          |    "number_of_shards": "1",
          |    "number_of_replicas": "0"

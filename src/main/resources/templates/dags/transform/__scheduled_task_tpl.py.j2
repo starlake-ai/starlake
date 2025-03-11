@@ -29,9 +29,11 @@ dependencies=StarlakeDependencies(dependencies="""{{ context.dependencies }}""")
 
 statements = {{ context.statements }}
 
-expectations = {{ context.expectations }}
+expectation_items = {{ context.expectationItems }}
 
 audit = {{ context.audit }}
+
+expectations = {{ context.expectations }}
 
 acl = {{ context.acl }}
 

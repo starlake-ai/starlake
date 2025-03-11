@@ -219,6 +219,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
               domainAndTableName,
               incomingSparkSchema,
               caseSensitive = true,
+              temporaryTable = false,
               optionsWrite,
               ddlMap
             )
@@ -230,6 +231,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             domainAndTableName,
             incomingSparkSchema,
             caseSensitive = true,
+            temporaryTable = false,
             optionsWrite,
             ddlMap
           )

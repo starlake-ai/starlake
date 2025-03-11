@@ -27,4 +27,6 @@ package ai.starlake.schema.model
   * @param last
   *   : last char position
   */
-case class Position(first: Int, last: Int)
+case class Position(first: Int, last: Int) {
+  def asMap() = Map("first" -> first, "last" -> last)
+}

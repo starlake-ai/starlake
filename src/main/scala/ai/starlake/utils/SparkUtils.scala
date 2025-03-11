@@ -182,11 +182,19 @@ object SparkUtils extends StrictLogging {
     domainAndTableName: String,
     schema: StructType,
     caseSensitive: Boolean,
+    temporaryTable: Boolean,
     options: JdbcOptionsInWrite,
     attrDdlMapping: Map[String, Map[String, String]]
   )(implicit settings: Settings): Unit = {
     val (createSchemaSql, createTableSql, commentSql) =
-      buildCreateTableSQL(domainAndTableName, schema, caseSensitive, options, attrDdlMapping)
+      buildCreateTableSQL(
+        domainAndTableName,
+        schema,
+        caseSensitive,
+        temporaryTable,
+        options,
+        attrDdlMapping
+      )
     val statement = conn.createStatement
     try {
       statement.setQueryTimeout(options.queryTimeout)
@@ -211,6 +219,7 @@ object SparkUtils extends StrictLogging {
     domainAndTableName: String,
     schema: StructType,
     caseSensitive: Boolean,
+    temporaryTable: Boolean,
     options: JdbcOptionsInWrite,
     attrDdlMapping: Map[String, Map[String, String]]
   )(implicit settings: Settings): (String, String, Option[String]) = {
@@ -231,8 +240,9 @@ object SparkUtils extends StrictLogging {
 
     val domainName = domainAndTableName.split('.').head
     val createSchemaSQL = s"CREATE SCHEMA IF NOT EXISTS $domainName"
+    val temporary = if (temporaryTable) "TEMP" else ""
     val createTableSQL =
-      s"CREATE TABLE IF NOT EXISTS $domainAndTableName ($finalStrSchema) $createTableOptions"
+      s"CREATE $temporary TABLE IF NOT EXISTS $domainAndTableName ($finalStrSchema) $createTableOptions"
 
     val commentSQL =
       if (options.tableComment.nonEmpty)

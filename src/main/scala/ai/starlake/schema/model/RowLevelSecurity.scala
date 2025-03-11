@@ -16,6 +16,12 @@ case class RowLevelSecurity(
   description: String = ""
 ) extends Named {
 
+  def asMap(): Map[String, String] = Map(
+    "rlsName"        -> name,
+    "rlsPredicate"   -> predicate,
+    "rlsGrants"      -> grants.mkString(","),
+    "rlsDescription" -> description
+  )
   override def toString: String = {
     s"RowLevelSecurity(name=$name, predicate=$predicate, grants=$grants, description=$description)"
   }
