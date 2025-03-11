@@ -221,7 +221,7 @@ object Dependencies {
   )
 
   val starlakeStreaming = Seq(
-    "ai.starlake" %% "starlake-streaming" % "1.3.3" % "provided"
+    "ai.starlake" %% "starlake-streaming" % "1.3.4" % "provided"
   )
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
