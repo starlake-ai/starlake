@@ -4,6 +4,8 @@ import uuid
 
 from typing import List, Optional, Union
 
+from ai.starlake.dataset import StarlakeDataset
+
 from ai.starlake.dagster import StarlakeDagsterJob
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
@@ -98,13 +100,15 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
 
         return delete_dataproc_cluster
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> NodeDefinition:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_job()
         Generate the Dagster node that will run the starlake command within the dataproc cluster by submitting the corresponding spark job.
 
         Args:
             task_id (str): The required task id.
             arguments (list): The required arguments of the starlake command to run.
+            spark_config (Optional[StarlakeSparkConfig], optional): The optional spark configuration. Defaults to None.
+            dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
 
         Returns:
             NodeDefinition: The Dagster node.
@@ -152,9 +156,8 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
         }
 
         assets: List[AssetKey] = kwargs.get("assets", [])
-        asset_key: Optional[AssetKey] = kwargs.get("asset", None)
-        if asset_key:
-            assets.append(asset_key)
+        if dataset:
+            assets.append(self.to_event(dataset))
 
         ins=kwargs.get("ins", {})
 

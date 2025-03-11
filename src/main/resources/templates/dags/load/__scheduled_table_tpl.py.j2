@@ -13,8 +13,6 @@ sl_job = StarlakeJobFactory.create_job(
     options=options
 )
 
-from ai.starlake.dataset import StarlakeDataset
-
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDomain, StarlakeTable, OrchestrationFactory
 
 schedules= [{% for schedule in context.schedules %}
@@ -43,11 +41,10 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
             schedule=schedule,
         ) as pipeline:
 
-            pipeline_id    = pipeline.pipeline_id
             schedule       = pipeline.schedule
             schedule_name  = pipeline.schedule_name
 
-            start = pipeline.start_task(task_id=f'start_{schedule_name}')
+            start = pipeline.start_task()
             if not start:
                 raise Exception("Start task not defined")
 
@@ -75,7 +72,6 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
                                 pre_load = pipeline.sl_pre_load(
                                         domain=domain.name, 
                                         tables=set([table.name for table in domain.tables]), 
-                                        params={'cron':schedule.cron, 'schedule': schedule_name}, 
                                     )
                                 skip_or_start = pipeline.skip_or_start(
                                     task_id=f'skip_or_start_loading_{name}', 
@@ -86,7 +82,6 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
                                             task_id=f"import_{name}",
                                             domain=domain.name, 
                                             tables=set([table.name for table in domain.tables]), 
-                                            params={'cron':schedule.cron, 'schedule': schedule_name}, 
                                         )
                                 else:
                                     sl_import = None
@@ -111,8 +106,6 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
                                     task_id=sanitize_id(f'load_{domain.name}_{table.name}'), 
                                     domain=domain.name, 
                                     table=table.name,
-                                    spark_config=pipeline.sl_spark_config(f'{domain.name}.{table.name}'.lower()),
-                                    params={'cron':schedule.cron},
                                 )
 
                         return load_domain_tables
@@ -126,10 +119,7 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
 
             load_domains = [generate_load_domain(domain) for domain in schedule.domains]
 
-            end = pipeline.end_task(
-                task_id=f'end_{schedule_name}', 
-                output_datasets=[StarlakeDataset(uri=pipeline_id, cron=schedule.cron)]
-            )
+            end = pipeline.end_task()
 
             if pre_tasks:
                 start >> pre_tasks >> load_domains
@@ -147,4 +137,4 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
 
         return pipeline
 
-    [generate_pipeline(schedule) for schedule in schedules]
+    pipelines = [generate_pipeline(schedule) for schedule in schedules]

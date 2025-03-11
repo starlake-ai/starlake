@@ -7,9 +7,9 @@ import os
 import importlib
 import inspect
 
-from ai.starlake.common import sl_cron_start_end_dates, sort_crons_by_frequency, is_valid_cron
+from ai.starlake.common import StarlakeCronPeriod, sl_cron_start_end_dates, sort_crons_by_frequency, is_valid_cron, sanitize_id
 
-from ai.starlake.job import StarlakeSparkConfig, IStarlakeJob, StarlakePreLoadStrategy
+from ai.starlake.job import StarlakeSparkConfig, IStarlakeJob, StarlakePreLoadStrategy, StarlakeExecutionMode
 
 from ai.starlake.dataset import StarlakeDataset, AbstractEvent
 
@@ -19,8 +19,6 @@ U = TypeVar("U") # type of DAG
 
 E = TypeVar("E") # type of event
 
-J = TypeVar("J", bound=IStarlakeJob) # type of job
-
 T = TypeVar("T") # type of task
 
 GT = TypeVar("GT") # type of task group
@@ -28,7 +26,7 @@ GT = TypeVar("GT") # type of task group
 class AbstractDependency(ABC):
     """Abstract interface to define a dependency."""
     def __init__(self, id: str) -> None:
-        super().__init__()
+#FIXME missing 1 required positional argument: 'name'        super().__init__()
         self._id = id
 
     @property
@@ -223,7 +221,7 @@ class TaskGroupContext(AbstractDependency):
         return [self.get_dependency(id) for id in self.leaves_keys]
 
     def __repr__(self):
-        return f"TaskGroup(id={self.group_id}, parent={self.parent.id if self.parent else ''}, dependencies=[{','.join([dep.id for dep in self.dependencies])}], roots=[{','.join([key for key in self.roots_keys])}], leaves=[{','.join([key for key in self.get_leaves_keys()])}])"
+        return f"TaskGroup(id={self.group_id}, parent={self.parent.id if self.parent else ''}, dependencies=[{','.join([dep.id for dep in self.dependencies])}], roots=[{','.join([key for key in self.roots_keys])}], leaves=[{','.join([key for key in self.leaves_keys])}])"
 
 class AbstractTaskGroup(Generic[GT], TaskGroupContext):
     """Abstract interface to define a task group."""
@@ -260,14 +258,14 @@ class AbstractTaskGroup(Generic[GT], TaskGroupContext):
         else:
             return level
 
-class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
+class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent[E]):
     """Abstract interface to define a pipeline."""
-    def __init__(self, job: J, orchestration_cls: "AbstractOrchestration", dag: Optional[U] = None, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[U, T, GT, E]] = None, **kwargs) -> None:
+    def __init__(self, job: IStarlakeJob[T, E], orchestration_cls: "AbstractOrchestration", dag: Optional[U] = None, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[U, T, GT, E]] = None, **kwargs) -> None:
         if not schedule and not dependencies:
             raise ValueError("Either a schedule or dependencies must be provided")
         pipeline_id = job.caller_filename.replace(".py", "").replace(".pyc", "").lower()
         if schedule:
-            schedule_name = schedule.name
+            schedule_name = sanitize_id(schedule.name).lower()
         else:
             schedule_name = None
         if schedule_name:
@@ -275,10 +273,13 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         super().__init__(group_id=pipeline_id, orchestration_cls=orchestration_cls, group=dag, **kwargs)
         self._orchestration = orchestration
         self._job = job
+        self._options = job.options
         self._dag = dag
         self._pipeline_id = pipeline_id
         self._schedule = schedule
         self._schedule_name = schedule_name
+        self._sl_schedule_parameter_name = job.sl_schedule_parameter_name
+        self._sl_schedule_format = job.sl_schedule_format
 
         tags = self.get_context_var(var_name='tags', default_value="").split()
 
@@ -314,14 +315,14 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
                 cron=cron, 
                 load_dependencies=load_dependencies,
                 filtered_datasets=filtered_datasets,
-                sl_schedule_parameter_name=job.sl_schedule_parameter_name,
-                sl_schedule_format=job.sl_schedule_format
+                sl_schedule_parameter_name=self.sl_schedule_parameter_name,
+                sl_schedule_format=self.sl_schedule_format
             )
 
             if computed_schedule is not None:
                 if isinstance(computed_schedule, str):
                     cron = computed_schedule
-                elif isinstance(computed_schedule, list):
+                else:
                     datasets = computed_schedule
 
         self._tags = tags
@@ -334,6 +335,19 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
 
         self._datasets = datasets
 
+        uris: Set[str] = set(map(lambda dataset: dataset.uri, datasets or []))
+        if cron:
+            cron_expr = cron
+        elif len(uris) == len(self.scheduled_datasets) and len(set(self.scheduled_datasets.values())) > 0:
+            sorted_crons = sort_crons_by_frequency(set(
+                self.scheduled_datasets.values()), 
+                period=self.cron_period_frequency
+            )
+            cron_expr = sorted_crons[0][0]
+        else:
+            cron_expr = None
+
+        self._cron_expr = cron_expr
         ...
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -347,7 +361,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         return False
 
     @property
-    def orchestration(self) -> Optional[AbstractOrchestration[J, T, GT, E]]:
+    def orchestration(self) -> Optional[AbstractOrchestration[U, T, GT, E]]:
         return self._orchestration
 
     @property
@@ -360,7 +374,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
 
     @final
     @property
-    def job(self) -> J:
+    def job(self) -> IStarlakeJob[T, E]:
         return self._job
 
     @final
@@ -380,8 +394,23 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
 
     @final
     @property
+    def sl_schedule_parameter_name(self) -> str:
+        return self._sl_schedule_parameter_name
+
+    @final
+    @property
+    def sl_schedule_format(self) -> str:
+        return self._sl_schedule_format
+
+    @final
+    @property
     def cron(self) -> Optional[str]:
         return self._cron
+
+    @final
+    @property
+    def computed_cron_expr(self) -> Optional[str]:
+        return self._cron_expr
 
     @property
     def catchup(self) -> bool:
@@ -411,9 +440,18 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
     def datasets(self) -> Optional[List[StarlakeDataset]]:
         return self._datasets
 
+    @final
+    def find_dataset_by_name(self, name: str) -> Optional[StarlakeDataset]:
+        return next((dataset for dataset in self.datasets or [] if dataset.name == name), None)
+
     @property
     def scheduled_datasets(self) -> dict:
-        return {dataset.sink: dataset.cron for dataset in self.datasets or [] if dataset.cron is not None and dataset.sink is not None}
+        return {dataset.name: dataset.cron for dataset in self.datasets or [] if dataset.cron is not None and dataset.name is not None}
+
+    @final
+    @property
+    def not_scheduled_datasets(self) -> List[StarlakeDataset]:
+        return [dataset for dataset in self.datasets or [] if dataset.name not in self.scheduled_datasets.keys()]
 
     @final
     @property
@@ -421,14 +459,22 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         least_frequent_datasets: List[StarlakeDataset] = []
         if set(self.scheduled_datasets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
             # we sort the cron datasets by frequency (most frequent first)
-            sorted_crons = sort_crons_by_frequency(set(self.scheduled_datasets.values()), period=self.job.cron_period_frequency())
+            sorted_crons = sort_crons_by_frequency(set(self.scheduled_datasets.values()), period=self.cron_period_frequency)
             # we exclude the most frequent cron dataset
             least_frequent_crons = set([expr for expr, _ in sorted_crons[1:sorted_crons.__len__()]])
-            for sink, cron in self.scheduled_datasets.items() :
+            for name, cron in self.scheduled_datasets.items() :
                 # we republish the least frequent scheduled datasets
                 if cron in least_frequent_crons:
-                    least_frequent_datasets.append(StarlakeDataset(sink=sink, cron=cron))
+                    dataset = self.find_dataset_by_name(name)
+                    if dataset:
+                        least_frequent_datasets.append(dataset)
         return least_frequent_datasets
+
+    @final
+    @property
+    def most_frequent_datasets(self) -> List[StarlakeDataset]:
+        least_frequent_datasets: List[str] = list(map(lambda dataset: dataset.name, self.least_frequent_datasets or []))
+        return [dataset for dataset in self.datasets or [] if dataset.cron and dataset.name not in least_frequent_datasets]
 
     @final
     @property
@@ -441,11 +487,21 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         return self.job.pre_load_strategy
 
     @final
+    @property
+    def cron_period_frequency(self) -> StarlakeCronPeriod:
+        return self.job.cron_period_frequency
+
+    @final
+    @property
+    def options(self) -> dict:
+        return self._options
+
+    @final
     def get_context_var(self, var_name: str, default_value: Any) -> Any:
         return self.job.get_context_var(
             var_name=var_name, 
             default_value=default_value, 
-            options=self.job.options
+            options=self.options
         )
 
     @final
@@ -456,14 +512,7 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def dummy_task(self, task_id: str, **kwargs) -> Union[AbstractTask[T], AbstractTaskGroup[GT]]:
-        pipeline_id = self.pipeline_id
-        events = kwargs.get('events', [])
-        kwargs.pop('events', None)
-        output_datasets = kwargs.get('output_datasets', None)
-        if output_datasets:
-            events += list(map(lambda dataset: self.to_event(dataset=dataset, source=pipeline_id), output_datasets))
-            kwargs.pop('output_datasets', None)
+    def dummy_task(self, task_id: str, events: Optional[List[E]]= None, **kwargs) -> Union[AbstractTask[T], AbstractTaskGroup[GT]]:
         return self.orchestration.sl_create_task(
             task_id, 
             self.job.dummy_op(
@@ -481,18 +530,22 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         kwargs.pop('task_id', None)
         return self.dummy_task(
             task_id=task_id, 
-            output_datasets=self.least_frequent_datasets, 
+            output_datasets=self.least_frequent_datasets, #FIXME should take into account the execution date time of the underlying task
             **kwargs
         )
 
     @final
     def start_task(self, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
-        task_id = kwargs.get('task_id', 'start')
+        task_id = kwargs.get('task_id', f'start_{self.schedule_name}' if self.schedule_name else 'start')
         kwargs.pop('task_id', None)
         return self.orchestration.sl_create_task(
             task_id, 
-            self.job.dummy_op(
+            self.job.start_op(
                 task_id=task_id, 
+                scheduled = self.cron is not None,
+                not_scheduled_datasets=self.not_scheduled_datasets, 
+                least_frequent_datasets = self.least_frequent_datasets, 
+                most_frequent_datasets=self.most_frequent_datasets, 
                 **kwargs
             ),
             self
@@ -510,6 +563,12 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
 
     @final
     def sl_pre_load(self, domain: str, tables: Set[str], **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
+        params: dict = kwargs.get('params', dict())
+        params.update({
+            'cron': self.cron,
+            'schedule': self.schedule_name
+        })
+        kwargs['params'] = params
         task_id = kwargs.get('task_id', IStarlakeJob.get_sl_pre_load_task_id(domain, self.pre_load_strategy, **kwargs))
         kwargs.pop('task_id', None)
         return self.orchestration.sl_create_task(
@@ -562,6 +621,12 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
 
     @final
     def sl_import(self, task_id: str, domain: str, tables: set=set(), **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
+        params: dict = kwargs.get('params', dict())
+        params.update({
+            'cron': self.cron,
+            'schedule': self.schedule_name
+        })
+        kwargs['params'] = params
         return self.orchestration.sl_create_task(
             task_id,
             self.job.sl_import(
@@ -574,28 +639,50 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
+    def sl_load(self, task_id: str, domain: str, table: str, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
+        name=f'{domain}.{table}'
+        params: dict = kwargs.get('params', dict())
+        params.update({
+            'cron': self.cron,
+            'sl_schedule_parameter_name': self.sl_schedule_parameter_name, 
+            'sl_schedule_format': self.sl_schedule_format
+        })
+        kwargs['params'] = params
+        kwargs.pop('spark_config', None)
+        kwargs.pop('dataset', None)
         return self.orchestration.sl_create_task(
             task_id, 
             self.job.sl_load(
                 task_id=task_id, 
                 domain=domain, 
                 table=table, 
-                spark_config=spark_config, 
+                spark_config=self.sl_spark_config(name.lower()), 
+                dataset=StarlakeDataset(name, **kwargs),
                 **kwargs
             ),
             self
         )
 
     @final
-    def sl_transform(self, task_id: str, transform_name: str, transform_options: str = None, spark_config: StarlakeSparkConfig = None, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
+    def sl_transform(self, task_id: str, transform_name: str, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
+        params: dict = kwargs.get('params', dict())
+        params.update({
+            'cron': self.cron,
+            'cron_expr': self.computed_cron_expr,
+            'sl_schedule_parameter_name': self.sl_schedule_parameter_name, 
+            'sl_schedule_format': self.sl_schedule_format
+        })
+        kwargs['params'] = params
+        kwargs.pop('transform_options', None)
+        kwargs.pop('spark_config', None)
+        kwargs.pop('dataset', None)
         return self.orchestration.sl_create_task(
             task_id, 
                 self.job.sl_transform(
                 task_id=task_id, 
                 transform_name=transform_name, 
-                transform_options=transform_options, 
-                spark_config=spark_config, 
+                transform_options=self.sl_transform_options(self.computed_cron_expr), 
+                spark_config=self.sl_spark_config(transform_name.lower()),                 dataset=StarlakeDataset(transform_name, **kwargs),
                 **kwargs
             ),
             self
@@ -612,14 +699,16 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
         )
 
     @final
-    def end_task(self, output_datasets: Optional[List[StarlakeDataset]] = None, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
+    def end_task(self, events: Optional[List[E]]= None, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         pipeline_id = self.pipeline_id
-        events = list(map(lambda dataset: self.to_event(dataset=dataset, source=pipeline_id), output_datasets or []))
-        task_id = kwargs.get('task_id', 'end')
+        if not events:
+            events = list(map(lambda dataset: self.to_event(dataset=dataset, source=pipeline_id), [StarlakeDataset(name=pipeline_id, cron=self.cron)]))
+        task_id = kwargs.get('task_id', f"end_{self.schedule_name}" if self.schedule_name else 'end')
         kwargs.pop('task_id', None)
+        kwargs.pop('events', None)
         end = self.orchestration.sl_create_task(
             task_id, 
-            self.job.dummy_op(
+            self.job.end_op(
                 task_id=task_id, 
                 events=events, 
                 **kwargs
@@ -637,8 +726,33 @@ class AbstractPipeline(Generic[U, E], AbstractTaskGroup[U], AbstractEvent[E]):
     def __repr__(self):
         return self.print_pipeline()
 
+    @abstractmethod
+    def deploy(self, options: dict[str, Any]) -> None:
+        """Deploy the pipeline.
+        Args:
+            options (dict[str, Any]): the options required to deploy the pipeline.
+        """
+        ...
+
+    @abstractmethod
+    def run(self, options: dict[str, Any] = dict(), mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN) -> None:
+        """Run the pipeline.
+        Args:
+            options (dict[str, Any]): the options required to run the pipeline.
+            mode (StarlakeExecutionMode): the execution mode.
+        """
+        ...
+
+    def dry_run(self, options: dict[str, Any] = dict()) -> None:
+        """Dry run the pipeline.
+        Args:
+            options (dict[str, Any]): the options to run the pipeline.
+        """
+        self.run(options, StarlakeExecutionMode.DRY_RUN)
+
+
 class AbstractOrchestration(Generic[U, T, GT, E]):
-    def __init__(self, job: J, **kwargs) -> None:
+    def __init__(self, job: IStarlakeJob[T, E], **kwargs) -> None:
         super().__init__(**kwargs)
         self._job = job
         self._pipelines = []
@@ -655,25 +769,25 @@ class AbstractOrchestration(Generic[U, T, GT, E]):
         return None
 
     @property
-    def job(self) -> J:
+    def job(self) -> IStarlakeJob[T, E]:
         return self._job
 
     @property
-    def pipelines(self) -> List[AbstractPipeline[U, E]]:
+    def pipelines(self) -> List[AbstractPipeline[U, T, GT, E]]:
         return self._pipelines
 
     @abstractmethod
-    def sl_create_pipeline(self, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, **kwargs) -> AbstractPipeline[U, E]:
+    def sl_create_pipeline(self, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, **kwargs) -> AbstractPipeline[U, T, GT, E]:
         """Create a pipeline."""
         pass
 
-    def sl_create_task(self, task_id: str, task: Optional[Union[T, GT]], pipeline: AbstractPipeline[U, E]) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
+    def sl_create_task(self, task_id: str, task: Optional[Union[T, GT]], pipeline: AbstractPipeline[U, T, GT, E]) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         if task is None:
             return None
         return AbstractTask(task_id, task)
 
     @abstractmethod
-    def sl_create_task_group(self, group_id: str, pipeline: AbstractPipeline[U, E], **kwargs) -> AbstractTaskGroup[GT]:
+    def sl_create_task_group(self, group_id: str, pipeline: AbstractPipeline[U, T, GT, E], **kwargs) -> AbstractTaskGroup[GT]:
         pass
 
     @classmethod
@@ -736,7 +850,7 @@ class OrchestrationFactory:
         print(f"Registered orchestration {orchestration_class} for orchestrator {orchestrator}")
 
     @classmethod
-    def create_orchestration(cls, job: J, **kwargs) -> AbstractOrchestration[U, T, GT, E]:
+    def create_orchestration(cls, job: IStarlakeJob[T, E], **kwargs) -> AbstractOrchestration[U, T, GT, E]:
         if not cls._initialized:
             cls.register_orchestrations_from_package()
             cls._initialized = True

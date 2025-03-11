@@ -1,8 +1,10 @@
 from typing import Optional, Union
 
+from ai.starlake.dataset import StarlakeDataset
+
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
 
-from ai.starlake.airflow import StarlakeAirflowJob
+from ai.starlake.airflow import StarlakeAirflowJob, StarlakeDatasetMixin
 
 from airflow.models.baseoperator import BaseOperator
 
@@ -24,7 +26,7 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
         """
         return StarlakeExecutionEnvironment.SHELL
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: Optional[StarlakeSparkConfig] = None, **kwargs) -> BaseOperator:
+    def sl_job(self, task_id: str, arguments: list, spark_config: Optional[StarlakeSparkConfig] = None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> BaseOperator:
         """Overrides StarlakeAirflowJob.sl_job()
         Generate the Airflow task that will run the starlake command.
 
@@ -32,6 +34,7 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
             task_id (str): The required task id.
             arguments (list): The required arguments of the starlake command to run.
             spark_config (Optional[StarlakeSparkConfig], optional): The optional spark configuration. Defaults to None.
+            dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
 
         Returns:
             BaseOperator: The Airflow task.
@@ -69,8 +72,10 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
 
         if kwargs.get('do_xcom_push', False):
-            return PythonOperator(
+            return StarlakePythonOperator(
                 task_id=task_id,
+                dataset=dataset,
+                source=self.source,
                 python_callable=self.execute_command,
                 op_args=[command],
                 op_kwargs=kwargs,
@@ -78,10 +83,22 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
                 **kwargs
             )
         else:
-            return BashOperator(
+            return StarlakeBashOperator(
                 task_id=task_id,
+                dataset=dataset,
+                source=self.source,
                 bash_command=command,
                 cwd=self.sl_root,
                 env=env,
                 **kwargs
             )
+
+class StarlakePythonOperator(StarlakeDatasetMixin, PythonOperator):
+    """Starlake Python Operator."""
+    def __init__(self, python_callable, **kwargs):
+        super().__init__(python_callable=python_callable, **kwargs)
+
+class StarlakeBashOperator(StarlakeDatasetMixin, BashOperator):
+    """Starlake Bash Operator."""
+    def __init__(self, bash_command: str, **kwargs):
+        super().__init__(bash_command=bash_command, **kwargs)

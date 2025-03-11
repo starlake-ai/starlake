@@ -1,0 +1,14 @@
+# This template executes individual sql jobs and requires the following dag generation options set:
+#
+# - stage_location: the location of the stage in snowflake [REQUIRED]
+# - warehouse(COMPUTE_WH): the warehouse to use for the DAG [OPTIONAL], default to COMPUTE_WH
+# - timezone(UTC): the timezone to use for the schedule [OPTIONAL], default to UTC
+# - packages(croniter,python-dateutil): a list of packages to install before running the task [OPTIONAL], default to croniter,python-dateutil
+# - sl_env_var: starlake variables specified as a map in json format - at least the root project path SL_ROOT should be specified [OPTIONAL]
+# - retries(1): the number of retries to attempt before failing the task [OPTIONAL]
+# - retry_delay(300): the delay between retries in seconds [OPTIONAL]
+#
+{% include 'templates/dags/__starlake_snowflake_orchestrator.py' %}
+{% include 'templates/dags/__starlake_sql_execution.py' %}
+json_context = '''{{ pyjson }}'''
+{% include 'templates/dags/load/__scheduled_table_tpl.py.j2' %}

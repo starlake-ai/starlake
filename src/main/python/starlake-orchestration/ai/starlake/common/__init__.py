@@ -4,7 +4,7 @@ from croniter import croniter
 from croniter.croniter import CroniterBadCronError
 
 from datetime import datetime, timedelta
-from typing import Union
+from typing import Optional, Union
 
 def keep_ascii_only(text):
     return re.sub(r'[^\x00-\x7F]+', '_', text)
@@ -51,7 +51,8 @@ def asQueryParameters(parameters: Union[dict,None]=None) -> str:
         return ''
 
 def cron_start_time() -> datetime:
-    return datetime.fromtimestamp(datetime.now().timestamp())
+    import pytz
+    return datetime.fromtimestamp(datetime.now().timestamp()).astimezone(pytz.timezone('UTC'))
 
 sl_schedule_format = '%Y%m%dT%H%M'
 
@@ -127,6 +128,36 @@ def sl_cron_start_end_dates(cron_expr: str, start_time: datetime = cron_start_ti
         sl_end_date = previous
     sl_start_date = croniter(cron_expr, sl_end_date).get_prev(datetime)
     return f"sl_start_date='{sl_start_date.strftime(format)}',sl_end_date='{sl_end_date.strftime(format)}'"
+
+def sl_scheduled_dataset(dataset: str, cron: Optional[str], ts: str, parameter_name: str = 'sl_schedule', format: str = sl_timestamp_format, previous: bool=False) -> str:
+    """
+    Returns the dataset url with the schedule parameter added if a cron expression has been provided.
+    Args:
+        dataset (str): The dataset name.
+        cron (str): The optional cron expression.
+        ts (str): The timestamp.
+        parameter_name (str): The parameter name. Defaults to 'sl_schedule'.
+        format (str): The format to return the schedule in. Defaults to '%Y%m%dT%H%M'.
+    """
+    if cron:
+        if not is_valid_cron(cron):
+            raise ValueError(f"Invalid cron expression: {cron} for dataset {dataset}")
+        try:
+            # Convert ts to a datetime object
+            from dateutil import parser
+            import pytz
+            start_time = parser.isoparse(ts).astimezone(pytz.timezone('UTC'))
+            parameters = dict()
+            if previous:
+                parameters[parameter_name] = croniter(cron, start_time).get_prev(datetime).strftime(format)
+            else:
+                parameters[parameter_name] = croniter(cron, start_time).get_current(datetime).strftime(format)
+            return f"{sanitize_id(dataset).lower()}{asQueryParameters(parameters)}"
+        except Exception as e:
+            print(f"Error converting timestamp to datetime: {e}")
+            # return sanitize_id(dataset).lower()
+            raise e
+    return sanitize_id(dataset).lower()
 
 def is_valid_cron(cron_expr: str) -> bool:
     try:
