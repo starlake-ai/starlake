@@ -1,8 +1,10 @@
 from typing import Any, Dict, Optional, Union
 
+from ai.starlake.dataset import StarlakeDataset
+
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
 
-from ai.starlake.airflow import StarlakeAirflowJob
+from ai.starlake.airflow import StarlakeAirflowJob, StarlakeDatasetMixin
 
 from ai.starlake.aws import StarlakeFargateHelper
 
@@ -26,7 +28,7 @@ class StarlakeAirflowFargateJob(StarlakeAirflowJob):
         self.fargate_async_poke_interval = float(__class__.get_context_var('fargate_async_poke_interval', "30", self.options))
         self.retry_on_failure = __class__.get_context_var("retry_on_failure", "False", self.options).lower() == 'true'
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: Optional[StarlakeSparkConfig] = None, **kwargs) -> BaseOperator:
+    def sl_job(self, task_id: str, arguments: list, spark_config: Optional[StarlakeSparkConfig] = None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> BaseOperator:
         """Overrides StarlakeAirflowJob.sl_job()
         Generate the Airflow task that will run the starlake command.
 
@@ -34,6 +36,7 @@ class StarlakeAirflowFargateJob(StarlakeAirflowJob):
             task_id (str): The required task id.
             arguments (list): The required arguments of the starlake command to run.
             spark_config (Optional[StarlakeSparkConfig], optional): The optional spark configuration. Defaults to None.
+            dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
 
         Returns:
             BaseOperator: The Airflow task.
@@ -63,6 +66,8 @@ class StarlakeAirflowFargateJob(StarlakeAirflowJob):
         if wait_for_completion:
             return FargateTaskOperator(
                 task_id=task_id,
+                dataset=dataset,
+                source=self.source,
                 task_definition=fargate.task_definition,
                 cluster=fargate.cluster,
                 overrides=overrides,
@@ -78,6 +83,8 @@ class StarlakeAirflowFargateJob(StarlakeAirflowJob):
             with TaskGroup(group_id=f"{task_id}_wait") as task_completion_sensors:
                 run_task = FargateTaskOperator(
                     task_id=task_id,
+                    dataset=None,
+                    source=self.source,
                     task_definition=fargate.task_definition,
                     cluster=fargate.cluster,
                     overrides=overrides,
@@ -91,6 +98,8 @@ class StarlakeAirflowFargateJob(StarlakeAirflowJob):
                 check_completion_id = task_id + '_check_completion'
                 completion_sensor = FargateTaskStateSensor(
                     task_id=check_completion_id,
+                    dataset=dataset,
+                    source=self.source,
                     cluster=fargate.cluster,
                     task=run_task.output["ecs_task_arn"],
                     poke_interval=self.fargate_async_poke_interval,
@@ -108,7 +117,7 @@ class StarlakeAirflowFargateJob(StarlakeAirflowJob):
         """
         return StarlakeExecutionEnvironment.FARGATE
 
-class FargateTaskOperator(EcsRunTaskOperator):
+class FargateTaskOperator(StarlakeDatasetMixin, EcsRunTaskOperator):
     def __init__(
         self,
         task_id: str,
@@ -153,7 +162,7 @@ class FargateTaskOperator(EcsRunTaskOperator):
             if self.retry_on_failure:
                 raise e
 
-class FargateTaskStateSensor(EcsTaskStateSensor):
+class FargateTaskStateSensor(StarlakeDatasetMixin, EcsTaskStateSensor):
     """
     This sensor waits until the ECS Task has completed by providing the target_state and failure_states parameters.
     """

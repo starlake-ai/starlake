@@ -4,11 +4,15 @@ from datetime import timedelta
 
 import logging
 
-from typing import Any, Dict, Sequence, Union
+from typing import Any, Dict, Optional, Sequence, Union
+
+from ai.starlake.dataset import StarlakeDataset
 
 from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
 
-from ai.starlake.airflow import StarlakeAirflowJob
+from ai.starlake.airflow import StarlakeAirflowJob, StarlakeDatasetMixin
+
+from ai.starlake.airflow.bash import StarlakeBashOperator
 
 from airflow.exceptions import AirflowException
 
@@ -75,13 +79,15 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
         """
         return StarlakeExecutionEnvironment.CLOUD_RUN
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> BaseOperator:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]=None, **kwargs) -> BaseOperator:
         """Overrides StarlakeAirflowJob.sl_job()
         Generate the Airflow task that will run the starlake command.
         
         Args:
             task_id (str): The required task id.
             arguments (list): The required arguments of the starlake command to run.
+            spark_config (Optional[StarlakeSparkConfig], optional): The optional spark configuration. Defaults to None.
+            dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
             
         Returns:
             BaseOperator: The Airflow task.
@@ -107,6 +113,8 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                     check_completion_id = task_id + '_check_completion'
                     completion_sensor = GCloudRunJobCompletionSensor(
                         task_id=check_completion_id,
+                        dataset=dataset if self.retry_on_failure else None,
+                        source=self.source,
                         project_id=self.project_id,
                         cloud_run_job_region=self.cloud_run_job_region,
                         source_task_id=job_task.task_id,
@@ -138,8 +146,10 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                             fi
                             '
                             """
-                        job_status = BashOperator(
+                        job_status = StarlakeBashOperator(
                             task_id=get_completion_status_id,
+                            dataset=dataset,
+                            source=self.source,
                             bash_command=bash_command,
                             **kwargs
                         )
@@ -155,6 +165,8 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                     job_overrides = {"container_overrides": [container_overrides]}
                     job_task = CloudRunJobOperator(
                         task_id=task_id,
+                        dataset=None,
+                        source=self.source,
                         project_id=self.project_id,
                         job_name=self.cloud_run_job_name,
                         region=self.cloud_run_job_region,
@@ -166,6 +178,8 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                     check_completion_id = task_id + '_check_completion'
                     completion_sensor = CloudRunJobCompletionSensor(
                         task_id=check_completion_id,
+                        dataset=dataset,
+                        source=self.source,
                         source_task_id=job_task.task_id,
                         impersonation_chain=self.impersonate_service_account,
                         **kwargs
@@ -199,8 +213,10 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                     fi
                     '
                     """
-                return BashOperator(
+                return StarlakeBashOperator(
                     task_id=task_id,
+                    dataset=dataset,
+                    source=self.source,
                     bash_command=bash_command,
                     **kwargs
                 )
@@ -214,6 +230,8 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                 job_overrides = {"container_overrides": [container_overrides]}
                 return CloudRunJobOperator(
                     task_id=task_id,
+                    dataset=dataset,
+                    source=self.source,
                     project_id=self.project_id,
                     job_name=self.cloud_run_job_name,
                     region=self.cloud_run_job_region,
@@ -223,7 +241,7 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                     **kwargs
                 )
 
-class GCloudRunJobCompletionSensor(BashSensor):
+class GCloudRunJobCompletionSensor(StarlakeDatasetMixin, BashSensor):
     '''
     This sensor checks the completion of a cloud run job using gcloud.
     '''
@@ -271,7 +289,7 @@ class GCloudRunJobCompletionSensor(BashSensor):
             **kwargs
         )
 
-class CloudRunJobOperator(CloudRunExecuteJobOperator):
+class CloudRunJobOperator(StarlakeDatasetMixin, CloudRunExecuteJobOperator):
     """
     This extends official CloudRunExecuteJobOperator in order to implement asynchronous job.
     """
@@ -319,7 +337,7 @@ class CloudRunJobOperator(CloudRunExecuteJobOperator):
                 logger.exception(msg=f"Task {self.task_id} has failed")
                 return False
 
-class CloudRunJobCompletionSensor(BaseSensorOperator):
+class CloudRunJobCompletionSensor(StarlakeDatasetMixin, BaseSensorOperator):
 
     template_fields = ("gcp_conn_id", "impersonation_chain")
 
