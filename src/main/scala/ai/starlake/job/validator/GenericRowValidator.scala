@@ -1,5 +1,6 @@
 package ai.starlake.job.validator
 
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Attribute, Format, Type}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
@@ -7,7 +8,7 @@ import org.apache.spark.storage.StorageLevel
 
 case class CheckValidityResult(
   errors: Dataset[String],
-  rejected: Dataset[String],
+  rejected: Dataset[Row],
   accepted: Dataset[Row]
 )
 
@@ -31,7 +32,7 @@ trait GenericRowValidator {
     * @param sparkType
     *   : The expected Spark Type for valid rows
     * @return
-    *   Two RDDs : One RDD for rejected rows and one RDD for accepted rows
+    *   Two dataframe : One dataframe for rejected rows and one dataframe for accepted rows
     */
   def validate(
     session: SparkSession,
@@ -44,6 +45,7 @@ trait GenericRowValidator {
     privacyOptions: Map[String, String],
     cacheStorageLevel: StorageLevel,
     sinkReplayToFile: Boolean,
-    emptyIsNull: Boolean
-  ): CheckValidityResult
+    emptyIsNull: Boolean,
+    rejectWithValue: Boolean
+  )(implicit schemaHandler: SchemaHandler): CheckValidityResult
 }

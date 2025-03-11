@@ -175,7 +175,6 @@ class MetricsJob(
         count,
         timestamp
       )
-
     val metricsToSave = List(
       (metricsDatasets.continuousDF, MetricsTable.CONTINUOUS),
       (metricsDatasets.discreteDF, MetricsTable.DISCRETE),
