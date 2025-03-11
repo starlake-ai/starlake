@@ -1,11 +1,13 @@
 package ai.starlake.job.common
 
 import ai.starlake.schema.model.{ConnectionType, ExpectationSQL}
-import ai.starlake.utils.JsonSerializer
+
+import scala.jdk.CollectionConverters._
 
 case class TaskSQLStatements(
   name: String,
   domain: String,
+  table: String,
   createSchemaSql: List[String],
   preActions: List[String],
   preSqls: List[String],
@@ -16,30 +18,19 @@ case class TaskSQLStatements(
   connectionType: ConnectionType
 ) {
 
-  def asPython(): String = {
-    val map = asMap()
-    val entries = map.map { case (k, list) =>
-      val value = list
-        .map { v =>
-          s"""'''$v'''"""
-        }
-        .mkString(",\n")
-      s""""$k": [$value]"""
-    }
-    s"{\n${entries.mkString(",\n")}\n}"
-  }
-
-  def asMap(): Map[String, List[String]] = {
+  def asMap(): Map[String, Object] = {
     Map(
-      "domain"             -> List(domain),
-      "createSchemaSql"    -> createSchemaSql,
-      "preActions"         -> preActions,
-      "preSqls"            -> preSqls,
-      "mainSqlIfExists"    -> mainSqlIfExists,
-      "mainSqlIfNotExists" -> mainSqlIfNotExists,
-      "postSqls"           -> postSqls,
-      "addSCD2ColumnsSqls" -> addSCD2ColumnsSqls,
-      "connectionType"     -> List(connectionType.toString)
+      "name"               -> name,
+      "domain"             -> List(domain).asJava,
+      "table"              -> List(table).asJava,
+      "createSchemaSql"    -> createSchemaSql.asJava,
+      "preActions"         -> preActions.asJava,
+      "preSqls"            -> preSqls.asJava,
+      "mainSqlIfExists"    -> mainSqlIfExists.asJava,
+      "mainSqlIfNotExists" -> mainSqlIfNotExists.asJava,
+      "postSqls"           -> postSqls.asJava,
+      "addSCD2ColumnsSqls" -> addSCD2ColumnsSqls.asJava,
+      "connectionType"     -> List(connectionType.toString).asJava
     )
   }
 }
@@ -51,7 +42,7 @@ case class WorkflowStatements(
   acl: List[String],
   expectations: Option[TaskSQLStatements]
 ) {
-  def asMap(): Map[String, String] = {
+  def asMap(): Map[String, Object] = {
     val statementsAsMap = task.asMap()
     val expectationItemsAsMap = expectationItems.map(_.asMap())
 
@@ -61,27 +52,13 @@ case class WorkflowStatements(
 
     val expectationsAsMap = expectations.map(_.asMap()).getOrElse(Map.empty)
 
-    val statementsAsString =
-      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(statementsAsMap)
-    val expectationItemsAsString =
-      JsonSerializer.mapper
-        .writerWithDefaultPrettyPrinter()
-        .writeValueAsString(expectationItemsAsMap)
-    val auditAsString =
-      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(auditAsMap)
-    val aclAsString =
-      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(aclAsMap)
-    val expectationsAsString =
-      JsonSerializer.mapper
-        .writerWithDefaultPrettyPrinter()
-        .writeValueAsString(expectationsAsMap)
-
     Map(
-      "statements"       -> statementsAsString,
-      "expectationItems" -> expectationItemsAsString,
-      "audit"            -> auditAsString,
-      "acl"              -> aclAsString,
-      "expectations"     -> expectationsAsString
+      "name"             -> task.name,
+      "statements"       -> statementsAsMap.asJava,
+      "expectationItems" -> expectationItemsAsMap.map(_.asJava).asJava,
+      "audit"            -> auditAsMap.asJava,
+      "acl"              -> aclAsMap.asJava,
+      "expectations"     -> expectationsAsMap.asJava
     )
   }
 }

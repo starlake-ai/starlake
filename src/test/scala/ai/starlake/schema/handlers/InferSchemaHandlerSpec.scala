@@ -14,7 +14,7 @@ class InferSchemaHandlerSpec extends TestHelper {
 
       val df = sparkSession.read
         .option("inferSchema", value = true)
-        .json(Seq(ComplexjsonStr).toDS)
+        .json(Seq(ComplexjsonStr).toDS())
 
       val complexAttr2 = Attribute("key", "long", Some(false), required = None)
       val complexAttr3 =
@@ -45,7 +45,7 @@ class InferSchemaHandlerSpec extends TestHelper {
 
       val df1 = sparkSession.read
         .option("inferSchema", value = true)
-        .json(Seq(SimpleJsonStr).toDS)
+        .json(Seq(SimpleJsonStr).toDS())
 
       val simpleAttr: List[Attribute] =
         InferSchemaHandler.createAttributes(Map.empty, df1.schema)
@@ -77,7 +77,7 @@ class InferSchemaHandlerSpec extends TestHelper {
 
       val df1 = sparkSession.read
         .option("inferSchema", value = true)
-        .json(Seq(arrayJson).toDS)
+        .json(Seq(arrayJson).toDS())
 
       val arrayAttr: List[Attribute] =
         InferSchemaHandler.createAttributes(Map.empty, df1.schema)
@@ -101,11 +101,17 @@ class InferSchemaHandlerSpec extends TestHelper {
         .load("src/test/resources/sample/SCHEMA-VALID.dsv")
 
       val dsv: List[Attribute] =
-        InferSchemaHandler.createAttributes(Map.empty, df1.schema, false)
+        InferSchemaHandler.createAttributes(Map.empty, df1.schema, forcePattern = false)
 
       val dsv1: List[Attribute] = List(
-        Attribute("first name", "string", Some(false), required = None),
-        Attribute("last name", "string", Some(false), required = None),
+        Attribute(
+          "first name",
+          "string",
+          Some(false),
+          required = None,
+          rename = Some("first_name")
+        ),
+        Attribute("last name", "string", Some(false), required = None, rename = Some("last_name")),
         Attribute("age", "string", Some(false), required = None),
         Attribute("ok", "string", Some(false), required = None)
       )
@@ -125,9 +131,9 @@ class InferSchemaHandlerSpec extends TestHelper {
       val dsv: List[Attribute] = InferSchemaHandler.createAttributes(Map.empty, df1.schema)
 
       val dsv1: List[Attribute] = List(
-        Attribute("_c0", "string", Some(false), required = None),
-        Attribute("_c1", "string", Some(false), required = None),
-        Attribute("_c2", "int", Some(false), required = None)
+        Attribute("_c0", "string", Some(false), required = None, rename = Some("c0")),
+        Attribute("_c1", "string", Some(false), required = None, rename = Some("c1")),
+        Attribute("_c2", "int", Some(false), required = None, rename = Some("c2"))
       )
       dsv shouldBe dsv1
 
@@ -139,7 +145,7 @@ class InferSchemaHandlerSpec extends TestHelper {
         .option("rowTag", "catalog")
         .option("ignoreNamespace", "true")
         .load("src/test/resources/sample/SAMPLE-XML-SPECIAL-CHARS.xml")
-      val xml: List[Attribute] = InferSchemaHandler.createAttributes(Map.empty, df1.schema)
+      InferSchemaHandler.createAttributes(Map.empty, df1.schema)
 
       df1.schema.printTreeString()
 

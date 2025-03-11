@@ -717,6 +717,7 @@ class SparkAutoTask(
             firstStepTempTable,
             loadedDF.schema,
             caseSensitive = false,
+            temporaryTable = false,
             new JdbcOptionsInWrite(jdbcUrl, firstStepTempTable, sinkConnectionRefOptions),
             attDdl()
           )

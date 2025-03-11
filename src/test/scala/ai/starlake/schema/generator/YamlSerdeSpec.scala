@@ -1302,6 +1302,7 @@ object YamlConfigGenerators {
       tests                      <- arbitrary[String]
       dags                       <- arbitrary[String]
       writeStrategies            <- arbitrary[String]
+      loadStrategies             <- arbitrary[String]
       metadata                   <- arbitrary[String]
       metrics                    <- arbitrary[Metrics]
       validateOnLoad             <- arbitrary[Boolean]
@@ -1381,6 +1382,7 @@ object YamlConfigGenerators {
       tests = tests,
       dags = dags,
       writeStrategies = writeStrategies,
+      loadStrategies = loadStrategies,
       metadata = metadata,
       metrics = metrics,
       validateOnLoad = validateOnLoad,

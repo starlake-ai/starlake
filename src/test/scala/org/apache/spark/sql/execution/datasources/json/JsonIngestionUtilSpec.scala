@@ -71,7 +71,7 @@ class JsonIngestionUtilSpec extends TestHelper {
           ),
           true
         )
-        JsonIngestionUtil.compareTypes(Nil, schemaType, datasetType) should be('empty)
+        JsonIngestionUtil.compareTypes(Nil, schemaType, datasetType) should be(Symbol("empty"))
       }
       "field at the beginning of the message but not in the schema" should "produce an error" in {
         val datasetType = (

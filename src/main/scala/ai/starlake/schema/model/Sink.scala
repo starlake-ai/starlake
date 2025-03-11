@@ -91,6 +91,8 @@ sealed abstract class Sink {
   val connectionRef: Option[String]
   def toAllSinks(): AllSinks
 
+  def asMap(jdbcEngine: JdbcEngine): Map[String, Object] = toAllSinks().asMap(jdbcEngine)
+
   def getConnectionType()(implicit
     settings: Settings
   ): ConnectionType = {
@@ -165,21 +167,21 @@ final case class AllSinks(
 
   def this() = this(None)
 
-  def asMap(jdbcEngine: JdbcEngine): Map[String, Any] = {
-    val map = scala.collection.mutable.Map.empty[String, Any]
+  def asMap(jdbcEngine: JdbcEngine): Map[String, Object] = {
+    val map = scala.collection.mutable.Map.empty[String, Object]
     connectionRef.foreach(map += "sinkConnectionRef" -> _)
-    sharding.foreach(map += "sinkShardSuffix" -> _)
+    sharding.foreach(map += "sinkShardSuffix" -> _.asJava)
     clustering.foreach(map += "sinkClustering" -> _.asJava)
-    days.foreach(map += "sinkDays" -> _)
-    requirePartitionFilter.foreach(map += "sinkRequirePartitionFilter" -> _)
-    materializedView.foreach(map += "sinkMaterializedView" -> _)
-    enableRefresh.foreach(map += "sinkEnableRefresh" -> _)
-    refreshIntervalMs.foreach(map += "sinkRefreshIntervalMs" -> _)
+    days.foreach(it => map += "sinkDays" -> it.toString)
+    requirePartitionFilter.foreach(map += "sinkRequirePartitionFilter" -> _.toString)
+    materializedView.foreach(map += "sinkMaterializedView" -> _.toString)
+    enableRefresh.foreach(map += "sinkEnableRefresh" -> _.toString)
+    refreshIntervalMs.foreach(map += "sinkRefreshIntervalMs" -> _.toString)
     id.foreach(map += "sinkId" -> _)
     map += "sinkFormat" -> format.getOrElse("parquet") // TODO : default format
     extension.foreach(map += "sinkExtension" -> _)
     partition.foreach(map += "sinkPartition" -> _.asJava)
-    coalesce.foreach(map += "sinkCoalesce" -> _)
+    coalesce.foreach(it => map += "sinkCoalesce" -> it.toString)
     options.foreach(map += "sinkOptions" -> _.asJava)
 
     map += "sinkTableOptionsClause"    -> this.getTableOptionsClause(jdbcEngine)

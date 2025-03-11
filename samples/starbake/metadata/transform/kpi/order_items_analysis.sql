@@ -3,8 +3,8 @@ WITH order_details AS (
          , o.customer_id
          , List( p.name || ' (' || o.quantity || ')' ) AS purchased_items
          , Sum( o.quantity * p.price ) AS total_order_value
-    FROM starbake.order_line o
-             JOIN starbake.product p
+    FROM starbake.order_lines o
+             JOIN starbake.products p
                   ON o.product_id = p.product_id
     GROUP BY    o.order_id
            , o.customer_id )

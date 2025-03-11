@@ -9,6 +9,11 @@ case class ExpectationItem(
   // Should never be called. Here for Jackson deserialization only
   def this() = this("", true)
 
+  def asMap(): Map[String, Any] = Map(
+    "query"       -> expect,
+    "failOnError" -> failOnError.toString
+  )
+
   override def toString: String = s"$expect"
 
   @JsonIgnore

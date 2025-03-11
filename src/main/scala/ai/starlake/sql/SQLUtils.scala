@@ -534,12 +534,12 @@ object SQLUtils extends StrictLogging {
         sql
     }
     Try(
-      JSQLTranspiler.transpileQuery(unpipedQuery, transpilerDialect(conn), timestamps.asJava)
+      JSQLTranspiler.transpileQuery(unpipedQuery, dialect, timestamps.asJava)
     ) match {
       case Success(transpiled) =>
         transpiled
       case Failure(e) =>
-        logger.error(s"Failed to transpile SQL: $sql")
+        logger.error(s"Failed to transpile SQL with dialect $dialect: $sql")
         Utils.logException(logger, e)
         sql
     }
