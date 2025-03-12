@@ -727,28 +727,62 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         return self.print_pipeline()
 
     @abstractmethod
-    def deploy(self, options: dict[str, Any]) -> None:
-        """Deploy the pipeline.
-        Args:
-            options (dict[str, Any]): the options required to deploy the pipeline.
-        """
+    def deploy(self, **kwargs) -> None:
+        """Deploy the pipeline."""
         ...
 
     @abstractmethod
-    def run(self, options: dict[str, Any] = dict(), mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN) -> None:
+    def run(self, logical_date: Optional[str] = None, mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
         """Run the pipeline.
         Args:
-            options (dict[str, Any]): the options required to run the pipeline.
+            logical_date (Optional[str]): the logical date.
             mode (StarlakeExecutionMode): the execution mode.
         """
         ...
 
-    def dry_run(self, options: dict[str, Any] = dict()) -> None:
+    @final
+    def dry_run(self, **kwargs) -> None:
         """Dry run the pipeline.
         Args:
             options (dict[str, Any]): the options to run the pipeline.
         """
-        self.run(options, StarlakeExecutionMode.DRY_RUN)
+        self.run(mode=StarlakeExecutionMode.DRY_RUN, **kwargs)
+
+    @final
+    def backfill(self, start_date: Optional[str] = None, end_date: Optional[str] = None, **kwargs) -> None:
+        """Backfill the pipeline."""
+        from datetime import datetime
+        cron = self.cron
+        if not cron:
+            raise ValueError("The pipeline must have a cron expression to backfill")
+        if not start_date:
+            raise ValueError("The pipeline must have a start date to backfill")
+        if not end_date:
+            end_date = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
+        from croniter import croniter
+        start_time = datetime.fromisoformat(start_date)
+        end_time = datetime.fromisoformat(end_date)
+        if start_time > end_time:
+            raise ValueError("The start date must be before the end date")
+        iter = croniter(cron, start_time)
+        # get the start and end date of the current cron iteration
+        curr: datetime = iter.get_current(datetime)
+        previous: datetime = iter.get_prev(datetime)
+        next: datetime = croniter(cron, previous).get_next(datetime)
+        if curr == next :
+            sl_end_date = curr
+        else:
+            sl_end_date = previous
+        sl_start_date: datetime = croniter(cron, sl_end_date).get_prev(datetime)
+        while sl_start_date <= end_time:
+            self.run(logical_date= sl_start_date.isoformat(), **kwargs)
+            sl_end_date = croniter(cron, sl_end_date).get_next(datetime)
+            sl_start_date = croniter(cron, sl_end_date).get_prev(datetime)
+
+    @abstractmethod
+    def delete(self, **kwargs) -> None:
+        """Delete the pipeline."""
+        ...
 
 
 class AbstractOrchestration(Generic[U, T, GT, E]):
