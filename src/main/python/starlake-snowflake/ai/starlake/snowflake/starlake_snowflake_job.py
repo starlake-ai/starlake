@@ -619,7 +619,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                 config = json.loads(config)
                             else:
                                 config = {}
-                            original_schedule = config.get("SL_START_DATE", None)
+                            original_schedule = config.get("logical_date", None)
                             if not original_schedule:
                                 query = "SELECT to_timestamp(system$task_runtime_info('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))"
                                 print(f"#Get the original scheduled timestamp of the initial graph run:\n{query};")

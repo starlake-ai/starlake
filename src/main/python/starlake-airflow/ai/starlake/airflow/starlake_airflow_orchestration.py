@@ -18,6 +18,8 @@ from airflow.models.baseoperator import BaseOperator
 
 from airflow.utils.task_group import TaskGroup, TaskGroupContext
 
+from airflow.utils.state import DagRunState
+
 from typing import Any, List, Optional, TypeVar, Union
 
 J = TypeVar("J", bound=StarlakeAirflowJob)
@@ -114,38 +116,131 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
             return "{{sl_dates(params.cron_expr, ts_as_datetime(data_interval_end | ts))}}"
         return None
 
-    def run(self, options: dict = dict(), mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN) -> None:
+    def deploy(self, **kwargs) -> None:
+        """Deploy the pipeline."""
         import os
         env = os.environ.copy() # Copy the current environment variables
-        import json
-        conf = json.dumps(options)
+        DAG_ID = self.pipeline_id
+        AIRFLOW_HOME = kwargs.get('AIRFLOW_HOME', env.get('AIRFLOW_HOME', "/opt/airflow"))
+        AIRFLOW_DAGS = f"{AIRFLOW_HOME}/dags"
+        import shutil
+        from pathlib import Path
+        DAG_FILE = f"{AIRFLOW_DAGS}/{DAG_ID}.py"
+        shutil.copyfile(Path(self.job.caller_globals['__file__']), Path(DAG_FILE))
+        print(f"Pipeline {DAG_ID} deployed to {DAG_FILE}")
+
+    def delete(self, **kwargs) -> None:
+        """Delete the pipeline."""
+        import os
+        env = os.environ.copy() # Copy the current environment variables
+        DAG_ID = self.pipeline_id
+        AIRFLOW_BASE_URL = kwargs.get('AIRFLOW_BASE_URL', env.get('AIRFLOW_BASE_URL', "http://localhost:8080"))
+        AIRFLOW_API_BASE_URL = f"{AIRFLOW_BASE_URL}/api/v1"
+        AIRFLOW_USERNAME = kwargs.get('AIRFLOW_USERNAME', env.get('AIRFLOW_USERNAME', None))
+        AIRFLOW_PASSWORD = kwargs.get('AIRFLOW_PASSWORD', env.get('AIRFLOW_PASSWORD', None))
+        if AIRFLOW_USERNAME and AIRFLOW_PASSWORD:
+            AIRFLOW_AUTH = (AIRFLOW_USERNAME, AIRFLOW_PASSWORD)
+        else:
+            AIRFLOW_AUTH = None
+        import requests
+        response = requests.delete(
+            f"{AIRFLOW_API_BASE_URL}/dags/{DAG_ID}",
+            headers={'Content-Type': 'application/json'},
+            auth=AIRFLOW_AUTH
+        )
+        response.raise_for_status()
+        print(f"Pipeline {DAG_ID} deleted")
+
+    def run(self, logical_date: Optional[str] = None, mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
+        """Run the pipeline.
+        Args:
+            logical_date (Optional[str]): the logical date.
+            mode (StarlakeExecutionMode): the execution mode.
+        """
+        import os
+        env = os.environ.copy() # Copy the current environment variables
+        DAG_ID = self.pipeline_id
         if mode == StarlakeExecutionMode.DRY_RUN:
-            import subprocess
-            subprocess.run(
-                args=f"airflow dags test {self.pipeline_id} --conf '{conf}'",
-                env=env,
-                check=True, 
-                stderr=subprocess.STDOUT, 
-                stdout=subprocess.PIPE,
-            )
-        elif mode == StarlakeExecutionMode.BACKFILL:
-            import subprocess
-            subprocess.run(
-                args=f"airflow dags backfill {self.pipeline_id} --rerun-failed-tasks --conf '{conf}'",
-                env=env,
-                check=True, 
-                stderr=subprocess.STDOUT, 
-                stdout=subprocess.PIPE,
-            )
+            # Test the pipeline with the given configuration
+            import json
+            conf = json.dumps(kwargs.get('conf', {}))
+            dag_run = self.dag.test(run_conf=conf)
+            from datetime import datetime, timedelta
+            import time
+            timeout = 60
+            start = datetime.now()
+            def check_state() -> bool:
+                if dag_run.state == DagRunState.FAILED:
+                    raise Exception(f"Pipeline {self.pipeline_id} failed")
+                elif dag_run.state == DagRunState.SUCCESS:
+                    print(f"Pipeline {self.pipeline_id} succeeded")
+                    return True
+                elif dag_run.state == DagRunState.RUNNING:
+                    print(f"Pipeline {self.pipeline_id} is running")
+                    if datetime.now() - start > timedelta(seconds=timeout):
+                        raise TimeoutError(f"Pipeline {self.pipeline_id} failed to run")
+                    time.sleep(5)
+                    return check_state()
+
         elif mode == StarlakeExecutionMode.RUN:
-            import subprocess
-            subprocess.run(
-                args=f"airflow dags trigger {self.pipeline_id} --conf '{conf}'",
-                env=env,
-                check=True, 
-                stderr=subprocess.STDOUT, 
-                stdout=subprocess.PIPE,
+            # Run the pipeline with the given configuration
+            AIRFLOW_BASE_URL = kwargs.get('AIRFLOW_BASE_URL', env.get('AIRFLOW_BASE_URL', "http://localhost:8080"))
+            AIRFLOW_API_BASE_URL = f"{AIRFLOW_BASE_URL}/api/v1"
+            AIRFLOW_USERNAME = kwargs.get('AIRFLOW_USERNAME', env.get('AIRFLOW_USERNAME', None))
+            AIRFLOW_PASSWORD = kwargs.get('AIRFLOW_PASSWORD', env.get('AIRFLOW_PASSWORD', None))
+            if AIRFLOW_USERNAME and AIRFLOW_PASSWORD:
+                AIRFLOW_AUTH = (AIRFLOW_USERNAME, AIRFLOW_PASSWORD)
+            else:
+                AIRFLOW_AUTH = None
+            import requests
+            payload = {k: kwargs[k] for k in ['conf', 'logical_date', 'execution_date', 'dag_run_id'] if k in kwargs}
+            if logical_date:
+                payload['logical_date'] = logical_date
+                payload['execution_date'] = logical_date
+            response = requests.post(
+                f"{AIRFLOW_API_BASE_URL}/dags/{DAG_ID}/dag_runs",
+                headers={'Content-Type': 'application/json'},
+                json=payload,
+                auth=AIRFLOW_AUTH
             )
+            response.raise_for_status()
+            json_response: dict = response.json() or dict()
+            dag_run_id = json_response.get('dag_run_id', None)
+            if dag_run_id:
+                print(f"Pipeline {DAG_ID} started with dag_run_id {dag_run_id}")
+                def check_state() -> bool:
+                    response = requests.get(
+                        f"{AIRFLOW_API_BASE_URL}/dags/{DAG_ID}/dagRuns/{dag_run_id}",
+                        headers={'Content-Type': 'application/json'},
+                        auth=AIRFLOW_AUTH
+                    )
+                    response.raise_for_status()
+                    json_response = response.json()
+                    state = json_response.get('state', None)
+                    if state == DagRunState.FAILED:
+                        raise Exception(f"Pipeline {DAG_ID} failed")
+                    elif state == DagRunState.SUCCESS:
+                        print(f"Pipeline {DAG_ID} succeeded")
+                        return True
+                    elif state == DagRunState.RUNNING:
+                        print(f"Pipeline {DAG_ID} is running")
+                        time.sleep(5)
+                        return check_state()
+                check_state()
+            else:
+                raise Exception(f"Pipeline {DAG_ID} failed")
+
+        elif mode == StarlakeExecutionMode.BACKFILL:
+            # Backfill the pipeline with the given configuration
+            if not logical_date:
+                raise ValueError("The logical date must be provided for backfilling")
+            conf = kwargs.get('conf', {})
+            conf['backfill'] = True
+            kwargs['conf'] = conf
+            self.run(logical_date=logical_date, mode=StarlakeExecutionMode.RUN, **kwargs)
+
+        else:
+            raise ValueError(f"Execution mode {mode} is not supported")
 
 class AirflowTaskGroup(AbstractTaskGroup[TaskGroup]):
     def __init__(self, group_id: str, group: TaskGroup, **kwargs) -> None:

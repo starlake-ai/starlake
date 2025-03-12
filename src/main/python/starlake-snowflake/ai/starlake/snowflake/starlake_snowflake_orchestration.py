@@ -49,10 +49,9 @@ class SnowflakeDag(DAG):
         self.logger = logging.getLogger(__name__)
         condition = None
 
-        definition=f"select '{name}'"
+        changes = dict() # tracks the datasets whose changes have to be checked
 
         if not schedule: # if the DAG is not scheduled we will rely on streams to trigger the underlying dag and check if the scheduled datasets without streams have data using CHANGES
-            changes = dict() # tracks the datasets whose changes have to be checked
 
             if least_frequent_datasets:
                 self.logger.info(f"least frequent datasets: {','.join(list(map(lambda x: x.sink, least_frequent_datasets)))}")
@@ -96,117 +95,116 @@ class SnowflakeDag(DAG):
                 else:
                     condition = ' AND '.join(not_scheduled_streams)
 
-            from snowflake.snowpark.dataframe import DataFrame
-            from snowflake.snowpark.row import Row
+        from snowflake.snowpark.dataframe import DataFrame
+        from snowflake.snowpark.row import Row
 
-            def execute_sql(session: Session, query: Optional[str], message: Optional[str] = None, dry_run: bool = False) -> List[Row]:
-                """Execute the SQL.
-                Args:
-                    session (Session): The Snowflake session.
-                    query (str): The SQL query to execute.
-                    message (Optional[str], optional): The optional message. Defaults to None.
-                    mode (Optional[StarlakeExecutionMode], optional): The optional execution mode. Defaults to None.
-                Returns:
-                    List[Row]: The rows.
-                """
-                if query:
-                    if dry_run and message:
-                        print(f"# {message}")
-                    if dry_run:
-                        print(f"{query};")
-                        return []
-                    else:
-                        df: DataFrame = session.sql(query)
-                        rows = df.collect()
-                        return rows
-                else:
+        def execute_sql(session: Session, query: Optional[str], message: Optional[str] = None, dry_run: bool = False) -> List[Row]:
+            """Execute the SQL.
+            Args:
+                session (Session): The Snowflake session.
+                query (str): The SQL query to execute.
+                message (Optional[str], optional): The optional message. Defaults to None.
+                mode (Optional[StarlakeExecutionMode], optional): The optional execution mode. Defaults to None.
+            Returns:
+                List[Row]: The rows.
+            """
+            if query:
+                if dry_run and message:
+                    print(f"# {message}")
+                if dry_run:
+                    print(f"{query};")
                     return []
+                else:
+                    df: DataFrame = session.sql(query)
+                    rows = df.collect()
+                    return rows
+            else:
+                return []
 
-            if changes:
-                format = '%Y-%m-%d %H:%M:%S%z'
+        format = '%Y-%m-%d %H:%M:%S%z'
 
-                def fun(session: Session, dry_run: bool) -> None:
-                    from croniter import croniter
-                    from croniter.croniter import CroniterBadCronError
-                    from datetime import datetime
+        def fun(session: Session, dry_run: bool) -> None:
+            from croniter import croniter
+            from croniter.croniter import CroniterBadCronError
+            from datetime import datetime
 
-                    # get the original scheduled timestamp of the initial graph run in the current group
-                    # For graphs that are retried, the returned value is the original scheduled timestamp of the initial graph run in the current group.
-                    if not dry_run:
-                        config = session.call("system$get_task_graph_config")
+            # get the original scheduled timestamp of the initial graph run in the current group
+            # For graphs that are retried, the returned value is the original scheduled timestamp of the initial graph run in the current group.
+            if not dry_run:
+                config = session.call("system$get_task_graph_config")
+            else:
+                config = None
+            if config:
+                import json
+                config = json.loads(config)
+            else:
+                config = {}
+            original_schedule = config.get("logical_date", None)
+            if not original_schedule:
+                query = f"select to_timestamp(system$task_runtime_info('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))"
+                rows = execute_sql(session, query, "Getting the original scheduled timestamp of the initial graph run in the current group", dry_run)
+                if rows:
+                    original_schedule = rows[0][0]
+                else:
+                    original_schedule = None
+            if original_schedule:
+                if isinstance(original_schedule, str):
+                    from dateutil import parser
+                    start_time = parser.parse(original_schedule)
+                else:
+                    start_time = original_schedule
+            else:
+                start_time = datetime.fromtimestamp(datetime.now().timestamp())
+
+            def check_if_dataset_exists(dataset: str) -> bool:
+                query = f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE CONCAT(TABLE_SCHEMA, '.', TABLE_NAME) ILIKE '{dataset}'"
+                rows = execute_sql(session, query, f"Checking if dataset {dataset} exists", dry_run)
+                if dry_run:
+                    return True
+                else:
+                    return rows.__len__() > 0
+
+            for dataset, cron_expr in changes.items():
+                if not check_if_dataset_exists(dataset):
+                    raise ValueError(f"Dataset {dataset} does not exist")
+                try:
+                    # enabling change tracking for the dataset - should be done once and when we create our datasets
+                    query = f"ALTER TABLE {dataset} SET CHANGE_TRACKING = TRUE"
+                    execute_sql(session, query, f"Enabling change tracking for dataset {dataset}", dry_run)
+                    croniter(cron_expr)
+                    iter = croniter(cron_expr, start_time)
+                    # get the start and end date of the current cron iteration
+                    curr = iter.get_current(datetime)
+                    previous = iter.get_prev(datetime)
+                    next = croniter(cron_expr, previous).get_next(datetime)
+                    if curr == next :
+                        sl_end_date = curr
                     else:
-                        config = None
-                    if config:
-                        import json
-                        config = json.loads(config)
+                        sl_end_date = previous
+                    sl_start_date = croniter(cron_expr, sl_end_date).get_prev(datetime)
+                    change = f"SELECT count(*) FROM {dataset} CHANGES(INFORMATION => DEFAULT) AT(TIMESTAMP => '{sl_start_date.strftime(format)}') END (TIMESTAMP => '{sl_end_date.strftime(format)}')"
+                    rows = execute_sql(session, change, f"Checking changes for dataset {dataset} from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}", dry_run)
+                    if rows:
+                        count = rows[0][0]
                     else:
-                        config = {}
-                    original_schedule = config.get("SL_START_DATE", None)
-                    if not original_schedule:
-                        query = f"select to_timestamp(system$task_runtime_info('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))"
-                        rows = execute_sql(session, query, "Getting the original scheduled timestamp of the initial graph run in the current group", dry_run)
-                        if rows:
-                            original_schedule = rows[0][0]
-                        else:
-                            original_schedule = None
-                    if original_schedule:
-                        if isinstance(original_schedule, str):
-                            from dateutil import parser
-                            start_time = parser.parse(original_schedule)
-                        else:
-                            start_time = original_schedule
-                    else:
-                        start_time = datetime.fromtimestamp(datetime.now().timestamp())
+                        count = 0
+                    if count == 0:
+                        error=f"Dataset {dataset} has no changes from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}"
+                        print(error)
+                        if not dry_run:
+                            raise ValueError(error)
+                    print(f"Dataset {dataset} has data from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}")
+                except CroniterBadCronError:
+                    raise ValueError(f"Invalid cron expression: {cron_expr}")
+                except Exception as e:
+                    raise ValueError(f"Error checking changes for dataset {dataset}: {str(e)}")
 
-                    def check_if_dataset_exists(dataset: str) -> bool:
-                        query = f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE CONCAT(TABLE_SCHEMA, '.', TABLE_NAME) ILIKE '{dataset}'"
-                        rows = execute_sql(session, query, f"Checking if dataset {dataset} exists", dry_run)
-                        if dry_run:
-                            return True
-                        else:
-                            return rows.__len__() > 0
-
-                    for dataset, cron_expr in changes.items():
-                        if not check_if_dataset_exists(dataset):
-                            raise ValueError(f"Dataset {dataset} does not exist")
-                        try:
-                            # enabling change tracking for the dataset - should be done once and when we create our datasets
-                            query = f"ALTER TABLE {dataset} SET CHANGE_TRACKING = TRUE"
-                            execute_sql(session, query, f"Enabling change tracking for dataset {dataset}", dry_run)
-                            croniter(cron_expr)
-                            iter = croniter(cron_expr, start_time)
-                            # get the start and end date of the current cron iteration
-                            curr = iter.get_current(datetime)
-                            previous = iter.get_prev(datetime)
-                            next = croniter(cron_expr, previous).get_next(datetime)
-                            if curr == next :
-                                sl_end_date = curr
-                            else:
-                                sl_end_date = previous
-                            sl_start_date = croniter(cron_expr, sl_end_date).get_prev(datetime)
-                            change = f"SELECT count(*) FROM {dataset} CHANGES(INFORMATION => DEFAULT) AT(TIMESTAMP => '{sl_start_date.strftime(format)}') END (TIMESTAMP => '{sl_end_date.strftime(format)}')"
-                            rows = execute_sql(session, change, f"Checking changes for dataset {dataset} from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}", dry_run)
-                            if rows:
-                                count = rows[0][0]
-                            else:
-                                count = 0
-                            if count == 0:
-                                error=f"Dataset {dataset} has no changes from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}"
-                                print(error)
-                                if not dry_run:
-                                    raise ValueError(error)
-                            print(f"Dataset {dataset} has data from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}")
-                        except CroniterBadCronError:
-                            raise ValueError(f"Invalid cron expression: {cron_expr}")
-                        except Exception as e:
-                            raise ValueError(f"Error checking changes for dataset {dataset}: {str(e)}")
-
-                definition = StoredProcedureCall(
-                    func = fun, 
-                    args=[False],
-                    stage_location=stage_location,
-                    packages=packages
-                )
+        definition = StoredProcedureCall(
+            func = fun, 
+            args=[False],
+            stage_location=stage_location,
+            packages=packages
+        )
 
         if not schedule and not condition:
             if computed_cron:
@@ -334,24 +332,27 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
     def warehouse(self) -> Optional[str]:
         return self._warehouse
 
-    def deploy(self, options: dict[str, Any] = dict()) -> None:
-        """Deploy the pipeline to Snowflake.
-        Args:
-            options (dict[str, Any]): the options to deploy the pipeline.
-        """
-        if not options:
-            import os
-            options = {
-                "account": os.environ['SNOWFLAKE_ACCOUNT'],
-                "user": os.environ['SNOWFLAKE_USER'],
-                "password": os.environ['SNOWFLAKE_PASSWORD'],
-                "database": os.environ['SNOWFLAKE_DB'],
-                "schema": os.environ['SNOWFLAKE_SCHEMA'],
-                "warehouse": os.environ['SNOWFLAKE_WAREHOUSE'],
-            }
-        session = Session.builder.configs(options).create()
-        database = options.get("database", None)
-        schema = options.get("schema", None)
+    @classmethod
+    def session(cls, **kwargs) -> Session:
+        import os
+        env = os.environ.copy() # Copy the current environment variables
+        options = {
+            "account": kwargs.get('SNOWFLAKE_ACCOUNT', env.get('SNOWFLAKE_ACCOUNT', None)),
+            "user": kwargs.get('SNOWFLAKE_USER', env.get('SNOWFLAKE_USER', None)),
+            "password": kwargs.get('SNOWFLAKE_PASSWORD', env.get('SNOWFLAKE_PASSWORD', None)),
+            "database": kwargs.get('SNOWFLAKE_DB', env.get('SNOWFLAKE_DB', None)),
+            "schema": kwargs.get('SNOWFLAKE_SCHEMA', env.get('SNOWFLAKE_SCHEMA', None)),
+            "warehouse": kwargs.get('SNOWFLAKE_WAREHOUSE', env.get('SNOWFLAKE_WAREHOUSE', None)),
+        }
+        return Session.builder.configs(options).create()
+
+    def deploy(self, **kwargs) -> None:
+        """Deploy the pipeline."""
+        import os
+        env = os.environ.copy() # Copy the current environment variables
+        session = self.__class__.session(**kwargs)
+        database = kwargs.get('SNOWFLAKE_DB', env.get('SNOWFLAKE_DB', None))
+        schema = kwargs.get('SNOWFLAKE_SCHEMA', env.get('SNOWFLAKE_SCHEMA', None))
         if database is None or schema is None:
             raise ValueError("Database and schema must be provided to deploy the pipeline")
         stage_name = f"{database}.{schema}.{self.stage_location}".upper()
@@ -364,23 +365,25 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
         op.deploy(self.dag, mode = CreateMode.or_replace)
         print(f"Pipeline {self.pipeline_id} deployed")
 
-    def run(self, options: dict[str, Any] = dict(), mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN) -> None:
+    def delete(self, **kwargs) -> None:
+        import os
+        env = os.environ.copy() # Copy the current environment variables
+        session = self.__class__.session(**kwargs)
+        database = kwargs.get('SNOWFLAKE_DB', env.get('SNOWFLAKE_DB', None))
+        schema = kwargs.get('SNOWFLAKE_SCHEMA', env.get('SNOWFLAKE_SCHEMA', None))
+        if database is None or schema is None:
+            raise ValueError("Database and schema must be provided to delete the pipeline")
+        op = self.get_dag_operation(session, database, schema)
+        op.delete(self.pipeline_id)
+        print(f"Pipeline {self.pipeline_id} deleted")
+
+    def run(self, logical_date: Optional[str] = None, mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
         """Run the pipeline.
         Args:
-            options (dict[str, Any]): the options required to run the pipeline.
+            logical_date (Optional[str]): the logical date.
             mode (StarlakeExecutionMode): the execution mode.
         """
-        if not options:
-            import os
-            options = {
-                "account": os.environ['SNOWFLAKE_ACCOUNT'],
-                "user": os.environ['SNOWFLAKE_USER'],
-                "password": os.environ['SNOWFLAKE_PASSWORD'],
-                "database": os.environ['SNOWFLAKE_DB'],
-                "schema": os.environ['SNOWFLAKE_SCHEMA'],
-                "warehouse": os.environ['SNOWFLAKE_WAREHOUSE'],
-            }
-        session = Session.builder.configs(options).create()
+        session = self.__class__.session(**kwargs)
         if mode == StarlakeExecutionMode.DRY_RUN:
             def dry_run(definition) -> None:
                 if isinstance(definition, StoredProcedureCall):
@@ -393,11 +396,22 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             for task in tasks:
                 definition = task.definition
                 dry_run(definition)
+
         elif mode == StarlakeExecutionMode.RUN:
-            database = options.get("database", None)
-            schema = options.get("schema", None)
+            import os
+            env = os.environ.copy() # Copy the current environment variables
+            database = kwargs.get('SNOWFLAKE_DB', env.get('SNOWFLAKE_DB', None))
+            schema = kwargs.get('SNOWFLAKE_SCHEMA', env.get('SNOWFLAKE_SCHEMA', None))
             op = self.get_dag_operation(session, database, schema)
-            op.run(self.dag)
+            task = op.schema.tasks[self.pipeline_id]
+            if logical_date:
+                import json
+                config = dict()
+                config.update({"logical_date": logical_date})
+                task.suspend()
+                session.sql(f"ALTER TASK IF EXISTS {self.pipeline_id} SET CONFIG = '{json.dumps(config)}'").collect()
+                task.resume()
+            task.execute()
             from datetime import datetime
             dag_runs = op.get_current_dag_runs(self.dag)
             timeout = 60
@@ -422,6 +436,14 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
                             return check_status(op.get_current_dag_runs(self.dag))
             run_id = check_status(dag_runs)
             print(f"Pipeline {self.pipeline_id} is executing with id {run_id}")
+
+        elif mode == StarlakeExecutionMode.BACKFILL:
+            if not logical_date:
+                raise ValueError("Logical date must be provided to backfill the pipeline")
+            self.run(logical_date=logical_date, mode=StarlakeExecutionMode.RUN, **kwargs)
+
+        else:
+            raise ValueError(f"Execution mode {mode} is not supported")
 
     def get_dag_operation(self, session: Session, database: str, schema: str) -> DAGOperation:
         session.sql(f"USE DATABASE {database}").collect()
