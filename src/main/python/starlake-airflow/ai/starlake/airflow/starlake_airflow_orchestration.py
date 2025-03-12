@@ -4,7 +4,7 @@ from ai.starlake.airflow.starlake_airflow_job import StarlakeAirflowJob, Airflow
 
 from ai.starlake.common import sl_cron_start_end_dates, sl_scheduled_dataset
 
-from ai.starlake.job import StarlakeOrchestrator
+from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
 from ai.starlake.orchestration import AbstractOrchestration, StarlakeSchedule, StarlakeDependencies, AbstractPipeline, AbstractTaskGroup, AbstractTask, AbstractDependency
 
@@ -113,6 +113,39 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
         if cron_expr:
             return "{{sl_dates(params.cron_expr, ts_as_datetime(data_interval_end | ts))}}"
         return None
+
+    def run(self, options: dict = dict(), mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN) -> None:
+        import os
+        env = os.environ.copy() # Copy the current environment variables
+        import json
+        conf = json.dumps(options)
+        if mode == StarlakeExecutionMode.DRY_RUN:
+            import subprocess
+            subprocess.run(
+                args=f"airflow dags test {self.pipeline_id} --conf '{conf}'",
+                env=env,
+                check=True, 
+                stderr=subprocess.STDOUT, 
+                stdout=subprocess.PIPE,
+            )
+        elif mode == StarlakeExecutionMode.BACKFILL:
+            import subprocess
+            subprocess.run(
+                args=f"airflow dags backfill {self.pipeline_id} --rerun-failed-tasks --conf '{conf}'",
+                env=env,
+                check=True, 
+                stderr=subprocess.STDOUT, 
+                stdout=subprocess.PIPE,
+            )
+        elif mode == StarlakeExecutionMode.RUN:
+            import subprocess
+            subprocess.run(
+                args=f"airflow dags trigger {self.pipeline_id} --conf '{conf}'",
+                env=env,
+                check=True, 
+                stderr=subprocess.STDOUT, 
+                stdout=subprocess.PIPE,
+            )
 
 class AirflowTaskGroup(AbstractTaskGroup[TaskGroup]):
     def __init__(self, group_id: str, group: TaskGroup, **kwargs) -> None:
