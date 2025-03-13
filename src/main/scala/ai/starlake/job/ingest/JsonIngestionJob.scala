@@ -21,14 +21,13 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, Settings}
-import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /** Main class to complex json delimiter separated values file If your json contains only one level
   * simple attribute aka. kind of dsv but in json format please use JSON_FLAT instead. It's way
