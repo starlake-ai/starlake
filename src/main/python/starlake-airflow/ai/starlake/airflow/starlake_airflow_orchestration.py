@@ -151,10 +151,11 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
         response.raise_for_status()
         print(f"Pipeline {DAG_ID} deleted")
 
-    def run(self, logical_date: Optional[str] = None, mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
+    def run(self, logical_date: Optional[str] = None, timeout: str = '120', mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
         """Run the pipeline.
         Args:
             logical_date (Optional[str]): the logical date.
+            timeout (str): the timeout in seconds.
             mode (StarlakeExecutionMode): the execution mode.
         """
         import os
@@ -167,7 +168,6 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
             dag_run = self.dag.test(run_conf=conf)
             from datetime import datetime, timedelta
             import time
-            timeout = 60
             start = datetime.now()
             def check_state() -> bool:
                 if dag_run.state == DagRunState.FAILED:
@@ -177,7 +177,7 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
                     return True
                 elif dag_run.state == DagRunState.RUNNING:
                     print(f"Pipeline {self.pipeline_id} is running")
-                    if datetime.now() - start > timedelta(seconds=timeout):
+                    if datetime.now() - start > timedelta(seconds=int(timeout)):
                         raise TimeoutError(f"Pipeline {self.pipeline_id} failed to run")
                     time.sleep(5)
                     return check_state()
@@ -237,7 +237,7 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
             conf = kwargs.get('conf', {})
             conf['backfill'] = True
             kwargs['conf'] = conf
-            self.run(logical_date=logical_date, mode=StarlakeExecutionMode.RUN, **kwargs)
+            self.run(logical_date=logical_date, timeout=timeout, mode=StarlakeExecutionMode.RUN, **kwargs)
 
         else:
             raise ValueError(f"Execution mode {mode} is not supported")

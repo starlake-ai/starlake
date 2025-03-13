@@ -732,10 +732,11 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         ...
 
     @abstractmethod
-    def run(self, logical_date: Optional[str] = None, mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
+    def run(self, logical_date: Optional[str] = None, timeout: str = '120', mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
         """Run the pipeline.
         Args:
             logical_date (Optional[str]): the logical date.
+            timeout (str): the timeout in seconds.
             mode (StarlakeExecutionMode): the execution mode.
         """
         ...
@@ -749,8 +750,13 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         self.run(mode=StarlakeExecutionMode.DRY_RUN, **kwargs)
 
     @final
-    def backfill(self, start_date: Optional[str] = None, end_date: Optional[str] = None, **kwargs) -> None:
-        """Backfill the pipeline."""
+    def backfill(self, timeout: str = '120', start_date: Optional[str] = None, end_date: Optional[str] = None, **kwargs) -> None:
+        """Backfill the pipeline.
+        Args:
+            timeout (str): the timeout in seconds.
+            start_date (Optional[str]): the start date.
+            end_date (Optional[str]): the end date.
+        """
         from datetime import datetime
         cron = self.cron
         if not cron:
@@ -775,7 +781,7 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
             sl_end_date = previous
         sl_start_date: datetime = croniter(cron, sl_end_date).get_prev(datetime)
         while sl_start_date <= end_time:
-            self.run(logical_date= sl_start_date.isoformat(), **kwargs)
+            self.run(logical_date= sl_start_date.isoformat(), timeout=timeout, **kwargs)
             sl_end_date = croniter(cron, sl_end_date).get_next(datetime)
             sl_start_date = croniter(cron, sl_end_date).get_prev(datetime)
 
