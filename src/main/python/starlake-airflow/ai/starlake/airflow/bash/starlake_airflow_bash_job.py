@@ -95,10 +95,37 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
 
 class StarlakePythonOperator(StarlakeDatasetMixin, PythonOperator):
     """Starlake Python Operator."""
-    def __init__(self, python_callable, **kwargs):
-        super().__init__(python_callable=python_callable, **kwargs)
+    def __init__(
+            self, 
+            task_id: str, 
+            dataset: Optional[Union[StarlakeDataset, str]],
+            source: Optional[str],
+            python_callable, 
+            **kwargs
+        ) -> None:
+        super().__init__(
+            task_id=task_id, 
+            dataset=dataset, 
+            source=source, 
+            python_callable=python_callable, 
+            **kwargs
+        )
 
 class StarlakeBashOperator(StarlakeDatasetMixin, BashOperator):
     """Starlake Bash Operator."""
-    def __init__(self, bash_command: str, **kwargs):
-        super().__init__(bash_command=bash_command, **kwargs)
+    def __init__(
+            self, 
+            task_id: str, 
+            dataset: Optional[Union[StarlakeDataset, str]],
+            source: Optional[str],
+            bash_command: str, 
+            **kwargs
+        ):
+        super().__init__(
+            task_id=task_id, 
+            dataset=dataset, 
+            source=source, 
+            bash_command=bash_command, 
+            **kwargs
+        )
+

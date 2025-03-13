@@ -118,14 +118,12 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 stdout=subprocess.PIPE,
             )
             return_code = result.returncode
-            print(str(result.stdout, 'utf-8'))
             return return_code
         except subprocess.CalledProcessError as e:
             # Capture the return code in case of failure
             return_code = e.returncode
             # Push the return code to XCom
             kwargs['ti'].xcom_push(key='return_value', value=return_code)
-            print(str(e.stdout, 'utf-8'))
             raise # Re-raise the exception to mark the task as failed
 
     def start_op(self, task_id, scheduled: bool, not_scheduled_datasets: Optional[List[StarlakeDataset]], least_frequent_datasets: Optional[List[StarlakeDataset]], most_frequent_datasets: Optional[List[StarlakeDataset]], **kwargs) -> Optional[BaseOperator]:
@@ -304,14 +302,25 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         return dag_args
 
 from airflow.lineage import prepare_lineage, apply_lineage
+from airflow.utils.log.logging_mixin import LoggingMixin
 
-class StarlakeDatasetMixin:
+class StarlakeDatasetMixin(LoggingMixin):
     """Mixin to update Airflow outlets with Starlake datasets."""
-    def __init__(self, task_id: str, dataset: Optional[Union[str, StarlakeDataset]] = None, previous:bool= False, source: Optional[str] = None, **kwargs):
+    def __init__(self, 
+                 task_id: str, 
+                 dataset: Optional[Union[str, StarlakeDataset]] = None, 
+                 previous:bool= False, 
+                 source: Optional[str] = None, 
+                 **kwargs
+                 ) -> None:
+        self.task_id = task_id
         params: dict = kwargs.get("params", dict())
         outlets = kwargs.get("outlets", [])
+        extra = params
+        extra.update({"source": source})
+        self.extra = extra
+        self.alias = sanitize_id(params.get("uri", task_id)).lower()
         if dataset:
-            kwargs["outlets"] = outlets
             if isinstance(dataset, StarlakeDataset):
                 params.update({
                     'uri': dataset.uri,
@@ -324,21 +333,23 @@ class StarlakeDatasetMixin:
                 self.dataset = "{{sl_scheduled_dataset(params.uri, params.sl_schedule, data_interval_end | ts, params.sl_schedule_parameter_name, params.sl_schedule_format, params.previous)}}"
             else:
                 self.dataset = dataset
-            self.alias = sanitize_id(params.get("uri", task_id)).lower()
             outlets.append(DatasetAlias(self.alias))
+            kwargs["outlets"] = outlets
+            self.outlets = outlets
             self.template_fields = getattr(self, "template_fields", tuple()) + ("dataset",)
-            extra = params
-            extra.update({"source": source})
-            self.extra = extra
+        else:
+            self.dataset = None
         super().__init__(task_id=task_id, **kwargs)  # Appelle l'init de l'opérateur principal
 
     @prepare_lineage
     def pre_execute(self, context):
         if self.dataset:
-            from urllib.parse import urlparse, parse_qs
-            uri = self.render_template(self.dataset, context)
-            parsed_uri = urlparse(uri)
-            self.extra.update(parse_qs(parsed_uri.query))
+            self.log.info(f"Pre execute {self.task_id} with dataset={self.dataset}, alias={self.alias}, extra={self.extra}, outlets={self.outlets}")
+            from urllib.parse import parse_qs
+            uri: str = self.render_template(self.dataset, context)
+            query = uri.split("?")
+            if query.__len__() > 1:
+                self.extra.update(parse_qs(query[-1]))
             context["outlet_events"][self.alias].add(Dataset(uri, self.extra))
         return super().pre_execute(context)
 
@@ -355,5 +366,15 @@ class StarlakeDatasetMixin:
 
 class StarlakeEmptyOperator(StarlakeDatasetMixin, EmptyOperator):
     """StarlakeEmptyOperator."""
-    def __init__(self, task_id: str, **kwargs):
-        super().__init__(task_id=task_id, **kwargs)
+    def __init__(self, 
+                 task_id: str, 
+                 dataset: Optional[Union[str, StarlakeDataset]] = None, 
+                 source: Optional[str] = None, 
+                 **kwargs
+        ) -> None:
+        super().__init__(
+            task_id=task_id, 
+            dataset=dataset,
+            source=source,
+            **kwargs
+        )

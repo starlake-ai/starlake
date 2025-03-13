@@ -287,9 +287,27 @@ from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobO
 
 class DataprocJobOperator(StarlakeDatasetMixin, DataprocSubmitJobOperator):
     """Dataproc Job Operator"""
-    def __init__(self, project_id: str, region: str, job: dict, **kwargs):
+    def __init__(
+            self, 
+            task_id: str, 
+            dataset: Optional[Union[StarlakeDataset, str]],
+            source: Optional[str],
+            project_id: str, 
+            region: str, 
+            job: dict, 
+            **kwargs
+        ):
         kwargs.pop("asynchronous", None) # TODO handle asynchronous dataproc jobs
-        super().__init__(project_id=project_id, region=region, job=job, asynchronous=False, **kwargs)
+        super().__init__(
+            task_id=task_id,
+            dataset=dataset,
+            source=source,
+            project_id=project_id, 
+            region=region, 
+            job=job, 
+            asynchronous=False, 
+            **kwargs
+        )
 
     def execute(self, context):
         try:

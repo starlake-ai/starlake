@@ -163,24 +163,20 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
         DAG_ID = self.pipeline_id
         if mode == StarlakeExecutionMode.DRY_RUN:
             # Test the pipeline with the given configuration
-            import json
-            conf = json.dumps(kwargs.get('conf', {}))
-            dag_run = self.dag.test(run_conf=conf)
-            from datetime import datetime, timedelta
-            import time
-            start = datetime.now()
-            def check_state() -> bool:
-                if dag_run.state == DagRunState.FAILED:
-                    raise Exception(f"Pipeline {self.pipeline_id} failed")
-                elif dag_run.state == DagRunState.SUCCESS:
-                    print(f"Pipeline {self.pipeline_id} succeeded")
-                    return True
-                elif dag_run.state == DagRunState.RUNNING:
-                    print(f"Pipeline {self.pipeline_id} is running")
-                    if datetime.now() - start > timedelta(seconds=int(timeout)):
-                        raise TimeoutError(f"Pipeline {self.pipeline_id} failed to run")
-                    time.sleep(5)
-                    return check_state()
+            from datetime import datetime
+            import pendulum
+            utc = pendulum.UTC
+            execution_date = datetime.now(tz=utc)
+            conf = dict()
+            conf.update(kwargs)
+            conf.update({'start_date': execution_date, 'backfill': False})
+            from airflow.configuration import initialize_config
+            initialize_config().load_test_config()
+            try:
+                print(f"Testing pipeline {DAG_ID} with execution date {execution_date} and  configuration {conf}")
+                self.dag.test(execution_date=execution_date, run_conf=conf)
+            except Exception as e:
+                print(f"Pipeline {DAG_ID} failed with error {str(e)}")
 
         elif mode == StarlakeExecutionMode.RUN:
             # Run the pipeline with the given configuration
