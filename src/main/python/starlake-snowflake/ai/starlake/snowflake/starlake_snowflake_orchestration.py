@@ -11,7 +11,7 @@ from snowflake.core import Root
 from snowflake.core._common import CreateMode
 from snowflake.core.task import Cron, StoredProcedureCall, Task
 from snowflake.core.task.dagv1 import DAG, DAGTask, DAGOperation, DAGRun, _dag_context_stack
-from snowflake.snowpark import Session
+from snowflake.snowpark import Row, Session
 
 from typing import Any, Callable, List, Optional, Union
 
@@ -377,10 +377,11 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
         op.delete(self.pipeline_id)
         print(f"Pipeline {self.pipeline_id} deleted")
 
-    def run(self, logical_date: Optional[str] = None, mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
+    def run(self, logical_date: Optional[str] = None, timeout: str = '120', mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
         """Run the pipeline.
         Args:
             logical_date (Optional[str]): the logical date.
+            timeout (str): the timeout in seconds.
             mode (StarlakeExecutionMode): the execution mode.
         """
         session = self.__class__.session(**kwargs)
@@ -414,33 +415,76 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             task.execute()
             from datetime import datetime
             dag_runs = op.get_current_dag_runs(self.dag)
-            timeout = 60
             start = datetime.now()
-            def check_status(dag_runs: List[DAGRun]) -> int:
+            def check_started(dag_runs: List[DAGRun]) -> bool:
                 import time
                 if not dag_runs:
-                    raise ValueError(f"Pipeline {self.pipeline_id} failed to run")
+                    raise ValueError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed to run")
                 else:
                     while True:
                         dag_runs_sorted: List[DAGRun] = sorted(dag_runs, key=lambda run: run.scheduled_time, reverse=True)
                         last_run: DAGRun = dag_runs_sorted[0]
-                        run_id = last_run.run_id
                         state = last_run.state
-                        print(f"Pipeline {self.pipeline_id} with id {run_id} is {state.lower()}")
+                        print(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} is {state.lower()}")
                         if state.upper() == 'EXECUTING':
-                            return run_id
+                            return True
                         else:
-                            if datetime.now() - start > timedelta(seconds=timeout):
-                                raise TimeoutError(f"Pipeline {self.pipeline_id} failed to run")
+                            if datetime.now() - start > timedelta(seconds=int(timeout)):
+                                raise TimeoutError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} timed out")
                             time.sleep(5)
-                            return check_status(op.get_current_dag_runs(self.dag))
-            run_id = check_status(dag_runs)
-            print(f"Pipeline {self.pipeline_id} is executing with id {run_id}")
+                            return check_started(op.get_current_dag_runs(self.dag))
+            check_started(dag_runs)
+            def check_status(result: SnowflakeDagResult) -> SnowflakeDagResult:
+                import time
+                while True:
+                    rows: List[Row] = session.sql(
+                        f"""SELECT NAME, STATE, GRAPH_RUN_GROUP_ID 
+                            FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())
+                            WHERE GRAPH_RUN_GROUP_ID IN (
+                                SELECT GRAPH_RUN_GROUP_ID FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())
+                            WHERE NAME ilike '{self.pipeline_id}%' AND COMPLETED_TIME is not null
+                                ORDER BY COMPLETED_TIME DESC
+                                LIMIT 1
+                            )""").collect()
+                    if rows:
+                        for row in rows:
+                            d = row.as_dict()
+                            name = d.get('NAME', None)
+                            state = d.get('STATE', None)
+                            graph_run_group_id = d.get('GRAPH_RUN_GROUP_ID', None)
+                            if name and state and graph_run_group_id:
+                                result.update_task_result(name, state, graph_run_group_id)
+                        if result.has_failed:
+                            return result
+                        elif result.is_succeeded:
+                            return result
+                        elif datetime.now() - start > timedelta(seconds=int(timeout)):
+                            raise TimeoutError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} timed out")
+                        elif result.is_executing:
+                            print(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} is still executing")
+                            time.sleep(5)
+                            return check_status(result)
+                        else:
+                            # if the pipeline is not executing and has not failed, we consider it as failed
+                            raise ValueError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed")
+                    elif datetime.now() - start > timedelta(seconds=int(timeout)):
+                        raise TimeoutError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} timed out")
+                    else:
+                        print(f"No task history found for {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} yet")
+                        time.sleep(5)
+                        return check_status(result)
+            status = check_status(SnowflakeDagResult(tasks = list(map(lambda task: SnowflakeTaskResult(name = task.full_name), self.dag.tasks))))
+            if status.has_failed:
+                raise ValueError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed -> {status}")
+            elif status.is_succeeded:
+                print(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} succeeded -> {status}")
+            else:
+                raise ValueError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed -> {status}")
 
         elif mode == StarlakeExecutionMode.BACKFILL:
             if not logical_date:
                 raise ValueError("Logical date must be provided to backfill the pipeline")
-            self.run(logical_date=logical_date, mode=StarlakeExecutionMode.RUN, **kwargs)
+            self.run(logical_date=logical_date, timeout=timeout, mode=StarlakeExecutionMode.RUN, **kwargs)
 
         else:
             raise ValueError(f"Execution mode {mode} is not supported")
@@ -452,6 +496,72 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
         root = Root(session)
         schema = root.databases[database].schemas[schema]
         return DAGOperation(schema)
+
+class SnowflakeTaskResult:
+    def __init__(self, name: str, state: str = "EXECUTING", graph_run_group_id: Optional[str] = None) -> None:
+        self.name = name
+        self.state = state
+        self.graph_run_group_id = graph_run_group_id
+
+    @property
+    def is_executing(self) -> bool:
+        return self.state == "EXECUTING"
+
+    @property
+    def has_failed(self) -> bool:
+        return self.state == 'FAILED'
+
+    @property
+    def is_succeeded(self) -> bool:
+        return self.state == 'SUCCEEDED'
+
+    @property
+    def state_as_str(self) -> str:
+        if self.is_executing:
+            return "is executing"
+        return self.state.lower()
+
+    def __repr__(self) -> str:
+        return f"Task {self.name} within graph_run_group_id {self.graph_run_group_id} {(self.state_as_str)}"
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+class SnowflakeDagResult:
+    def __init__(self, tasks: List[SnowflakeTaskResult]) -> None:
+        self.tasks_map = {task.name.lower(): task for task in tasks}
+
+    @property
+    def tasks(self) -> List[SnowflakeTaskResult]:
+        return list(self.tasks_map.values())
+
+    @property
+    def has_failed(self) -> bool:
+        return any([task.has_failed for task in self.tasks])
+
+    @property
+    def is_executing(self) -> bool:
+        return any([task.is_executing for task in self.tasks])
+
+    @property
+    def is_succeeded(self) -> bool:
+        return all([task.is_succeeded for task in self.tasks])
+
+    def update_task_result(self, name: str, state: str, graph_run_group_id: str) -> SnowflakeTaskResult:
+        task = self.tasks_map.get(name.lower(), None)
+        if task:
+            task.state = state
+            task.graph_run_group_id = graph_run_group_id
+        else:
+            task = SnowflakeTaskResult(name, state, graph_run_group_id)
+        self.tasks_map.update({name.lower(): task})
+        return task
+
+    def __repr__(self) -> str:
+        return f"Tasks {self.tasks}"
+
+    def __str__(self) -> str:
+        return self.__repr__()
 
 class SnowflakeTaskGroup(AbstractTaskGroup[List[DAGTask]]):
     def __init__(self, group_id: str, group: List[DAGTask], dag: Optional[SnowflakeDag] = None, **kwargs) -> None:
