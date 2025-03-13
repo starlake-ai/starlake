@@ -245,7 +245,18 @@ class GCloudRunJobCompletionSensor(StarlakeDatasetMixin, BashSensor):
     '''
     This sensor checks the completion of a cloud run job using gcloud.
     '''
-    def __init__(self, *, project_id: str, cloud_run_job_region: str, source_task_id: str, retry_on_failure: bool=None, impersonate_service_account: str=None, **kwargs) -> None:
+    def __init__(self, 
+                 *, 
+                 task_id: str, 
+                 dataset: Optional[Union[StarlakeDataset, str]],
+                 source: Optional[str],
+                 project_id: str, 
+                 cloud_run_job_region: str, 
+                 source_task_id: str, 
+                 retry_on_failure: bool=None, 
+                 impersonate_service_account: str=None, 
+                 **kwargs
+        ) -> None:
         if retry_on_failure:
             kwargs.update({'retry_exit_code': 2})
             bash_command = (
@@ -284,6 +295,9 @@ class GCloudRunJobCompletionSensor(StarlakeDatasetMixin, BashSensor):
             '
             """
         super().__init__(
+            task_id=task_id,
+            dataset=dataset,
+            source=source,
             bash_command=bash_command,
             mode="reschedule",
             **kwargs
@@ -296,13 +310,21 @@ class CloudRunJobOperator(StarlakeDatasetMixin, CloudRunExecuteJobOperator):
 
     def __init__(
         self,
+        task_id: str, 
+        dataset: Optional[Union[StarlakeDataset, str]],
+        source: Optional[str],
         mode: CloudRunMode = CloudRunMode.SYNC,
         gcp_conn_id: str = "google_cloud_default",
         impersonation_chain: Union[str, Sequence[str], None] = None,
         **kwargs,
     ):
         super().__init__(  # type: ignore
-            gcp_conn_id=gcp_conn_id, impersonation_chain=impersonation_chain, **kwargs
+            task_id=task_id,
+            dataset=dataset,
+            source=source,
+            gcp_conn_id=gcp_conn_id, 
+            impersonation_chain=impersonation_chain, 
+            **kwargs
         )
         self.mode = mode
 
@@ -344,12 +366,21 @@ class CloudRunJobCompletionSensor(StarlakeDatasetMixin, BaseSensorOperator):
     def __init__(
         self,
         *,
+        task_id: str, 
+        dataset: Optional[Union[StarlakeDataset, str]],
+        source: Optional[str],
         source_task_id: str,
         gcp_conn_id: str = "google_cloud_default",
         impersonation_chain: Union[str, Sequence[str], None] = None,
         **kwargs,
     ):
-        super().__init__(mode="reschedule", **kwargs)
+        super().__init__(
+            task_id=task_id,
+            dataset=dataset,
+            source=source,
+            mode="reschedule", 
+            **kwargs
+        )
         self.source_task_id = source_task_id
         self.gcp_conn_id = gcp_conn_id
         self.impersonation_chain = impersonation_chain

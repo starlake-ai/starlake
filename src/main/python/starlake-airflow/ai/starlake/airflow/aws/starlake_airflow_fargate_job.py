@@ -121,6 +121,8 @@ class FargateTaskOperator(StarlakeDatasetMixin, EcsRunTaskOperator):
     def __init__(
         self,
         task_id: str,
+        dataset: Optional[Union[StarlakeDataset, str]],
+        source: Optional[str],
         task_definition: str,
         cluster: str,
         overrides: Dict[str, Any],
@@ -134,6 +136,8 @@ class FargateTaskOperator(StarlakeDatasetMixin, EcsRunTaskOperator):
     ) -> None:
         super().__init__(
             task_id=task_id,
+            dataset=dataset,
+            source=source,
             task_definition=task_definition,
             cluster=cluster,
             overrides=overrides,
@@ -168,11 +172,17 @@ class FargateTaskStateSensor(StarlakeDatasetMixin, EcsTaskStateSensor):
     """
     def __init__(
         self,
+        task_id: str,
+        dataset: Optional[Union[StarlakeDataset, str]],
+        source: Optional[str],
         cluster: str,
         task: str,
         **kwargs
     ) -> None:
         super().__init__(
+            task_id=task_id,
+            dataset=dataset,
+            source=source,
             cluster=cluster,
             task=task,
             target_state=EcsTaskStates.STOPPED,
