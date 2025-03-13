@@ -118,13 +118,24 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 stdout=subprocess.PIPE,
             )
             return_code = result.returncode
+            if result.stdout is not None:
+                print(result.stdout.decode('utf-8'))
+            # if result.stderr is not None:
+            #     stderr = result.stderr.decode('utf-8')
+            #     print(stderr)
             return return_code
         except subprocess.CalledProcessError as e:
             # Capture the return code in case of failure
             return_code = e.returncode
             # Push the return code to XCom
             kwargs['ti'].xcom_push(key='return_value', value=return_code)
-            raise # Re-raise the exception to mark the task as failed
+            output = e.output.decode('utf-8')
+            print(output)
+            # if e.stderr is not None:
+            #     stderr = e.stderr.decode('utf-8')
+            #     print(stderr)
+            # Re-raise the exception to mark the task as failed
+            raise 
 
     def start_op(self, task_id, scheduled: bool, not_scheduled_datasets: Optional[List[StarlakeDataset]], least_frequent_datasets: Optional[List[StarlakeDataset]], most_frequent_datasets: Optional[List[StarlakeDataset]], **kwargs) -> Optional[BaseOperator]:
         """Overrides IStarlakeJob.start_op()
