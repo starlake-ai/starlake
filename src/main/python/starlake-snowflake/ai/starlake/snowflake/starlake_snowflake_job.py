@@ -26,7 +26,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
             self._warehouse = None
         packages = kwargs.get('packages', __class__.get_context_var(var_name='packages', default_value='croniter,python-dateutil', options=self.options)).split(',')
         packages = set([package.strip() for package in packages])
-        packages.update(['croniter', 'python-dateutil'])
+        packages.update(['croniter', 'python-dateutil', 'snowflake-snowpark-python'])
         self._packages = list(packages)
         timezone = kwargs.get('timezone', __class__.get_context_var(var_name='timezone', default_value='UTC', options=self.options))
         self._timezone = timezone
