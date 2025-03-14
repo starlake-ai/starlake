@@ -95,9 +95,6 @@ class SnowflakeDag(DAG):
                 else:
                     condition = ' AND '.join(not_scheduled_streams)
 
-        from snowflake.snowpark.dataframe import DataFrame
-        from snowflake.snowpark.row import Row
-
         def execute_sql(session: Session, query: Optional[str], message: Optional[str] = None, dry_run: bool = False) -> List[Row]:
             """Execute the SQL.
             Args:
@@ -115,9 +112,7 @@ class SnowflakeDag(DAG):
                     print(f"{query};")
                     return []
                 else:
-                    df: DataFrame = session.sql(query)
-                    rows = df.collect()
-                    return rows
+                    return session.sql(query).collect()
             else:
                 return []
 
