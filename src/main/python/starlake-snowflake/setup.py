@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='starlake-snowflake',
-      version='0.1.2',
+      version='0.1.3',
       description='Starlake Python Distribution For Snowflake',
       long_description=long_description,
       long_description_content_type="text/markdown",
@@ -21,8 +21,8 @@ setup(name='starlake-snowflake',
           'starlake-orchestration>=0.2.5',
           'croniter',
           'sqlalchemy',
-          'snowflake>=1.0.4',
-          'snowflake-snowpark-python>=1.27.0'
+          'snowflake',
+          'snowflake-snowpark-python'
       ],
       extras_require={
         "snwoflake": [],
