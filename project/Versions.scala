@@ -31,7 +31,7 @@ object Versions {
   val scalate = "1.9.8"
   val confluentVersion = "7.7.2"
   val kafkaClients = "7.7.2-ce"
-  val testContainers = "0.41.8"
+  val testContainers = "0.43.0"
   val gcpDataCatalog = "1.62.0"
   val gcpCloudLogging = "3.21.4"
   val googleSheets = "v4-rev20250211-2.0.0"
