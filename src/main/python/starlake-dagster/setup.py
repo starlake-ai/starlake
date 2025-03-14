@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='starlake-dagster',
-      version='0.2.4',
+      version='0.2.5',
       description='Starlake Python Distribution For Dagster',
       long_description=long_description,
       long_description_content_type="text/markdown",

@@ -21,19 +21,6 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
     def sl_orchestrator(cls) -> Union[StarlakeOrchestrator, str]:
          return StarlakeOrchestrator.DAGSTER
 
-    def update_events(self, event: AssetKey, **kwargs) -> Tuple[(str, List[AssetKey])]:
-        """Add the event to the list of Dagster assets that will be triggered.
-
-        Args:
-            event (AssetKey): The event to add.
-
-        Returns:
-            Tuple[(str, List[AssetKey]): The tuple containing the list of dagster assets to trigger.
-        """
-        assets: List[AssetKey] = kwargs.get('assets', [])
-        assets.append(event)
-        return 'assets', assets
-
     def sl_pre_load(self, domain: str, tables: set=set(), pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, **kwargs) -> Optional[NodeDefinition]:
         """Overrides IStarlakeJob.sl_pre_load()
         Generate the Dagster node that will check if the conditions are met to load the specified domain according to the pre-load strategy choosen.
@@ -74,7 +61,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
         kwargs.update({'description': f"Starlake domain '{domain}' imported"})
         return super().sl_import(task_id=task_id, domain=domain, tables=tables, **kwargs)
 
-    def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None, **kwargs) -> NodeDefinition:
+    def sl_load(self, task_id: str, domain: str, table: str, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_load()
         Generate the Dagster node that will run the starlake `load` command.
 
@@ -82,14 +69,16 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
             task_id (str): The optional task id ({domain}_{table}_load by default).
             domain (str): The required domain to load.
             table (str): The required table to load.
+            spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+            dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
 
         Returns:
             NodeDefinition: The Dagster node.        
         """
         kwargs.update({'description': f"Starlake table '{domain}.{table}' loaded"})
-        return super().sl_load(task_id=task_id, domain=domain, table=table, spark_config=spark_config, **kwargs)
+        return super().sl_load(task_id=task_id, domain=domain, table=table, spark_config=spark_config, dataset=dataset, **kwargs)
 
-    def sl_transform(self, task_id: str, transform_name: str, transform_options: str = None, spark_config: StarlakeSparkConfig = None, **kwargs) -> NodeDefinition:
+    def sl_transform(self, task_id: str, transform_name: str, transform_options: str = None, spark_config: StarlakeSparkConfig = None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_transform()
         Generate the Dagster node that will run the starlake `transform` command.
 
@@ -97,14 +86,16 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
             task_id (str): The optional task id ({transform_name} by default).
             transform_name (str): The required transform name.
             transform_options (str, optional): The optional transform options. Defaults to None.
+            spark_config (StarlakeSparkConfig, optional): The optional spark configuration. Defaults to None.
+            dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
 
         Returns:
             NodeDefinition: The Dagster node.
         """
         kwargs.update({'description': f"Starlake transform '{transform_name}' executed"})
-        return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, **kwargs)
+        return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, dataset=dataset, **kwargs)
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, **kwargs) -> NodeDefinition:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_job()
         Generate the Dagster node that will run the starlake command.
         
@@ -112,6 +103,7 @@ class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions
             task_id (str): The required task id.
             arguments (list): The required arguments of the starlake command to run.
             spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+            dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
         
         Returns:
             NodeDefinition: The Dagster node.
