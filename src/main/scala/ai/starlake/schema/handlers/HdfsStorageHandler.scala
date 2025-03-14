@@ -423,12 +423,18 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     *   destination path (file or folder)
     * @return
     */
-  def move(src: Path, dest: Path): Boolean = {
+  def move(src: Path, dst: Path): Boolean = {
     pathSecurityCheck(src)
     val currentFS = fs(src)
-    delete(dest)
-    mkdirs(dest.getParent)
-    currentFS.rename(src, dest)
+    delete(dst)
+    dst.getParent.toString.split("://") match {
+      case Array(_, path) =>
+        if (path.split("/").count(_.nonEmpty) > 1)
+          mkdirs(dst.getParent)
+      case _ =>
+        mkdirs(dst.getParent) // local file system
+    }
+    FileUtil.copy(fs(src), src, fs(dst), dst, true, conf)
   }
 
   /** delete file (skip trash)
