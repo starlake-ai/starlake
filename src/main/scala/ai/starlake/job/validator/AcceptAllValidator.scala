@@ -1,10 +1,8 @@
 package ai.starlake.job.validator
 
 import ai.starlake.config.PrivacyLevels
-import ai.starlake.job.validator.RowValidator.{SL_ERROR_COL, SL_INPUT_COL}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Attribute, Attributes, Format, Type}
-import org.apache.spark.sql.functions.{array_size, col}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.storage.StorageLevel

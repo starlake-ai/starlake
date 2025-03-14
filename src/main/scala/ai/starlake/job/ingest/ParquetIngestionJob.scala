@@ -20,7 +20,6 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
@@ -28,7 +27,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /** Main class to ingest delimiter separated values file
   *
