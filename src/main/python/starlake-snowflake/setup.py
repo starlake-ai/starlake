@@ -19,10 +19,10 @@ setup(name='starlake-snowflake',
       packages=find_packages(include=['ai', 'ai.*']),
       install_requires=[
           'starlake-orchestration>=0.2.5',
-#          'croniter',
-#          'sqlalchemy',
-#          'snowflake>=1.0.4',
-#          'snowflake-snowpark-python>=1.27.0'
+          'croniter',
+          'sqlalchemy',
+          'snowflake>=1.0.4',
+          'snowflake-snowpark-python>=1.27.0'
       ],
       extras_require={
         "snwoflake": [],
