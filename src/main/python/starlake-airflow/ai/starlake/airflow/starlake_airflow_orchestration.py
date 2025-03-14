@@ -179,6 +179,7 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
                 print(f"Pipeline {DAG_ID} failed with error {str(e)}")
 
         elif mode == StarlakeExecutionMode.RUN:
+            import time
             # Run the pipeline with the given configuration
             AIRFLOW_BASE_URL = kwargs.get('AIRFLOW_BASE_URL', env.get('AIRFLOW_BASE_URL', "http://localhost:8080"))
             AIRFLOW_API_BASE_URL = f"{AIRFLOW_BASE_URL}/api/v1"
@@ -188,18 +189,29 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
                 AIRFLOW_AUTH = (AIRFLOW_USERNAME, AIRFLOW_PASSWORD)
             else:
                 AIRFLOW_AUTH = None
-            import requests
             payload = {k: kwargs[k] for k in ['conf', 'logical_date', 'execution_date', 'dag_run_id'] if k in kwargs}
+            # conf = kwargs.get('conf', {'backfill': True})
+            # payload['conf'] = conf
+            # generate a unique dag_run_id
+            import uuid
+            dag_run_id = f"manual_run_{uuid.uuid4()}"
+            payload['dag_run_id'] = dag_run_id
             if logical_date:
-                payload['logical_date'] = logical_date
-                payload['execution_date'] = logical_date
+                payload['logical_date'] = logical_date + 'Z'
+                payload['execution_date'] = logical_date + 'Z'
+            print(f"Starting pipeline {DAG_ID} with configuration {payload}")
+            import requests
             response = requests.post(
-                f"{AIRFLOW_API_BASE_URL}/dags/{DAG_ID}/dag_runs",
+                f"{AIRFLOW_API_BASE_URL}/dags/{DAG_ID}/dagRuns",
                 headers={'Content-Type': 'application/json'},
                 json=payload,
                 auth=AIRFLOW_AUTH
             )
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except Exception as e:
+                print(f"Pipeline {DAG_ID} failed with error {str(e)}")
+                return
             json_response: dict = response.json() or dict()
             dag_run_id = json_response.get('dag_run_id', None)
             if dag_run_id:
@@ -232,7 +244,7 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
                 raise ValueError("The logical date must be provided for backfilling")
             conf = kwargs.get('conf', {})
             conf['backfill'] = True
-            kwargs['conf'] = conf
+            kwargs.update({'conf': conf})
             self.run(logical_date=logical_date, timeout=timeout, mode=StarlakeExecutionMode.RUN, **kwargs)
 
         else:
