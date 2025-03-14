@@ -190,6 +190,9 @@ object DatasetArea extends StrictLogging {
   def dags(implicit settings: Settings): Path =
     new Path(settings.appConfig.dags)
 
+  def build(implicit settings: Settings): Path =
+    new Path(metadata, ".build")
+
   def writeStrategies(implicit settings: Settings): Path =
     new Path(settings.appConfig.writeStrategies)
 
@@ -230,7 +233,18 @@ object DatasetArea extends StrictLogging {
     new Path(DatasetArea.metadata, "iam-policy-tags.sl.yml")
 
   def folders(implicit settings: Settings): List[Path] =
-    List(metadata, types, load, external, extract, transform, expectations, mapping, incoming)
+    List(
+      metadata,
+      types,
+      load,
+      external,
+      extract,
+      transform,
+      expectations,
+      mapping,
+      incoming,
+      build
+    )
 
   /** @param storage
     */

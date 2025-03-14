@@ -1,7 +1,8 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
-import ai.starlake.job.common.TaskSQLStatements
+import ai.starlake.job.metrics.ExpectationJob
+import ai.starlake.job.transform.AutoTaskQueries
 import ai.starlake.lineage.TaskViewDependencyNode
 import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.utils.Formatter.RichFormatter
@@ -167,7 +168,17 @@ case class DagGenerationConfig(
 
 object DagGenerationConfig {
   val externalKeys =
-    Set("name", "statements", "expectationItems", "audit", "acl", "expectations", "schedules")
+    Set(
+      "name",
+      "statements",
+      "expectationItems",
+      "audit",
+      "acl",
+      "expectations",
+      "schedules",
+      "connection",
+      "config"
+    )
 }
 case class LoadDagGenerationContext(
   config: DagGenerationConfig,
@@ -175,7 +186,7 @@ case class LoadDagGenerationContext(
   workflowStatementsIn: List[Map[String, Object]]
 ) {
   val workflowStatements = workflowStatementsIn.filter(_.size > 0)
-  def asMap: util.HashMap[String, Object] = {
+  def asMap()(implicit settings: Settings): util.HashMap[String, Object] = {
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
       val cal1 = Calendar.getInstance
       val tz = cal1.getTimeZone();
@@ -220,12 +231,15 @@ case class LoadDagGenerationContext(
     val aclAsString =
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(aclAsMap)
 
-    val expectationsAsMap = workflowStatements
-      .map { it =>
-        it("expectations")
-      }
-      .headOption
-      .getOrElse(Map.empty)
+    val connectionsAsMap = workflowStatements.map { it =>
+      val map = it("connection")
+      it("name") -> map
+    }.toMap
+    val connectionsAsString =
+      JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(connectionsAsMap)
+
+    val expectations = ExpectationJob.buildSQLStatements()
+    val expectationsAsMap = expectations.map(_.asMap()).getOrElse(Map.empty)
 
     val expectationsAsString =
       JsonSerializer.mapper
@@ -252,6 +266,8 @@ case class LoadDagGenerationContext(
       put("audit", auditAsString)
       put("expectations", expectationsAsString)
       put("acl", aclAsString)
+      put("connection", connectionsAsString)
+
     }
     res
   }
@@ -260,51 +276,33 @@ case class TransformDagGenerationContext(
   config: DagGenerationConfig,
   deps: List[TaskViewDependencyNode],
   cron: Option[String],
-  statements: List[
-    (
-      TaskSQLStatements,
-      List[ExpectationSQL],
-      Option[TaskSQLStatements],
-      List[String],
-      Option[TaskSQLStatements]
-    )
-  ]
+  statements: List[AutoTaskQueries]
 ) {
-  def asMap: util.HashMap[String, Object] = {
-    val statementsAsMap = statements.map {
-      case (statements, expectationItems, audi, acl, expectations) =>
-        statements.name -> statements.asMap()
+  def asMap()(implicit settings: Settings): util.HashMap[String, Object] = {
+    val statementsAsMap = statements.map { atq =>
+      atq.statements.name -> atq.statements.asMap()
     }.toMap
 
-    val expectationItemsAsMap = statements.map {
-      case (statements, expectationItems, audit, acl, expectations) =>
-        statements.name -> expectationItems.map(_.asMap()).asJava
+    val expectationItemsAsMap = statements.map { atq =>
+      atq.statements.name -> atq.expectationItems.map(_.asMap()).asJava
+    }.toMap
+
+    val connectionsAsMap = statements.map { atq =>
+      atq.statements.name -> atq.connectionOptions.asJava
     }.toMap
 
     val auditAsMap = statements
-      .flatMap { case (statements, expectationItems, audit, acl, expectations) =>
-        audit.map { audit =>
-          audit.asMap()
-        }
-      }
+      .flatMap { atq => atq.audit.map(_.asMap()) }
       .headOption
       .getOrElse(Map.empty)
 
-    val aclAsMap = statements.flatMap {
-      case (statements, expectationItems, audit, acl, expectations) =>
-        audit.map { audit =>
-          statements.name -> acl
-        }
+    val aclAsMap = statements.flatMap { atq =>
+      atq.audit.map { audit => atq.statements.name -> atq.acl }
     }.toMap
 
-    val expectationsAsMap = statements
-      .flatMap { case (statements, expectationItems, audit, acl, expectations) =>
-        expectations.map { expectations =>
-          expectations.asMap()
-        }
-      }
-      .headOption
-      .getOrElse(Map.empty)
+    val expectations = ExpectationJob.buildSQLStatements()
+
+    val expectationsAsMap = expectations.map(_.asMap())
 
     val updatedOptions = if (!config.options.contains("SL_TIMEZONE")) {
       val cal1 = Calendar.getInstance
@@ -341,6 +339,7 @@ case class TransformDagGenerationContext(
       put("audit", auditAsString)
       put("expectations", expectationsAsString)
       put("acl", aclAsString)
+      put("connection", connectionsAsMap)
     }
   }
 }

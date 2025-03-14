@@ -61,7 +61,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     settings.appConfig.archiveTable
   }
 
-  val twoSteps = requireTwoSteps(starlakeSchema)
+  val twoSteps: Boolean = requireTwoSteps(starlakeSchema)
 
   lazy val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
     strategy.toWriteMode()
@@ -270,8 +270,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       task.buildListOfSQLStatements(), // main
       task.expectationStatements(), // expectations
       task.auditStatements(), // audit
-      task.aclSQL(), // acl
-      ExpectationJob.buildSQLStatements() // expectations
+      task.aclSQL() // acl
     )
   }
 
@@ -300,20 +299,20 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
   val now = new Timestamp(System.currentTimeMillis())
   val auditLog = AuditLog(
-    "ignore",
-    Some(targetTableName),
-    domain.finalName,
-    starlakeSchema.finalName,
-    true,
-    0,
-    -1,
-    -1,
-    now,
-    0,
-    "",
-    Step.LOAD.toString,
-    database,
-    settings.appConfig.tenant,
+    jobid = "ignore",
+    paths = Some(targetTableName),
+    domain = domain.finalName,
+    schema = starlakeSchema.finalName,
+    success = true,
+    count = 0,
+    countAccepted = -1,
+    countRejected = -1,
+    timestamp = now,
+    duration = 0,
+    message = "",
+    step = Step.LOAD.toString,
+    database = database,
+    tenant = settings.appConfig.tenant,
     test = false
   )
   def auditStatements(): Option[TaskSQLStatements] = {
@@ -423,7 +422,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       "schema"     -> starlakeSchema.asMap().asJava,
       "sink"       -> sink.asMap(engine).asJava,
       "fileSystem" -> settings.appConfig.fileSystem,
-      "tempStage"  -> tempStage
+      "tempStage"  -> tempStage,
+      "connection" -> sinkConnection.asMap()
     )
     val result = stepMap ++ commonOptionsMap
     result

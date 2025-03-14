@@ -1,6 +1,7 @@
 package ai.starlake.job.bootstrap
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.utils.{JarUtil, YamlSerde}
 import better.files.File
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -88,7 +89,9 @@ object Bootstrap extends StrictLogging {
       System.exit(1)
     }
     DatasetArea.initMetadata(settings.storageHandler())
-    val dagLibDir = File(metadataFolder, "dags", "generated")
+    // val dagLibDir = File(metadataFolder, "dags", "generated")
+
+    val dagLibDir = File(File(DatasetArea.build.toString), "dags")
     dagLibDir.createDirectories()
     /*
     import scala.sys.process._

@@ -175,6 +175,7 @@ object Settings extends StrictLogging {
     options: Map[String, String] = Map.empty,
     _transpileDialect: Option[String] = None
   ) {
+    def asMap(): Map[String, String] = this.options
 
     def getCatalog(): String = {
       val catalog = this.getJdbcEngineName().toString match {

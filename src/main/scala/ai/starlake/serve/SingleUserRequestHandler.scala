@@ -23,7 +23,6 @@ class SingleUserRequestHandler extends HttpServlet {
     val gcpProject =
       Option(req.getParameter("SL_DATABASE"))
         .filter(_.nonEmpty)
-        .orElse(Option(req.getParameter("GCP_PROJECT")))
     System.out.println(s"PARAMS=${params.toList}")
     System.out.println(s"ROOT=$root")
     System.out.println(s"METADATA=$metadata")

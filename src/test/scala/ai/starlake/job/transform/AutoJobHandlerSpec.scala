@@ -463,8 +463,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           | FILTER USING
           |  (TRUE)
           |""".stripMargin
-      val result = job
-        .prepareRLS()
+      val result = BigQueryJobBase
+        .buildRLSQueries(
+          BigQueryJobBase.extractProjectDatasetAndTable(
+            businessTask1.database,
+            businessTask1.domain,
+            businessTask1.table
+          ),
+          businessTask1.rls
+        )
         .map(_.replaceAll("`.*`", "`DOMAIN.TABLE`")) // we remove the computed project id
       result should contain theSameElementsInOrderAs List(delStatement, createStatement)
     }
@@ -481,8 +488,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       )
       config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
       val sysProps = System.getProperties
-      sysProps.setProperty("derby.system.home", "/Users/hayssams/tmp/derby")
-      config.set("spark.sql.warehouse.dir", "/Users/hayssams/tmp/warehouse")
+      sysProps.setProperty("derby.system.home", "/Users//tmp/derby")
+      config.set("spark.sql.warehouse.dir", "/Users//tmp/warehouse")
 
       val spark = SparkSession.builder().config(config).master(master).getOrCreate()
 
