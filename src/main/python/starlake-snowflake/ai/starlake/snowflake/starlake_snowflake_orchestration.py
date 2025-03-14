@@ -223,7 +223,7 @@ class SnowflakeDag(DAG):
             condition=self.condition,
             schedule=self.schedule,
             warehouse=self.warehouse,
-            user_task_managed_initial_warehouse_size=self.user_task_managed_initial_warehouse_size,
+            # user_task_managed_initial_warehouse_size=self.user_task_managed_initial_warehouse_size,
             error_integration=self.error_integration,
             comment=self.comment,
             task_auto_retry_attempts=self.task_auto_retry_attempts,
