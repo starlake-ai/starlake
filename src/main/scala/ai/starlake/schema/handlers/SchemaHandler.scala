@@ -39,6 +39,7 @@ import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
@@ -97,14 +98,134 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val jobsVarsValidity = checkJobsVars() // job vars may be defined at runtime.
     val loadedJobs = this.jobs(reload)
     val jobsValidity = loadedJobs.map(_.checkValidity(this))
-
-    val allErrors = typesValidity ++ domainsValidity ++ jobsValidity
+    val (targetOrchestrator, dagsValidity) = checkDagsValidity()
+    val allErrors = typesValidity ++ domainsValidity ++ jobsValidity ++ dagsValidity
 
     val errs = allErrors.flatMap {
       case Left(values) => values
       case Right(_)     => Nil
     }
     errs ++ domainsVarsValidity ++ jobsVarsValidity
+  }
+
+  def checkDagsValidity(): (Option[String], List[Either[List[ValidationMessage], Boolean]]) = {
+    val dagConfigs = this.loadDagGenerationConfigs()
+    val domainDags =
+      this
+        .domains()
+        .flatMap(dom =>
+          dom.tables
+            .flatMap { table =>
+              val dagRef = table.metadata.flatMap(_.dagRef)
+              dagRef.map((dom.name, table.name, _))
+            }
+        )
+    val taskDags = this.tasks().flatMap { task =>
+      task.dagRef.map((task.domain, task.name, _))
+
+    }
+    val modelDagConfigNames = (domainDags ++ taskDags).map { case (dom, tbl, dagConfig) =>
+      if (dagConfig.endsWith(".sl.yml"))
+        (dom, tbl, dagConfig.dropRight(".sl.yml".length))
+      else
+        (dom, tbl, dagConfig)
+    }.toSet
+
+    var targetOrchestrator: Option[String] = None
+    val errors =
+      modelDagConfigNames.toList.flatMap { case (dom, tbl, dagConfigName) =>
+        if (!dagConfigs.contains(dagConfigName))
+          Some(
+            ValidationMessage(
+              severity = Error,
+              target = dagConfigName,
+              message = s"DAG config $dagConfigName in model ${dom}.${tbl} is not found"
+            )
+          )
+        else {
+          val dagConfig = dagConfigs(dagConfigName)
+          val endIndex = dagConfig.template.indexOf("__")
+          if (endIndex < 0) {
+            Some(
+              ValidationMessage(
+                severity = Error,
+                target = dagConfigName,
+                message =
+                  s"DAG config $dagConfigName in model ${dom}.${tbl} is not valid. template name ${dagConfig.template} should contain __"
+              )
+            )
+          } else {
+            val usedOrchestrator = dagConfig.template.substring(0, endIndex)
+            // usedOrchestrator should be the same for all DAGs
+            targetOrchestrator match {
+              case None =>
+                targetOrchestrator = Some(usedOrchestrator)
+                None
+              case Some(orch) =>
+                if (orch != usedOrchestrator)
+                  Some(
+                    ValidationMessage(
+                      severity = Error,
+                      target = dagConfigName,
+                      message =
+                        s"DAG config $dagConfigName in model ${dom}.${tbl} is not valid. template name ${dagConfig.template} should start with ${orch}__ but $usedOrchestrator found. Only one orchestrator can be targeted."
+                    )
+                  )
+                else
+                  None
+            }
+
+          }
+        }
+      }
+    val appDagNames = settings.appConfig.dagRef
+      .map { dagRef =>
+        List(dagRef.load, dagRef.transform).flatten.toSet
+      }
+      .getOrElse(Set.empty)
+
+    val appError =
+      if (appDagNames.size > 1) {
+        Some(
+          ValidationMessage(
+            severity = Error,
+            target = "DAG",
+            message =
+              s"Multiple orchestrators  targeted by the dag configuration section (dagRef) in application.sl.yml: ${appDagNames
+                  .mkString(",")}"
+          )
+        )
+      } else {
+        targetOrchestrator match {
+          case None =>
+            if (appDagNames.nonEmpty)
+              targetOrchestrator = appDagNames.headOption
+          case Some(_) =>
+        }
+        targetOrchestrator.flatMap { orch =>
+          appDagNames.isEmpty || appDagNames.contains(orch) match {
+            case true =>
+              None
+            case false =>
+              Some(
+                ValidationMessage(
+                  severity = Error,
+                  target = "DAG",
+                  message =
+                    s"Orchestrator $orch targeted by the models is different from the one defined in the application.sl.yml (${appDagNames.headOption})"
+                )
+              )
+          }
+        }
+      }.toList
+
+    val allErrors = errors ++ appError
+    val result =
+      if (allErrors.isEmpty)
+        Right(true)
+      else
+        Left(allErrors)
+    (targetOrchestrator, List(result))
   }
 
   private def checkDomainsVars(): List[ValidationMessage] = {

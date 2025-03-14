@@ -121,12 +121,16 @@ trait BigQueryJobBase extends StrictLogging {
   private def applyRLS(forceApply: Boolean)(implicit settings: Settings): Try[Unit] = {
     Try {
       if (forceApply || settings.appConfig.accessPolicies.apply) {
-        cliConfig.outputTableId match {
-          case None =>
-            throw new RuntimeException("TableId must be defined in order to apply access policies.")
-          case Some(outputTableId) => applyACL(outputTableId, cliConfig.acl)
-        }
-        prepareRLS().foreach { rlsStatement =>
+        val outputTableId =
+          cliConfig.outputTableId match {
+            case None =>
+              throw new RuntimeException(
+                "TableId must be defined in order to apply access policies."
+              )
+            case Some(tableId) => tableId
+          }
+        applyACL(outputTableId, cliConfig.acl)
+        BigQueryJobBase.buildRLSQueries(outputTableId, cliConfig.rls).foreach { rlsStatement =>
           logger.info(s"Applying row level security $rlsStatement")
           new BigQueryNativeJob(
             cliConfig,
@@ -332,60 +336,6 @@ trait BigQueryJobBase extends StrictLogging {
       }
 
     }
-  }
-
-  def prepareRLS(): List[String] = {
-    def revokeAllPrivileges(): String = {
-      cliConfig.outputTableId match {
-        case Some(outputTableId) =>
-          val outputTable = BigQueryJobBase.getBqTableForNative(outputTableId)
-          s"DROP ALL ROW ACCESS POLICIES ON $outputTable"
-        case None =>
-          throw new RuntimeException("TableId must be defined in order to revoke privileges")
-      }
-    }
-
-    /** Grant privileges to the users and groups defined in the schema
-      * @param rlsRetrieved
-      * @return
-      */
-    def grantPrivileges(rlsRetrieved: RowLevelSecurity): String = {
-      cliConfig.outputTableId match {
-        case None =>
-          throw new RuntimeException("TableId must be defined in order to grant privileges")
-        case Some(outputTableId) =>
-          val grants = rlsRetrieved.grantees().map {
-            case (UserType.SA, u) =>
-              s"serviceAccount:$u"
-            case (userOrGroupOrDomainType, userOrGroupOrDomainName) =>
-              s"${userOrGroupOrDomainType.toString.toLowerCase}:$userOrGroupOrDomainName"
-          }
-
-          val name = rlsRetrieved.name
-          val filter = rlsRetrieved.predicate
-          val outputTable = BigQueryJobBase.getBqTableForNative(outputTableId)
-          s"""
-             | CREATE ROW ACCESS POLICY
-             |  $name
-             | ON
-             |  $outputTable
-             | GRANT TO
-             |  (${grants.mkString("\"", "\",\"", "\"")})
-             | FILTER USING
-             |  ($filter)
-             |""".stripMargin
-      }
-    }
-    val rlsCreateStatements = cliConfig.rls.map { rlsRetrieved =>
-      logger.info(s"Building security statement $rlsRetrieved")
-      val rlsCreateStatement = grantPrivileges(rlsRetrieved)
-      logger.info(s"An access policy will be created using $rlsCreateStatement")
-      rlsCreateStatement
-    }
-
-    val rlsDeleteStatement = cliConfig.rls.map(_ => revokeAllPrivileges())
-
-    rlsDeleteStatement ++ rlsCreateStatements
   }
 
   lazy val tableId: TableId = {
@@ -1049,7 +999,6 @@ object BigQueryJobBase extends StrictLogging {
         .filter(_.nonEmpty)
         .orElse(connectionProjectId)
         .orElse(getPropertyOrEnv("SL_DATABASE"))
-        .orElse(getPropertyOrEnv("GCP_PROJECT"))
         .orElse(scala.Option(ServiceOptions.getDefaultProjectId))
         .getOrElse(throw new Exception("""GCP Project ID must be defined in one of the following ways:
                             |  - Set the environment variable GOOGLE_CLOUD_PROJECT
@@ -1213,4 +1162,65 @@ object BigQueryJobBase extends StrictLogging {
     }
     processWithRetry(bigqueryProcess = bigqueryProcess)
   }
+
+  def buildACLQueries(
+    tableId: TableId,
+    acl: List[AccessControlEntry]
+  )(implicit settings: Settings): List[String] = {
+    val fullTableName = getBqTableForNative(tableId)
+    acl.flatMap { ace =>
+      /*
+        https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
+        https://hevodata.com/learn/snowflake-grant-role-to-user/
+       */
+      ace.asSql(fullTableName, Engine.BQ)
+    }
+  }
+
+  def buildRLSQueries(outputTableId: TableId, rls: List[RowLevelSecurity]): List[String] = {
+    val outputTable = BigQueryJobBase.getBqTableForNative(outputTableId)
+    buildRLSQueries(outputTable, rls)
+  }
+  def buildRLSQueries(outputTable: String, rls: List[RowLevelSecurity]): List[String] = {
+    def revokeAllPrivileges(): String = {
+      s"DROP ALL ROW ACCESS POLICIES ON $outputTable"
+    }
+
+    /** Grant privileges to the users and groups defined in the schema
+      * @param rlsRetrieved
+      * @return
+      */
+    def grantPrivileges(rlsRetrieved: RowLevelSecurity): String = {
+      val grants = rlsRetrieved.grantees().map {
+        case (UserType.SA, u) =>
+          s"serviceAccount:$u"
+        case (userOrGroupOrDomainType, userOrGroupOrDomainName) =>
+          s"${userOrGroupOrDomainType.toString.toLowerCase}:$userOrGroupOrDomainName"
+      }
+
+      val name = rlsRetrieved.name
+      val filter = rlsRetrieved.predicate
+      s"""
+             | CREATE ROW ACCESS POLICY
+             |  $name
+             | ON
+             |  $outputTable
+             | GRANT TO
+             |  (${grants.mkString("\"", "\",\"", "\"")})
+             | FILTER USING
+             |  ($filter)
+             |""".stripMargin
+    }
+    val rlsCreateStatements = rls.map { rlsRetrieved =>
+      logger.info(s"Building security statement $rlsRetrieved")
+      val rlsCreateStatement = grantPrivileges(rlsRetrieved)
+      logger.info(s"An access policy will be created using $rlsCreateStatement")
+      rlsCreateStatement
+    }
+
+    val rlsDeleteStatement = rls.map(_ => revokeAllPrivileges())
+
+    rlsDeleteStatement ++ rlsCreateStatements
+  }
+
 }

@@ -1,7 +1,7 @@
 package ai.starlake.extract
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Domain
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
@@ -59,7 +59,9 @@ class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings)
     )
     val outputPath = formatOutputScriptName(inputPath, templateParams)
     val outputFile = File(outputPath)
-    val generatedOutputFile = File(outputFile.parent, "generated", outputFile.name)
+    val generatedOutputFile =
+      File(StorageHandler.localFile(DatasetArea.build), "extract", outputFile.name)
+    // val generatedOutputFile = File(outputFile.parent, "generated", outputFile.name)
     generatedOutputFile.parent.createDirectoryIfNotExists()
     generatedOutputFile.createFileIfNotExists().overwrite(scriptPayload)
 

@@ -1,10 +1,8 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.ingest.DummyIngestionJob
-import ai.starlake.job.metrics.ExpectationJob
-import ai.starlake.job.transform.AutoTask
+import ai.starlake.job.transform.{AutoTask, AutoTaskQueries}
 import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
@@ -115,7 +113,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
     val outputDir = new Path(
-      config.outputDir.getOrElse(DatasetArea.dags.toString + "/generated/")
+      config.outputDir.getOrElse(DatasetArea.build.toString + "/dags/")
     )
 
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
@@ -168,16 +166,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val orchestratorName = orchestratorFromTemplate(dagConfig.template).toLowerCase()
         val nativeOrchestrator = Set("snowflake", "databricks").contains(orchestratorName)
 
-        val taskStatements: List[
-          (
-            TaskSQLStatements, // main statements
-            List[ExpectationSQL], // expectation item statements
-            Option[TaskSQLStatements], // audit statements
-            List[String], // ACL statements
-            Option[TaskSQLStatements] // expectations table statements
-
-          )
-        ] =
+        val taskStatements: List[AutoTaskQueries] =
           if (nativeOrchestrator) {
             taskConfigs.map { case (_, config) =>
               val task = AutoTask.task(
@@ -194,13 +183,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 dryRun = false
               )(settings, settings.storageHandler(), schemaHandler)
               Try {
-                (
-                  task.buildListOfSQLStatements(),
-                  task.expectationStatements(),
-                  task.auditStatements(),
-                  task.aclSQL(),
-                  ExpectationJob.buildSQLStatements()
-                )
+                AutoTaskQueries(task)
               } match {
                 case scala.util.Success(value) => value
                 case scala.util.Failure(exception) =>
@@ -272,18 +255,35 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
   def clean(dir: Option[String])(implicit settings: Settings): Unit = {
     val outputDir = new Path(
-      dir.getOrElse(DatasetArea.dags.toString + "/generated/")
+      dir.getOrElse(DatasetArea.build.toString + "/dags/")
     )
     settings.storageHandler().mkdirs(outputDir)
     logger.info(s"Cleaning output directory $outputDir")
     settings.storageHandler().delete(outputDir)
   }
 
+  def publishDags(folder: String)(implicit settings: Settings): Unit = {
+    val outputDir = new Path(folder)
+    val dagBuildDir = new Path(DatasetArea.build, "dags")
+    val dagFiles =
+      settings
+        .storageHandler()
+        .list(
+          path = dagBuildDir,
+          recursive = true
+        )
+    dagFiles.foreach { file =>
+      val fileName = file.path.getName
+      val newPath = new Path(outputDir, fileName)
+      settings.storageHandler().move(file.path, newPath)
+    }
+  }
+
   def generateDomainDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
     val outputDir = new Path(
-      config.outputDir.getOrElse(DatasetArea.dags.toString + "/generated/")
+      config.outputDir.getOrElse(DatasetArea.build.toString + "/dags/")
     )
 
     val dagConfigs = schemaHandler.loadDagGenerationConfigs()
@@ -572,10 +572,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     val json = JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(context2)
 
     val paramMap = Map(
-      "context" -> context,
-      "env"     -> jEnv.asJava,
-      "json"    -> json,
-      "pyjson"  -> json.replace("\\", "\\\\")
+      "context"     -> context,
+      "env"         -> jEnv.asJava,
+      "json"        -> json,
+      "pyjson"      -> json.replace("\\", "\\\\"),
+      "sl_datasets" -> settings.appConfig.datasets,
+      "sl_env"      -> settings.appConfig.env,
+      "sl_root"     -> settings.appConfig.root
     )
     val jinjaOutput = Utils.parseJinjaTpl(dagTemplateContent, paramMap)
     val dagPath = new Path(outputDir, filename)

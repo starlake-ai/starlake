@@ -249,7 +249,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
                     'ack_file', 
                     __class__.get_context_var(
                         var_name='global_ack_file_path',
-                        default_value=f'{self.sl_datasets}/pending/{domain}/{current_dt()}.ack',
+                        default_value=f'{self.sl_datasets}/stage/{domain}/{current_dt()}.ack',
                         options=self.options
                     )
                 )

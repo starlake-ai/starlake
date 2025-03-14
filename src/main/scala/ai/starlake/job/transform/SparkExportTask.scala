@@ -338,4 +338,6 @@ class SparkExportTask(
     if (cellStyle.isEmpty) cellStyle = Option(cell.getSheet.getColumnStyle(cell.getColumnIndex))
     cellStyle.getOrElse(cell.getCellStyle)
   }
+
+  override def buildRLSQueries(): List[String] = throw new Exception("RLS not supported for export")
 }

@@ -39,8 +39,7 @@ case class WorkflowStatements(
   task: TaskSQLStatements,
   expectationItems: List[ExpectationSQL],
   audit: Option[TaskSQLStatements],
-  acl: List[String],
-  expectations: Option[TaskSQLStatements]
+  acl: List[String]
 ) {
   def asMap(): Map[String, Object] = {
     val statementsAsMap = task.asMap()
@@ -50,15 +49,12 @@ case class WorkflowStatements(
 
     val aclAsMap = acl
 
-    val expectationsAsMap = expectations.map(_.asMap()).getOrElse(Map.empty)
-
     Map(
       "name"             -> task.name,
       "statements"       -> statementsAsMap.asJava,
       "expectationItems" -> expectationItemsAsMap.map(_.asJava).asJava,
       "audit"            -> auditAsMap.asJava,
-      "acl"              -> aclAsMap.asJava,
-      "expectations"     -> expectationsAsMap.asJava
+      "acl"              -> aclAsMap.asJava
     )
   }
 }

@@ -29,6 +29,7 @@ import org.apache.spark.sql.types.StructType
 
 import java.sql.Timestamp
 import java.time.Instant
+import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -60,10 +61,10 @@ class BigQueryAutoTask(
     .getOrElse(BigQuerySink(connectionRef = Some(sinkConnectionRef)))
     .asInstanceOf[BigQuerySink]
 
-  private lazy val tableId = BigQueryJobBase
+  private lazy val targetTableId = BigQueryJobBase
     .extractProjectDatasetAndTable(taskDesc.getDatabase(), taskDesc.domain, taskDesc.table)
 
-  lazy val fullTableName: String = BigQueryJobBase.getBqTableForNative(tableId)
+  lazy val fullTableName: String = BigQueryJobBase.getBqTableForNative(targetTableId)
 
   override def tableExists: Boolean = {
     val tableExists =
@@ -116,7 +117,7 @@ class BigQueryAutoTask(
 
     BigQueryLoadConfig(
       connectionRef = Some(sinkConnectionRef),
-      outputTableId = Some(tableId),
+      outputTableId = Some(targetTableId),
       createDisposition = createDisposition,
       writeDisposition = if (truncate) "WRITE_TRUNCATE" else writeDisposition,
       outputPartition = bqSink.getPartitionColumn(),
@@ -165,6 +166,9 @@ class BigQueryAutoTask(
     runBQ(None, None)
   }
 
+  def build(): Map[String, Any] = {
+    Map.empty
+  }
   def runNative(sparkSchema: StructType): Try[JobResult] = {
     runBQ(None, Some(sparkSchema))
   }
@@ -176,7 +180,7 @@ class BigQueryAutoTask(
 
     def mainSql(): String =
       if (loadedDF.isEmpty) {
-        buildAllSQLQueries(None, forceNative = true)
+        buildAllSQLQueries(None, tableExistsForcedValue = None, forceNative = true)
       } else {
         val sql = taskDesc.getSql()
         val mainSql = schemaHandler.substituteRefTaskMainSQL(
@@ -440,7 +444,7 @@ class BigQueryAutoTask(
         source = Right(source),
         outputTableId = Some(
           BigQueryJobBase.extractProjectDatasetAndTable(
-            this.taskDesc.database,
+            this.taskDesc.getDatabase(),
             this.taskDesc.domain,
             this.taskDesc.table + shard
               .map("_" + StringUtils.replaceNonAlphanumericWithUnderscore(_))
@@ -520,6 +524,73 @@ class BigQueryAutoTask(
       BQSchema.of(allFields.asJava)
     } else
       incomingTableSchema
+  }
+
+  def buildACLQueries(): List[String] = {
+    val tableId = BigQueryJobBase.extractProjectDatasetAndTable(
+      taskDesc.getDatabase(),
+      taskDesc.domain,
+      taskDesc.table
+    )
+    BigQueryJobBase.buildACLQueries(tableId, taskDesc.acl)
+  }
+
+  override def buildConnection(): Map[String, String] = {
+    val result = sinkConnection.asMap()
+    taskDesc.getDatabase() match {
+      case Some(db) =>
+        result.updated("projectId", db)
+      case None =>
+        sinkConnection.options.get("projectId") match {
+          case Some(db) =>
+            result.updated("projectId", db)
+          case None =>
+            result
+        }
+    }
+  }
+
+  override def buildRLSQueries(): List[String] = {
+    def revokeAllPrivileges(): String = {
+      val outputTable = BigQueryJobBase.getBqTableForNative(targetTableId)
+      s"DROP ALL ROW ACCESS POLICIES ON $outputTable"
+    }
+
+    /** Grant privileges to the users and groups defined in the schema
+      * @param rlsRetrieved
+      * @return
+      */
+    def grantPrivileges(rlsRetrieved: RowLevelSecurity): String = {
+      val grants = rlsRetrieved.grantees().map {
+        case (UserType.SA, u) =>
+          s"serviceAccount:$u"
+        case (userOrGroupOrDomainType, userOrGroupOrDomainName) =>
+          s"${userOrGroupOrDomainType.toString.toLowerCase}:$userOrGroupOrDomainName"
+      }
+
+      val name = rlsRetrieved.name
+      val filter = rlsRetrieved.predicate
+      val outputTable = BigQueryJobBase.getBqTableForNative(targetTableId)
+      s"""
+               | CREATE ROW ACCESS POLICY
+               |  $name
+               | ON
+               |  $outputTable
+               | GRANT TO
+               |  (${grants.mkString("\"", "\",\"", "\"")})
+               | FILTER USING
+               |  ($filter)
+               |""".stripMargin
+    }
+    val rlsCreateStatements = taskDesc.rls.map { rlsRetrieved =>
+      logger.info(s"Building security statement $rlsRetrieved")
+      val rlsCreateStatement = grantPrivileges(rlsRetrieved)
+      logger.info(s"An access policy will be created using $rlsCreateStatement")
+      rlsCreateStatement
+    }
+    val rlsDeleteStatement = taskDesc.rls.map(_ => revokeAllPrivileges())
+    rlsDeleteStatement ++ rlsCreateStatements
+
   }
 
   def updateBigQueryTableSchema(

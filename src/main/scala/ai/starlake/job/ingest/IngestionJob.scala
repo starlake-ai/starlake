@@ -401,7 +401,7 @@ trait IngestionJob extends SparkJob {
       case "duckdb" =>
         val ingestionCounters = new DuckDbNativeLoader(this).run()
         ingestionCounters
-      case "spark" =>
+      case "spark" => // databricks
         val result = ingestWithSpark()
         result
       case other =>

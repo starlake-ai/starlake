@@ -110,7 +110,6 @@ abstract class AutoTask(
     } else {
       sinkConnection.options
     }
-
   def fullTableName: String
 
   def run(): Try[JobResult]
@@ -146,6 +145,11 @@ abstract class AutoTask(
   lazy val jdbcSinkEngineName = this.sinkConnection.getJdbcEngineName()
   lazy val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
 
+  def buildRLSQueries(): List[String]
+
+  def buildConnection(): Map[String, String] = {
+    sinkConnection.asMap()
+  }
   def buildAllSQLQueries(
     sql: Option[String],
     tableExistsForcedValue: Option[Boolean] = None,
@@ -688,5 +692,4 @@ object AutoTask extends StrictLogging {
         throw e
     }
   }
-
 }

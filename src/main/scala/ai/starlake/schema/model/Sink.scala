@@ -259,7 +259,7 @@ final case class AllSinks(
         }
     }
     table.foreach { table =>
-      this.sharding.foreach { column =>
+      this.sharding.getOrElse(Nil).foreach { column =>
         if (!table.attributes.exists(_.getFinalName() == column)) {
           errors = errors :+ ValidationMessage(
             Severity.Error,

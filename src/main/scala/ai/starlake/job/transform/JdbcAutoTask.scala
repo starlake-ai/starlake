@@ -435,6 +435,8 @@ class JdbcAutoTask(
         }
     }
   }
+
+  override def buildRLSQueries(): List[String] = ???
 }
 
 object JdbcAutoTask extends StrictLogging {

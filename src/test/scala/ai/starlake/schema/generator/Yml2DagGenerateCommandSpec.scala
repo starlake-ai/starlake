@@ -86,7 +86,7 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
         )
         val schemaHandler = settings.schemaHandler()
         new DagGenerateJob(schemaHandler).run(Array.empty)
-        val dagPath = new Path(new Path(DatasetArea.dags, "generated"), "position.py")
+        val dagPath = new Path(new Path(DatasetArea.build, "dags"), "position.py")
         settings.storageHandler().exists(dagPath) shouldBe true
         val dagContent = settings.storageHandler().read(dagPath)
         dagContent should include("description='sample dag configuration'")

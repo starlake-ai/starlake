@@ -100,7 +100,6 @@ case class Schema(
       "primaryKey"    -> primaryKey,
       "acl"           -> acl.map(_.asMap()).asJava,
       "rename"        -> rename,
-      "sample"        -> sample,
       "filter"        -> filter,
       "patternSample" -> patternSample,
       "streams"       -> streams,

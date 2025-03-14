@@ -831,6 +831,8 @@ class SparkAutoTask(
       }
     result
   }
+
+  override def buildRLSQueries(): List[String] = ???
 }
 
 object SparkAutoTask extends StrictLogging {
