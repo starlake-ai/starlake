@@ -21,7 +21,6 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
-import ai.starlake.config.CometColumns
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Mode, Schema, Type}
 import ai.starlake.utils.kafka.KafkaClient
@@ -29,7 +28,6 @@ import ai.starlake.utils.{JobResult, Utils}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions.{col, from_json}
-import org.apache.spark.sql.types.{StringType, StructField}
 
 import scala.util.{Failure, Try}
 
