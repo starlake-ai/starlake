@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 
-from ai.starlake.common import MissingEnvironmentVariable, sl_schedule_format
+from ai.starlake.common import MissingEnvironmentVariable, StarlakeCronPeriod, sl_schedule_format
 
 from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 from ai.starlake.job.starlake_options import StarlakeOptions
@@ -31,6 +31,7 @@ from enum import Enum
 class StarlakeOrchestrator(str, Enum):
     AIRFLOW = "airflow"
     DAGSTER = "dagster"
+    SNOWFLAKE = "snowflake"
 
     def __str__(self):
         return self.value
@@ -41,6 +42,16 @@ class StarlakeExecutionEnvironment(str, Enum):
     DATAPROC = "dataproc"
     FARGATE = "fargate"
     SHELL = "shell"
+    SQL = "sql"
+
+    def __str__(self):
+        return self.value
+
+class StarlakeExecutionMode(str, Enum):
+    
+    DRY_RUN = "dry_run"
+    RUN = "run"
+    BACKFILL = "backfill"
 
     def __str__(self):
         return self.value
@@ -117,6 +128,8 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
 
         self._events: List[E] = []
 
+        self._cron_period_frequency = StarlakeCronPeriod.from_str(__class__.get_context_var('cron_period_frequency', default_value='week', options=self.options))
+
     @classmethod
     def sl_orchestrator(cls) -> Union[StarlakeOrchestrator, str, None]:
         """Returns the orchestrator to use.
@@ -153,16 +166,18 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         """
         self._events = events
 
-    def update_events(self, event: E, **kwargs) -> Tuple[(str, List[E])]:
-        pass
-
     @final
-    def __add_event(self, uri: str, **kwargs) -> E:
-        event = self.to_event(StarlakeDataset(uri, **kwargs), source=kwargs.get('source', self.source))
+    def __add_event(self, dataset: Union[str, StarlakeDataset], **kwargs) -> E:
+        if isinstance(dataset, str):
+            dataset = StarlakeDataset(name=dataset, **kwargs)
+        event = self.to_event(dataset, source=kwargs.get('source', self.source))
         events = self.events
         events.append(event)
         self.events = events
         return event
+
+    def sl_dataset_url(self, dataset: StarlakeDataset, **kwargs) -> str:
+        return dataset.url
 
     def sl_import(self, task_id: str, domain: str, tables: set=set(), **kwargs) -> T:
         """Import job.
@@ -182,8 +197,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
             tmp_domain = f'{domain}_{schedule}'
         else:
             tmp_domain = domain
-        tuple_events = self.update_events(self.__add_event(tmp_domain, **kwargs))
-        kwargs.update({tuple_events[0]: tuple_events[1]})
+        self.__add_event(tmp_domain, **kwargs)
         task_id = f"import_{tmp_domain}" if not task_id else task_id
         kwargs.pop("task_id", None)
         arguments = ["import", "--domains", domain, "--tables", ",".join(tables), "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
@@ -273,7 +287,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
 
             return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
 
-    def sl_load(self, task_id: str, domain: str, table: str, spark_config: Optional[StarlakeSparkConfig]=None, **kwargs) -> T:
+    def sl_load(self, task_id: str, domain: str, table: str, spark_config: Optional[StarlakeSparkConfig]=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> T:
         """Load job.
         Generate the scheduler task that will run the starlake `load` command.
 
@@ -282,14 +296,22 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
             domain (str): The required domain of the table to load.
             table (str): The required table to load.
             spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+            dataset (Union[StarlakeDataset, str]): The optional dataset to materialize.
         
         Returns:
             T: The scheduler task.
         """
         task_id = kwargs.get("task_id", f"load_{domain}_{table}") if not task_id else task_id
         kwargs.pop("task_id", None)
-        tuple_events = self.update_events(self.__add_event(f'{domain}.{table}', **kwargs))
-        kwargs.update({tuple_events[0]: tuple_events[1]})
+        if not dataset:
+            params: dict = kwargs.get('params', dict())
+            params.update({
+                'sl_schedule_parameter_name': self.sl_schedule_parameter_name, 
+                'sl_schedule_format': self.sl_schedule_format
+            })
+            kwargs['params'] = params
+            dataset = StarlakeDataset(name=f'{domain}.{table}', **kwargs)
+        self.__add_event(dataset, **kwargs)
         arguments = ["load", "--domains", domain, "--tables", table]
         if spark_config is None:
             spark_config = self.get_spark_config(
@@ -300,9 +322,9 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
                 ), 
                 **self.caller_globals.get('spark_properties', {})
             )
-        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
+        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, dataset=dataset, **kwargs)
 
-    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: Optional[StarlakeSparkConfig]=None, **kwargs) -> T:
+    def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: Optional[StarlakeSparkConfig]=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> T:
         """Transform job.
         Generate the scheduler task that will run the starlake `transform` command.
 
@@ -311,14 +333,22 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
             transform_name (str): The transform to run.
             transform_options (str): The optional transform options to use.
             spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+            dataset (Union[StarlakeDataset, str]): The optional dataset to materialize.
         
         Returns:
             T: The scheduler task.
         """
         task_id = kwargs.get("task_id", f"{transform_name}") if not task_id else task_id
         kwargs.pop("task_id", None)
-        tuple_events = self.update_events(self.__add_event(transform_name, **kwargs))
-        kwargs.update({tuple_events[0]: tuple_events[1]})
+        if not dataset:
+            params: dict = kwargs.get('params', dict())
+            params.update({
+                'sl_schedule_parameter_name': self.sl_schedule_parameter_name, 
+                'sl_schedule_format': self.sl_schedule_format
+            })
+            kwargs['params'] = params
+            dataset = StarlakeDataset(name=transform_name, **kwargs)
+        self.__add_event(dataset, **kwargs)
         arguments = ["transform", "--name", transform_name]
         options = list()
         if transform_options:
@@ -337,15 +367,29 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
                 ), 
                 **self.caller_globals.get('spark_properties', {})
             )
-        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, **kwargs)
+        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, dataset=dataset, **kwargs)
 
-    def pre_tasks(self, *args, **kwargs) -> Optional[T]: #TODO rename to pre_op
+    def pre_tasks(self, *args, **kwargs) -> Optional[T]: #TODO rename to pre_ops
         """Pre tasks."""
         return None
 
-    def post_tasks(self, *args, **kwargs) -> Optional[T]: #TODO rename to post_op
+    def post_tasks(self, *args, **kwargs) -> Optional[T]: #TODO rename to post_ops
         """Post tasks."""
         return None
+
+    def start_op(self, task_id: str, scheduled: bool, not_scheduled_datasets: Optional[List[StarlakeDataset]], least_frequent_datasets: Optional[List[StarlakeDataset]], most_frequent_datasets: Optional[List[StarlakeDataset]], **kwargs) -> Optional[T]:
+        """Start operation."""
+        events = kwargs.get('events', [])
+        kwargs.pop('events', None)
+        if not scheduled and least_frequent_datasets:
+            datasets = least_frequent_datasets
+        else:
+            datasets = None
+        return self.dummy_op(task_id, list(map(lambda dataset: self.to_event(dataset=dataset, source=self.source), datasets or [])), **kwargs)
+
+    def end_op(self, task_id: str, events: Optional[List[E]] = None, **kwargs) -> Optional[T]:
+        """End operation."""
+        return self.dummy_op(task_id, events, **kwargs)
 
     @abstractmethod
     def dummy_op(self, task_id, events: Optional[List[E]], **kwargs) -> T: 
@@ -356,7 +400,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         return None
 
     @abstractmethod
-    def sl_job(self, task_id: str, arguments: list, spark_config: Optional[StarlakeSparkConfig]=None, **kwargs) -> T:
+    def sl_job(self, task_id: str, arguments: list, spark_config: Optional[StarlakeSparkConfig]=None, dataset: Optional[Union[StarlakeDataset, str]]=None, **kwargs) -> T:
         """Generic job.
         Generate the scheduler task that will run the starlake command.
 
@@ -364,6 +408,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
             task_id (str): The required task id.
             arguments (list): The required arguments of the starlake command to run.
             spark_config (StarlakeSparkConfig): The optional spark configuration to use.
+            dataset (Union[StarlakeDataset, str]): The optional dataset to publish.
         
         Returns:
             T: The scheduler task.
@@ -412,6 +457,15 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         if not found:
             env.update(self.sl_env_vars) # Add/overwrite with sl env variables
         return env
+
+    @property
+    def cron_period_frequency(self) -> StarlakeCronPeriod:
+        """Returns the cron period frequency.
+
+        Returns:
+            StarlakeCronPeriod: The cron period frequency.
+        """
+        return self._cron_period_frequency
 
 class StarlakeJobFactory:
     _registry = {}

@@ -88,7 +88,7 @@ class DagsterOrchestration(AbstractOrchestration[JobDefinition, OpDefinition, Gr
     def sl_orchestrator(cls) -> str:
         return StarlakeOrchestrator.DAGSTER
 
-    def sl_create_pipeline(self, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, **kwargs) -> AbstractPipeline[JobDefinition, AssetKey]:
+    def sl_create_pipeline(self, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, **kwargs) -> AbstractPipeline[JobDefinition, OpDefinition, GraphDefinition, AssetKey]:
         return DagsterPipeline(self.job, dag=None, schedule=schedule, dependencies=dependencies, orchestration=self, **kwargs)
 
     def sl_create_task_group(self, group_id: str, **kwargs) -> AbstractTaskGroup[GraphDefinition]:
@@ -109,7 +109,7 @@ class DagsterOrchestration(AbstractOrchestration[JobDefinition, OpDefinition, Gr
         else:
             return None
 
-class DagsterPipeline(AbstractPipeline[JobDefinition, AssetKey], DagsterDataset):
+class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinition, AssetKey], DagsterDataset):
     def __init__(self, sl_job: J, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None,  orchestration: Optional[DagsterOrchestration] = None, **kwargs) -> None:
         super().__init__(sl_job, orchestration_cls = DagsterOrchestration, schedule = schedule, dependencies = dependencies, orchestration = orchestration, **kwargs)
 

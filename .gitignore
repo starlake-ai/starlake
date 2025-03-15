@@ -172,3 +172,4 @@ samples/starbake/storage
 bin
 samples/starbake/incoming
 /samples/spark/metadata/.build/
+samples/spark/incoming
