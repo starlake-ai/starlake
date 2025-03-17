@@ -39,7 +39,6 @@ import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
-import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
