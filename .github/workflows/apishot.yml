@@ -23,10 +23,6 @@ jobs:
         with:
           distribution: 'temurin' # See 'Supported distributions' for available options
           java-version: '11'
-      - name: Setup sbt launcher
-        uses: sbt/setup-sbt@v1
-      - name: Publish Snapshot on Sonatype Spark 3 for scala 2.13
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 publish
       - name: Trigger starlake-api workflow
         if: ${{ success() }}
         id: trigger-starlake-api
@@ -37,3 +33,17 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           https://api.github.com/repos/starlake-ai/starlake-api/actions/workflows/docker-hub.yml/dispatches \
           -d '{"ref":"main"}'
+      - name: trigger-starlake-api
+        if: github.event.workflow_run.conclusion == 'success' # Run only when workflow run has succeeded, i.e. all jobs have succeeded
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.STARLAKE_API_TOKEN }} # Fine-grained GitHub PAT that was saved as repository secret
+          script: |
+            await github.rest.actions.createworkflowDispatch({
+            owner: 'starlake-ai',
+            repo: 'starlake-api',
+            workflow_id: 'docker-hub.yml',
+            ref: 'main'
+          })
