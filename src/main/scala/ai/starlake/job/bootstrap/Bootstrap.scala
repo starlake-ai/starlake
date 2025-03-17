@@ -18,7 +18,7 @@ object Bootstrap extends StrictLogging {
     templateFolder: String,
     targetFolder: File
   ): List[File] = {
-    resources.map { resource =>
+    resources.filterNot(_.endsWith(".DS_Store")).map { resource =>
       logger.info(s"copying $resource")
       val source = Source.fromResource(resource)
       if (source == null)
