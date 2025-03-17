@@ -23,27 +23,17 @@ jobs:
         with:
           distribution: 'temurin' # See 'Supported distributions' for available options
           java-version: '11'
-      - name: Trigger starlake-api workflow
-        if: ${{ success() }}
-        id: trigger-starlake-api
-        env:
-          GITHUB_TOKEN: ${{ secrets.STARLAKE_API_TOKEN }}
-        run: |
-          curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-          -H "Accept: application/vnd.github+json" \
-          https://api.github.com/repos/starlake-ai/starlake-api/actions/workflows/docker-hub.yml/dispatches \
-          -d '{"ref":"main"}'
       - name: trigger-starlake-api
         if: github.event.workflow_run.conclusion == 'success' # Run only when workflow run has succeeded, i.e. all jobs have succeeded
         runs-on: ubuntu-latest
-        steps:
-          - uses: actions/github-script@v6
-            with:
-              github-token: ${{ secrets.STARLAKE_API_TOKEN }} # Fine-grained GitHub PAT that was saved as repository secret
-              script: |
-                await github.rest.actions.createworkflowDispatch({
-                owner: 'starlake-ai',
-                repo: 'starlake-api',
-                workflow_id: 'docker-hub.yml',
-                ref: 'main'
-              })
+      - name: Trigger API workflow
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.STARLAKE_API_TOKEN }} # Fine-grained GitHub PAT that was saved as repository secret
+          script: |
+            await github.rest.actions.createworkflowDispatch({
+            owner: 'starlake-ai',
+            repo: 'starlake-api',
+            workflow_id: 'docker-hub.yml',
+            ref: 'main'})
+
