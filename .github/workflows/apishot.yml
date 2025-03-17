@@ -23,8 +23,12 @@ jobs:
         with:
           distribution: 'temurin' # See 'Supported distributions' for available options
           java-version: '11'
+      - name: Setup sbt launcher
+        uses: sbt/setup-sbt@v1
+      - name: Publish Snapshot on Sonatype Spark 3 for scala 2.13
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 publish
       - name: trigger-starlake-api
-#        if: github.event.workflow_run.conclusion == 'success' # Run only when workflow run has succeeded, i.e. all jobs have succeeded
+        if: ${{ success() }}
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.STARLAKE_API_TOKEN }} # Fine-grained GitHub PAT that was saved as repository secret
