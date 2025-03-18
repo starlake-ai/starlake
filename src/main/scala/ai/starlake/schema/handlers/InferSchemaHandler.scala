@@ -45,6 +45,9 @@ import org.apache.spark.sql.types.{
   ArrayType,
   ByteType,
   DataType,
+  DecimalType,
+  DoubleType,
+  FloatType,
   IntegerType,
   LongType,
   ShortType,
@@ -141,18 +144,15 @@ object DataTypesToInt extends Enumeration {
   )
 
   def guessTemporalType: UserDefinedFunction = udf((maybeTimestamp: String) => {
-    Option(maybeTimestamp) match {
-      case Some(input) =>
-        patterns
-          .collectFirst {
-            case (pattern: String, typeId)
-                if Try(DateTimeFormatter.ofPattern(pattern).parse(input)).isSuccess =>
-              typeId
-            case (formatter: DateTimeFormatter, typeId) if Try(formatter.parse(input)).isSuccess =>
-              typeId
-          }
-          .getOrElse(DataTypesToInt.STRING.id)
-      case None => DataTypesToInt.NULL.id
+    Option(maybeTimestamp).flatMap { input =>
+      patterns
+        .collectFirst {
+          case (pattern: String, typeId)
+              if Try(DateTimeFormatter.ofPattern(pattern).parse(input)).isSuccess =>
+            typeId
+          case (formatter: DateTimeFormatter, typeId) if Try(formatter.parse(input)).isSuccess =>
+            typeId
+        }
     }
   })
 
@@ -257,6 +257,10 @@ object InferSchemaHandler extends StrictLogging {
 
   def adjustAttributes(schema: StructType, format: Format)(inputDF: DataFrame): DataFrame = {
 
+    def isNumberStringLike(strColumn: Column) = {
+      strColumn.startsWith(lit("0")).and(regexp_like(strColumn, lit("^0[0-9]+.*")))
+    }
+
     // tuple1: relative transform and the final column name
     // tuple2: relative transform to get sample and the final column name which is suffixed with _$SL_SAMPLE
     def adjustAttributes(
@@ -321,6 +325,15 @@ object InferSchemaHandler extends StrictLogging {
                     DataTypesToInt.guessTemporalType(strColumn).isNotNull,
                     DataTypesToInt.guessTemporalType(strColumn)
                   )
+                  .when(
+                    isNumberStringLike(strColumn),
+                    lit(DataTypesToInt.STRING.id)
+                  )
+                  .when(
+                    strColumn.cast(LongType).isNotNull,
+                    when(strColumn.contains("."), DataTypesToInt.DOUBLE.id)
+                      .otherwise(DataTypesToInt.LONG.id)
+                  )
                   .otherwise(lit(DataTypesToInt.STRING.id))
               }) -> currentPath,
               (
@@ -350,14 +363,15 @@ object InferSchemaHandler extends StrictLogging {
               ) -> (currentPath + sampleColumnSuffix)
             )
           )
-        case ByteType | IntegerType | LongType | ShortType =>
+        case ByteType | IntegerType | LongType | ShortType | FloatType | DoubleType |
+            _: DecimalType =>
           List(
             (
               ((currentColumn: Column) => {
                 val strColumn = currentColumn.cast(StringType)
                 when(strColumn.isNull, lit(DataTypesToInt.NULL.id))
                   .when(
-                    strColumn.startsWith(lit("0")).and(regexp_like(strColumn, lit("^0+[1-9]+.*"))),
+                    isNumberStringLike(strColumn),
                     lit(DataTypesToInt.STRING.id)
                   )
                   .otherwise(lit(DataTypesToInt.dataTypeToTypeInt(currentSchema)))
@@ -410,6 +424,12 @@ object InferSchemaHandler extends StrictLogging {
     }
     val maxSampleColumn = sampleColumnNames.map { column =>
       max(lineWithColumnTypesDF("`" + column + "`")).as(column)
+    }
+    logger.whenDebugEnabled {
+      lineWithColumnTypesDF.show(truncate = false)
+      DataTypesToInt.values.foreach { v =>
+        println(v.id + " -> " + v.toString)
+      }
     }
     val aggregations = reduceAttributeColumnTypes ++ maxSampleColumn
     lineWithColumnTypesDF.agg(
