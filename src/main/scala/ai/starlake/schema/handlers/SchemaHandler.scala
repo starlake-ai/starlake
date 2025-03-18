@@ -124,11 +124,32 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       task.dagRef.map((task.domain, task.name, _))
 
     }
-    val modelDagConfigNames = (domainDags ++ taskDags).map { case (dom, tbl, dagConfig) =>
-      if (dagConfig.endsWith(".sl.yml"))
-        (dom, tbl, dagConfig.dropRight(".sl.yml".length))
-      else
-        (dom, tbl, dagConfig)
+    val appDags = settings.appConfig.dagRef
+      .map { dagRef =>
+        val load =
+          dagRef.load match {
+            case Some(dag) =>
+              Some("application", "load", dag)
+            case None =>
+              None
+          }
+        val transform =
+          dagRef.transform match {
+            case Some(dag) =>
+              Some("application", "transform", dag)
+            case None =>
+              None
+          }
+        List(load, transform).flatten
+      }
+      .getOrElse(Nil)
+
+    val modelDagConfigNames = (domainDags ++ taskDags ++ appDags).map {
+      case (dom, tbl, dagConfig) =>
+        if (dagConfig.endsWith(".sl.yml"))
+          (dom, tbl, dagConfig.dropRight(".sl.yml".length))
+        else
+          (dom, tbl, dagConfig)
     }.toSet
 
     var targetOrchestrator: Option[String] = None
@@ -151,7 +172,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 severity = Error,
                 target = dagConfigName,
                 message =
-                  s"DAG config $dagConfigName in model ${dom}.${tbl} is not valid. template name ${dagConfig.template} should contain __"
+                  s"DAG config $dagConfigName in ${dom}.${tbl} is not valid. template name ${dagConfig.template} should contain __"
               )
             )
           } else {
@@ -168,7 +189,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                       severity = Error,
                       target = dagConfigName,
                       message =
-                        s"DAG config $dagConfigName in model ${dom}.${tbl} is not valid. template name ${dagConfig.template} should start with ${orch}__ but $usedOrchestrator found. Only one orchestrator can be targeted."
+                        s"DAG config $dagConfigName in ${dom}.${tbl} is not valid. template name ${dagConfig.template} should start with ${orch}__ but $usedOrchestrator found. Only one orchestrator can be targeted."
                     )
                   )
                 else
@@ -178,53 +199,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           }
         }
       }
-    val appDagNames = settings.appConfig.dagRef
-      .map { dagRef =>
-        List(dagRef.load, dagRef.transform).flatten.toSet
-      }
-      .getOrElse(Set.empty)
 
-    val appError =
-      if (appDagNames.size > 1) {
-        Some(
-          ValidationMessage(
-            severity = Error,
-            target = "DAG",
-            message =
-              s"Multiple orchestrators  targeted by the dag configuration section (dagRef) in application.sl.yml: ${appDagNames
-                  .mkString(",")}"
-          )
-        )
-      } else {
-        targetOrchestrator match {
-          case None =>
-            if (appDagNames.nonEmpty)
-              targetOrchestrator = appDagNames.headOption
-          case Some(_) =>
-        }
-        targetOrchestrator.flatMap { orch =>
-          appDagNames.isEmpty || appDagNames.contains(orch) match {
-            case true =>
-              None
-            case false =>
-              Some(
-                ValidationMessage(
-                  severity = Error,
-                  target = "DAG",
-                  message =
-                    s"Orchestrator $orch targeted by the models is different from the one defined in the application.sl.yml (${appDagNames.headOption})"
-                )
-              )
-          }
-        }
-      }.toList
-
-    val allErrors = errors ++ appError
     val result =
-      if (allErrors.isEmpty)
+      if (errors.isEmpty)
         Right(true)
       else
-        Left(allErrors)
+        Left(errors)
     (targetOrchestrator, List(result))
   }
 
