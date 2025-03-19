@@ -6,8 +6,8 @@ import com.hubspot.jinjava.interpret.JinjavaInterpreter
 import com.hubspot.jinjava.loader.ResourceLocator
 import org.apache.hadoop.fs.Path
 
+import java.io.File
 import java.nio.charset.Charset
-import scala.tools.nsc.io.File
 
 class JinjaResourceHandler(implicit settings: Settings) extends ResourceLocator {
 

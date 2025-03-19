@@ -144,11 +144,17 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .getOrElse(Nil)
 
     val modelDagConfigNames = (domainDags ++ taskDags ++ appDags).map {
-      case (dom, tbl, dagConfig) =>
-        if (dagConfig.endsWith(".sl.yml"))
-          (dom, tbl, dagConfig.dropRight(".sl.yml".length))
+      case (dom, tbl, dagConfigPath) =>
+        val index = dagConfigPath.lastIndexOf("/")
+        val dagConfigName =
+          if (index >= 0)
+            dagConfigPath.substring(index + 1)
+          else
+            dagConfigPath
+        if (dagConfigName.endsWith(".sl.yml"))
+          (dom, tbl, dagConfigName.dropRight(".sl.yml".length))
         else
-          (dom, tbl, dagConfig)
+          (dom, tbl, dagConfigName)
     }.toSet
 
     var targetOrchestrator: Option[String] = None
@@ -164,7 +170,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           )
         else {
           val dagConfig = dagConfigs(dagConfigName)
-          val endIndex = dagConfig.template.indexOf("__")
+          val index = dagConfig.template.lastIndexOf("/")
+          val dagConfigTemplate =
+            if (index >= 0)
+              dagConfig.template.substring(index + 1)
+            else
+              dagConfig.template
+
+          val endIndex = dagConfigTemplate.indexOf("__")
           if (endIndex < 0) {
             Some(
               ValidationMessage(
@@ -175,7 +188,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               )
             )
           } else {
-            val usedOrchestrator = dagConfig.template.substring(0, endIndex)
+            val usedOrchestrator = dagConfigTemplate.substring(0, endIndex)
             // usedOrchestrator should be the same for all DAGs
             targetOrchestrator match {
               case None =>
