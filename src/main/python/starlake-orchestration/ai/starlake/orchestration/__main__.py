@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+from ai.starlake.orchestration import AbstractPipeline
+
 def load_pipelines(module_path):
     module_name = Path(module_path).stem  
     spec = importlib.util.spec_from_file_location(module_name, module_path)
@@ -33,16 +35,33 @@ def main():
 
     args = parser.parse_args()
 
-    # Charger dynamiquement le pipeline
-    pipeline_file = Path(args.file)
-    if not pipeline_file.is_file():
-        print(f"Error : the file '{pipeline_file}' does not exist.")
+    # load all the pipelines
+    file = Path(args.file)
+    if not file.exists():
+        print(f"Error : the file '{file}' does not exist.")
         sys.exit(1)
+    elif file.is_dir():
+        # list files in the directory
+        files = list(file.glob('*.py'))
+    else:
+        files = [file]
 
-    pipelines = load_pipelines(pipeline_file)
+    pipelines = []
+    for file in files:
+        print(f"Loading pipelines from '{file}'...")
+        temp_pipelines = load_pipelines(file)
+        if temp_pipelines and isinstance(temp_pipelines, list):
+            for pipeline in temp_pipelines:
+                if isinstance(pipeline, AbstractPipeline):
+                    print(f"Pipeline '{pipeline.pipeline_id}' loaded.")
+                    pipelines.append(pipeline)
+                else:
+                    print(f"Error : Pipeline object is not a Starlake pipeline")
+        else:
+            print(f"Error : No pipeline found in '{file}'.")
 
     if not pipelines:
-        print(f"Error : No pipeline found in '{pipeline_file}'.")
+        print(f"Error : No pipeline found in '{','.join(files)}'.")
         sys.exit(1)
 
     options = parse_options(args.options) if args.options else {}
