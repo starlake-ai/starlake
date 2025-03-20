@@ -448,7 +448,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     currentFS.delete(path, true)
   }
 
-  /** Create folder if it does not exsit including any intermediary non existent folder
+  /** Create folder if it does not exist including any intermediary non-existent folder
     *
     * @param path
     *   Absolute path of folder to create

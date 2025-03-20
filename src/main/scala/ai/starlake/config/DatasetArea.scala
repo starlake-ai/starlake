@@ -33,8 +33,11 @@ import org.apache.hadoop.fs.Path
 object DatasetArea extends StrictLogging {
 
   def path(domain: String, area: String)(implicit settings: Settings): Path = {
-    if (area.contains("://"))
-      new Path(area)
+    if (
+      area.contains("://") ||
+      (settings.appConfig.fileSystem.startsWith("file:") && area.startsWith("/"))
+    )
+      new Path(area, domain)
     else if (settings.appConfig.datasets.contains("://"))
       new Path(
         s"${settings.appConfig.datasets}/$area/$domain"
