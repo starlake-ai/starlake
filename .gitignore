@@ -153,8 +153,6 @@ samples/any-source-any-sink/datasets
 distrib/deps
 project/project
 metals.sbt
-samples/starbake/site
-samples/starbake/datasets
 samples/starbake/metadata/dags/generated
 samples/spark/test-reports
 lib2
@@ -173,3 +171,4 @@ bin
 samples/starbake/incoming
 /samples/spark/metadata/.build/
 samples/spark/incoming
+samples/starbake/datasets/archive
