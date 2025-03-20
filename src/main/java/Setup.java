@@ -461,7 +461,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     private static void askUserWhichConfigToEnable() {
         if (!anyDependencyEnabled()) {
-            System.out.print("Do you want to enable all datawarehouse configurations [y/n] ? ");
+            System.out.print("Do you want to enable all datawarehouse configurations [Y/n] ? ");
             try {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
                 String answer = reader.readLine();
