@@ -465,7 +465,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
             try {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
                 String answer = reader.readLine();
-                if (answer.equalsIgnoreCase("y")) {
+                if (answer.equalsIgnoreCase("n")) {
+                    System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
+                    System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA");
+                    System.exit(1);
+                }
+                else {
                     ENABLE_AZURE = true;
                     ENABLE_BIGQUERY = true;
                     ENABLE_SNOWFLAKE = true;
@@ -473,10 +478,6 @@ public class Setup extends ProxySelector implements X509TrustManager {
                     ENABLE_POSTGRESQL = true;
                     ENABLE_DUCKDB = true;
                     ENABLE_KAFKA = true;
-                } else {
-                    System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
-                    System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA");
-                    System.exit(1);
                 }
             } catch (IOException e) {
                 System.out.println("Failed to read user input");
