@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, final, Generic, List, Optional, Set, Type, TypeVar, Union
+from typing import Any, Callable, final, Generic, Iterable, List, Optional, Sequence, Set, Type, TypeVar, Union
 
 import os
 import importlib
@@ -13,7 +13,7 @@ from ai.starlake.job import StarlakeSparkConfig, IStarlakeJob, StarlakePreLoadSt
 
 from ai.starlake.dataset import StarlakeDataset, AbstractEvent
 
-from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies
+from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies, StarlakeDependency, StarlakeDependencyType, DependencyMixin
 
 U = TypeVar("U") # type of DAG
 
@@ -23,36 +23,16 @@ T = TypeVar("T") # type of task
 
 GT = TypeVar("GT") # type of task group
 
-class AbstractDependency(ABC):
+class AbstractDependency(DependencyMixin, ABC):
     """Abstract interface to define a dependency."""
     def __init__(self, id: str) -> None:
-#FIXME missing 1 required positional argument: 'name'        super().__init__()
-        self._id = id
+        super().__init__(id=id)
 
-    @property
-    def id(self) -> str:
-        return self._id
-
-    def __rshift__(self, other: Union[List["AbstractDependency", "AbstractDependency"]]) -> Union[List["AbstractDependency", "AbstractDependency"]]:
-        """Add self as an upstream dependency to other.
-        Args:
-            other (AbstractDependency): the upstream dependency.
-        """
-        if isinstance(other, list):
-            return [TaskGroupContext.current_context().set_dependency(self, dep) for dep in other]
-        return TaskGroupContext.current_context().set_dependency(self, other)
-
-    def __lshift__(self, other: Union[List["AbstractDependency", "AbstractDependency"]]) -> Union[List["AbstractDependency", "AbstractDependency"]]:
-        """Add other as an upstream dependency to self.
-        Args:
-            other (AbstractDependency): the upstream dependency.
-        """
-        if isinstance(other, list):
-            return [TaskGroupContext.current_context().set_dependency(dep, self) for dep in other]
-        return TaskGroupContext.current_context().set_dependency(other, self)
+    def set_dependency(self, upstream_dependency: Union["DependencyMixin", Any], downstream_dependency: Union["DependencyMixin", Any]) -> Optional["DependencyMixin"]:
+        return TaskGroupContext.current_context().set_dependency(upstream_dependency, downstream_dependency)
 
     def __repr__(self):
-        return f"Dependency(id={self.id})"
+        return f"Dependency(id={self.id}, upstreams=[{','.join([dep.id for dep in self.upstreams])}], downstreams=[{','.join([dep.id for dep in self.downstreams])}])"
 
 class AbstractTask(Generic[T], AbstractDependency):
     """Abstract interface to define a task."""
@@ -62,21 +42,18 @@ class AbstractTask(Generic[T], AbstractDependency):
         if not current_context:
             raise ValueError("No task group context found")
         super().__init__(id=task_id)
-        self._task_id = task_id
-        self._task = task
+        self.__task_id = task_id
+        self.__task = task
         # Automatically register the task to the current context
         current_context.add_dependency(self)
 
     @property
     def task_id(self) -> str:
-        return self._task_id
+        return self.__task_id
 
     @property
     def task(self) -> Optional[T]:
-        return self._task
-
-    def __repr__(self):
-        return f"Task(id={self.task_id})"
+        return self.__task
 
 class TaskGroupContext(AbstractDependency):
     """Task group context to manage dependencies."""
@@ -84,15 +61,15 @@ class TaskGroupContext(AbstractDependency):
 
     def __init__(self, group_id: str, orchestration_cls: "AbstractOrchestration", parent: Optional["TaskGroupContext"] = None):
         super().__init__(id=group_id)
-        self._group_id = group_id
-        self._orchestration_cls = orchestration_cls
-        self._dependencies: List[AbstractDependency] = []
-        self._dependencies_dict: dict = dict()
-        self._upstream_dependencies: dict = dict()
-        self._downstream_dependencies: dict = dict()
-        self._level: int = len(TaskGroupContext._context_stack) + 1
+        self.__group_id = group_id
+        self.__orchestration_cls = orchestration_cls
+        self.__dependencies: List[AbstractDependency] = []
+        self.__dependencies_dict: dict = dict()
+        self.__upstream_dependencies: dict = dict()
+        self.__downstream_dependencies: dict = dict()
+        self.__level: int = len(TaskGroupContext._context_stack) + 1
         current_context = TaskGroupContext.current_context()
-        self._parent = current_context if not parent else parent
+        self.__parent = current_context if not parent else parent
         if self.parent:
             self.parent.add_dependency(self)
 
@@ -106,31 +83,31 @@ class TaskGroupContext(AbstractDependency):
 
     @property
     def group_id(self) -> str:
-        return self._group_id
+        return self.__group_id
 
     @property
     def parent(self) -> Optional["TaskGroupContext"]:
-        return self._parent
+        return self.__parent
 
     @property
     def dependencies(self) -> List[AbstractDependency]:
-        return self._dependencies
+        return self.__dependencies
 
     @property
     def dependencies_dict(self) -> dict:
-        return self._dependencies_dict
+        return self.__dependencies_dict
 
     @property
     def upstream_dependencies(self) -> dict:
-        return self._upstream_dependencies
+        return self.__upstream_dependencies
 
     @property
     def downstream_dependencies(self) -> dict:
-        return self._downstream_dependencies
+        return self.__downstream_dependencies
 
     @property
     def level(self) -> int:
-        return self._level
+        return self.__level
 
     @classmethod
     def current_context(cls) -> Optional["TaskGroupContext"]:
@@ -147,11 +124,11 @@ class TaskGroupContext(AbstractDependency):
             downstream_dependency (AbstractDependency): the downstream dependency.
         """
         if not isinstance(upstream_dependency, AbstractDependency):
-            upstream_dependency = self._orchestration_cls.from_native(upstream_dependency)
+            upstream_dependency = self.__orchestration_cls.from_native(upstream_dependency)
             if upstream_dependency is None:
                 raise ValueError(f"Invalid upstream dependency: {upstream_dependency}")
         if not isinstance(downstream_dependency, AbstractDependency):
-            downstream_dependency = self._orchestration_cls.from_native(downstream_dependency)
+            downstream_dependency = self.__orchestration_cls.from_native(downstream_dependency)
             if downstream_dependency is None:
                 raise ValueError(f"Invalid downstream dependency: {downstream_dependency}")
         upstream_dependency_id = upstream_dependency.id
@@ -221,19 +198,19 @@ class TaskGroupContext(AbstractDependency):
         return [self.get_dependency(id) for id in self.leaves_keys]
 
     def __repr__(self):
-        return f"TaskGroup(id={self.group_id}, parent={self.parent.id if self.parent else ''}, dependencies=[{','.join([dep.id for dep in self.dependencies])}], roots=[{','.join([key for key in self.roots_keys])}], leaves=[{','.join([key for key in self.leaves_keys])}])"
+        return f"TaskGroup(id={self.group_id}, parent={self.parent.id if self.parent else ''}, dependencies=[{','.join([dep.id for dep in self.dependencies])}], roots=[{','.join([key for key in self.roots_keys])}], leaves=[{','.join([key for key in self.leaves_keys])}], upstreams=[{','.join([dep.id for dep in self.upstreams])}], downstreams=[{','.join([dep.id for dep in self.downstreams])}])"
 
 class AbstractTaskGroup(Generic[GT], TaskGroupContext):
     """Abstract interface to define a task group."""
 
     def __init__(self, group_id: str, orchestration_cls: "AbstractOrchestration", group: Optional[GT] = None, **kwargs):
         super().__init__(group_id, orchestration_cls)
-        self._group = group
+        self.__group = group
         self.params = kwargs
 
     @property
     def group(self) -> Optional[GT]:
-        return self._group
+        return self.__group
 
     @final
     def print_group(self, level: int) -> int:
@@ -260,7 +237,7 @@ class AbstractTaskGroup(Generic[GT], TaskGroupContext):
 
 class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent[E]):
     """Abstract interface to define a pipeline."""
-    def __init__(self, job: IStarlakeJob[T, E], orchestration_cls: "AbstractOrchestration", dag: Optional[U] = None, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[U, T, GT, E]] = None, **kwargs) -> None:
+    def __init__(self, job: IStarlakeJob[T, E], orchestration_cls: "AbstractOrchestration", dag: Optional[U] = None, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[U, T, GT, E]] = None, add_dependency: Optional[Callable[[AbstractDependency, AbstractDependency], Any]] = None, **kwargs) -> None:
         if not schedule and not dependencies:
             raise ValueError("Either a schedule or dependencies must be provided")
         pipeline_id = job.caller_filename.replace(".py", "").replace(".pyc", "").lower()
@@ -271,15 +248,17 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         if schedule_name:
             pipeline_id = f"{pipeline_id}_{schedule_name}"
         super().__init__(group_id=pipeline_id, orchestration_cls=orchestration_cls, group=dag, **kwargs)
-        self._orchestration = orchestration
-        self._job = job
-        self._options = job.options
-        self._dag = dag
-        self._pipeline_id = pipeline_id
-        self._schedule = schedule
-        self._schedule_name = schedule_name
-        self._sl_schedule_parameter_name = job.sl_schedule_parameter_name
-        self._sl_schedule_format = job.sl_schedule_format
+        self.__orchestration = orchestration
+        self.__job = job
+        self.__options = job.options
+        self.__dag = dag
+        self.__pipeline_id = pipeline_id
+        self.__schedule = schedule
+        self.__schedule_name = schedule_name
+        self.__sl_schedule_parameter_name = job.sl_schedule_parameter_name
+        self.__sl_schedule_format = job.sl_schedule_format
+        self.__tasks: List[T] = [] # ordered list of tasks
+        self.__tasks_names: List[str] = list()
 
         tags = self.get_context_var(var_name='tags', default_value="").split()
 
@@ -290,6 +269,8 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         load_dependencies: Optional[bool] = None
  
         datasets: Optional[List[StarlakeDataset]] = None
+
+        graphs: Optional[Set[TreeNodeMixin]] = None
 
         if schedule is not None:
             cron = schedule.cron
@@ -325,15 +306,25 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
                 else:
                     datasets = computed_schedule
 
-        self._tags = tags
+            graphs = dependencies.graphs(load_dependencies=load_dependencies)
 
-        self._cron = cron
+        self.__tags = tags
 
-        self._catchup = catchup
+        self.__cron = cron
 
-        self._load_dependencies = load_dependencies
+        self.__catchup = catchup
 
-        self._datasets = datasets
+        self.__load_dependencies = load_dependencies
+
+        self.__graphs = graphs
+
+        self.__datasets = datasets
+
+        if add_dependency:
+            TaskLinker = Callable[[AbstractDependency, AbstractDependency], Any]
+            self.__add_dependency: TaskLinker = add_dependency
+        else:
+            self.__add_dependency = None
 
         uris: Set[str] = set(map(lambda dataset: dataset.uri, datasets or []))
         if cron:
@@ -347,8 +338,9 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         else:
             cron_expr = None
 
-        self._cron_expr = cron_expr
-        ...
+        self.__cron_expr = cron_expr
+
+        self.__inner_tasks: Dict[str, AbstractTask] = dict()
 
     def __exit__(self, exc_type, exc_value, traceback):
         # call the parent class __exit__ method to clean up tasks and groups
@@ -356,69 +348,151 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         if self.orchestration:
             # register the pipeline to the orchestration
             self.orchestration.pipelines.append(self)
+
+        # walk throw the dag to add tasks
+        def walk_tree(node: AbstractDependency):
+            if isinstance(node, AbstractTaskGroup):
+                for root in node.roots:
+                    walk_tree(root)
+            elif isinstance(node, AbstractTask):
+                check = True
+                for dep in node.upstreams:
+                    if isinstance(dep, AbstractTask) and dep.task not in self.tasks:
+                        check = False
+                        break
+                if check and node.task not in self.tasks:
+                    self.__tasks_names.append(node.task_id)
+                    self.__tasks.append(node.task)
+                for dep in node.downstreams:
+                    if self.__add_dependency:
+                        self.__add_dependency(node, dep)
+                    walk_tree(dep)
+
+        walk_tree(self)
+
         # print the resulting pipeline
-        self.print_pipeline()
+        roots = list(map(lambda root: root.id, self.roots))
+        leaves = list(map(lambda leave: leave.id, self.leaves))
+        filtered_tasks = filter(lambda task: task not in leaves and task not in roots, self.tasks_names)
+        print(' >> '.join(roots) + ' >> ' + ' >> '.join(filtered_tasks) + ' >> ' + ' >> '.join(leaves))
+
         return False
 
     @property
     def orchestration(self) -> Optional[AbstractOrchestration[U, T, GT, E]]:
-        return self._orchestration
+        return self.__orchestration
 
     @property
     def dag(self) -> U:
-        return self._dag
+        return self.__dag
 
     @dag.setter
     def dag(self, dag: U) -> None:
-        self._dag = dag
+        self.__dag = dag
+
+    @property
+    def graphs(self) -> Optional[Set[TreeNodeMixin]]:
+        return self.__graphs
+
+    def __create_task(self, task_id: str, task_name: str, task_type: str, task_sink: Optional[str]) -> T:
+        """Create a task.
+        Args:
+            task_id (str): The task id.
+            task_name (str): The task name.
+            task_type (str): The task type.
+            task_sink (Optional[str]): The task sink.
+        Returns:
+            T: The task.
+        """
+        if task_id in self.__inner_tasks.keys():
+            return self.__inner_tasks[task_id]
+        if (task_type == StarlakeDependencyType.TASK):
+            task = self.sl_transform(
+                task_id=task_id, 
+                transform_name=task_name,
+                params={'sink': task_sink},
+            )
+            self.__inner_tasks[task_id] = task
+            return task
+        else:
+            load_domain_and_table = task_name.split(".", 1)
+            domain = load_domain_and_table[0]
+            table = load_domain_and_table[-1]
+            task = self.sl_load(
+                task_id=task_id, 
+                domain=domain, 
+                table=table,
+            )
+            self.__inner_tasks[task_id] = task
+            return task
+
+    def dependency_to_task(self, dependency: DependencyMixin) -> Union[AbstractTask, AbstractTaskGroup]:
+        if isinstance(dependency, AbstractTask) or isinstance(dependency, AbstractTaskGroup):
+            return dependency
+        elif isinstance(dependency, StarlakeDependency):
+            task_name = dependency.name
+            task_type = dependency.dependency_type
+            task_id = f"{dependency.uri}_{task_type}"
+            task_sink = dependency.sink
+            return self.__create_task(task_id, task_name, task_type, task_sink)
+        else:
+            raise ValueError(f"Unsupported dependency type: {type(dependency)}")
+
+    @property
+    def tasks(self) -> List[T]:
+        return self.__tasks
+
+    @property
+    def tasks_names(self) -> List[str]:
+        return self.__tasks_names
 
     @final
     @property
     def job(self) -> IStarlakeJob[T, E]:
-        return self._job
+        return self.__job
 
     @final
     @property
     def pipeline_id(self) -> str:
-        return self._pipeline_id
+        return self.__pipeline_id
 
     @final
     @property
     def schedule(self) -> Optional[StarlakeSchedule]:
-        return self._schedule
+        return self.__schedule
 
     @final
     @property
     def schedule_name(self) -> Optional[str]:
-        return self._schedule_name
+        return self.__schedule_name
 
     @final
     @property
     def sl_schedule_parameter_name(self) -> str:
-        return self._sl_schedule_parameter_name
+        return self.__sl_schedule_parameter_name
 
     @final
     @property
     def sl_schedule_format(self) -> str:
-        return self._sl_schedule_format
+        return self.__sl_schedule_format
 
     @final
     @property
     def cron(self) -> Optional[str]:
-        return self._cron
+        return self.__cron
 
     @final
     @property
     def computed_cron_expr(self) -> Optional[str]:
-        return self._cron_expr
+        return self.__cron_expr
 
     @property
     def catchup(self) -> bool:
-        return self._catchup
+        return self.__catchup
 
     @property
     def tags(self) -> List[str]:
-        return self._tags
+        return self.__tags
 
     def sl_transform_options(self, cron_expr: Optional[str] = None) -> Optional[str]:
         if cron_expr:
@@ -433,12 +507,12 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
     @final
     @property
     def load_dependencies(self) -> Optional[bool]:
-        return self._load_dependencies
+        return self.__load_dependencies
 
     @final
     @property
     def datasets(self) -> Optional[List[StarlakeDataset]]:
-        return self._datasets
+        return self.__datasets
 
     @final
     def find_dataset_by_name(self, name: str) -> Optional[StarlakeDataset]:
@@ -494,7 +568,7 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
     @final
     @property
     def options(self) -> dict:
-        return self._options
+        return self.__options
 
     @final
     def get_context_var(self, var_name: str, default_value: Any) -> Any:
@@ -726,10 +800,9 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
     def __repr__(self):
         return self.print_pipeline()
 
-    @abstractmethod
     def deploy(self, **kwargs) -> None:
         """Deploy the pipeline."""
-        ...
+        return None
 
     @abstractmethod
     def run(self, logical_date: Optional[str] = None, timeout: str = '120', mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
@@ -759,11 +832,11 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         """
         from datetime import datetime
         cron = self.cron
-        if not cron:
+        if not cron or cron.strip().lower() == 'none':
             raise ValueError("The pipeline must have a cron expression to backfill")
-        if not start_date:
+        if not start_date or start_date.strip().lower() == 'none':
             raise ValueError("The pipeline must have a start date to backfill")
-        if not end_date:
+        if not end_date or end_date.strip().lower() == 'none':
             end_date = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
         from croniter import croniter
         start_time = datetime.fromisoformat(start_date)
@@ -785,16 +858,15 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
             sl_end_date = croniter(cron, sl_end_date).get_next(datetime)
             sl_start_date = croniter(cron, sl_end_date).get_prev(datetime)
 
-    @abstractmethod
     def delete(self, **kwargs) -> None:
         """Delete the pipeline."""
-        ...
+        return None
 
 
 class AbstractOrchestration(Generic[U, T, GT, E]):
     def __init__(self, job: IStarlakeJob[T, E], **kwargs) -> None:
         super().__init__(**kwargs)
-        self._job = job
+        self.__job = job
         self._pipelines = []
 
     def __enter__(self):
@@ -810,7 +882,7 @@ class AbstractOrchestration(Generic[U, T, GT, E]):
 
     @property
     def job(self) -> IStarlakeJob[T, E]:
-        return self._job
+        return self.__job
 
     @property
     def pipelines(self) -> List[AbstractPipeline[U, T, GT, E]]:
