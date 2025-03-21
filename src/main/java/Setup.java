@@ -200,12 +200,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // DUCKDB
-    private static final ResourceDependency SPARK_JAR = new ResourceDependency("spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + ".tgz");
-    private static final ResourceDependency SPARK_JAR_213 = new ResourceDependency("spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + "-scala2.13.tgz");
-    private static final ResourceDependency SPARK_BQ_JAR = new ResourceDependency("spark-bigquery-with-dependencies",
+    private static final ResourceDependency SPARK_JAR = new ResourceDependency("core-libs", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + ".tgz");
+    private static final ResourceDependency SPARK_JAR_213 = new ResourceDependency("core-libs", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + "-scala2.13.tgz");
+    private static final ResourceDependency SPARK_BQ_JAR = new ResourceDependency("bigquery-with-dependencies",
             "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_" + SCALA_VERSION + "/" +
                     SPARK_BQ_VERSION + "/" +
-                    "spark-bigquery-with-dependencies_" + SCALA_VERSION + "-" + SPARK_BQ_VERSION + ".jar");
+                    "bigquery-with-dependencies_" + SCALA_VERSION + "-" + SPARK_BQ_VERSION + ".jar");
     private static final ResourceDependency DELTA_SPARK_JAR = new ResourceDependency("delta-spark",
             "https://repo1.maven.org/maven2/io/delta/delta-spark_" + SCALA_VERSION + "/" + DELTA_SPARK + "/delta-spark_" + SCALA_VERSION + "-" + DELTA_SPARK + ".jar");
 
@@ -225,11 +225,11 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency REDSHIFT_JDBC_JAR = new ResourceDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
     private static ResourceDependency SPARK_REDSHIFT_JAR() {
         if (SCALA_VERSION.equals("2.13")) {
-            return new ResourceDependency("spark-redshift", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/spark-redshift_" + SCALA_VERSION +
+            return new ResourceDependency("redshift", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/spark-redshift_" + SCALA_VERSION +
                     "/" + SPARK_REDSHIFT_VERSION() + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION() + ".jar");
         }
         else {
-        return new ResourceDependency("spark-redshift", "https://repo1.maven.org/maven2/io/github/spark-redshift-community/spark-redshift_" + SCALA_VERSION +
+        return new ResourceDependency("redshift", "https://repo1.maven.org/maven2/io/github/spark-redshift-community/spark-redshift_" + SCALA_VERSION +
             "/" + SPARK_REDSHIFT_VERSION() + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION() + ".jar");
         }
     }
