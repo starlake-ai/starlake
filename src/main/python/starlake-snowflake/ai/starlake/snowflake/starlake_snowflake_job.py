@@ -310,7 +310,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                 """
                 if sql:
                     if dry_run and message:
-                        print(f"# {message}")
+                        print(f"-- {message}")
                     stmt: str = bindParams(sql)
                     if dry_run:
                         print(f"{stmt};")
@@ -335,7 +335,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                 """
                 if sqls:
                     if dry_run and message:
-                        print(f"# {message}")
+                        print(f"-- {message}")
                     for sql in sqls:
                         execute_sql(session, sql, None, dry_run)
 
@@ -603,7 +603,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                         from datetime import datetime
 
                         if dry_run:
-                            print(f"#Executing transform for {sink} in dry run mode")
+                            print(f"--Executing transform for {sink} in dry run mode")
 
                         if cron_expr:
                             from croniter import croniter
@@ -622,7 +622,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             original_schedule = config.get("logical_date", None)
                             if not original_schedule:
                                 query = "SELECT to_timestamp(system$task_runtime_info('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))"
-                                print(f"#Get the original scheduled timestamp of the initial graph run:\n{query};")
+                                print(f"--Get the original scheduled timestamp of the initial graph run:\n{query};")
                                 rows = execute_sql(session, query, "Get the original scheduled timestamp of the initial graph run", dry_run)
                                 if rows.__len__() == 1:
                                     original_schedule = rows[0][0]
@@ -694,7 +694,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             commit_transaction(session, dry_run)
                             end = datetime.now()
                             duration = (end - start).total_seconds()
-                            print(f"#Duration in seconds: {duration}")
+                            print(f"--Duration in seconds: {duration}")
                             log_audit(session, None, -1, -1, -1, True, duration, 'Success', end, jobid, "TRANSFORM", dry_run)
                             
                         except Exception as e:
@@ -813,7 +813,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                 existing_columns.append((str(row[0]).lower(), str(row[1]).lower()))
                             existing_schema = dict(existing_columns)
                             if dry_run:
-                                print(f"# Existing schema for {domain}.{table}: {existing_schema}")
+                                print(f"-- Existing schema for {domain}.{table}: {existing_schema}")
                             schema_string = statements.get("schemaString", "") 
                             if schema_string.strip() == "":
                                 return False
@@ -825,7 +825,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             update_required = nb_new_columns + nb_old_columns > 0
                             if not update_required:
                                 if dry_run:
-                                    print(f"# No schema update required for {domain}.{table}")
+                                    print(f"-- No schema update required for {domain}.{table}")
                                 return False
                             new_columns_dict = {key: new_schema[key] for key in new_columns}
                             old_columns_dict = {key: existing_schema[key] for key in old_columns}
@@ -1032,7 +1032,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                 commit_transaction(session, dry_run)
                                 end = datetime.now()
                                 duration = (end - start).total_seconds()
-                                print(f"#Duration in seconds: {duration}")
+                                print(f"--Duration in seconds: {duration}")
                                 files, first_error_line, first_error_column_name, rows_parsed, rows_loaded, errors_seen = get_audit_info(copy_results)
                                 message = first_error_line + '\n' + first_error_column_name
                                 success = errors_seen == 0

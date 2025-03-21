@@ -107,7 +107,7 @@ class SnowflakeDag(DAG):
             """
             if query:
                 if dry_run and message:
-                    print(f"# {message}")
+                    print(f"-- {message}")
                 if dry_run:
                     print(f"{query};")
                     return []
@@ -129,6 +129,7 @@ class SnowflakeDag(DAG):
                 config = session.call("system$get_task_graph_config")
             else:
                 config = None
+                print("-- SL_START")
             if config:
                 import json
                 config = json.loads(config)
