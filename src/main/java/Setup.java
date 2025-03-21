@@ -205,7 +205,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency SPARK_BQ_JAR = new ResourceDependency("bigquery-with-dependencies",
             "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_" + SCALA_VERSION + "/" +
                     SPARK_BQ_VERSION + "/" +
-                    "bigquery-with-dependencies_" + SCALA_VERSION + "-" + SPARK_BQ_VERSION + ".jar");
+                    "spark-bigquery-with-dependencies_" + SCALA_VERSION + "-" + SPARK_BQ_VERSION + ".jar");
     private static final ResourceDependency DELTA_SPARK_JAR = new ResourceDependency("delta-spark",
             "https://repo1.maven.org/maven2/io/delta/delta-spark_" + SCALA_VERSION + "/" + DELTA_SPARK + "/delta-spark_" + SCALA_VERSION + "-" + DELTA_SPARK + ".jar");
 
