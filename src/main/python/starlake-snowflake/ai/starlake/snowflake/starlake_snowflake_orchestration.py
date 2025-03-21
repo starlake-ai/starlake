@@ -232,7 +232,21 @@ class SnowflakeDag(DAG):
 
 class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], StarlakeDataset], StarlakeDataset):
     def __init__(self, job: StarlakeSnowflakeJob, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[SnowflakeDag, DAGTask, List[DAGTask], StarlakeDataset]] = None, **kwargs) -> None:
-        super().__init__(job, orchestration_cls=SnowflakeOrchestration, dag=None, schedule=schedule, dependencies=dependencies, orchestration=orchestration, **kwargs)
+        def fun(upstream: AbstractDependency, downstream: AbstractDependency) -> None:
+            if isinstance(upstream, SnowflakeTaskGroup):
+                leaves = upstream.group_leaves
+                for leaf in leaves:
+                    if isinstance(downstream, SnowflakeTaskGroup):
+                        leaf.add_successors(downstream.group_roots)
+                    elif isinstance(downstream, AbstractTask):
+                        leaf.add_successors(downstream.task)
+            elif isinstance(upstream, AbstractTask):
+                if isinstance(downstream, SnowflakeTaskGroup):
+                    upstream.task.add_successors(downstream.group_roots)
+                elif isinstance(downstream, AbstractTask):
+                    upstream.task.add_successors(downstream.task)
+
+        super().__init__(job, orchestration_cls=SnowflakeOrchestration, dag=None, schedule=schedule, dependencies=dependencies, orchestration=orchestration, add_dependency=fun, **kwargs)
 
         snowflake_schedule: Union[Cron, None] = None
         computed_cron: Union[Cron, None] = None
@@ -269,56 +283,11 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
     def __exit__(self, exc_type, exc_value, traceback):
         _dag_context_stack.pop()
 
-        # walk throw the dag to add snowflake dependencies
-
-        def get_node(dependency: AbstractDependency) -> Union[DAGTask, SnowflakeTaskGroup, None]:
-            if isinstance(dependency, SnowflakeTaskGroup):
-                return dependency
-            elif isinstance(dependency, AbstractTask):
-                return dependency.task
-            return None
-
-        def update_group_dependencies(group: AbstractTaskGroup):
-            def update_dependencies(upstream_dependencies, root_key):
-                root = group.get_dependency(root_key)
-                temp_root_node = get_node(root)
-                if isinstance(temp_root_node, SnowflakeTaskGroup):
-                    leaves = temp_root_node.group_leaves
-                    if leaves.__len__() >= 1:
-                        root_node = leaves[-1] # we may improve this
-                    else:
-                        root_node = None
-                else:
-                    root_node = temp_root_node
-                if isinstance(root, AbstractTaskGroup) and root_key != group.group_id:
-                    update_group_dependencies(root)
-                if root_key in upstream_dependencies:
-                    for key in upstream_dependencies[root_key]:
-                        downstream = group.get_dependency(key)
-                        temp_downstream_node = get_node(downstream)
-                        if isinstance(downstream, AbstractTaskGroup) and key != group.group_id:
-                            update_group_dependencies(downstream)
-                        if root_node is not None:
-                            if isinstance(temp_downstream_node, SnowflakeTaskGroup):
-                                root_node.add_successors(temp_downstream_node.group_roots)
-                            elif temp_downstream_node is not None:
-                                root_node.add_successors(temp_downstream_node)
-                        update_dependencies(upstream_dependencies, key)
-
-            upstream_dependencies = group.upstream_dependencies
-            upstream_keys = upstream_dependencies.keys()
-            downstream_keys = group.downstream_dependencies.keys()
-            root_keys = upstream_keys - downstream_keys
-
-            if not root_keys and len(upstream_keys) == 0 and len(downstream_keys) == 0:
-                root_keys = group.dependencies_dict.keys()
-
-            for root_key in root_keys:
-                update_dependencies(upstream_dependencies, root_key)
-
-        update_group_dependencies(self)
-
         return super().__exit__(exc_type, exc_value, traceback)
+
+    @property
+    def tasks_names(self) -> List[str]:
+        return list(map(lambda task: task.name, self.dag.tasks))
 
     @property
     def stage_location(self) -> Optional[str]:
