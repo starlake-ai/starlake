@@ -7,6 +7,7 @@ __Improvement__:
 - minimize memory usage inference-schema and adjust attributes types
 - inference-schema detects more timestamp pattern
 - add confluent setup that can be enabled via ENABLE_KAFKA
+- when variant is detected inside a schema for bigquery, intermediate format is forced to AVRO. Indirect mode still needs to be set manually.
 - **BREAKING CHANGE** flat and tree row validator have been unified and is optimized by spark
 - **BREAKING CHANGE** schema inference consider Numbers starting with 0 as String, such as for company identifier
 - **BREAKING CHANGE** schema inference consider Numbers starting with + as String, such as a telephone number
@@ -17,6 +18,7 @@ __Miscellaneous__:
 - revamped validation phase.
 
 __Bug fix__:
+- JSON type ingestion in bigquery are now created with JSON type instead of String.
 - excluded table during data extraction defined in jdbcSchema are now taken into account
 - if column is renamed, check pattern of renamed column instead of original name since it is the target table column's name during schema extraction
 - **BREAKING CHANGE** when no fields could be inferred from input, inferred schema now fails

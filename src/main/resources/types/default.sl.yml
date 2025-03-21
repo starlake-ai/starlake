@@ -18,7 +18,7 @@ types:
     sample: "\"Hello World\""
     comment: "Valid JSON object"
     ddlMapping:
-      bigquery: STRING
+      bigquery: JSON
       snowflake: VARIANT
       postgres: JSONB
       synapse: NVARCHAR(MAX) # https://docs.microsoft.com/fr-fr/azure/synapse-analytics/metadata/table
