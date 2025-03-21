@@ -520,10 +520,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             case Some(root) =>
               externalProps ++ globalEnvVars ++ slDateVars ++ Map("SL_ROOT" -> root)
           }
-        EnvDesc
+        val localEnvDesc = EnvDesc
           .loadEnv(envsCometPath)(storage)
           .map(_.env)
           .getOrElse(Map.empty)
+
+        val independentKeyValues = localEnvDesc.map { case (k, v) =>
+          k -> v.richFormat(localEnvDesc.removed(k), Map.empty)
+        }
+        independentKeyValues
           .mapValues(
             _.richFormat(sys.env, allVars)
           )
