@@ -1,8 +1,11 @@
+version: 1
 application:
   connectionRef: bigquery
   loader: native
   connections:
     bigquery:
+      # When accessing from your desktop, do not forget to set GOOGLE_APPLICATION_CREDENTIALS to your application credentials file
+      # example on MacOS: export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default.json"
       type: "bigquery"
       options:
         writeMethod: "direct" # direct or indirect (indirect is required for certain features when using Spark see https://github.com/GoogleCloudDataproc/spark-bigquery-connector)
