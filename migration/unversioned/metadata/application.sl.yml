@@ -10,6 +10,8 @@ connections:
       user: "postgres"
       password: "mysecretpassword"
   bigquery:
+    # When accessing from your desktop, do not forget to set GOOGLE_APPLICATION_CREDENTIALS to your application credentials file
+    # example on MacOS: export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default.json"
     type: bigquery
     options:
       authType: APPLICATION_DEFAULT

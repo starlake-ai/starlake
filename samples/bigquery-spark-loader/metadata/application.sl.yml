@@ -2,6 +2,8 @@ application:
   connectionRef: "{{ connection }}"
   connections:
     bigquery:
+      # When accessing from your desktop, do not forget to set GOOGLE_APPLICATION_CREDENTIALS to your application credentials file
+      # example on MacOS: export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default.json"
       type: "bigquery"
       options:
         #gcsBucket: "starlake-app" # Temporary GCS Bucket where intermediary files will be stored. Required in indirect mode only
