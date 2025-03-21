@@ -1,6 +1,6 @@
 from ai.starlake.dagster.starlake_dagster_job import StarlakeDagsterJob, DagsterDataset
 
-from ai.starlake.job import StarlakeOrchestrator
+from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies
 
@@ -362,3 +362,12 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
             description=self.job.caller_globals.get('description', ""),
             graph_def=update_graph_def(self),
         )
+
+    def run(self, logical_date: Optional[str] = None, timeout: str = '120', mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
+        """Run the pipeline.
+        Args:
+            logical_date (Optional[str]): the logical date.
+            timeout (str): the timeout in seconds.
+            mode (StarlakeExecutionMode): the execution mode.
+        """
+        ...
