@@ -585,13 +585,6 @@ trait IngestionJob extends SparkJob {
     finalDF
   }
 
-  private def dfWithSCD2Columns(df: DataFrame): DataFrame = {
-    val finalDF =
-      df.withColumn(settings.appConfig.scd2StartTimestamp, lit(null: Timestamp))
-        .withColumn(settings.appConfig.scd2EndTimestamp, lit(null: Timestamp))
-    finalDF
-  }
-
   /** Merge new and existing dataset if required Save using overwrite / Append mode
     *
     * @param validationResult
