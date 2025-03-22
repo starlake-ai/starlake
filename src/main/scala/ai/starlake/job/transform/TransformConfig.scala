@@ -14,4 +14,23 @@ case class TransformConfig(
   accessToken: Option[String] = None,
   dryRun: Boolean = false,
   query: Option[String] = None
-)
+) {
+  def optionsAsString: String = options.map { case (k, v) => s"$k=$v" }.mkString(",")
+  override def toString: String = {
+    s"""
+       |name=$name
+       |options=$optionsAsString
+       |compile=$compile
+       |tags=$tags
+       |format=$format
+       |interactive=$interactive
+       |reload=$reload
+       |truncate=$truncate
+       |recursive=$recursive
+       |test=$test
+       |accessToken=$accessToken
+       |dryRun=$dryRun
+       |query=$query
+       |""".stripMargin
+  }
+}

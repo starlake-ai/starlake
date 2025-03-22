@@ -45,6 +45,7 @@ import scala.util.{Failure, Success, Try}
   */
 
 object Main extends StrictLogging {
+  var cliMode = false
   var currentCommand = ""
 
   final val shell: String = "starlake"
@@ -77,11 +78,11 @@ object Main extends StrictLogging {
   }
   val commands: List[Cmd[_]] = List(
     BootstrapCmd,
-    TransformCmd,
     ImportCmd, // TODO: deprecate it in favor of StageCmd
     StageCmd,
-    ValidateCmd,
     LoadCmd,
+    TransformCmd,
+    ValidateCmd,
     AutoLoadCmd,
     IngestCmd,
     ESLoadCmd,
@@ -119,6 +120,7 @@ object Main extends StrictLogging {
 }
 
 class Main extends StrictLogging {
+  Main.cliMode = true
 
   import Main.commands
   def printUsage(): Unit = {

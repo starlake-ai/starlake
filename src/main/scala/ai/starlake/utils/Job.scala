@@ -13,6 +13,13 @@ import scala.util.Try
 
 case class IngestionCounters(inputCount: Long, acceptedCount: Long, rejectedCount: Long) {
   def ignore: Boolean = inputCount == -1 && rejectedCount == -1 && acceptedCount == -1
+  override def toString() = {
+    s"""Load summary:
+       |Input records: $inputCount
+       |Accepted: $acceptedCount
+       |Rejected: $rejectedCount
+       |""".stripMargin
+  }
 }
 
 trait JobResult {

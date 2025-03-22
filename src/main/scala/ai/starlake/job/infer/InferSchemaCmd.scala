@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Format, WriteMode}
-import ai.starlake.utils.JobResult
+import ai.starlake.utils.{JobResult, Utils}
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import scopt.OParser
@@ -89,13 +89,13 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] with StrictLogging {
         ) match {
         case Success(_) =>
           logger.info(s"Successfully inferred schema for $inputPath")
+          Utils.println(s"Successfully inferred schema for $inputPath")
           Success(JobResult.empty)
         case Failure(exception) =>
           logger.error(s"Failed to infer schema for $inputPath", exception)
           Failure(exception)
       }
     }
-
     val failures = results.filter(_.isFailure).map {
       case Failure(exception) => exception.getMessage()
       case _                  => throw new IllegalStateException("This should never happen")

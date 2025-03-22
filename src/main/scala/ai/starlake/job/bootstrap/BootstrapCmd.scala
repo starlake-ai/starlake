@@ -3,7 +3,7 @@ package ai.starlake.job.bootstrap
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.JobResult
+import ai.starlake.utils.{JobResult, Utils}
 import scopt.OParser
 
 import scala.util.{Success, Try}
@@ -37,6 +37,7 @@ object BootstrapCmd extends Cmd[BootstrapConfig] {
     settings: Settings
   ): Try[JobResult] = {
     Bootstrap.bootstrap(config.template)
+    Utils.println(s"Project created based on ${config.template.getOrElse("default")} template")
     Success(JobResult.empty)
   }
 }

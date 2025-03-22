@@ -21,6 +21,7 @@
 package ai.starlake.utils
 
 import ai.starlake.config.Settings
+import ai.starlake.job.Main
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.{Attribute, ValidationMessage, WriteMode}
 import ai.starlake.utils.Formatter._
@@ -479,6 +480,11 @@ object Utils extends StrictLogging {
     stderrWriter.close()
     logger.info("exitValue: " + exitValue)
     exitValue
+  }
+
+  def println(s: String): Unit = {
+    if (Main.cliMode)
+      System.out.println(s)
   }
 }
 

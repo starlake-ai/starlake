@@ -3,7 +3,7 @@ package ai.starlake.job.ingest
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.{JobResult, JsonSerializer, SparkJobResult}
+import ai.starlake.utils.{JobResult, JsonSerializer, SparkJobResult, Utils}
 import scopt.OParser
 
 import scala.util.Try
@@ -75,6 +75,7 @@ trait LoadCmd extends Cmd[LoadConfig] {
     val result = workflow(schemaHandler).load(config)
     result match {
       case scala.util.Success(sparkResult: SparkJobResult) =>
+        sparkResult.counters.foreach(c => Utils.println(c.toString()))
         if (sys.env.contains("SL_API"))
           System.out.println(
             "IngestionCounters:" + JsonSerializer.mapper.writeValueAsString(sparkResult.counters)

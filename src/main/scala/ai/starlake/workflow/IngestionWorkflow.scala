@@ -188,9 +188,12 @@ class IngestionWorkflow(
       val storageHandler = settings.storageHandler()
       val filesToLoad = listStageFiles(domain, dryMode = false).flatMap { case (_, files) => files }
       val destFolder = DatasetArea.stage(domain.name)
+      val inputDir = new Path(domain.resolveDirectory())
+      Utils.println(s"Moving ${filesToLoad.size} file(s) from $inputDir to $destFolder")
       filesToLoad.foreach { file =>
         logger.info(s"Importing $file")
         val destFile = new Path(destFolder, file.path.getName)
+        Utils.println(s"Moving ${file.path.getName}")
         storageHandler.moveFromLocal(file.path, destFile)
       }
 
@@ -677,10 +680,13 @@ class IngestionWorkflow(
     accessToken: Option[String],
     test: Boolean
   ): Try[JobResult] = {
-    logger.info(
-      s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file(s): $ingestingPath"
-    )
     val metadata = schema.mergedMetadata(domain.metadata)
+    Utils.println(
+      s"""Loading
+         |Format: ${metadata.resolveFormat()}
+         |File(s): ${ingestingPath.mkString(",")}
+         |Table: ${domain.finalName}.${schema.finalName}""".stripMargin
+    )
     logger.debug(
       s"Ingesting domain: ${domain.name} with schema: ${schema.name}"
     )
@@ -926,17 +932,20 @@ class IngestionWorkflow(
     val result =
       (
         s"""
+         |--------------------------------
          |-- SQL when table does not exist
-        |$formattedDontExist
-        |""".stripMargin,
+         |--------------------------------
+         |$formattedDontExist
+         |""".stripMargin,
         s"""
-        |-- SQL when table exists
-        |$formattedExist
-        |
-        |""".stripMargin
+         |--------------------------------
+         |-- SQL when table exists
+         |--------------------------------
+         |$formattedExist
+         |""".stripMargin
       )
-    logger.info(result._1)
-    logger.info(result._2)
+    Utils.println(result._1)
+    Utils.println(result._2)
     result
   }
 
@@ -1054,9 +1063,11 @@ class IngestionWorkflow(
   def autoJob(config: TransformConfig): Try[String] = {
     val result =
       if (config.recursive) {
+        Utils.println(s"Building dependency tree for task ${config.name}...")
         val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))
         val dependencyTree = new AutoTaskDependencies(settings, schemaHandler, storageHandler)
           .jobsDependencyTree(taskConfig)
+        Utils.println(s"Dependency tree built for task ${config.name}")
         dependencyTree.foreach(_.print())
         transform(dependencyTree, config.options)
       } else if (config.tags.nonEmpty) {
@@ -1103,7 +1114,12 @@ class IngestionWorkflow(
     val action = buildTask(transformConfig)
     logger.info(s"Transforming with config $transformConfig")
     logger.info(s"Entering ${action.taskDesc.getRunEngine()} engine")
-    action.taskDesc.getRunEngine() match {
+    Utils.println(s"""Running task ${transformConfig.name} with configuration:
+         |${transformConfig.toString}
+         |""".stripMargin)
+    val runEngine = action.taskDesc.getRunEngine()
+    Utils.println(s"Using engine $runEngine")
+    runEngine match {
       case BQ =>
         val result = action.run()
         Utils.logFailure(result, logger)
