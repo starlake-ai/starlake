@@ -126,7 +126,8 @@ class SparkAutoTask(
     */
   def sink(dataframe: DataFrame, schema: Option[Schema] = None): Boolean = {
     val sink = this.sinkConfig
-    logger.info(s"sinking data to $sink")
+    logger.info(s"Sinking data to $sink")
+    Utils.println(s"Sinking data to ${sink.connectionRef}")
     val result =
       sink match {
         case _: EsSink =>
