@@ -17,7 +17,7 @@ object Versions {
   val betterFiles = "3.9.2"
   val jacksonForSpark3 = "2.15.2"
   val pureConfig = "0.14.0"
-  val esSpark212 = "8.16.3"
+  val esSpark212 = "8.16.5"
   val jsonSchemaValidator = "1.4.0"
   val scopt = "4.1.0"
   val bigquery = "2.49.0"
