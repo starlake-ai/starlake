@@ -176,7 +176,8 @@ class Main extends StrictLogging {
 
   def run(args: Array[String]): Boolean = {
     ProxySettings.setProxy()
-    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
+    val currentEnv = Option(System.getenv("SL_ENV"))
+    implicit val settings: Settings = Settings(Settings.referenceConfig, currentEnv, None)
     logger.debug(settings.toString)
     logger.info(s"Starlake Version ${BuildInfo.version}")
     val argList = args.toList

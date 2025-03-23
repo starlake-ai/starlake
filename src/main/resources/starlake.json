@@ -723,7 +723,7 @@
       "oneOf": [
         {
           "const": "OVERWRITE",
-          "description": "TODO"
+          "description": "Truncate table before writing new data"
         },
         {
           "const": "APPEND",
@@ -807,7 +807,7 @@
         },
         "on": {
           "$ref": "#/definitions/MergeOnV1",
-          "description": "TODO"
+          "description": ""
         },
         "startTs": {
           "$ref": "#/definitions/ConvertibleToString",
