@@ -15,7 +15,7 @@ object Versions {
   val log4s = "1.3.3"
   val swaggerParser = "2.1.25"
   val betterFiles = "3.9.2"
-  val jacksonForSpark3 = "2.15.2"
+  val jacksonForSpark3 = "2.15.4"
   val pureConfig = "0.14.0"
   val esSpark212 = "8.16.3"
   val jsonSchemaValidator = "1.4.0"
