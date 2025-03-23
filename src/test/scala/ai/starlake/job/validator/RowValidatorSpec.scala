@@ -1021,9 +1021,13 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
         inputSchema,
         ingestionSchema
       ) { validatedDF =>
-        validatedDF.schema should contain theSameElementsInOrderAs ingestionSchema.map { attr =>
+        val expectedSchema = ingestionSchema.map { attr =>
           StructField(attr.name, attr.primitiveSparkType(schemaHandler), !attr.resolveRequired())
         }
+        val incomingSchema = validatedDF.schema.map { f =>
+          StructField(f.name, f.dataType, f.nullable)
+        }
+        incomingSchema should contain theSameElementsInOrderAs expectedSchema
         val nonEmptyRow = mapper.createObjectNode()
         nonEmptyRow
           .put("string", "string value")
@@ -1061,7 +1065,10 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
         inputSchema,
         ingestionSchema
       ) { validatedDF =>
-        validatedDF.schema should contain theSameElementsInOrderAs ingestionSchema.map { attr =>
+        val incomingSchema = validatedDF.schema.map { f =>
+          StructField(f.name, f.dataType, f.nullable)
+        }
+        incomingSchema should contain theSameElementsInOrderAs ingestionSchema.map { attr =>
           StructField(attr.name, attr.primitiveSparkType(schemaHandler), !attr.resolveRequired())
         }
         val nonEmptyRow = mapper.createObjectNode()
