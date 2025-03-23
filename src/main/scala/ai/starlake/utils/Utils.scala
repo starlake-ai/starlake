@@ -425,7 +425,7 @@ object Utils extends StrictLogging {
     }
   }
 
-  def runCommand(cmd: Seq[String], extraEnv: Map[String, String] = Map.empty): Try[CommandOutput] =
+  def runCommand(cmd: Seq[String], extraEnv: Map[String, String]): Try[CommandOutput] =
     Try {
       logger.info(cmd.mkString(" "))
       val stdoutStream = new ByteArrayOutputStream
@@ -438,6 +438,21 @@ object Utils extends StrictLogging {
         logger.error(error)
       CommandOutput(exitValue, output, error)
     }
+  def runCommand(cmd: Seq[String]): Try[CommandOutput] = runCommand(cmd, Map.empty)
+
+  def runCommand(cmd: String, extraEnv: Map[String, String]): Try[CommandOutput] =
+    Try {
+      val stdoutStream = new ByteArrayOutputStream
+      val stderrStream = new ByteArrayOutputStream
+      val exitValue = runCommand(cmd, extraEnv, stdoutStream, stderrStream)
+      val output = stdoutStream.toString
+      val error = stderrStream.toString
+      logger.info(output)
+      if (exitValue != 0)
+        logger.error(error)
+      CommandOutput(exitValue, output, error)
+    }
+  def runCommand(cmd: String): Try[CommandOutput] = runCommand(cmd, Map.empty)
 
   def runCommand(
     cmd: Seq[String],
@@ -464,6 +479,30 @@ object Utils extends StrictLogging {
 
     }
 
+  def runCommand(
+    cmd: String,
+    extraEnv: Map[String, String],
+    outFile: File,
+    errFile: File
+  ): Try[CommandOutput] =
+    Try {
+      val stdoutStream = outFile.newOutputStream
+      val stderrStream = errFile.newOutputStream
+
+      try {
+        val exitValue = runCommand(cmd, extraEnv, stdoutStream, stderrStream)
+        CommandOutput(exitValue, outFile.name, errFile.name)
+      } catch {
+        case e: Exception =>
+          logger.error("Error while running command", e)
+          CommandOutput(1, "", Utils.exceptionAsString(e))
+      } finally {
+        stdoutStream.close()
+        stderrStream.close()
+      }
+
+    }
+
   private def runCommand(
     cmd: Seq[String],
     extraEnv: Map[String, String],
@@ -471,6 +510,23 @@ object Utils extends StrictLogging {
     errStream: OutputStream
   ): Int = {
     logger.info(cmd.mkString(" "))
+    val stdoutWriter = new PrintWriter(outStream)
+    val stderrWriter = new PrintWriter(errStream)
+    val exitValue =
+      Process(cmd, None, extraEnv.toSeq: _*)
+        .!(ProcessLogger(stdoutWriter.println, stderrWriter.println))
+    stdoutWriter.close()
+    stderrWriter.close()
+    logger.info("exitValue: " + exitValue)
+    exitValue
+  }
+  private def runCommand(
+    cmd: String,
+    extraEnv: Map[String, String],
+    outStream: OutputStream,
+    errStream: OutputStream
+  ): Int = {
+    logger.info(cmd)
     val stdoutWriter = new PrintWriter(outStream)
     val stderrWriter = new PrintWriter(errStream)
     val exitValue =
