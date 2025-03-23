@@ -31,6 +31,7 @@ import ai.starlake.utils.Utils
 import ai.starlake.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.google.cloud.bigquery.{Schema => BQSchema}
+import com.google.cloud.spark.bigquery.SparkBigQueryUtil
 import org.apache.spark.sql.types.{Metadata => SparkMetadata, _}
 
 import java.util.regex.Pattern
@@ -475,6 +476,8 @@ case class Schema(
 
   def containsArrayOfRecords(): Boolean = attributes.exists(_.containsArrayOfRecords())
 
+  def containsVariant(): Boolean = attributes.exists(_.containsVariant())
+
   private def dotRow(
     attr: Attribute,
     isPK: Boolean,
@@ -821,28 +824,42 @@ object Schema {
     obj: StructField
   ): Schema = {
     def buildAttributeTree(obj: StructField): Attribute = {
-      obj.dataType match {
-        case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType | ByteType |
-            DateType | TimestampType =>
-          Attribute(
-            obj.name,
-            obj.dataType.typeName,
-            required = Some(!obj.nullable),
-            comment = obj.getComment()
-          )
-        case _: DecimalType =>
-          Attribute(obj.name, "decimal", required = Some(!obj.nullable), comment = obj.getComment())
-        case ArrayType(eltType, containsNull) =>
-          buildAttributeTree(obj.copy(dataType = eltType)).copy(array = Some(true))
-        case x: StructType =>
-          Attribute(
-            obj.name,
-            "struct",
-            required = Some(!obj.nullable),
-            attributes = x.fields.map(buildAttributeTree).toList,
-            comment = obj.getComment()
-          )
-        case _ => throw new Exception(s"Unsupported Date type ${obj.dataType} for object $obj ")
+      if (SparkBigQueryUtil.isJson(obj.metadata)) {
+        Attribute(
+          obj.name,
+          PrimitiveType.variant.value,
+          required = Some(!obj.nullable),
+          comment = obj.getComment()
+        )
+      } else {
+        obj.dataType match {
+          case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType |
+              ByteType | DateType | TimestampType =>
+            Attribute(
+              obj.name,
+              obj.dataType.typeName,
+              required = Some(!obj.nullable),
+              comment = obj.getComment()
+            )
+          case _: DecimalType =>
+            Attribute(
+              obj.name,
+              "decimal",
+              required = Some(!obj.nullable),
+              comment = obj.getComment()
+            )
+          case ArrayType(eltType, containsNull) =>
+            buildAttributeTree(obj.copy(dataType = eltType)).copy(array = Some(true))
+          case x: StructType =>
+            Attribute(
+              obj.name,
+              "struct",
+              required = Some(!obj.nullable),
+              attributes = x.fields.map(buildAttributeTree).toList,
+              comment = obj.getComment()
+            )
+          case _ => throw new Exception(s"Unsupported Date type ${obj.dataType} for object $obj ")
+        }
       }
     }
 
