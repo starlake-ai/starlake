@@ -347,13 +347,6 @@ object Settings extends StrictLogging {
                 s"Connection type ${`type`}: using gcsBucket as temporaryGcsBucket"
               )
             }
-            if (!settings.sparkConfig.hasPath("datasource.bigquery.materializationDataset")) {
-              errors = errors :+ ValidationMessage(
-                Severity.Error,
-                "Connection",
-                s"Connection type ${`type`} requires spark.datasource.bigquery.materializationDataset"
-              )
-            }
           }
 
           options.getOrElse("authType", "") match {
