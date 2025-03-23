@@ -155,12 +155,6 @@ class BigQuerySparkJob(
       )
         .map { case (table, _) => sourceDF -> table }
     }.flatMap { case (sourceDF, table) =>
-      val materializationDataset =
-        Try {
-          settings.sparkConfig.getString("datasource.bigquery.materializationDataset")
-        }.toOption
-      getOrCreateDataset(domainDescription = None, datasetName = materializationDataset)
-
       val stdTableDefinition =
         bigquery(accessToken = cliConfig.accessToken)
           .getTable(table.getTableId)
@@ -246,18 +240,16 @@ class BigQuerySparkJob(
   }
 
   def runSparkReader(sql: String): Try[DataFrame] = {
-    val hasMaterializationDataset =
-      settings.sparkConfig.hasPath("datasource.bigquery.materializationDataset")
     val hasViewsEnabled =
       settings.sparkConfig.hasPath("datasource.bigquery.viewsEnabled")
-    if (hasMaterializationDataset && hasViewsEnabled) {
+    if (hasViewsEnabled) {
       prepareConf()
       Try {
         session.read.format("bigquery").load(sql)
       }
     } else {
       throw new Exception(
-        "Make sure the keys spark.datasource.bigquery.materializationDataset and spark.datasource.bigquery.viewsEnabled are set in the application.sl.yml file."
+        "Make sure the key spark.datasource.bigquery.viewsEnabled is set in the application.sl.yml file."
       )
     }
   }
