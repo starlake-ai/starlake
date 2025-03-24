@@ -1,26 +1,28 @@
 package ai.starlake.utils
 
+import ai.starlake.config.Settings
 import better.files.File
-import org.fusesource.scalate.TemplateEngine
 import scopt.{DefaultOParserSetup, OParser, OParserSetup, OptionDef}
+
+import scala.io.Source
+import scala.jdk.CollectionConverters._
 
 trait CommandConfig {
   def command: String
-  def markdown(pageIndex: Int): String
+  def markdown(pageIndex: Int)(implicit settings: Settings): String
 }
 
 trait CliConfig[T] extends CommandConfig {
   def parser: OParser[Unit, T]
   def usage(): String = OParser.usage(parser)
   def parse(args: Seq[String]): Option[T]
-  val engine: TemplateEngine = new TemplateEngine
   def command: String
 
   val setup: OParserSetup = new DefaultOParserSetup {
     override def showUsageOnError: Option[Boolean] = Some(false)
   }
 
-  def markdown(pageIndex: Int): String = {
+  def markdown(pageIndex: Int)(implicit settings: Settings): String = {
     val optionDefs = parser.toList
     val programNameOptionDef = optionDefs.headOption
     val synopsisOptionDef = programNameOptionDef.flatMap(_ => optionDefs.drop(1).headOption)
@@ -88,7 +90,7 @@ trait CliConfig[T] extends CommandConfig {
         "programName" -> programName,
         "synopsis"    -> synopsis,
         "description" -> description,
-        "options"     -> options.map(opt => option(opt).toMap()),
+        "options"     -> options.map(opt => option(opt).toMap().asJava).toArray,
         "index"       -> (pageIndex * 10).toString,
         "extra"       -> extra
       )
@@ -96,15 +98,7 @@ trait CliConfig[T] extends CommandConfig {
     // TODO keep the lines below until we depreciate Scala 2.11
     //     We'll replace it by --> val template = Source.fromResource("templates/cli/md-cli.mustache").mkString
 
-    val stream = getClass.getResourceAsStream("/templates/cli/md-cli.mustache")
-    val template = scala.io.Source
-      .fromInputStream(stream)
-      .mkString
-
-    engine.layout(
-      "md-cli.mustache",
-      engine.compileMoustache(template),
-      templateMap
-    )
+    val template = Source.fromResource("templates/cli/md-cli.j2").mkString
+    Utils.parseJinja(template, templateMap)
   }
 }
