@@ -6,7 +6,7 @@ from ai.starlake.common import sl_cron_start_end_dates, sl_scheduled_dataset
 
 from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
-from ai.starlake.orchestration import AbstractOrchestration, StarlakeSchedule, StarlakeDependencies, AbstractPipeline, AbstractTaskGroup, AbstractTask, AbstractDependency
+from ai.starlake.orchestration import AbstractOrchestration, StarlakeSchedule, StarlakeDependencies, AbstractPipeline, AbstractTaskGroup, AbstractTask
 
 from airflow import DAG
 
@@ -26,19 +26,10 @@ J = TypeVar("J", bound=StarlakeAirflowJob)
 
 class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], AirflowDataset):
     def __init__(self, job: J, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[DAG, BaseOperator, TaskGroup, Dataset]] = None, **kwargs) -> None:
-        def fun(upstream: AbstractDependency, downstream: AbstractDependency) -> None:
-            if isinstance(downstream, AirflowTaskGroup):
-                if isinstance(upstream, AirflowTaskGroup):
-                    downstream.group.set_upstream(upstream.group)
-                elif isinstance(upstream, AbstractTask):
-                    downstream.group.set_upstream(upstream.task)
-            elif isinstance(downstream, AbstractTask):
-                if isinstance(upstream, AirflowTaskGroup):
-                    downstream.task.set_upstream(upstream.group)
-                elif isinstance(upstream, AbstractTask):
-                    downstream.task.set_upstream(upstream.task)
+        def fun(upstream: Union[BaseOperator, TaskGroup], downstream: Union[BaseOperator, TaskGroup]) -> None:
+            downstream.set_upstream(upstream)
 
-        super().__init__(job, orchestration_cls=AirflowOrchestration, dag=None, schedule=schedule, dependencies=dependencies, orchestration=orchestration, add_dependency = fun, **kwargs)
+        super().__init__(job, orchestration_cls=AirflowOrchestration, dag=None, schedule=schedule, dependencies=dependencies, orchestration=orchestration, add_dag_dependency = fun, **kwargs)
 
         airflow_schedule: Union[str, List[Dataset], None] = None
 
@@ -86,10 +77,6 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
     def __exit__(self, exc_type, exc_value, traceback):
         DagContext.pop_context_managed_dag()
         return super().__exit__(exc_type, exc_value, traceback)
-
-    @property
-    def tasks_names(self) -> List[str]:
-        return list(map(lambda task: task.task_id, self.dag.tasks))
 
     def sl_transform_options(self, cron_expr: Optional[str] = None) -> Optional[str]:
         if cron_expr:

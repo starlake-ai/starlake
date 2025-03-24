@@ -41,10 +41,9 @@ class DependencyMixin:
         if isinstance(other, Sequence):
             for dep in other:
                 dep.__add_upstreams(self)
-            return [self.set_dependency(self, dep) for dep in other]
         else:
             other.__add_upstreams(self)
-        return self.set_dependency(self, other)
+        return other
 
     def __lshift__(self, other: Union[Iterable["DependencyMixin"], "DependencyMixin"]) -> Union[Iterable["DependencyMixin"], "DependencyMixin"]:
         """Add other as an upstream dependency to self.
@@ -55,13 +54,9 @@ class DependencyMixin:
         if isinstance(other, Sequence):
             for dep in other:
                 dep.__add_downstreams(self)
-            return [dep.set_dependency(dep, self) for dep in other]
         else:
             other.__add_downstreams(self)
-        return self.set_dependency(other, self)
-
-    def set_dependency(self, upstream_dependency: Union["DependencyMixin", Any], downstream_dependency: Union["DependencyMixin", Any]) -> Optional["DependencyMixin"]:
-        return downstream_dependency
+        return other
 
     def __add_upstreams(self, dependencies: Union[Iterable["DependencyMixin"], "DependencyMixin"]) -> None:
         """Add upstreams to the current dependency.
