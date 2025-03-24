@@ -6,7 +6,7 @@ from ai.starlake.common import sl_cron_start_end_dates, sl_scheduled_dataset
 
 from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
-from ai.starlake.orchestration import AbstractOrchestration, StarlakeSchedule, StarlakeDependencies, AbstractPipeline, AbstractTaskGroup, AbstractTask, AbstractDependency
+from ai.starlake.orchestration import AbstractOrchestration, StarlakeSchedule, StarlakeDependencies, AbstractPipeline, AbstractTaskGroup, AbstractTask
 
 from airflow import DAG
 
@@ -26,7 +26,10 @@ J = TypeVar("J", bound=StarlakeAirflowJob)
 
 class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], AirflowDataset):
     def __init__(self, job: J, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[DAG, BaseOperator, TaskGroup, Dataset]] = None, **kwargs) -> None:
-        super().__init__(job, orchestration_cls=AirflowOrchestration, dag=None, schedule=schedule, dependencies=dependencies, orchestration=orchestration, **kwargs)
+        def fun(upstream: Union[BaseOperator, TaskGroup], downstream: Union[BaseOperator, TaskGroup]) -> None:
+            downstream.set_upstream(upstream)
+
+        super().__init__(job, orchestration_cls=AirflowOrchestration, dag=None, schedule=schedule, dependencies=dependencies, orchestration=orchestration, add_dag_dependency = fun, **kwargs)
 
         airflow_schedule: Union[str, List[Dataset], None] = None
 
@@ -73,42 +76,6 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
     
     def __exit__(self, exc_type, exc_value, traceback):
         DagContext.pop_context_managed_dag()
-
-        # walk throw the dag to add the dependencies
-
-        def get_node(dependency: AbstractDependency) -> BaseOperator:
-            if isinstance(dependency, AbstractTaskGroup):
-                return dependency.group
-            return dependency.task
-
-        def update_group_dependencies(group: AbstractTaskGroup):
-            def update_dependencies(upstream_dependencies, root_key):
-                root = group.get_dependency(root_key)
-                root_node: BaseOperator = get_node(root)
-                if isinstance(root, AbstractTaskGroup) and root_key != group.group_id:
-                    update_group_dependencies(root)
-                if root_key in upstream_dependencies:
-                    for key in upstream_dependencies[root_key]:
-                        downstream = group.get_dependency(key)
-                        downstream_node: BaseOperator = get_node(downstream)
-                        if isinstance(downstream, AbstractTaskGroup) and key != group.group_id:
-                            update_group_dependencies(downstream)
-                        downstream_node.set_upstream(root_node)
-                        update_dependencies(upstream_dependencies, key)
-
-            upstream_dependencies = group.upstream_dependencies
-            upstream_keys = upstream_dependencies.keys()
-            downstream_keys = group.downstream_dependencies.keys()
-            root_keys = upstream_keys - downstream_keys
-
-            if not root_keys and len(upstream_keys) == 0 and len(downstream_keys) == 0:
-                root_keys = group.dependencies_dict.keys()
-
-            for root_key in root_keys:
-                update_dependencies(upstream_dependencies, root_key)
-
-        update_group_dependencies(self)
-
         return super().__exit__(exc_type, exc_value, traceback)
 
     def sl_transform_options(self, cron_expr: Optional[str] = None) -> Optional[str]:
