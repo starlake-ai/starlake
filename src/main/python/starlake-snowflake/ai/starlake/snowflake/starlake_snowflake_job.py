@@ -603,7 +603,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                         from datetime import datetime
 
                         if dry_run:
-                            print(f"--Executing transform for {sink} in dry run mode")
+                            print(f"-- Executing transform for {sink} in dry run mode")
 
                         if cron_expr:
                             from croniter import croniter
@@ -622,7 +622,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             original_schedule = config.get("logical_date", None)
                             if not original_schedule:
                                 query = "SELECT to_timestamp(system$task_runtime_info('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))"
-                                print(f"--Get the original scheduled timestamp of the initial graph run:\n{query};")
+                                print(f"-- Get the original scheduled timestamp of the initial graph run:\n{query};")
                                 rows = execute_sql(session, query, "Get the original scheduled timestamp of the initial graph run", dry_run)
                                 if rows.__len__() == 1:
                                     original_schedule = rows[0][0]
@@ -694,17 +694,17 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             commit_transaction(session, dry_run)
                             end = datetime.now()
                             duration = (end - start).total_seconds()
-                            print(f"--Duration in seconds: {duration}")
+                            print(f"-- Duration in seconds: {duration}")
                             log_audit(session, None, -1, -1, -1, True, duration, 'Success', end, jobid, "TRANSFORM", dry_run)
                             
                         except Exception as e:
                             # ROLLBACK transaction
                             error_message = str(e)
-                            print(f"Error executing transform for {sink}: {error_message}")
+                            print(f"-- Error executing transform for {sink}: {error_message}")
                             rollback_transaction(session, dry_run)
                             end = datetime.now()
                             duration = (end - start).total_seconds()
-                            print(f"Duration in seconds: {duration}")
+                            print(f"-- Duration in seconds: {duration}")
                             log_audit(session, None, -1, -1, -1, False, duration, error_message, end, jobid, "TRANSFORM", dry_run)
                             raise e
 
@@ -1032,7 +1032,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                 commit_transaction(session, dry_run)
                                 end = datetime.now()
                                 duration = (end - start).total_seconds()
-                                print(f"--Duration in seconds: {duration}")
+                                print(f"-- Duration in seconds: {duration}")
                                 files, first_error_line, first_error_column_name, rows_parsed, rows_loaded, errors_seen = get_audit_info(copy_results)
                                 message = first_error_line + '\n' + first_error_column_name
                                 success = errors_seen == 0
@@ -1041,11 +1041,11 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             except Exception as e:
                                 # ROLLBACK transaction
                                 error_message = str(e)
-                                print(f"Error executing load for {sink}: {error_message}")
+                                print(f"-- Error executing load for {sink}: {error_message}")
                                 rollback_transaction(session, dry_run)
                                 end = datetime.now()
                                 duration = (end - start).total_seconds()
-                                print(f"Duration in seconds: {duration}")
+                                print(f"-- Duration in seconds: {duration}")
                                 log_audit(session, None, -1, -1, -1, False, duration, error_message, end, jobid, "LOAD", dry_run)
                                 raise e
 
