@@ -232,21 +232,14 @@ class SnowflakeDag(DAG):
 
 class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], StarlakeDataset], StarlakeDataset):
     def __init__(self, job: StarlakeSnowflakeJob, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[SnowflakeDag, DAGTask, List[DAGTask], StarlakeDataset]] = None, **kwargs) -> None:
-        def fun(upstream: AbstractDependency, downstream: AbstractDependency) -> None:
-            if isinstance(upstream, SnowflakeTaskGroup):
-                leaves = upstream.group_leaves
-                for leaf in leaves:
-                    if isinstance(downstream, SnowflakeTaskGroup):
-                        leaf.add_successors(downstream.group_roots)
-                    elif isinstance(downstream, AbstractTask):
-                        leaf.add_successors(downstream.task)
-            elif isinstance(upstream, AbstractTask):
-                if isinstance(downstream, SnowflakeTaskGroup):
-                    upstream.task.add_successors(downstream.group_roots)
-                elif isinstance(downstream, AbstractTask):
-                    upstream.task.add_successors(downstream.task)
+        def fun(upstream: Union[DAGTask, List[DAGTask]], downstream: Union[DAGTask, List[DAGTask]]) -> None:
+            if isinstance(upstream, DAGTask):
+                upstream.add_successors(downstream)
+            elif isinstance(upstream, list):
+                for task in upstream:
+                    task.add_successors(downstream)
 
-        super().__init__(job, orchestration_cls=SnowflakeOrchestration, dag=None, schedule=schedule, dependencies=dependencies, orchestration=orchestration, add_dependency=fun, **kwargs)
+        super().__init__(job, orchestration_cls=SnowflakeOrchestration, dag=None, schedule=schedule, dependencies=dependencies, orchestration=orchestration, add_dag_dependency=fun, **kwargs)
 
         snowflake_schedule: Union[Cron, None] = None
         computed_cron: Union[Cron, None] = None
@@ -284,10 +277,6 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
         _dag_context_stack.pop()
 
         return super().__exit__(exc_type, exc_value, traceback)
-
-    @property
-    def tasks_names(self) -> List[str]:
-        return list(map(lambda task: task.name, self.dag.tasks))
 
     @property
     def stage_location(self) -> Optional[str]:
