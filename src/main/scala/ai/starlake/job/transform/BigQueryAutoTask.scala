@@ -193,6 +193,11 @@ class BigQueryAutoTask(
 
     val config = bigQuerySinkConfig
 
+    Utils.println(s"""
+     |Table: $fullTableName
+     |Connection: ${sinkConnectionRef}(${taskDesc.getSinkConnectionType()})
+     |""".stripMargin)
+
     val start = Timestamp.from(Instant.now())
     if (truncate) {
       // nothing to do, config is created with write_truncate in that case

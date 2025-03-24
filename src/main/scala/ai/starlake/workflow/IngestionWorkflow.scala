@@ -1114,9 +1114,6 @@ class IngestionWorkflow(
     val action = buildTask(transformConfig)
     logger.info(s"Transforming with config $transformConfig")
     logger.info(s"Entering ${action.taskDesc.getRunEngine()} engine")
-    Utils.println(s"""Running task ${transformConfig.name} with configuration:
-         |${transformConfig.toString}
-         |""".stripMargin)
     val runEngine = action.taskDesc.getRunEngine()
     Utils.println(s"Using engine $runEngine")
     runEngine match {
