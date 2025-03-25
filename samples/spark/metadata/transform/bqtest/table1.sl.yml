@@ -4,6 +4,11 @@ task:
   table: table1111
   writeStrategy:
     type: OVERWRITE_BY_PARTITION
+  attributes:
+    - name: id
+      accessPolicy: PII
+    - name: due
+      accessPolicy: PHI
   sink:
     partition:
       - due

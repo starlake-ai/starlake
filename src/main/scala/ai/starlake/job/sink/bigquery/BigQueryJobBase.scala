@@ -159,7 +159,7 @@ trait BigQueryJobBase extends StrictLogging {
     taxonomyRef: String,
     accessPolicy: String,
     policyTagClient: PolicyTagManagerClient
-  ) = {
+  ): String = {
     val policyTagsRequest =
       ListPolicyTagsRequest.newBuilder().setParent(taxonomyRef).build()
     val policyTags =
@@ -259,11 +259,25 @@ trait BigQueryJobBase extends StrictLogging {
   ): Try[Unit] = {
     Try {
       if (forceApply || settings.appConfig.accessPolicies.apply) {
-        cliConfig.starlakeSchema match {
-          case None =>
-          case Some(schema) =>
+        val loadAttrs = cliConfig.starlakeSchema
+          .map(_.attributes)
+          .getOrElse(Nil)
+          .map(attribute => (attribute.getFinalName(), attribute.accessPolicy))
+        val transAttrs =
+          cliConfig.attributesDesc.map(attrDesc => (attrDesc.name, attrDesc.accessPolicy))
+        val attrsToSecure =
+          if (loadAttrs.isEmpty)
+            transAttrs
+          else
+            loadAttrs
+
+        attrsToSecure match {
+          case Nil =>
+          case attrs =>
             val anyAccessPolicyToApply =
-              schema.attributes.map(_.accessPolicy).count(_.isDefined) > 0
+              attrs
+                .map { case (attrName, attrAccessPolicy) => attrAccessPolicy }
+                .count(_.isDefined) > 0
             if (anyAccessPolicyToApply) {
               val (location, projectId, taxonomy, taxonomyRef) =
                 getTaxonomy(policyTagClient)
@@ -277,18 +291,17 @@ trait BigQueryJobBase extends StrictLogging {
               val tableDefinition = table.getDefinition[StandardTableDefinition]
               val bqSchema = tableDefinition.getSchema()
               val bqFields = bqSchema.getFields.asScala.toList
-              val attributesMap =
-                schema.attributes.map(attr => (attr.getFinalName().toLowerCase, attr)).toMap
+              val attributesMap = attrs.toMap
               val updatedFields = bqFields.map { field =>
                 attributesMap.get(field.getName.toLowerCase) match {
                   case None =>
                     // Maybe an ignored field
                     logger.info(
-                      s"Ignore this field ${schema.name}.${field.getName} during CLS application "
+                      s"Ignore this field ${table}.${field.getName} during CLS application "
                     )
                     field
-                  case Some(attr) =>
-                    attr.accessPolicy match {
+                  case Some(accessPolicy) =>
+                    accessPolicy match {
                       case None =>
                         field
                       case Some(accessPolicy) =>
