@@ -190,7 +190,9 @@ trait BigQueryJobBase extends StrictLogging {
       groupedPoliciyTags.foreach { case (policyTag, iamPolicyTags) =>
         val bindings = iamPolicyTags.map { iamPolicyTag =>
           val binding = Binding.newBuilder()
-          binding.setRole(iamPolicyTag.role)
+          binding.setRole(
+            iamPolicyTag.role.getOrElse(throw new Exception("Should never happen: Role not set"))
+          )
           // binding.setCondition()
           binding.addAllMembers(iamPolicyTag.members.asJava)
           binding.build()
