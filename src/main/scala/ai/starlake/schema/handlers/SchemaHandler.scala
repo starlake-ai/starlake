@@ -1356,8 +1356,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val path = DatasetArea.iamPolicyTags()
     if (storage.exists(path))
       Some(YamlSerde.deserializeIamPolicyTags(storage.read(path)))
-    else
+    else {
+      Utils.println(s"Warning: No IAM policy tags found in $path")
       None
+    }
   }
 
   def tasks(reload: Boolean = false): List[AutoTaskDesc] = {
