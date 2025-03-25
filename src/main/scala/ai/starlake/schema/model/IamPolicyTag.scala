@@ -1,7 +1,18 @@
 package ai.starlake.schema.model
 
-case class IamPolicyTag(policyTag: String, members: List[String], role: String) {
-  def this() = this("", Nil, "") // Should never be called. Here for Jackson deserialization only
+import com.fasterxml.jackson.annotation.JsonCreator
+
+case class IamPolicyTag(
+  policyTag: String,
+  members: List[String],
+  role: Option[String] = Some("roles/datacatalog.categoryFineGrainedReader")
+) {
+  @JsonCreator
+  def this() = this(
+    "",
+    Nil,
+    Some("roles/datacatalog.categoryFineGrainedReader")
+  ) // Should never be called. Here for Jackson deserialization only
 }
 
 case class IamPolicyTags(iamPolicyTags: List[IamPolicyTag])
