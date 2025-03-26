@@ -4,7 +4,7 @@ from datetime import timedelta, datetime
 
 from typing import Any, Optional, List, Union
 
-from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOrchestrator
+from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOrchestrator, TaskType
 
 from ai.starlake.airflow.starlake_airflow_options import StarlakeAirflowOptions
 
@@ -34,7 +34,8 @@ DEFAULT_DAG_ARGS = {
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 1, 
-    'retry_delay': timedelta(minutes=5)
+    'retry_delay': timedelta(minutes=5),
+    'max_active_runs': 1,
 }
 
 class AirflowDataset(AbstractEvent[Dataset]):
@@ -282,13 +283,14 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, dataset=dataset,  **kwargs)
 
-    def dummy_op(self, task_id, events: Optional[List[Dataset]] = None, **kwargs) -> BaseOperator :
+    def dummy_op(self, task_id, events: Optional[List[Dataset]] = None, task_type: Optional[TaskType] = TaskType.EMPTY, **kwargs) -> BaseOperator :
         """Dummy op.
         Generate a Airflow dummy op.
 
         Args:
             task_id (str): The required task id.
             events (Optional[List[Dataset]]): The optional events to materialize.
+            task_type (Optional[TaskType]): The optional task type.
 
         Returns:
             BaseOperator: The Airflow task.

@@ -4,10 +4,12 @@ from abc import abstractmethod
 
 from ai.starlake.common import asQueryParameters, sanitize_id, sl_schedule, sl_schedule_format, is_valid_cron
 
-from typing import Generic, List, Optional, TypeVar
+from datetime import datetime
+
+from typing import Generic, List, Optional, TypeVar, Union
 
 class StarlakeDataset():
-    def __init__(self, name: str, parameters: Optional[dict] = None, cron: Optional[str] = None, sink: Optional[str] = None, stream: Optional[str] = None, **kwargs):
+    def __init__(self, name: str, parameters: Optional[dict] = None, cron: Optional[str] = None, sink: Optional[str] = None, stream: Optional[str] = None, start_time: Optional[Union[str, datetime]] = None, **kwargs):
         """Initializes a new StarlakeDataset instance.
 
         Args:
@@ -16,6 +18,7 @@ class StarlakeDataset():
             cron (str, optional): The optional cron. Defaults to None.
             sink (str, optional): The optional sink. Defaults to None.
             stream (str, optional): The optional stream. Defaults to None.
+            start_time (Optional[Union[str, datetime]], optional): The optional start time. Defaults to None.
         """
         self._name = name
         if sink:
@@ -43,8 +46,9 @@ class StarlakeDataset():
             temp_parameters.update(parameters)
         self._sl_schedule_parameter_name = kwargs.get('sl_schedule_parameter_name', params.get('sl_schedule_parameter_name', 'sl_schedule'))
         self._sl_schedule_format = kwargs.get('sl_schedule_format', params.get('sl_schedule_format', sl_schedule_format))
+        self.__start_time = start_time
         if cron is not None:
-            temp_parameters[self.sl_schedule_parameter_name] = sl_schedule(cron=cron, format=self.sl_schedule_format)
+            temp_parameters[self.sl_schedule_parameter_name] = sl_schedule(cron=cron, start_time=self.start_time, format=self.sl_schedule_format)
         self._cron = cron
         self._queryParameters = asQueryParameters(temp_parameters)
         self._parameters = parameters
@@ -96,11 +100,15 @@ class StarlakeDataset():
         return self._stream
 
     @property
+    def start_time(self) -> Optional[Union[str, datetime]]:
+        return self.__start_time
+
+    @property
     def sink(self) -> Optional[str]:
         return f"{self.domain}.{self.table}"
 
-    def refresh(self) -> StarlakeDataset:
-        return StarlakeDataset(self.name, self.parameters, self.cron, self.sink, self.stream, sl_schedule_parameter_name=self.sl_schedule_parameter_name, sl_schedule_format=self.sl_schedule_format)
+    def refresh(self, start_time: Optional[Union[str, datetime]] = None) -> StarlakeDataset:
+        return StarlakeDataset(self.name, self.parameters, self.cron, self.sink, self.stream, start_time=start_time or self.start_time, sl_schedule_parameter_name=self.sl_schedule_parameter_name, sl_schedule_format=self.sl_schedule_format)
 
     @staticmethod
     def refresh_datasets(datasets: Optional[List[StarlakeDataset]]) -> Optional[List[StarlakeDataset]]:

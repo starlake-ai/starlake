@@ -4,11 +4,14 @@ from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies
 
-from dagster import AssetKey, ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping,OutputMapping, DefaultScheduleStatus, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, ScheduleDefinition, OpDefinition
+from dagster import AssetKey, ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping,OutputMapping, DefaultScheduleStatus, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, ScheduleDefinition, OpDefinition, TimeWindowPartitionsDefinition, Partition, PartitionedConfig
 
 from dagster._core.definitions.output import OutputDefinition
 
 from dagster._core.definitions import NodeDefinition
+
+from datetime import datetime
+import pytz
 
 from typing import Any, List, Optional, TypeVar, Union
 
@@ -112,6 +115,11 @@ class DagsterOrchestration(AbstractOrchestration[JobDefinition, OpDefinition, Gr
 class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinition, AssetKey], DagsterDataset):
     def __init__(self, sl_job: J, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None,  orchestration: Optional[DagsterOrchestration] = None, **kwargs) -> None:
         super().__init__(sl_job, orchestration_cls = DagsterOrchestration, schedule = schedule, dependencies = dependencies, orchestration = orchestration, **kwargs)
+        self.__start_date = sl_job.start_date
+
+    @property
+    def start_date(self) -> datetime:
+        return self.__start_date
 
     def __exit__(self, exc_type, exc_value, traceback):
         super().__exit__(exc_type, exc_value, traceback)
@@ -357,11 +365,61 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
                 output_mappings=output_mappings,
             )
 
+        self.graph = update_graph_def(self)
+
+        cron = self.cron
+
+        partition_config = None
+
+        if cron:
+            def fun(partition: Partition):
+                value = partition.value
+                if isinstance(value, datetime):
+                    logical_datetime = value.strftime('%Y-%m-%d %H:%M:%S%z')
+                else:
+                    logical_datetime = str(value)
+
+                return self.__ops_config(logical_datetime)
+
+            partition_config = PartitionedConfig(
+                partitions_def=TimeWindowPartitionsDefinition(
+                    cron_schedule = cron,
+                    start=self.start_date,
+                    fmt='%Y-%m-%d %H:%M:%S%z',
+                    timezone='UTC',
+                ),
+                run_config_for_partition_fn=fun,
+            )
+
         self.dag = JobDefinition(
             name=self.pipeline_id,
             description=self.job.caller_globals.get('description', ""),
-            graph_def=update_graph_def(self),
+            graph_def=self.graph,
+            config=partition_config,
         )
+
+    def __ops_config(self, logical_datetime: str, dry_run: bool = False) -> dict:
+        def walk(node: NodeDefinition, config: dict = dict()) -> dict:
+            if isinstance(node, OpDefinition):
+                config[node.name] = {'config': {'logical_datetime': logical_datetime, 'dry_run': dry_run}}
+                return config
+            elif isinstance(node, GraphDefinition):
+                sub_config = dict()
+                for sub_node in node.node_defs:
+                    walk(sub_node, sub_config)
+                config[node.name] = {'ops': sub_config}
+                return config
+            else:
+                raise ValueError(f"Node {node}")
+        
+        ops_config = dict()
+        for node in self.graph.node_defs:
+            walk(node, ops_config)
+
+        return {'ops': ops_config}
+
+    def sl_transform_options(self, cron_expr: Optional[str] = None) -> Optional[str]:
+        return None # should be implemented within dagster jobs sl_job method
 
     def run(self, logical_date: Optional[str] = None, timeout: str = '120', mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
         """Run the pipeline.
@@ -370,4 +428,26 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
             timeout (str): the timeout in seconds.
             mode (StarlakeExecutionMode): the execution mode.
         """
-        ...
+        from dagster import DagsterInstance, execute_job
+        if not logical_date:
+            logical_date = datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S%z')
+        dry_run = mode == StarlakeExecutionMode.DRY_RUN
+        run_config = self.__ops_config(logical_date, dry_run)
+        import sys
+        with DagsterInstance.ephemeral() as instance:
+            # Run the job with the provided configuration
+            print(f"Running {self.pipeline_id}...")
+            print(f"Run config: {run_config}")
+            job: JobDefinition = self.dag
+            result = job.execute_in_process(
+                run_config=run_config,
+                instance=instance,
+            )
+
+            # Check execution success
+            if result.success:
+                print(f"Successful execution of {self.pipeline_id} !")
+            else:
+                for event in result.get_step_failure_events():
+                    print(event.message)
+                print(f"Execution of {self.pipeline_id} failed.")
