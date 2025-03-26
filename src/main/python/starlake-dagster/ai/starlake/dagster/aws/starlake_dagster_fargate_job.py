@@ -4,11 +4,11 @@ from typing import List, Optional, Union
 
 from ai.starlake.dataset import StarlakeDataset
 
-from ai.starlake.dagster import StarlakeDagsterJob
+from ai.starlake.dagster import StarlakeDagsterJob, StarlakeDagsterUtils, DagsterLogicalDatetimeConfig
 
 from ai.starlake.aws import StarlakeFargateHelper
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment, TaskType
 
 from dagster import Failure, Output, AssetMaterialization, AssetKey, Out, op, RetryPolicy
 
@@ -37,7 +37,7 @@ class StarlakeDagsterFargateJob(StarlakeDagsterJob):
         """
         return StarlakeExecutionEnvironment.FARGATE
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> NodeDefinition:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, task_type: Optional[TaskType] = None, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_job()
         Generate the Dagster node that will run the starlake command.
 
@@ -46,6 +46,7 @@ class StarlakeDagsterFargateJob(StarlakeDagsterJob):
             arguments (list): The required arguments of the starlake command to run.
             spark_config (Optional[StarlakeSparkConfig], optional): The optional spark configuration. Defaults to None.
             dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
+            task_type (Optional[TaskType], optional): The optional task type. Defaults to None.
 
         Returns:
             NodeDefinition: The Dagster node.
@@ -54,9 +55,12 @@ class StarlakeDagsterFargateJob(StarlakeDagsterJob):
 
         fargate = StarlakeFargateHelper(job=self, arguments=arguments, **kwargs)
 
+        if not task_type and len(arguments) > 0:
+            task_type = TaskType.from_str(arguments[0])
+        transform = task_type == TaskType.TRANSFORM
+        params = kwargs.get('params', dict())
+
         assets: List[AssetKey] = kwargs.get("assets", [])
-        if dataset:
-            assets.append(self.to_event(dataset))
 
         ins=kwargs.get("ins", {})
 
@@ -77,9 +81,29 @@ class StarlakeDagsterFargateJob(StarlakeDagsterJob):
             out=outs,
             retry_policy=retry_policy,
         )
-        def job(context, **kwargs):
+        def job(context, config: DagsterLogicalDatetimeConfig, **kwargs):
 
-            command = " ".join(arguments)
+            if dataset:
+                assets.append(StarlakeDagsterUtils.get_asset(context, config, dataset))
+
+            if transform:
+                opts = arguments[-1].split(",")
+                transform_opts = StarlakeDagsterUtils.get_transform_options(context, config, params).split(',')
+                env.update({
+                    key: value
+                    for opt in transform_opts
+                    if "=" in opt  # Only process valid key=value pairs
+                    for key, value in [opt.split("=")]
+                })
+                opts.extend(transform_opts)
+                arguments[-1] = ",".join(opts)
+                # Update the fargate arguments and environment
+                fargate.arguments = arguments
+                environment = fargate.environment
+                environment.update(env)
+                fargate.environment = environment
+
+            command = fargate.command
 
             tmp_file_path = fargate.generate_script()
 

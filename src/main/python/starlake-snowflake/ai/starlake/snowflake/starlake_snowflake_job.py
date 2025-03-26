@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple, Union
 
 from ai.starlake.common import MissingEnvironmentVariable
 
-from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions, StarlakeOrchestrator, StarlakeExecutionEnvironment
+from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions, StarlakeOrchestrator, StarlakeExecutionEnvironment, TaskType
 
 from ai.starlake.dataset import StarlakeDataset, AbstractEvent
 
@@ -93,13 +93,14 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
         # TODO: implement the definition to update SL_START_DATE and SL_END_DATE if the backfill is enabled and the DAG is not scheduled - maybe we will have to retrieve all the dag runs that didn't execute successfully ?
         return super().end_op(task_id=task_id, events=events, **kwargs)
 
-    def dummy_op(self, task_id: str, events: Optional[List[StarlakeDataset]] = None, **kwargs) -> DAGTask:
+    def dummy_op(self, task_id: str, events: Optional[List[StarlakeDataset]] = None, task_type: Optional[TaskType]=TaskType.EMPTY, **kwargs) -> DAGTask:
         """Dummy op.
         Generate a Snowflake dummy task.
 
         Args:
             task_id (str): The required task id.
             events (Optional[List[StarlakeDataset]]): The optional events to materialize.
+            task_type (Optional[TaskType]): The optional task type.
 
         Returns:
             DAGTask: The Snowflake task.
@@ -228,7 +229,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
         kwargs.update({'comment': comment})
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, dataset=dataset, **kwargs)
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> DAGTask:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, task_type: Optional[TaskType]=None, **kwargs) -> DAGTask:
         """Overrides IStarlakeJob.sl_job()
         Generate the Snowflake task that will run the starlake command.
 
@@ -237,12 +238,14 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
             arguments (list): The required arguments of the starlake command to run.
             spark_config (StarlakeSparkConfig, optional): The optional spark configuration. Defaults to None.
             dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
+            task_type (Optional[TaskType], optional): The optional task type. Defaults to None.
 
         Returns:
             DAGTask: The Snowflake task.
         """
         sink = kwargs.get('sink', None)
-        command = arguments[0].lower()
+        if not task_type and len(arguments) > 0:
+            task_type = TaskType.from_str(arguments[0])
         if sink:
             kwargs.pop('sink', None)
             domainAndTable = sink.split('.')
@@ -590,7 +593,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                 """
                 execute_sql(session, "ROLLBACK", "ROLLBACK transaction:", dry_run)
 
-            if command == 'transform':
+            if task_type == TaskType.TRANSFORM:
                 if statements:
 
                     cron_expr = kwargs.get('cron_expr', None)
@@ -725,7 +728,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                 else:
                     # sink statements are required
                     raise ValueError(f"Transform '{sink}' statements not found")
-            elif command == 'load':
+            elif task_type == TaskType.LOAD:
                 json_context = self.caller_globals.get('json_context', None)
                 if json_context:
                     import json
@@ -1069,7 +1072,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                     raise ValueError("context is required")
             else:
                 # only load and transform commands are implemented
-                raise NotImplementedError(f"{command} is not implemented")
+                raise NotImplementedError(f"{task_type} is not implemented")
         else:
             # sink is required
             raise ValueError("sink is required")
