@@ -43,12 +43,25 @@ import scala.jdk.CollectionConverters._
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
-case class TableWithNameOnly(name: String, attrs: List[String])
+case class TableWithNameAndType(name: String, attrs: List[(String, String, Option[String])]) {
+  def schemaString(fullName: Option[String] = None): String = {
+    val schemaName = fullName.getOrElse(name)
+    val schema = attrs
+      .map { case (attrName, attrType, comment) =>
+        val commentStr = comment.map(c => s" COMMENT '$c'").getOrElse("")
+        s"$attrName $attrType$commentStr"
+      }
+      .mkString(",\n")
+    s"CREATE TABLE $schemaName (\n$schema\n)"
+  }
+}
 
-case class DomainWithNameOnly(name: String, tables: List[TableWithNameOnly]) {
+case class DomainWithNameOnly(name: String, tables: List[TableWithNameAndType]) {
   def asSchemaDefinition(jdbcMetadata: JdbcMetaData) = {
     tables.foreach { table =>
-      val jdbcColumns = table.attrs.map { attrName => new JdbcColumn(attrName) }
+      val jdbcColumns = table.attrs.map { case (attrName, attrType, comment) =>
+        new JdbcColumn(attrName)
+      }
       jdbcMetadata.addTable("", name, table.name, jdbcColumns.asJava)
       jdbcMetadata.addTable("", "", table.name, jdbcColumns.asJava)
     }
@@ -687,7 +700,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     tablesFromDomainOrTasks
   }
 
-  def getTablesWithColumnNames(tableNames: List[String]): List[(String, TableWithNameOnly)] = {
+  def getTablesWithColumnNames(tableNames: List[String]): List[(String, TableWithNameAndType)] = {
     val objects = objectNames()
     tableNames.flatMap { tableFullName =>
       val tableComponents = tableFullName.split('.')
@@ -720,7 +733,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 (domainName, t)
               }
               .orElse {
-                Some((domainName, TableWithNameOnly(tableName, Nil)))
+                Some((domainName, TableWithNameAndType(tableName, Nil)))
               }
         }
       domainNameAndTable
@@ -1356,8 +1369,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val path = DatasetArea.iamPolicyTags()
     if (storage.exists(path))
       Some(YamlSerde.deserializeIamPolicyTags(storage.read(path)))
-    else
+    else {
+      Utils.println(s"Warning: No IAM policy tags found in $path")
       None
+    }
   }
 
   def tasks(reload: Boolean = false): List[AutoTaskDesc] = {
@@ -1590,16 +1605,93 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def objects(): List[Domain] = domains() ++ externals() ++ List(auditTables)
 
-  def findTable(domain: String, table: String): Option[Schema] =
+  def findTableInObjects(domain: String, table: String): Option[Schema] =
     objects()
       .find(_.name.equalsIgnoreCase(domain))
       .flatMap(_.tables.find(_.name.equalsIgnoreCase(table)))
 
-  def objectDefinitions(): JdbcMetaData = {
+  def objectJdbcDefinitions(): JdbcMetaData = {
     val jdbcMetadata = new JdbcMetaData("", "")
     objectNames().foreach(_.asSchemaDefinition(jdbcMetadata))
     jdbcMetadata
   }
+
+  def objectsMap(): CaseInsensitiveMap[TableWithNameAndType] = {
+    val map =
+      objectNames().flatMap { domain =>
+        domain.tables.map { table =>
+          s"${domain.name}.${table.name}" -> table
+        }
+      }.toMap
+    CaseInsensitiveMap(map)
+  }
+
+  def dependenciesAsSchemaString(query: String): List[String] = {
+    val tables =
+      Try(SQLUtils.extractTableNames(query)) // if syntax is correct this works fine
+        .getOrElse(
+          SQLUtils.extractTableNamesUsingRegEx(query)
+        ) // if syntax is incorrect, we try to extract using regex
+
+    val domainAndTables = tables.flatMap { table =>
+      val components = table.split("\\.")
+      if (components.length >= 2)
+        Some((components.dropRight(1).last, components.last)) // domainName, tableName
+      else
+        None
+    }
+
+    val schemaHandler = settings.schemaHandler()
+    val createTables =
+      domainAndTables.flatMap { case (domainName, tableName) =>
+        val createTable = schemaHandler.findTableInObjects(domainName, tableName).map { table =>
+          val columns = table.attributes
+            .map { col =>
+              val colType =
+                schemaHandler
+                  .getType(col.`type`)
+                  .map(_.primitiveType.toString)
+                  .getOrElse(col.`type`)
+              val commentStr = col.comment.map(c => s" COMMENT '$c'").getOrElse("")
+              s"${col.name} $colType$commentStr"
+            }
+            .mkString(", ")
+          s"CREATE TABLE $tableName ($columns)"
+        }
+        createTable
+      }
+    createTables
+  }
+
+  def dependenciesAsSchemaString(): List[String] = {
+    val schemaHandler = settings.schemaHandler()
+    val domainAndTables = objectsMap()
+    val createTables =
+      domainAndTables.flatMap { case (domainName, table) =>
+        val createTable = schemaHandler.findTableInObjects(domainName, table.name).map { table =>
+          val columns = table.attributes
+            .map { col =>
+              val colType =
+                schemaHandler
+                  .getType(col.`type`)
+                  .map(_.primitiveType.toString)
+                  .getOrElse(col.`type`)
+              val commentStr = col.comment.map(c => s" COMMENT '$c'").getOrElse("")
+              s"${col.name} $colType$commentStr"
+            }
+            .mkString(", ")
+          s"CREATE TABLE ${table.name} ($columns)"
+        }
+        createTable
+      }
+    createTables.toList
+  }
+
+  /** List of all domain.table including tasks but not externals
+    *
+    * @return
+    *   List of all objects in the metadata
+    */
   def objectNames(): List[DomainWithNameOnly] = {
     val domains = objects()
     val tableNames =
@@ -1608,7 +1700,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           domain.finalName,
           domain.tables
             .map { table =>
-              TableWithNameOnly(table.finalName, table.attributes.map(_.getFinalName()).sorted)
+              TableWithNameAndType(
+                table.finalName,
+                table.attributes.map { attr =>
+                  (attr.getFinalName(), attr.`type`, attr.comment)
+                }.sorted
+              )
             }
             .sortBy(_.name)
         )
@@ -1619,10 +1716,25 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         .map { job =>
           DomainWithNameOnly(
             job.name,
-            job.tasks.map(_.table).sorted.map(TableWithNameOnly(_, List.empty))
+            job.tasks.map(_.table).sorted.map(TableWithNameAndType(_, List.empty))
           )
         }
-    val all = tableNames ++ taskNames
+    val externalNames = this.externals().map { domain =>
+      DomainWithNameOnly(
+        domain.finalName,
+        domain.tables
+          .map { table =>
+            TableWithNameAndType(
+              table.finalName,
+              table.attributes.map { attr =>
+                (attr.getFinalName(), attr.`type`, attr.comment)
+              }.sorted
+            )
+          }
+          .sortBy(_.name)
+      )
+    }
+    val all = tableNames ++ taskNames ++ externalNames
     val result = all.sortBy(_.name)
     result
   }
