@@ -69,9 +69,13 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             ins=kwargs.get("ins", {}),
             out={kwargs.get("out", "result"): Out(str)},
         )
-        def create_dataproc_cluster(context, **kwargs):
-            context.log.info(f"Creating Dataproc cluster {self.__dataproc__.cluster_name} with cluster details: \n{json.dumps(self.__dataproc__.cluster_config_dict, indent=2)}")
-            self.__client__().create_cluster()
+        def create_dataproc_cluster(context, config: DagsterLogicalDatetimeConfig, **kwargs):
+            if config.dry_run:
+                output = f"Dataproc cluster {self.__dataproc__.cluster_name} creation skipped due to dry run mode."
+                context.log.info(output)
+            else:
+                context.log.info(f"Creating Dataproc cluster {self.__dataproc__.cluster_name} with cluster details: \n{json.dumps(self.__dataproc__.cluster_config_dict, indent=2)}")
+                self.__client__().create_cluster()
             if asset_key:
                 yield AssetMaterialization(asset_key=asset_key.path, description=f"Dataproc cluster {self.__dataproc__.cluster_name} created")
             yield Output(value=task_id, output_name="result")
@@ -91,9 +95,13 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             ins=kwargs.get("ins", {}),
             out={kwargs.get("out", "result"): Out(str)},
         )
-        def delete_dataproc_cluster(context, **kwargs):
-            context.log.info(f"Deleting Dataproc cluster {self.__dataproc__.cluster_name}")
-            self.__client__().delete_cluster()
+        def delete_dataproc_cluster(context, config: DagsterLogicalDatetimeConfig, **kwargs):
+            if config.dry_run:
+                output = f"Dataproc cluster {self.__dataproc__.cluster_name} deletion skipped due to dry run mode."
+                context.log.info(output)
+            else:
+                context.log.info(f"Deleting Dataproc cluster {self.__dataproc__.cluster_name}")
+                self.__client__().delete_cluster()
             if asset_key:
                 yield AssetMaterialization(asset_key=asset_key.path, description=f"Dataproc cluster {self.__dataproc__.cluster_name} deleted")
             yield Output(value=task_id, output_name="result")
@@ -197,8 +205,14 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
                 job["spark_job"] = spark_job
                 job_details["job"] = job
 
-            context.log.info(f"Submitting Spark job {job_id} to Dataproc cluster {self.__dataproc__.cluster_name} with job details: \n{json.dumps(job_details, indent=2)}")
-            result = self.__client__().submit_job(job_details=job_details)
+            if config.dry_run:
+                output = f"Starlake command {command} execution skipped due to dry run mode."
+                context.log.info(output)
+                result = {"status": {"state": "DONE"}}
+            else:
+                context.log.info(f"Submitting Spark job {job_id} to Dataproc cluster {self.__dataproc__.cluster_name} with job details: \n{json.dumps(job_details, indent=2)}")
+                result = self.__client__().submit_job(job_details=job_details)
+
             if result.get("status", {}).get("state") != "DONE":
                 value=f"Spark job {job_id} submission failed with result: {result}"
                 if failure:

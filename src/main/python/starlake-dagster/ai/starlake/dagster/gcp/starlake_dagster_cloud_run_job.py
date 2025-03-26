@@ -125,14 +125,18 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
                 f"--wait --region {region} --project {project} --format='get(metadata.name)' {impersonate_service_account}" #--task-timeout 300
             )
 
-            output, return_code = execute_shell_command(
-                shell_command=command,
-                output_logging="STREAM",
-                log=context.log,
-#                cwd=self.sl_root,
-                env=env,
-                log_shell_command=True,
-            )
+            if config.dry_run:
+                output, return_code = f"Starlake command {command} execution skipped due to dry run mode.", 0
+                context.log.info(output)
+            else:
+                output, return_code = execute_shell_command(
+                    shell_command=command,
+                    output_logging="STREAM",
+                    log=context.log,
+    #                cwd=self.sl_root,
+                    env=env,
+                    log_shell_command=True,
+                )
 
             if return_code:
                 value=f"Starlake command {command} execution failed with output: {output}"

@@ -365,7 +365,7 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
                 output_mappings=output_mappings,
             )
 
-        graph = update_graph_def(self)
+        self.graph = update_graph_def(self)
 
         cron = self.cron
 
@@ -379,24 +379,7 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
                 else:
                     logical_datetime = str(value)
 
-                def walk(node: NodeDefinition, config: dict = dict()) -> dict:
-                    if isinstance(node, OpDefinition):
-                        config[node.name] = {'config': {'logical_datetime': logical_datetime}}
-                        return config
-                    elif isinstance(node, GraphDefinition):
-                        sub_config = dict()
-                        for sub_node in node.node_defs:
-                            walk(sub_node, sub_config)
-                        config[node.name] = {'ops': sub_config}
-                        return config
-                    else:
-                        raise ValueError(f"Node {node}")
-                
-                ops_config = dict()
-                for node in graph.node_defs:
-                    walk(node, ops_config)
-
-                return {'ops': ops_config}
+                return self.__ops_config(logical_datetime)
 
             partition_config = PartitionedConfig(
                 partitions_def=TimeWindowPartitionsDefinition(
@@ -411,9 +394,29 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
         self.dag = JobDefinition(
             name=self.pipeline_id,
             description=self.job.caller_globals.get('description', ""),
-            graph_def=graph,
+            graph_def=self.graph,
             config=partition_config,
         )
+
+    def __ops_config(self, logical_datetime: str, dry_run: bool = False) -> dict:
+        def walk(node: NodeDefinition, config: dict = dict()) -> dict:
+            if isinstance(node, OpDefinition):
+                config[node.name] = {'config': {'logical_datetime': logical_datetime, 'dry_run': dry_run}}
+                return config
+            elif isinstance(node, GraphDefinition):
+                sub_config = dict()
+                for sub_node in node.node_defs:
+                    walk(sub_node, sub_config)
+                config[node.name] = {'ops': sub_config}
+                return config
+            else:
+                raise ValueError(f"Node {node}")
+        
+        ops_config = dict()
+        for node in self.graph.node_defs:
+            walk(node, ops_config)
+
+        return {'ops': ops_config}
 
     def sl_transform_options(self, cron_expr: Optional[str] = None) -> Optional[str]:
         return None # should be implemented within dagster jobs sl_job method
@@ -425,4 +428,26 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
             timeout (str): the timeout in seconds.
             mode (StarlakeExecutionMode): the execution mode.
         """
-        ...
+        from dagster import DagsterInstance, execute_job
+        if not logical_date:
+            logical_date = datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S%z')
+        dry_run = mode == StarlakeExecutionMode.DRY_RUN
+        run_config = self.__ops_config(logical_date, dry_run)
+        import sys
+        with DagsterInstance.ephemeral() as instance:
+            # Run the job with the provided configuration
+            print(f"Running {self.pipeline_id}...")
+            print(f"Run config: {run_config}")
+            job: JobDefinition = self.dag
+            result = job.execute_in_process(
+                run_config=run_config,
+                instance=instance,
+            )
+
+            # Check execution success
+            if result.success:
+                print(f"Successful execution of {self.pipeline_id} !")
+            else:
+                for event in result.get_step_failure_events():
+                    print(event.message)
+                print(f"Execution of {self.pipeline_id} failed.")
