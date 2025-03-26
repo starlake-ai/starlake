@@ -430,6 +430,7 @@ object JdbcDbUtils extends LazyLogging {
               skipRemarks = true,
               keepOriginalName = true
             )
+            logger.info(s"Extracted tables for schema $schemaName: ${tables.keys.mkString(", ")}")
             schemaName -> tables.keys.toList.sorted
           }
         result.sortBy(_._1)
