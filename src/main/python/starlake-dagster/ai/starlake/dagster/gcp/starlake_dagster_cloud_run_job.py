@@ -4,9 +4,9 @@ from typing import List, Optional, Union
 
 from ai.starlake.dataset import StarlakeDataset
 
-from ai.starlake.dagster import StarlakeDagsterJob
+from ai.starlake.dagster import StarlakeDagsterJob, StarlakeDagsterUtils, DagsterLogicalDatetimeConfig
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment, TaskType
 
 from dagster import Failure, Output, AssetMaterialization, AssetKey, Out, op, RetryPolicy
 
@@ -50,7 +50,7 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
         """
         return StarlakeExecutionEnvironment.CLOUD_RUN
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> NodeDefinition:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, task_type: Optional[TaskType] = None, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_job()
         Generate the Dagster node that will run the starlake command.
 
@@ -59,23 +59,27 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
             arguments (list): The required arguments of the starlake command to run.
             spark_config (Optional[StarlakeSparkConfig], optional): The optional spark configuration. Defaults to None.
             dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
+            task_type (Optional[TaskType], optional): The optional task type. Defaults to None.
 
         Returns:
             NodeDefinition: The Dagster node.
         """
         env = self.sl_env(args=arguments)
 
-        args = f'^{self.separator}^' + self.separator.join(arguments)
-        command = (
-            f"{self.__class__.get_context_var('GOOGLE_CLOUD_SDK', '/usr/local/google-cloud-sdk', self.options)}/bin/gcloud beta run jobs execute {self.cloud_run_job_name} "
-            f"--args \"{args}\" "
-            f"{self.update_env_vars} "
-            f"--wait --region {self.cloud_run_job_region} --project {self.project_id} --format='get(metadata.name)' {self.impersonate_service_account}" #--task-timeout 300
-        )
+        sl_command = f"{self.__class__.get_context_var('GOOGLE_CLOUD_SDK', '/usr/local/google-cloud-sdk', self.options)}/bin/gcloud beta run jobs execute {self.cloud_run_job_name} "
+
+        separator = self.separator
+        update_env_vars = self.update_env_vars
+        region = self.cloud_run_job_region
+        project = self.project_id
+        impersonate_service_account = self.impersonate_service_account
+
+        if not task_type and len(arguments) > 0:
+            task_type = TaskType.from_str(arguments[0])
+        transform = task_type == TaskType.TRANSFORM
+        params = kwargs.get('params', dict())
 
         assets: List[AssetKey] = kwargs.get("assets", [])
-        if dataset:
-            assets.append(self.to_event(dataset))
 
         ins=kwargs.get("ins", {})
 
@@ -96,7 +100,31 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
             out=outs,
             retry_policy=retry_policy,
         )
-        def job(context, **kwargs):
+        def job(context, config: DagsterLogicalDatetimeConfig, **kwargs):
+            if dataset:
+                assets.append(StarlakeDagsterUtils.get_asset(context, config, dataset))
+
+            if transform:
+                opts = arguments[-1].split(",")
+                transform_opts = StarlakeDagsterUtils.get_transform_options(context, config, params).split(',')
+                env.update({
+                    key: value
+                    for opt in transform_opts
+                    if "=" in opt  # Only process valid key=value pairs
+                    for key, value in [opt.split("=")]
+                })
+                opts.extend(transform_opts)
+                arguments[-1] = ",".join(opts)
+
+            args = f'^{separator}^' + separator.join(arguments)
+
+            command = (
+                f"{sl_command}"
+                f"--args \"{args}\" "
+                f"{update_env_vars} "
+                f"--wait --region {region} --project {project} --format='get(metadata.name)' {impersonate_service_account}" #--task-timeout 300
+            )
+
             output, return_code = execute_shell_command(
                 shell_command=command,
                 output_logging="STREAM",

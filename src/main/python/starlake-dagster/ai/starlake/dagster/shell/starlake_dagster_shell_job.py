@@ -1,10 +1,10 @@
 from typing import List, Optional, Union
 
-from ai.starlake.dagster import StarlakeDagsterJob
+from ai.starlake.dagster import StarlakeDagsterJob, StarlakeDagsterUtils, DagsterLogicalDatetimeConfig
 
 from ai.starlake.dataset import StarlakeDataset
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment, TaskType
 
 from dagster import Failure, Output, AssetMaterialization, AssetKey, Out, op, RetryPolicy
 
@@ -26,7 +26,7 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
         """
         return StarlakeExecutionEnvironment.SHELL
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> NodeDefinition:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, task_type: Optional[TaskType] = None, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_job()
         Generate the Dagster node that will run the starlake command.
 
@@ -35,6 +35,7 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
             arguments (list): The required arguments of the starlake command to run.
             spark_config (Optional[StarlakeSparkConfig], optional): The optional spark configuration. Defaults to None.
             dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
+            task_type (Optional[TaskType], optional): The optional task type. Defaults to None.
 
         Returns:
             OpDefinition: The Dagster node.
@@ -70,11 +71,14 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
             arguments.append("--options")
             arguments.append(",".join([f"{key}={value}" for key, value in self.sl_env_vars.items()]))
 
-        command = self.__class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments or [])}"
+        sl_command = self.__class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options)
+
+        if not task_type and len(arguments) > 0:
+            task_type = TaskType.from_str(arguments[0])
+        transform = task_type == TaskType.TRANSFORM
+        params = kwargs.get('params', dict())
 
         assets: List[AssetKey] = kwargs.get("assets", [])
-        if dataset:
-            assets.append(self.to_event(dataset))
 
         ins=kwargs.get("ins", {})
 
@@ -95,7 +99,19 @@ class StarlakeDagsterShellJob(StarlakeDagsterJob):
             out=outs,
             retry_policy=retry_policy,
         )
-        def job(context, **kwargs):
+        def job(context, config: DagsterLogicalDatetimeConfig, **kwargs):
+
+            if dataset:
+                assets.append(StarlakeDagsterUtils.get_asset(context, config, dataset, **kwargs))
+
+            if transform:
+                opts = arguments[-1].split(",")
+                transform_opts = StarlakeDagsterUtils.get_transform_options(context, config, params, **kwargs).split(',')
+                opts.extend(transform_opts)
+                arguments[-1] = ",".join(opts)
+
+            command = sl_command + f" {' '.join(arguments or [])}"
+
             output, return_code = execute_shell_command(
                 shell_command=command,
                 output_logging="STREAM",
