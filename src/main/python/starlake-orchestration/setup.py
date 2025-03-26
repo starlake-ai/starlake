@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='starlake-orchestration',
-      version='0.2.6',
+      version='0.2.7',
       description='Starlake Python Distribution For orchestration',
       long_description=long_description,
       long_description_content_type="text/markdown",
@@ -18,9 +18,9 @@ setup(name='starlake-orchestration',
 #      url='https://github.com/starlake-ai/starlake/tree/master/src/main/python/starlake-orchestration',
       packages=find_packages(include=['ai', 'ai.*']),
       extras_require={
-        "airflow": ["starlake-airflow>=0.2.6"],
-        "dagster": ["starlake-dagster>=0.2.5"],
-        "snowflake": ["starlake-snowflake>=0.1.4"],
+        "airflow": ["starlake-airflow>=0.2.7"],
+        "dagster": ["starlake-dagster>=0.2.6"],
+        "snowflake": ["starlake-snowflake>=0.1.5"],
         "shell": [],
         "gcp": [],
         "aws": [],
