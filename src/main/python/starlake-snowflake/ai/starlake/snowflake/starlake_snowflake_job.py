@@ -944,12 +944,12 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                         def build_copy() -> str:
                             if format == 'DSV':
                                 return build_copy_csv()
-                            elif format == 'JSON':
+                            elif format == 'JSON' or format == 'JSON_FLAT':
                                 return build_copy_json()
                             elif format == 'PARQUET':
-                                return build_copy_other()
+                                return build_copy_other(format)
                             elif format == 'XML':
-                                return build_copy_other()
+                                return build_copy_other(format)
                             else:
                                 raise ValueError(f"Unsupported format {format}")
   
