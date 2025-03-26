@@ -21,7 +21,7 @@
 package ai.starlake.workflow
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extract.ParUtils
+import ai.starlake.extract.{ExtractUtils, ParUtils}
 import ai.starlake.job.infer.{InferSchemaConfig, InferSchemaJob}
 import ai.starlake.job.ingest._
 import ai.starlake.job.load.LoadStrategy
@@ -63,7 +63,9 @@ import org.apache.hadoop.fs.Path
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.time.Instant
 import java.util.Collections
+import java.util.concurrent.Executors
 import scala.annotation.nowarn
+import scala.concurrent.duration.Duration
 import scala.reflect.io.Directory
 import scala.util.{Failure, Success, Try}
 
@@ -462,17 +464,27 @@ class IngestionWorkflow(
 
                   // We group by groupedMax to avoid rateLimit exceeded when the number of grouped files is too big for some cloud storage rate limitations.
                   val groupedPendingPathsIterator =
-                    pendingPaths.grouped(settings.appConfig.groupedMax)
+                    pendingPaths.grouped(settings.appConfig.groupedMax).toList
+                  val startTime = System.currentTimeMillis()
+                  val groupedPendingSize = groupedPendingPathsIterator.size
                   groupedPendingPathsIterator.flatMap { pendingPaths =>
-                    val ingestingPaths = pendingPaths.map { pendingPath =>
-                      val ingestingPath =
-                        new Path(DatasetArea.ingesting(domain.name), pendingPath.path.getName)
-                      if (!storageHandler.move(pendingPath.path, ingestingPath)) {
-                        logger.error(s"Could not move $pendingPath to $ingestingPath")
+                    // Move files concurrently using Future
+                    val ingestingPaths =
+                      ParUtils.runInParallel(settings.appConfig.maxParCopy, pendingPaths) {
+                        pendingPath =>
+                          val ingestingPath =
+                            new Path(
+                              DatasetArea.ingesting(domain.name),
+                              pendingPath.path.getName
+                            )
+                          if (!storageHandler.move(pendingPath.path, ingestingPath)) {
+                            logger.error(s"Could not move $pendingPath to $ingestingPath")
+                          }
+                          ingestingPath
                       }
-                      ingestingPath
-                    }
-                    val jobs = if (settings.appConfig.grouped) {
+
+                    // Wait for all moves to complete
+                    val jobs: Iterable[JobContext] = if (settings.appConfig.grouped) {
                       JobContext(
                         domain,
                         schema,
@@ -481,26 +493,32 @@ class IngestionWorkflow(
                         config.accessToken
                       ) :: Nil
                     } else {
-                      // We ingest all the files but return false if one of them fails.
                       ingestingPaths.map { path =>
-                        JobContext(domain, schema, path :: Nil, config.options, config.accessToken)
+                        JobContext(
+                          domain,
+                          schema,
+                          path :: Nil,
+                          config.options,
+                          config.accessToken
+                        )
                       }
                     }
-                    implicit val forkJoinTaskSupport =
-                      ParUtils.createForkSupport(Some(settings.appConfig.sparkScheduling.maxJobs))
-                    val parJobs =
-                      ParUtils.makeParallel(jobs.toList)
-                    val res = parJobs.map { jobContext =>
-                      ingest(
-                        jobContext.domain,
-                        jobContext.schema,
-                        jobContext.paths,
-                        jobContext.options,
-                        jobContext.accessToken,
-                        config.test
-                      )
-                    }.toList
-                    forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
+                    val moveDuration = System.currentTimeMillis() - startTime
+                    println("Grouped pending paths number = " + groupedPendingSize)
+                    println("Moved files number = " + pendingPaths.size)
+                    println("duration " + ExtractUtils.toHumanElapsedTime(moveDuration))
+                    val res =
+                      ParUtils.runInParallel(settings.appConfig.sparkScheduling.maxJobs, jobs) {
+                        jobContext =>
+                          ingest(
+                            jobContext.domain,
+                            jobContext.schema,
+                            jobContext.paths,
+                            jobContext.options,
+                            jobContext.accessToken,
+                            config.test
+                          )
+                      }
                     res
                   }
                 }
@@ -523,16 +541,17 @@ class IngestionWorkflow(
       successLoads
         .flatMap {
           case Success(result: SparkJobResult) =>
-            Some(result.counters.getOrElse(IngestionCounters(0, 0, 0)))
+            Some(result.counters.getOrElse(IngestionCounters(0, 0, 0, Nil)))
           case Success(_) => None
         }
 
     val counters =
-      successAsJobResult.fold(IngestionCounters(0, 0, 0)) { (acc, c) =>
+      successAsJobResult.fold(IngestionCounters(0, 0, 0, Nil)) { (acc, c) =>
         IngestionCounters(
           acc.inputCount + c.inputCount,
           acc.acceptedCount + c.acceptedCount,
-          acc.rejectedCount + c.rejectedCount
+          acc.rejectedCount + c.rejectedCount,
+          acc.paths ++ c.paths
         )
       }
     if (exceptionsAsString.nonEmpty) {
@@ -675,7 +694,7 @@ class IngestionWorkflow(
   def ingest(
     domain: Domain,
     schema: Schema,
-    ingestingPath: List[Path],
+    ingestingPaths: List[Path],
     options: Map[String, String],
     accessToken: Option[String],
     test: Boolean
@@ -684,7 +703,7 @@ class IngestionWorkflow(
     Utils.println(
       s"""Loading
          |Format: ${metadata.resolveFormat()}
-         |File(s): ${ingestingPath.mkString(",")}
+         |File(s): ${ingestingPaths.mkString(",")}
          |Table: ${domain.finalName}.${schema.finalName}""".stripMargin
     )
     logger.debug(
@@ -699,7 +718,7 @@ class IngestionWorkflow(
             domain,
             schema,
             schemaHandler.types(),
-            ingestingPath,
+            ingestingPaths,
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
@@ -711,7 +730,7 @@ class IngestionWorkflow(
             domain,
             schema,
             schemaHandler.types(),
-            ingestingPath,
+            ingestingPaths,
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
@@ -723,7 +742,7 @@ class IngestionWorkflow(
             domain,
             schema,
             schemaHandler.types(),
-            ingestingPath,
+            ingestingPaths,
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
@@ -735,7 +754,7 @@ class IngestionWorkflow(
             domain,
             schema,
             schemaHandler.types(),
-            ingestingPath,
+            ingestingPaths,
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
@@ -747,7 +766,7 @@ class IngestionWorkflow(
             domain,
             schema,
             schemaHandler.types(),
-            ingestingPath,
+            ingestingPaths,
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
@@ -759,7 +778,7 @@ class IngestionWorkflow(
             domain,
             schema,
             schemaHandler.types(),
-            ingestingPath,
+            ingestingPaths,
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
@@ -771,7 +790,7 @@ class IngestionWorkflow(
             domain,
             schema,
             schemaHandler.types(),
-            ingestingPath,
+            ingestingPaths,
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
@@ -783,7 +802,7 @@ class IngestionWorkflow(
             domain,
             schema,
             schemaHandler.types(),
-            ingestingPath,
+            ingestingPaths,
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
@@ -796,7 +815,7 @@ class IngestionWorkflow(
             domain,
             schema,
             schemaHandler.types(),
-            ingestingPath,
+            ingestingPaths,
             storageHandler,
             schemaHandler,
             optionsAndEnvVars,
@@ -813,20 +832,19 @@ class IngestionWorkflow(
         if (test) {
           logger.info(s"Test mode enabled, no file will be deleted")
         } else if (settings.appConfig.archive) {
-          implicit val forkJoinTaskSupport =
-            ParUtils.createForkSupport(Some(settings.appConfig.maxParCopy))
-          val parIngests =
-            ParUtils.makeParallel(ingestingPath)
-          parIngests.foreach { ingestingPath =>
+          val now = System.currentTimeMillis()
+          ParUtils.runInParallel(settings.appConfig.maxParCopy, ingestingPaths) { ingestingPath =>
             val archivePath =
               new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
             logger.info(s"Backing up file $ingestingPath to $archivePath")
             val _ = storageHandler.move(ingestingPath, archivePath)
           }
-          forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
+          println("Archive duration takes " + ExtractUtils.toHumanElapsedTimeFrom(now))
         } else {
-          logger.info(s"Deleting file $ingestingPath")
-          ingestingPath.foreach(storageHandler.delete)
+          logger.info(s"Deleting file $ingestingPaths")
+          ParUtils.runInParallel(settings.appConfig.maxParCopy, ingestingPaths) { ingestingPath =>
+            storageHandler.delete(ingestingPath)
+          }
         }
         Success(jobResult)
       case Success(Failure(exception)) =>
