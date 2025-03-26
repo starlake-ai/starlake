@@ -267,7 +267,7 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         if not schedule and not dependencies:
             raise ValueError("Either a schedule or dependencies must be provided")
         pipeline_id = job.caller_filename.replace(".py", "").replace(".pyc", "").lower()
-        if schedule:
+        if schedule and schedule.name:
             schedule_name = sanitize_id(schedule.name).lower()
         else:
             schedule_name = None
