@@ -2,7 +2,7 @@ package ai.starlake.lineage
 
 import ai.starlake.config.Settings
 import ai.starlake.lineage.ColLineage.Table
-import ai.starlake.schema.handlers.{SchemaHandler, TableWithNameOnly}
+import ai.starlake.schema.handlers.{SchemaHandler, TableWithNameAndType}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLColumResolver
 import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData, JdbcResultSetMetaData}
@@ -80,13 +80,15 @@ class ColLineage(
     domainName: String,
     tableName: String,
     sqlSubst: String,
-    tablesWithColumnNames: List[(String, TableWithNameOnly)]
+    tablesWithColumnNames: List[(String, TableWithNameAndType)]
   ): ColLineage.Lineage = {
     val sql = sqlSubst.replaceAll("::[a-zA-Z0-9]+", "")
     // remove all ::TEXT (type change in columns)
     var jdbcMetadata = new JdbcMetaData("", "")
     tablesWithColumnNames.foreach { case (domainName, table) =>
-      val jdbcColumns = table.attrs.map { attrName => new JdbcColumn(attrName) }
+      val jdbcColumns = table.attrs.map { case (attrName, attrType, comment) =>
+        new JdbcColumn(attrName)
+      }
       jdbcMetadata = jdbcMetadata.addTable("", domainName, table.name, jdbcColumns.asJava)
     }
 
