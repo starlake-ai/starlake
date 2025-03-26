@@ -37,14 +37,17 @@ object TreeRowValidator extends GenericRowValidator {
 
     val formattedRejectedDF = rejectedDF
       .select(
-        functions.concat(
-          lit("ERR -> \n"),
-          concat_ws("\n", col(RowValidator.SL_ERROR_COL)),
-          lit("\n\nFILE -> "),
-          col(CometColumns.cometInputFileNameColumn)
-        )
+        functions
+          .concat(
+            lit("ERR -> \n"),
+            concat_ws("\n", col(RowValidator.SL_ERROR_COL)),
+            lit("\n\nFILE -> "),
+            col(CometColumns.cometInputFileNameColumn)
+          )
+          .as("errors"),
+        col(CometColumns.cometInputFileNameColumn).as("path")
       )
-      .as[String]
+      .as[SimpleRejectedRecord]
 
     CheckValidityResult(
       formattedRejectedDF.persist(cacheStorageLevel),

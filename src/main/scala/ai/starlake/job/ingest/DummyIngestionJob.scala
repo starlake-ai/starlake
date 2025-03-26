@@ -1,6 +1,7 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
+import ai.starlake.job.validator.SimpleRejectedRecord
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
@@ -26,7 +27,7 @@ class DummyIngestionJob(
     *
     * @param dataset
     */
-  override protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) =
+  override protected def ingest(dataset: DataFrame): (Dataset[SimpleRejectedRecord], Dataset[Row]) =
     throw new Exception("Should never be called. User for applying security only")
 
   override def defineOutputAsOriginalFormat(rejectedLines: DataFrame): DataFrameWriter[Row] = ???

@@ -65,7 +65,7 @@ case class AuditLog(
   countAccepted: Long,
   countRejected: Long,
   timestamp: Timestamp,
-  duration: Long,
+  duration: Long, // in detailed load audit, duration represent the duration at which the log is created and not the duration of the ingestion process. To retrieve the ingestion process duration, it is the max of the column.
   message: String,
   step: String,
   database: Option[String],
@@ -197,12 +197,12 @@ object AuditLog extends StrictLogging {
     None,
     None
   )
-  def sink(log: AuditLog)(implicit
+  def sink(logs: List[AuditLog])(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Try[JobResult] = {
-    this.createTask(log).map { task =>
+    this.createTask(logs).map { task =>
       val res = task.run()
       Utils.logFailure(res, logger)
     } match {
@@ -211,37 +211,44 @@ object AuditLog extends StrictLogging {
     }
   }
 
-  def buildListOfSQLStatements(log: AuditLog)(implicit
+  def buildListOfSQLStatements(logs: List[AuditLog])(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Option[TaskSQLStatements] = {
     val auditSink = settings.appConfig.audit.getSink()
     val template = AuditLog.selectTemplate(auditSink.getConnection().getJdbcEngineName()).pyFormat()
-    createTask(log).map { task =>
+    createTask(logs).map { task =>
       val statements = task.buildListOfSQLStatements()
       statements.copy(mainSqlIfExists = List(template), mainSqlIfNotExists = null)
     }
   }
 
-  private def createTask(log: AuditLog)(implicit
+  private def createTask(logs: List[AuditLog])(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Option[AutoTask] = {
-    if (settings.appConfig.audit.isActive() && !log.test) {
+    val productionLog = logs.filter(!_.test)
+    if (settings.appConfig.audit.isActive() && productionLog.nonEmpty) {
       val auditSink = settings.appConfig.audit.getSink()
       auditSink.getConnectionType() match {
         case ConnectionType.GCPLOG =>
           val logName = settings.appConfig.audit.getDomain()
           // TODO handle gcp log when builing statements
-          GcpUtils.sinkToGcpCloudLogging(log.asMap(), "audit", logName)
+          GcpUtils.sinkToGcpCloudLogging(productionLog.map(_.asMap()), "audit", logName)
           None
         case _ =>
-          val selectSql =
-            log.asSelect(auditSink.getConnection().getJdbcEngineName())
+          // TODO: if detailed load audit is set to true and sink is bigquery, we may generate a query that is too long
+          // max bigquery size is 1024k characters.
+          val jobId = productionLog.headOption
+            .map(_.jobid)
+            .getOrElse(throw new RuntimeException("No logs found, should not happen"))
+          val selectSql = productionLog
+            .map(_.asSelect(auditSink.getConnection().getJdbcEngineName()))
+            .mkString("\nUNION ALL\n")
           val auditTaskDesc = AutoTaskDesc(
-            name = s"audit-${log.jobid}",
+            name = s"audit-$jobId",
             sql = Some(selectSql),
             database = settings.appConfig.audit.getDatabase(),
             domain = settings.appConfig.audit.getDomain(),
@@ -264,12 +271,12 @@ object AuditLog extends StrictLogging {
             }
           val task = AutoTask
             .task(
-              Option(log.jobid),
+              Option(jobId),
               auditTaskDesc,
               Map.empty,
               None,
               truncate = false,
-              test = log.test,
+              test = false,
               engine = engine,
               logExecution = false // We do not log the job that write the logs :)
             )

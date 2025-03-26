@@ -7,6 +7,7 @@ import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{GcpCredentials, Utils}
 import better.files.File
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.gax.core.FixedCredentialsProvider
 import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1._
@@ -1136,28 +1137,30 @@ object BigQueryJobBase extends StrictLogging {
     */
   def recoverBigqueryException[T](bigqueryProcess: => T): Try[T] = {
     def processWithRetry(retry: Int = 0, bigqueryProcess: => T): Try[T] = {
+      def retryOneMoreTime(be: Exception) = {
+        logger.error(be.getMessage)
+        val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
+        logger.error(s"Retry in $sleepTime. ${be.getMessage}")
+        Thread.sleep(sleepTime)
+        processWithRetry(retry + 1, bigqueryProcess)
+      }
       Try {
         bigqueryProcess
       }.recoverWith {
+        case be: GoogleJsonResponseException if be.getStatusCode == 503 =>
+          retryOneMoreTime(be)
         case be: BigQueryException
             if retry < 3 && scala
               .Option(be.getError)
               .exists(e =>
                 e.getReason() == "rateLimitExceeded" || e.getReason == "jobRateLimitExceeded"
               ) =>
-          val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
-          logger.error(s"Retry in $sleepTime. ${be.getMessage}")
-          Thread.sleep(sleepTime)
-          processWithRetry(retry + 1, bigqueryProcess)
+          retryOneMoreTime(be)
         case be: BigQueryException
             if retry < 3 && scala.Option(be.getError).exists(_.getReason() == "duplicate") =>
-          logger.error(be.getMessage)
           processWithRetry(retry + 1, bigqueryProcess)
         case te: TimeoutException if retry < 3 =>
-          val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
-          logger.error(s"Retry in $sleepTime. ${te.getMessage}")
-          Thread.sleep(sleepTime)
-          processWithRetry(retry + 1, bigqueryProcess)
+          retryOneMoreTime(te)
       }
     }
     processWithRetry(bigqueryProcess = bigqueryProcess)

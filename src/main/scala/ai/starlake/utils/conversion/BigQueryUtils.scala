@@ -146,8 +146,8 @@ object BigQueryUtils {
     (tableId.getProject, tableId.getDataset, tableId.getTable) match {
       case (null, null, null)        => ""
       case (null, null, table)       => table
-      case (null, dataset, table)    => s"$dataset.$table"
-      case (project, dataset, table) => s"`$project`.$dataset.$table"
+      case (null, dataset, table)    => s"`$dataset`.`$table`"
+      case (project, dataset, table) => s"`$project`.`$dataset`.`$table`"
     }
   }
 }
