@@ -113,14 +113,18 @@ class StarlakeDagsterFargateJob(StarlakeDagsterJob):
             tmp_file = os.path.basename(tmp_file_path)
             context.log.info(f"Temporary script location: {tmp_file}")
 
-            output, return_code = execute_shell_script(
-                    shell_script_path=tmp_file,
-                    output_logging="STREAM",
-                    log=context.log,
-                    cwd=tmp_path,
-                    env=env,
-                    log_shell_command=True,
-                )
+            if config.dry_run:
+                output, return_code = f"Starlake command {command} execution skipped due to dry run mode.", 0
+                context.log.info(output)
+            else:
+                output, return_code = execute_shell_script(
+                        shell_script_path=tmp_file,
+                        output_logging="STREAM",
+                        log=context.log,
+                        cwd=tmp_path,
+                        env=env,
+                        log_shell_command=True,
+                    )
 
             os.unlink(tmp_file_path)
 

@@ -166,6 +166,7 @@ from dagster import Config
 
 class DagsterLogicalDatetimeConfig(Config):
     logical_datetime: Optional[str]
+    dry_run: bool = False
 
 class StarlakeDagsterUtils:
 
@@ -180,7 +181,7 @@ class StarlakeDagsterUtils:
         try:
             partition_key = context.partition_key
         except Exception as e:
-            context.log.error(f"Error: {e}")
+            context.log.warning(e)
             partition_key = None
         if partition_key:
             context.log.info(f"Partition key: {partition_key}")
@@ -191,7 +192,11 @@ class StarlakeDagsterUtils:
             logical_datetime = parser.isoparse(config.logical_datetime).astimezone(pytz.timezone('UTC'))
         else:
             run_stats = context.instance.get_run_stats(context.dagster_run.run_id)._asdict()
-            logical_datetime = datetime.fromtimestamp(run_stats.get('launch_time')).astimezone(pytz.timezone('UTC'))
+            launch_time = run_stats.get('launch_time')
+            if not launch_time:
+                logical_datetime = datetime.now().astimezone(pytz.timezone('UTC'))
+            else:
+                logical_datetime = datetime.fromtimestamp(run_stats.get('launch_time')).astimezone(pytz.timezone('UTC'))
         context.log.info(f"logical datetime : {logical_datetime}")
         return logical_datetime
 
