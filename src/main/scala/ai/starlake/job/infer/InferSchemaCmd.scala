@@ -9,6 +9,7 @@ import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import scopt.OParser
 
+import java.nio.charset.Charset
 import scala.util.{Failure, Success, Try}
 
 object InferSchemaCmd extends Cmd[InferSchemaConfig] with StrictLogging {
@@ -58,7 +59,12 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] with StrictLogging {
         .opt[Unit]("clean")
         .action((_, c) => c.copy(clean = true))
         .optional()
-        .text("Delete previous YML before writing")
+        .text("Delete previous YML before writing"),
+      builder
+        .opt[String]("encoding")
+        .action((x, c) => c.copy(encoding = Charset.forName(x)))
+        .optional()
+        .text("Input file encoding. Default to UTF-8")
     )
   }
 
