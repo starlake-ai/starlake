@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from ai.starlake.common import sort_crons_by_frequency
 from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
 from ai.starlake.dataset import StarlakeDataset
-from ai.starlake.orchestration import AbstractOrchestration, StarlakeSchedule, StarlakeDependencies, AbstractPipeline, AbstractTaskGroup, AbstractTask, AbstractDependency
+from ai.starlake.orchestration import AbstractOrchestration, StarlakeSchedule, StarlakeDependencies, AbstractPipeline, AbstractTaskGroup, AbstractTask
 
-from ai.starlake.snowflake.starlake_snowflake_job import StarlakeSnowflakeJob
+from ai.starlake.snowflake.starlake_snowflake_job import StarlakeSnowflakeJob 
+from ai.starlake.snowflake.exceptions import StarlakeSnowflakeError
 
 from snowflake.core import Root
 from snowflake.core._common import CreateMode
@@ -135,20 +137,21 @@ class SnowflakeDag(DAG):
                 config = json.loads(config)
             else:
                 config = {}
-            original_schedule = config.get("logical_date", None)
-            if not original_schedule:
+            check_freshness = config.get("check_freshness", True)
+            logical_date: Optional[Union[str, datetime]] = config.get("logical_date", None)
+            if not logical_date:
                 query = f"select to_timestamp(system$task_runtime_info('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))"
                 rows = execute_sql(session, query, "Getting the original scheduled timestamp of the initial graph run in the current group", dry_run)
                 if rows:
-                    original_schedule = rows[0][0]
+                    logical_date = rows[0][0]
                 else:
-                    original_schedule = None
-            if original_schedule:
-                if isinstance(original_schedule, str):
+                    logical_date = None
+            if logical_date:
+                if isinstance(logical_date, str):
                     from dateutil import parser
-                    start_time = parser.parse(original_schedule)
+                    start_time = parser.parse(logical_date)
                 else:
-                    start_time = original_schedule
+                    start_time = logical_date
             else:
                 start_time = datetime.fromtimestamp(datetime.now().timestamp())
 
@@ -179,21 +182,27 @@ class SnowflakeDag(DAG):
                         sl_end_date = previous
                     sl_start_date = croniter(cron_expr, sl_end_date).get_prev(datetime)
                     change = f"SELECT count(*) FROM {dataset} CHANGES(INFORMATION => DEFAULT) AT(TIMESTAMP => '{sl_start_date.strftime(format)}') END (TIMESTAMP => '{sl_end_date.strftime(format)}')"
-                    rows = execute_sql(session, change, f"Checking changes for dataset {dataset} from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}", dry_run)
-                    if rows:
-                        count = rows[0][0]
-                    else:
+                    __error = None
+                    try:
+                        rows = execute_sql(session, change, f"Checking freshness of {dataset} dataset from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)} using time travel", dry_run)
+                        if rows:
+                            count = rows[0][0]
+                        else:
+                            count = 0
+                    except Exception as e:
+                        __error = e
                         count = 0
-                    if count == 0:
-                        error=f"Dataset {dataset} has no changes from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}"
-                        print(error)
-                        if not dry_run:
-                            raise ValueError(error)
-                    print(f"Dataset {dataset} has data from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}")
+                    if count == 0 and check_freshness:
+                        raise ValueError(f"Error checking {dataset} dataset freshness from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}{' -> ' + str(__error) if __error else ''}")
+                    elif dry_run:
+                        print(f"-- Dataset {dataset} has {count} changes from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}")
                 except CroniterBadCronError:
                     raise ValueError(f"Invalid cron expression: {cron_expr}")
                 except Exception as e:
-                    raise ValueError(f"Error checking changes for dataset {dataset}: {str(e)}")
+                    if dry_run:
+                        print(f"-- {str(e)}")
+                    else:
+                        raise e
 
         definition = StoredProcedureCall(
             func = fun, 
@@ -205,10 +214,35 @@ class SnowflakeDag(DAG):
         if not schedule and not condition:
             if computed_cron:
                 schedule = computed_cron
-            else:
-                raise ValueError("A DAG must be scheduled or have a condition")
+            elif changes:
+                sorted_crons = sort_crons_by_frequency(list(changes.values()))
+                most_frequent_cron = sorted_crons[0][0]
+                from datetime import datetime
+                from croniter import croniter
+                iter_cron = croniter(most_frequent_cron, start_time=datetime.now())
+                next_run_1 = iter_cron.get_next(datetime)
+                next_run_2 = iter_cron.get_next(datetime)
+                schedule = next_run_2 - next_run_1
+            else: 
+                raise StarlakeSnowflakeError("A DAG must be scheduled or depends on stream(s) or at least one dataset with a cron expression")
 
-        super().__init__(name, schedule=schedule, warehouse=warehouse, user_task_managed_initial_warehouse_size=user_task_managed_initial_warehouse_size, error_integration=error_integration, comment=comment, task_auto_retry_attempts=task_auto_retry_attempts, allow_overlapping_execution=allow_overlapping_execution, user_task_timeout_ms=user_task_timeout_ms, suspend_task_after_num_failures=suspend_task_after_num_failures, config=config, session_parameters=session_parameters, stage_location=stage_location, imports=imports, packages=packages, use_func_return_value=use_func_return_value)
+        super().__init__(
+            name=name, 
+            schedule=schedule, 
+            warehouse=warehouse,
+            user_task_managed_initial_warehouse_size=user_task_managed_initial_warehouse_size,
+            error_integration=error_integration, 
+            comment=comment, 
+            task_auto_retry_attempts=task_auto_retry_attempts, 
+            allow_overlapping_execution=allow_overlapping_execution,
+            user_task_timeout_ms=user_task_timeout_ms,
+            suspend_task_after_num_failures=suspend_task_after_num_failures, 
+            config=config, 
+            session_parameters=session_parameters, 
+            stage_location=stage_location, 
+            imports=imports, packages=packages, 
+            use_func_return_value=use_func_return_value
+        )
         self.definition = definition
         self.condition = condition
 
@@ -242,14 +276,12 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
         super().__init__(job, orchestration_cls=SnowflakeOrchestration, dag=None, schedule=schedule, dependencies=dependencies, orchestration=orchestration, add_dag_dependency=fun, **kwargs)
 
         snowflake_schedule: Union[Cron, None] = None
-        computed_cron: Union[Cron, None] = None
         if self.cron is not None:
             snowflake_schedule = Cron(self.cron, job.timezone)
-        elif self.datasets is not None:
-            if self.computed_cron_expr is not None:
-                computed_cron = Cron(self.computed_cron_expr, job.timezone)
-            else:
-                snowflake_schedule = timedelta(minutes=60) # FIXME should we keep a default value here?
+
+        computed_cron: Union[Cron, None] = None
+        if self.computed_cron_expr is not None:
+            computed_cron = Cron(self.computed_cron_expr, job.timezone)
 
         self._stage_location = job.stage_location
         self._warehouse = job.warehouse
@@ -308,7 +340,7 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
         database = kwargs.get('SNOWFLAKE_DB', env.get('SNOWFLAKE_DB', None))
         schema = kwargs.get('SNOWFLAKE_SCHEMA', env.get('SNOWFLAKE_SCHEMA', None))
         if database is None or schema is None:
-            raise ValueError("Database and schema must be provided to deploy the pipeline")
+            raise StarlakeSnowflakeError("Database and schema must be provided to deploy the pipeline")
         stage_name = f"{database}.{schema}.{self.stage_location}".upper()
         result = session.sql(f"SHOW STAGES LIKE '{stage_name.split('.')[-1]}'").collect()
         if not result:
@@ -326,7 +358,7 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
         database = kwargs.get('SNOWFLAKE_DB', env.get('SNOWFLAKE_DB', None))
         schema = kwargs.get('SNOWFLAKE_SCHEMA', env.get('SNOWFLAKE_SCHEMA', None))
         if database is None or schema is None:
-            raise ValueError("Database and schema must be provided to delete the pipeline")
+            raise StarlakeSnowflakeError("Database and schema must be provided to delete the pipeline")
         op = self.get_dag_operation(session, database, schema)
         op.delete(self.pipeline_id)
         print(f"Pipeline {self.pipeline_id} deleted")
@@ -359,13 +391,14 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             schema = kwargs.get('SNOWFLAKE_SCHEMA', env.get('SNOWFLAKE_SCHEMA', None))
             op = self.get_dag_operation(session, database, schema)
             task = op.schema.tasks[self.pipeline_id]
+            config = dict()
+            config.update({"check_freshness": False})
             if logical_date:
-                import json
-                config = dict()
                 config.update({"logical_date": logical_date})
-                task.suspend()
-                session.sql(f"ALTER TASK IF EXISTS {self.pipeline_id} SET CONFIG = '{json.dumps(config)}'").collect()
-                task.resume()
+            task.suspend()
+            import json
+            session.sql(f"ALTER TASK IF EXISTS {self.pipeline_id} SET CONFIG = '{json.dumps(config)}'").collect()
+            task.resume()
             task.execute()
             from datetime import datetime
             dag_runs = op.get_current_dag_runs(self.dag)
@@ -373,7 +406,7 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             def check_started(dag_runs: List[DAGRun]) -> bool:
                 import time
                 if not dag_runs:
-                    raise ValueError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed to run")
+                    raise StarlakeSnowflakeError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed to run")
                 else:
                     while True:
                         dag_runs_sorted: List[DAGRun] = sorted(dag_runs, key=lambda run: run.scheduled_time, reverse=True)
@@ -420,7 +453,7 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
                             return check_status(result)
                         else:
                             # if the pipeline is not executing and has not failed, we consider it as failed
-                            raise ValueError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed")
+                            raise StarlakeSnowflakeError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed")
                     elif datetime.now() - start > timedelta(seconds=int(timeout)):
                         raise TimeoutError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} timed out")
                     else:
@@ -429,19 +462,19 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
                         return check_status(result)
             status = check_status(SnowflakeDagResult(tasks = list(map(lambda task: SnowflakeTaskResult(name = task.full_name), self.dag.tasks))))
             if status.has_failed:
-                raise ValueError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed -> {status}")
+                raise StarlakeSnowflakeError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed -> {status}")
             elif status.is_succeeded:
                 print(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} succeeded -> {status}")
             else:
-                raise ValueError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed -> {status}")
+                raise StarlakeSnowflakeError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed -> {status}")
 
         elif mode == StarlakeExecutionMode.BACKFILL:
             if not logical_date:
-                raise ValueError("Logical date must be provided to backfill the pipeline")
+                raise StarlakeSnowflakeError("Logical date must be provided to backfill the pipeline")
             self.run(logical_date=logical_date, timeout=timeout, mode=StarlakeExecutionMode.RUN, **kwargs)
 
         else:
-            raise ValueError(f"Execution mode {mode} is not supported")
+            raise StarlakeSnowflakeError(f"Execution mode {mode} is not supported")
 
     def get_dag_operation(self, session: Session, database: str, schema: str) -> DAGOperation:
         session.sql(f"USE DATABASE {database}").collect()
@@ -518,42 +551,8 @@ class SnowflakeDagResult:
         return self.__repr__()
 
 class SnowflakeTaskGroup(AbstractTaskGroup[List[DAGTask]]):
-    def __init__(self, group_id: str, group: List[DAGTask], dag: Optional[SnowflakeDag] = None, **kwargs) -> None:
+    def __init__(self, group_id: str, group: List[DAGTask], **kwargs) -> None:
         super().__init__(group_id=group_id, orchestration_cls=SnowflakeOrchestration, group=group, **kwargs)
-        self.dag = dag
-        self._group_as_map = dict()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        for dep in self.dependencies:
-            if isinstance(dep, SnowflakeTaskGroup):
-                self._group_as_map.update({dep.id: dep})
-            elif isinstance(dep, AbstractTask):
-                self._group_as_map.update({dep.id: dep.task})
-        return super().__exit__(exc_type, exc_value, traceback)
-
-    @property
-    def group_leaves(self) -> List[DAGTask]:
-        leaves = []
-        for leaf in self.leaves_keys:
-            dep = self._group_as_map.get(leaf, None)
-            if dep:
-                if isinstance(dep, SnowflakeTaskGroup):
-                    leaves.extend(dep.group_leaves)
-                else:
-                    leaves.append(dep)
-        return leaves
-
-    @property
-    def group_roots(self) -> List[DAGTask]:
-        roots = []
-        for root in self.roots_keys:
-            dep = self._group_as_map.get(root, None)
-            if dep:
-                if isinstance(dep, SnowflakeTaskGroup):
-                    roots.extend(dep.group_roots)
-                else:
-                    roots.append(dep)
-        return roots
 
 class SnowflakeOrchestration(AbstractOrchestration[SnowflakeDag, DAGTask, List[DAGTask], StarlakeDataset]):
     def __init__(self, job: StarlakeSnowflakeJob, **kwargs) -> None:
@@ -592,7 +591,6 @@ class SnowflakeOrchestration(AbstractOrchestration[SnowflakeDag, DAGTask, List[D
             task_group = SnowflakeTaskGroup(
                 group_id = task[0].name.split('.')[-1],
                 group = task, 
-                dag = pipeline.dag,
             )
 
             with task_group:
@@ -633,7 +631,6 @@ class SnowflakeOrchestration(AbstractOrchestration[SnowflakeDag, DAGTask, List[D
         return SnowflakeTaskGroup(
             group_id, 
             group=[],
-            dag=pipeline.dag, 
             **kwargs
         )
 
