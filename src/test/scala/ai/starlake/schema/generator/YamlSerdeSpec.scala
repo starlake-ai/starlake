@@ -1064,6 +1064,7 @@ object YamlConfigGenerators {
       sql               <- Gen.option(arbitrary[String])
       domainExpectation <- Gen.option(arbitrary[String])
       domainRejected    <- Gen.option(arbitrary[String])
+      detailedLoadAudit <- arbitrary[Boolean]
     } yield Audit(
       path = path,
       sink = sink,
@@ -1073,7 +1074,8 @@ object YamlConfigGenerators {
       active = active,
       sql = sql,
       domainExpectation = domainExpectation,
-      domainRejected = domainRejected
+      domainRejected = domainRejected,
+      detailedLoadAudit = detailedLoadAudit
     )
   }
 

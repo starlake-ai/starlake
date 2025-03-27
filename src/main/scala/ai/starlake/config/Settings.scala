@@ -130,7 +130,8 @@ object Settings extends StrictLogging {
     active: Option[Boolean],
     sql: Option[String],
     domainExpectation: Option[String],
-    domainRejected: Option[String]
+    domainRejected: Option[String],
+    detailedLoadAudit: Boolean
   ) {
     def isActive(): Boolean = this.active.getOrElse(false)
 
