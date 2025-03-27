@@ -501,10 +501,6 @@ class IngestionWorkflow(
                         )
                       }
                     }
-                    val moveDuration = System.currentTimeMillis() - startTime
-                    println("Grouped pending paths number = " + groupedPendingSize)
-                    println("Moved files number = " + pendingPaths.size)
-                    println("duration " + ExtractUtils.toHumanElapsedTime(moveDuration))
                     val res =
                       ParUtils.runInParallel(settings.appConfig.sparkScheduling.maxJobs, jobs) {
                         jobContext =>
@@ -830,14 +826,12 @@ class IngestionWorkflow(
         if (test) {
           logger.info(s"Test mode enabled, no file will be deleted")
         } else if (settings.appConfig.archive) {
-          val now = System.currentTimeMillis()
           ParUtils.runInParallel(settings.appConfig.maxParCopy, ingestingPaths) { ingestingPath =>
             val archivePath =
               new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
             logger.info(s"Backing up file $ingestingPath to $archivePath")
             val _ = storageHandler.move(ingestingPath, archivePath)
           }
-          println("Archive duration takes " + ExtractUtils.toHumanElapsedTimeFrom(now))
         } else {
           logger.info(s"Deleting file $ingestingPaths")
           ParUtils.runInParallel(settings.appConfig.maxParCopy, ingestingPaths) { ingestingPath =>
