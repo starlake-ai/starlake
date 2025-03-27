@@ -15,6 +15,7 @@ __Improvement__:
 - **BREAKING CHANGE** schema inference consider Numbers starting with 0 as String, such as for company identifier
 - **BREAKING CHANGE** schema inference consider Numbers starting with + as String, such as a telephone number
 - Move files in parallel during ingestion phase. In order to increase parallelism, set SL_MAX_PAR_COPY. Default to 1.
+- add encoding option to schema-inference
 
 __Miscellaneous__:
 - **BREAKING CHANGE** default value don't apply on empty string directly. It depends on the definition of emptyIsNull instead. So if emptyIsNull=true then default value is used

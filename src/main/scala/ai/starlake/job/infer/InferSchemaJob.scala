@@ -30,6 +30,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 import java.io.BufferedReader
+import java.nio.charset.Charset
 import java.util.regex.Pattern
 import scala.util.Try
 
@@ -62,7 +63,9 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     *   : list of lines read from file
     * @return
     */
-  def getFormatFile(inputPath: String)(implicit storageHandler: StorageHandler): String = {
+  def getFormatFile(inputPath: String, encoding: Charset)(implicit
+    storageHandler: StorageHandler
+  ): String = {
     val file = File(inputPath)
 
     val filePath = new Path(inputPath)
@@ -70,9 +73,9 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     file.extension(includeDot = false).getOrElse("").toLowerCase() match {
       case "parquet" => "PARQUET"
       case "xml"     => "XML"
-      case "json" if filePath.firstLine.startsWith("[") =>
+      case "json" if filePath.firstLine(encoding).startsWith("[") =>
         "JSON_ARRAY"
-      case "json" if filePath.firstLine.startsWith("{") =>
+      case "json" if filePath.firstLine(encoding).startsWith("{") =>
         "JSON"
       case "csv" | "dsv" | "tsv" | "psv" => "DSV"
       case _ =>
@@ -85,7 +88,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         val xmlRegexStart = """<.*""".r
         val xmlRegexEnd = """.*>""".r
 
-        (filePath.firstLine, filePath.lastLine) match {
+        (filePath.firstLine(encoding), filePath.lastLine(encoding)) match {
           case (jsonRegexStart(), jsonRegexEnd())           => "JSON"
           case (jsonArrayRegexStart(), jsonArrayRegexEnd()) => "JSON_ARRAY"
           case (xmlRegexStart(), xmlRegexEnd())             => "XML"
@@ -141,10 +144,11 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     dataPath: String,
     tableName: String,
     rowTag: Option[String],
+    encoding: Charset,
     inferSchema: Boolean = true,
     forceFormat: Option[Format] = None
   )(implicit storageHandler: StorageHandler): (DataFrame, Option[String], String) = {
-    val formatFile = forceFormat.map(_.toString).getOrElse(getFormatFile(dataPath))
+    val formatFile = forceFormat.map(_.toString).getOrElse(getFormatFile(dataPath, encoding))
 
     formatFile match {
       case "PARQUET" =>
@@ -154,10 +158,12 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
       case "JSON_ARRAY" =>
         val df = session.read
           .option("multiLine", true)
+          .option("lineSep", "\n")
+          .option("encoding", encoding.name())
           .json(dataPath)
         (df, None, formatFile)
       case "JSON" =>
-        val isJsonL = storageHandler.readAndExecute(new Path(dataPath))(isr => {
+        val isJsonL = storageHandler.readAndExecute(new Path(dataPath), encoding)(isr => {
           val bufferedReader = new BufferedReader(isr)
           (Iterator continually bufferedReader.readLine takeWhile (_ != null))
             .map(_.trim)
@@ -167,14 +173,16 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             })
         })
         val df = session.read
+          .option("encoding", encoding.name())
           .option("multiLine", !isJsonL)
+          .option("lineSep", "\n")
           .json(dataPath)
         (df, None, formatFile)
       case "XML" =>
         // find second occurrence of xml tag starting with letter in content
         val tag = {
           rowTag.getOrElse {
-            storageHandler.readAndExecute(new Path(dataPath))(isr => {
+            storageHandler.readAndExecute(new Path(dataPath), encoding)(isr => {
               val bufferedReader = new BufferedReader(isr)
               import scala.jdk.CollectionConverters._
               val lineIterator = bufferedReader.lines().iterator().asScala
@@ -203,6 +211,8 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
 
         val df = session.read
           .format("com.databricks.spark.xml")
+          .option("encoding", encoding.name())
+          .option("charset", encoding.name())
           .option("rowTag", tag)
           .option("inferSchema", value = inferSchema)
           .load(dataPath)
@@ -213,7 +223,8 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           .format("com.databricks.spark.csv")
           .option("header", value = true)
           .option("inferSchema", value = inferSchema)
-          .option("delimiter", getSeparator(new Path(dataPath).firstLine))
+          .option("encoding", encoding.name())
+          .option("delimiter", getSeparator(new Path(dataPath).firstLine(encoding)))
           .option("parserLib", "UNIVOCITY")
           .load(dataPath)
         (df, None, formatFile)
@@ -221,22 +232,22 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
   }
 
   private implicit class RichPath(filePath: Path) {
-    def firstLine(implicit storageHandler: StorageHandler): String =
-      storageHandler.readAndExecute(filePath)(isr => {
+    def firstLine(encoding: Charset)(implicit storageHandler: StorageHandler): String =
+      storageHandler.readAndExecute(filePath, encoding)(isr => {
         val bufferedReader = new BufferedReader(isr)
         bufferedReader.readLine()
       })
 
-    def lastLine(implicit storageHandler: StorageHandler): String =
-      storageHandler.readAndExecute(filePath)(isr => {
+    def lastLine(encoding: Charset)(implicit storageHandler: StorageHandler): String =
+      storageHandler.readAndExecute(filePath, encoding)(isr => {
         val bufferedReader = new BufferedReader(isr)
         (Iterator continually bufferedReader.readLine takeWhile (_ != null)).foldLeft("") {
           case (_, line) => line
         }
       })
 
-    def lines(implicit storageHandler: StorageHandler): List[String] =
-      storageHandler.readAndExecute(filePath)(isr => {
+    def lines(encoding: Charset)(implicit storageHandler: StorageHandler): List[String] =
+      storageHandler.readAndExecute(filePath, encoding)(isr => {
         val bufferedReader = new BufferedReader(isr)
         (Iterator continually bufferedReader.readLine takeWhile (_ != null)).toList
       })
@@ -258,6 +269,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
     writeMode: WriteMode,
     rowTag: Option[String],
     clean: Boolean,
+    encoding: Charset,
     variant: Boolean = false
   )(implicit storageHandler: StorageHandler): Try[Path] = {
     Try {
@@ -269,7 +281,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             if (forceFormat.exists(Format.isBinary))
               List("")
             else {
-              path.lines
+              path.lines(encoding)
             }
           val lines = content.map(_.trim).filter(_.nonEmpty)
           var lastIndex = -1
@@ -296,7 +308,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
               sample = Option(field)
             )
           }
-          val metadata = InferSchemaHandler.createMetaData(Format.POSITION)
+          val metadata = InferSchemaHandler.createMetaData(Format.POSITION, encoding)
 
           InferSchemaHandler.createSchema(
             tableName,
@@ -313,7 +325,8 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
               inputPath,
               tableName,
               rowTag,
-              forceFormat = forceFormat
+              forceFormat = forceFormat,
+              encoding = encoding
             )
           val array = formatStr == "JSON_ARRAY"
           val format = Format.fromString(formatStr)
@@ -328,7 +341,8 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
                   tableName,
                   rowTag,
                   inferSchema = false,
-                  Some(format)
+                  encoding = encoding,
+                  forceFormat = Some(format)
                 )
               rawDataframeWithFormat
             case _ =>
@@ -363,10 +377,11 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           val xmlOptions = xmlTag.map(tag => Map("rowTag" -> tag))
           val metadata = InferSchemaHandler.createMetaData(
             preciseFormat,
+            encoding,
             Option(array),
             Some(true),
             format match {
-              case DSV => Some(getSeparator(path.firstLine))
+              case DSV => Some(getSeparator(path.firstLine(encoding)))
               case _   => None
             },
             xmlOptions
