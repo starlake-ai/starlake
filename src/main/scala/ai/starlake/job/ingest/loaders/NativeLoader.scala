@@ -58,7 +58,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       .hasTransformOrIgnoreOrScriptColumns() ||
     strategy.isMerge() ||
     schema.filter.nonEmpty ||
-    settings.appConfig.archiveTable
+    settings.appConfig.archiveTable || settings.appConfig.audit.detailedLoadAudit && path.size > 1
   }
 
   val twoSteps: Boolean = requireTwoSteps(starlakeSchema)
@@ -318,7 +318,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
   def auditStatements(): Option[TaskSQLStatements] = {
     if (settings.appConfig.audit.active.getOrElse(true)) {
       val auditStatements =
-        AuditLog.buildListOfSQLStatements(auditLog)(settings, storageHandler, schemaHandler)
+        AuditLog.buildListOfSQLStatements(List(auditLog))(settings, storageHandler, schemaHandler)
       auditStatements
     } else {
       None

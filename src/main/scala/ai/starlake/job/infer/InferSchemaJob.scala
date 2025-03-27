@@ -25,7 +25,6 @@ import ai.starlake.schema.handlers.{DataTypesToInt, InferSchemaHandler, StorageH
 import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model._
 import better.files.File
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
@@ -434,7 +433,7 @@ object InferSchemaJob {
       val prefixWithoutNonAlpha =
         if (
           indexOfNonAlpha != -1 &&
-          indexOfNonAlpha < prefix.length &&
+          (indexOfNonAlpha + 1) < prefix.length &&
           prefix(indexOfNonAlpha + 1).isDigit
         )
           prefix.substring(0, indexOfNonAlpha + 1) // hello-1234 => hello-
@@ -444,24 +443,5 @@ object InferSchemaJob {
       else
         s"$prefixWithoutNonAlpha.*.$extension"
     }
-  }
-  def main(args: Array[String]): Unit = {
-    val config = ConfigFactory.load()
-    implicit val settings = Settings(config, None, None)
-
-    val job = new InferSchemaJob()
-    job.infer(
-      domainName = "domain",
-      tableName = "table",
-      pattern = None,
-      comment = None,
-      // inputPath = "/Users/hayssams/Downloads/jsonarray.json",
-      inputPath = "/Users/hayssams/Downloads/ndjson-sample.json",
-      saveDir = "/Users/hayssams/tmp/aaa",
-      forceFormat = None,
-      writeMode = WriteMode.OVERWRITE,
-      rowTag = None,
-      clean = false
-    )(settings.storageHandler())
   }
 }

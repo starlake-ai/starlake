@@ -57,7 +57,8 @@ class BigQueryNativeJob(
         val formatOptions: FormatOptions = bqLoadFormatOptions()
         cliConfig.source match {
           case Left(sourceURIs) =>
-            val uri = sourceURIs.split(",").head
+            val sourceURIList = sourceURIs.split(",").toList
+            val uri = sourceURIList.head
 
             // We upload local files first.
             val localFiles = uri.startsWith("file:")
@@ -65,7 +66,7 @@ class BigQueryNativeJob(
               .recoverBigqueryException {
                 val job = {
                   if (localFiles) {
-                    loadLocalFilePathsToBQ(bqSchema, formatOptions, sourceURIs.split(","))
+                    loadLocalFilePathsToBQ(bqSchema, formatOptions, sourceURIList)
                   } else {
                     val loadConfig: LoadJobConfiguration =
                       bqLoadConfig(bqSchema, formatOptions, sourceURIs)
@@ -76,12 +77,17 @@ class BigQueryNativeJob(
                     )
                   }
                 }
+                job
+              }
+              .flatMap { job =>
                 logger.info(s"Waiting for job ${job.getJobId}")
                 // Blocks until this load table job completes its execution, either failing or succeeding.
-                job.waitFor(
-                  RetryOption.totalTimeout(
-                    org.threeten.bp.Duration.ofMillis(
-                      jobTimeoutMs.getOrElse(settings.appConfig.longJobTimeoutMs)
+                BigQueryJobBase.recoverBigqueryException(
+                  job.waitFor(
+                    RetryOption.totalTimeout(
+                      org.threeten.bp.Duration.ofMillis(
+                        jobTimeoutMs.getOrElse(settings.appConfig.longJobTimeoutMs)
+                      )
                     )
                   )
                 )
@@ -93,12 +99,10 @@ class BigQueryNativeJob(
                     Utils.logException(logger, e)
                     throw e
                   }
-                  logger.info(
-                    s"bq-ingestion-summary -> files: [$sourceURIs], domain: ${tableId.getDataset}, schema: ${tableId.getTable}, input: ${stats.getOutputRows + stats.getBadRecords}, accepted: ${stats.getOutputRows}, rejected:${stats.getBadRecords}"
-                  )
                   BqLoadInfo(
                     stats.getOutputRows,
                     stats.getBadRecords,
+                    sourceURIList,
                     BigQueryJobResult(None, stats.getInputBytes, Some(jobResult))
                   )
                 } else
