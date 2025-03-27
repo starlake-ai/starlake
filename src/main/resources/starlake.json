@@ -1338,6 +1338,10 @@
         "domainRejected": {
           "$ref": "#/definitions/ConvertibleToString"
         },
+        "detailedLoadAudit": {
+          "type": "boolean",
+          "description": "Create individual entry for each ingested file instead of a global one. Default: false"
+        },
         "active": {
           "type": "boolean",
           "description": "Output table description"

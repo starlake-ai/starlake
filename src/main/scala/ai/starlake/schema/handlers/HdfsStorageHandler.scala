@@ -28,6 +28,7 @@ import org.apache.hadoop.io.compress.CompressionCodecFactory
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
 import java.io._
+import java.net.URI
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{Instant, LocalDateTime, ZoneId}
 import java.util.regex.Pattern
@@ -188,16 +189,13 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     conf
   }
 
-  val GCSUriRegEx = "(.*)://(.*?)/(.*)".r
-
-  private def extracSchemeAndBucketAndFilePath(uri: String): (String, Option[String], String) =
-    uri match {
-      case GCSUriRegEx("file", bucketName, filePath) =>
-        ("file", None, "/" + filePath)
-      case GCSUriRegEx(scheme, bucketName, filePath) =>
-        (scheme, Some(bucketName), filePath)
-      case _ => (defaultFS.getScheme, None, uri)
+  private def extracSchemeAndBucketAndFilePath(uri: URI): (String, Option[String], String) = {
+    uri.getScheme match {
+      case "file" =>
+        (uri.getScheme, None, "/" + uri.getPath)
+      case _ => (uri.getScheme, Option(uri.getHost), uri.getPath)
     }
+  }
 
   private def normalizedFileSystem(fileSystem: String): String = {
     if (fileSystem.endsWith(":"))
@@ -226,7 +224,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     val path =
       if (inputPath.toString.contains(':')) inputPath
       else new Path(settings.appConfig.fileSystem, inputPath.toString)
-    val (scheme, bucketOpt, _) = extracSchemeAndBucketAndFilePath(path.toString)
+    val (scheme, bucketOpt, _) = extracSchemeAndBucketAndFilePath(path.toUri)
     val fs = scheme match {
       case "gs" | "s3" | "s3a" | "s3n" =>
         bucketOpt match {
@@ -238,6 +236,9 @@ class HdfsStorageHandler(fileSystem: String)(implicit
               "Using gs/s3 scheme must be with a bucket name. gs://bucketName"
             )
         }
+      case "file" =>
+        conf.set("fs.defaultFS", "file:///")
+        FileSystem.get(conf)
       case _ => defaultFS
     }
     fs.setWriteChecksum(false)
@@ -425,16 +426,25 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     */
   def move(src: Path, dst: Path): Boolean = {
     pathSecurityCheck(src)
-    val currentFS = fs(src)
-    delete(dst)
-    dst.getParent.toString.split("://") match {
-      case Array(_, path) =>
-        if (path.split("/").count(_.nonEmpty) > 1)
-          mkdirs(dst.getParent)
-      case _ =>
-        mkdirs(dst.getParent) // local file system
+    val destFS = fs(dst)
+    val sourceFS = fs(src)
+    val destURI = destFS.getUri
+    val sourceURI = sourceFS.getUri
+    if (sourceURI.getScheme == destURI.getScheme && sourceURI.getHost == destURI.getHost) {
+      delete(dst)
+      mkdirs(dst.getParent)
+      sourceFS.rename(src, dst)
+    } else {
+      delete(dst)
+      dst.getParent.toString.split("://") match {
+        case Array(_, path) =>
+          if (path.split("/").count(_.nonEmpty) > 1)
+            mkdirs(dst.getParent)
+        case _ =>
+          mkdirs(dst.getParent) // local file system
+      }
+      FileUtil.copy(fs(src), src, fs(dst), dst, true, conf)
     }
-    FileUtil.copy(fs(src), src, fs(dst), dst, true, conf)
   }
 
   /** delete file (skip trash)
