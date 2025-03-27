@@ -18,6 +18,7 @@ class InferSchemaSpec extends TestHelper {
           |  --format <value>       Force input file format
           |  --rowTag <value>       row tag to use if detected format is XML
           |  --clean                Delete previous YML before writing
+          |  --encoding <value>     Input file encoding. Default to UTF-8
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")
