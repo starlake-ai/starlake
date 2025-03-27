@@ -59,7 +59,6 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           accessToken = accessToken
         )
       if (twoSteps) {
-        val startTime = System.currentTimeMillis()
         val (loadResults, tempTableIds, tableInfos) =
           ParUtils
             .runInParallel(settings.appConfig.maxParTask, path.map(_.toString).zipWithIndex) {
@@ -133,8 +132,6 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
             } yield elem :: rest
           }
         }
-
-        println("First step done in : " + ExtractUtils.toHumanElapsedTimeFrom(startTime))
 
         val output: Try[List[BqLoadInfo]] =
           applyBigQuerySecondStep(
