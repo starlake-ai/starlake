@@ -1,6 +1,6 @@
 package ai.starlake.job.sink.bigquery
 import ai.starlake.config.Settings
-import ai.starlake.job.sink.bigquery.BigQueryJobBase.projectId
+import ai.starlake.job.sink.bigquery.BigQueryJobBase.{projectId, recoverBigqueryException}
 import ai.starlake.schema.model
 import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
 import ai.starlake.sql.SQLUtils
@@ -383,12 +383,17 @@ trait BigQueryJobBase extends StrictLogging {
   def dropTable(tableId: TableId)(implicit
     settings: Settings
   ): Boolean = {
-    val success = bigquery(accessToken = cliConfig.accessToken).delete(tableId)
-    if (success)
-      logger.info(s"Table $tableId deleted")
-    else
-      logger.info(s"Table $tableId not found")
-    success
+    recoverBigqueryException(bigquery(accessToken = cliConfig.accessToken).delete(tableId)) match {
+      case Failure(exception) =>
+        logger.error(exception.getMessage, exception)
+        throw exception
+      case Success(success) =>
+        if (success)
+          logger.info(s"Table $tableId deleted")
+        else
+          logger.info(s"Table $tableId not found")
+        success
+    }
   }
   def dropTable(databaseName: scala.Option[String], datasetName: String, tableName: String)(implicit
     settings: Settings
