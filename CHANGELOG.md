@@ -27,6 +27,7 @@ __Bug fix__:
 - JSON type ingestion in bigquery are now created with JSON type instead of String.
 - excluded table during data extraction defined in jdbcSchema are now taken into account
 - if column is renamed, check pattern of renamed column instead of original name since it is the target table column's name during schema extraction
+- restore time expiration for temporary tables
 - **BREAKING CHANGE** when no fields could be inferred from input, inferred schema now fails
 
 
