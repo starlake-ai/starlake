@@ -1,8 +1,7 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.exceptions.NullValueFoundException
 import ai.starlake.config.{PrivacyLevels, Settings}
-import ai.starlake.job.validator.CheckValidityResult
+import ai.starlake.job.validator.{CheckValidityResult, SimpleRejectedRecord}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
@@ -61,7 +60,9 @@ class XmlSimplePrivacyJob(
     *
     * @param dataset
     */
-  override protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
+  override protected def ingest(
+    dataset: DataFrame
+  ): (Dataset[SimpleRejectedRecord], Dataset[Row]) = {
     val privacyAttributes = schema.attributes.filter(_.resolvePrivacy() != TransformInput.None)
     val acceptedPrivacyDF: DataFrame = privacyAttributes.foldLeft(dataset) { case (ds, attribute) =>
       XmlSimplePrivacyJob.applyPrivacy(ds, attribute, session).toDF()
@@ -69,16 +70,14 @@ class XmlSimplePrivacyJob(
     import session.implicits._
     saveAccepted(
       CheckValidityResult(
-        session.emptyDataset[String],
+        session.emptyDataset[SimpleRejectedRecord],
         session.emptyDataFrame,
         acceptedPrivacyDF
       )
     ) match {
-      case Failure(exception: NullValueFoundException) =>
-        (session.emptyDataset[String], acceptedPrivacyDF, exception.nbRecord)
       case Failure(exception) => throw exception
       case Success(rejectedRecordCount) =>
-        (session.emptyDataset[String], acceptedPrivacyDF, rejectedRecordCount);
+        (session.emptyDataset[SimpleRejectedRecord], acceptedPrivacyDF);
     }
   }
 

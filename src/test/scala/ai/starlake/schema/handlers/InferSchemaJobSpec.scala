@@ -7,13 +7,14 @@ import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.File
 import org.apache.hadoop.fs.Path
 
+import java.nio.charset.StandardCharsets
 import scala.io.Source
 
 class InferSchemaJobSpec extends TestHelper {
 
   new WithSettings() {
 
-    implicit val storageHandlerImpl = settings.storageHandler()
+    implicit val storageHandlerImpl: StorageHandler = settings.storageHandler()
 
     lazy val csvLines =
       Utils.withResources(Source.fromFile("src/test/resources/sample/SCHEMA-VALID-NOHEADER.dsv"))(
@@ -67,27 +68,36 @@ class InferSchemaJobSpec extends TestHelper {
 
     "GetFormatCSV" should "succeed" in {
       inferSchemaJob.getFormatFile(
-        "src/test/resources/sample/SCHEMA-VALID-NOHEADER.dsv"
+        "src/test/resources/sample/SCHEMA-VALID-NOHEADER.dsv",
+        StandardCharsets.UTF_8
       ) shouldBe "DSV"
     }
 
     "GetFormatJson" should "succeed" in {
-      inferSchemaJob.getFormatFile("src/test/resources/sample/json/complex.json") shouldBe "JSON"
+      inferSchemaJob.getFormatFile(
+        "src/test/resources/sample/json/complex.json",
+        StandardCharsets.UTF_8
+      ) shouldBe "JSON"
     }
 
     "GetFormatXML" should "succeed" in {
-      inferSchemaJob.getFormatFile("src/test/resources/sample/xml/locations.xml") shouldBe "XML"
+      inferSchemaJob.getFormatFile(
+        "src/test/resources/sample/xml/locations.xml",
+        StandardCharsets.UTF_8
+      ) shouldBe "XML"
     }
 
     "GetFormatArrayJson" should "succeed" in {
       inferSchemaJob.getFormatFile(
-        "src/test/resources/quickstart/incoming/hr/sellers-2018-01-01.json"
+        "src/test/resources/quickstart/incoming/hr/sellers-2018-01-01.json",
+        StandardCharsets.UTF_8
       ) shouldBe "JSON_ARRAY"
     }
 
     "GetFormatArrayJsonMultiline" should "succeed" in {
       inferSchemaJob.getFormatFile(
-        "src/test/resources/sample/simple-json-locations/locations.json"
+        "src/test/resources/sample/simple-json-locations/locations.json",
+        StandardCharsets.UTF_8
       ) shouldBe "JSON_ARRAY"
     }
     "Ingest Flat Locations JSON" should "produce file in accepted" in {
@@ -119,6 +129,7 @@ class InferSchemaJobSpec extends TestHelper {
               forceFormat = None,
               writeMode = WriteMode.OVERWRITE,
               rowTag = None,
+              encoding = StandardCharsets.UTF_8,
               clean = false
             )(settings.storageHandler())
           val locationDir = File(targetDir, "locations")
@@ -174,6 +185,7 @@ class InferSchemaJobSpec extends TestHelper {
             forceFormat = None,
             writeMode = WriteMode.OVERWRITE,
             rowTag = None,
+            encoding = StandardCharsets.UTF_8,
             clean = false
           )(settings.storageHandler())
           val locationDir = File(targetDir, "locations")
@@ -234,6 +246,7 @@ class InferSchemaJobSpec extends TestHelper {
             forceFormat = None,
             writeMode = WriteMode.OVERWRITE,
             rowTag = None,
+            encoding = StandardCharsets.UTF_8,
             clean = false
           )(settings.storageHandler())
           val locationDir = File(targetDir, "locations")
@@ -276,6 +289,7 @@ class InferSchemaJobSpec extends TestHelper {
             forceFormat = None,
             writeMode = WriteMode.OVERWRITE,
             rowTag = None,
+            encoding = StandardCharsets.UTF_8,
             clean = false
           )(settings.storageHandler())
           val locationDir = File(targetDir, "json")
@@ -303,6 +317,7 @@ class InferSchemaJobSpec extends TestHelper {
             forceFormat = None,
             writeMode = WriteMode.OVERWRITE,
             rowTag = None,
+            encoding = StandardCharsets.UTF_8,
             clean = false
           )(settings.storageHandler())
           val locationDir = File(targetDir, "json")
@@ -330,6 +345,7 @@ class InferSchemaJobSpec extends TestHelper {
             forceFormat = None,
             writeMode = WriteMode.OVERWRITE,
             rowTag = None,
+            encoding = StandardCharsets.UTF_8,
             clean = false
           )(settings.storageHandler())
           val locationDir = File(targetDir, "json")
@@ -357,6 +373,7 @@ class InferSchemaJobSpec extends TestHelper {
             forceFormat = None,
             writeMode = WriteMode.OVERWRITE,
             rowTag = None,
+            encoding = StandardCharsets.UTF_8,
             clean = false
           )(settings.storageHandler())
           val locationDir = File(targetDir, "json")
@@ -393,6 +410,7 @@ class InferSchemaJobSpec extends TestHelper {
             forceFormat = None,
             writeMode = WriteMode.OVERWRITE,
             rowTag = None,
+            encoding = StandardCharsets.UTF_8,
             clean = false
           )(settings.storageHandler())
           val locationDir = File(targetDir, "parquet")

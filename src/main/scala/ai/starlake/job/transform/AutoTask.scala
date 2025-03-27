@@ -299,12 +299,12 @@ abstract class AutoTask(
     test: Boolean
   ): Unit = {
     val log = auditLog(start, end, jobResultCount, success = true, "success", test)
-    log.foreach(AuditLog.sink)
+    log.foreach(al => AuditLog.sink(List(al)))
   }
 
   def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable, test: Boolean): Unit = {
     val log = auditLog(start, end, -1, success = false, Utils.exceptionAsString(e), test)
-    log.foreach(AuditLog.sink)
+    log.foreach(al => AuditLog.sink(List(al)))
   }
 
   def dependencies(streams: CaseInsensitiveMap[String]): List[String] = {
@@ -384,7 +384,7 @@ abstract class AutoTask(
           success = true,
           "success",
           test
-        ).flatMap(AuditLog.buildListOfSQLStatements)
+        ).flatMap(al => AuditLog.buildListOfSQLStatements(List(al)))
       auditStatements
     } else {
       None

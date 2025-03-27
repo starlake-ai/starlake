@@ -3,6 +3,7 @@ package ai.starlake.job.ingest
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.BigQueryJobResult
 import ai.starlake.job.transform.SparkAutoTask
+import ai.starlake.job.validator.SimpleRejectedRecord
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.utils.GcpUtils
@@ -27,7 +28,7 @@ object IngestionUtil {
   def sinkRejected(
     applicationId: String,
     session: SparkSession,
-    rejectedDS: Dataset[String],
+    rejectedDS: Dataset[SimpleRejectedRecord],
     domainName: String,
     schemaName: String,
     now: Timestamp,
@@ -47,7 +48,7 @@ object IngestionUtil {
         now,
         domainName,
         schemaName,
-        err,
+        err.errors, // TODO: Wondering if we should remove file name in errors and rely on err.path for rejectedPathName instead
         rejectedPathName
       )
     }
@@ -59,9 +60,11 @@ object IngestionUtil {
     auditSink.getConnectionType() match {
       case ConnectionType.GCPLOG =>
         val logName = settings.appConfig.audit.getDomainRejected()
-        limitedRejectedTypedDS.collect().map { rejectedRecord =>
-          GcpUtils.sinkToGcpCloudLogging(rejectedRecord.asMap(), "rejected", logName)
-        }
+        GcpUtils.sinkToGcpCloudLogging(
+          limitedRejectedTypedDS.collect().map(_.asMap()),
+          "rejected",
+          logName
+        )
         Success(rejectedDF, paths.head)
 
       case _ =>
@@ -101,6 +104,7 @@ object IngestionUtil {
 case class BqLoadInfo(
   totalAcceptedRows: Long,
   totalRejectedRows: Long,
+  paths: List[String],
   jobResult: BigQueryJobResult
 ) {
   val totalRows: Long = totalAcceptedRows + totalRejectedRows

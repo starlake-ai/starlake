@@ -24,7 +24,7 @@ object NativeValidator extends GenericRowValidator {
     rejectWithValue: Boolean
   )(implicit schemaHandler: SchemaHandler): CheckValidityResult = {
     import session.implicits._
-    val rejectedDS = session.emptyDataset[String]
+    val rejectedDS = session.emptyDataset[SimpleRejectedRecord]
     val rejectedInputDS = session.emptyDataFrame
     val acceptedDS = dataset
     CheckValidityResult(rejectedDS, rejectedInputDS, acceptedDS)
