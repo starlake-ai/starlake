@@ -63,9 +63,7 @@ import org.apache.hadoop.fs.Path
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.time.Instant
 import java.util.Collections
-import java.util.concurrent.Executors
 import scala.annotation.nowarn
-import scala.concurrent.duration.Duration
 import scala.reflect.io.Directory
 import scala.util.{Failure, Success, Try}
 
@@ -885,7 +883,8 @@ class IngestionWorkflow(
       forceFormat = config.format,
       writeMode = config.write.getOrElse(write),
       rowTag = config.rowTag,
-      clean = config.clean
+      clean = config.clean,
+      encoding = config.encoding
     )(settings.storageHandler())
     Utils.logFailure(result, logger)
     result
