@@ -17,6 +17,7 @@ import com.google.cloud.bigquery
 import com.google.cloud.bigquery.{Field, JobInfo, StandardSQLTypeName, TableId}
 import com.typesafe.scalalogging.StrictLogging
 
+import java.time.Duration
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -89,8 +90,8 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                   _.targetBqSchemaWithIgnoreAndScript(schemaHandler)
                 )
 
-                val enrichedTableInfo = firstStepTableInfo.copy(maybeSchema =
-                  firstStepTableInfo.maybeSchema.map((schema: bigquery.Schema) =>
+                val enrichedTableInfo = firstStepTableInfo.copy(
+                  maybeSchema = firstStepTableInfo.maybeSchema.map((schema: bigquery.Schema) =>
                     bigquery.Schema.of(
                       (schema.getFields.asScala :+
                       Field
@@ -101,7 +102,8 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                         .setDefaultValueExpression(s"'$sourceUri'")
                         .build()).asJava
                     )
-                  )
+                  ),
+                  maybeDurationMs = Some(Duration.ofHours(24).toMillis)
                 )
 
                 // TODO What if type is changed by transform ? we need to use safe_cast to have the same behavior as in SPARK.
