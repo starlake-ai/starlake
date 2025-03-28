@@ -1734,9 +1734,28 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           .sortBy(_.name)
       )
     }
-    val all = tableNames ++ taskNames ++ externalNames
+    val all = merge(externalNames, tableNames, taskNames)
     val result = all.sortBy(_.name)
     result
+  }
+
+  def merge(tables: List[DomainWithNameOnly]*): List[DomainWithNameOnly] = {
+    def toMap(list: List[DomainWithNameOnly]): Map[String, DomainWithNameOnly] = {
+      list.flatMap { domain =>
+        domain.tables.map { table =>
+          s"${domain.name.toLowerCase()}.${table.name.toLowerCase()}" -> domain
+        }
+      }.toMap
+    }
+    var result = Map.empty[String, DomainWithNameOnly]
+    tables.foreach { list =>
+      val incoming = toMap(list)
+      incoming.foreach { case (key, value) =>
+        if (!result.keys.exists(k => k == key))
+          result = result + (key -> value)
+      }
+    }
+    result.values.toList
   }
 
   def saveToExternals(domains: List[Domain]) = {

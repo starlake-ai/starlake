@@ -167,7 +167,8 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
           filteredJdbcSchema.copy(exclude = extractConfig.excludeTables.toList),
           extractConfig.data,
           skipRemarks = true,
-          keepOriginalName = true
+          keepOriginalName = true,
+          includeColumns = true
         )
       val globalStart = System.currentTimeMillis()
       val extractionResults: List[Try[Unit]] =
@@ -890,7 +891,8 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
         ),
         connectionSettings,
         skipRemarks = true,
-        keepOriginalName = true
+        keepOriginalName = true,
+        includeColumns = true
       )(settings, None)
       .find { case (tableName, _) =>
         tableName.equalsIgnoreCase(lastExportTableName)
