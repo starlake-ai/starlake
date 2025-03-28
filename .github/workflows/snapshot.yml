@@ -2,11 +2,11 @@ name: Snapshot
 # Run workflow whenever a pull_request has been closed to the `master` and `branch-*` branches
 on:
   workflow_dispatch:
-  pull_request:
-    types: [closed]
-    branches:
-      - master
-      - branch-*
+#  pull_request:
+#    types: [closed]
+#    branches:
+#      - master
+#      - branch-*
 
 jobs:
   snapshot:

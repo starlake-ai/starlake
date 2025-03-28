@@ -47,7 +47,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     }
     jdbcSchemas.openAPI match {
       case Some(openAPIConfig) =>
-        // TODO: temporarely doing switch case but plans to remove it once all others extractions implement Schema Extractor
+        // TODO: temporarily doing switch case but plans to remove it once all others extractions implement Schema Extractor
         // TODO: implement templates as in jdbcSchema
         SchemaExtractorWorkflow.run(config, jdbcSchemas)
       case None =>
@@ -58,7 +58,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
               ExtractBigQuerySchemaCmd.fromExtractSchemaConfig(config, jdbcSchema)
             ExtractBigQuerySchemaCmd.run(bigQueryConfig, schemaHandler)
           }
-        } else {
+        } else { // JDBC
           implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
             ParUtils.createForkSupport(config.parallelism)
           ParUtils.makeParallel(jdbcSchemas.jdbcSchemas.getOrElse(Nil)).iterator.foreach {
@@ -277,7 +277,8 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
         jdbcSchema,
         connectionSettings,
         skipRemarks = false,
-        keepOriginalName = false
+        keepOriginalName = false,
+        includeColumns = true
       )
     JdbcDbUtils.extractDomain(jdbcSchema, domainTemplate, selectedTablesAndColumns)
   }

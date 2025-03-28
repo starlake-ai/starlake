@@ -119,7 +119,8 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
               ),
               connectionSettings,
               skipRemarks = true,
-              keepOriginalName = true
+              keepOriginalName = true,
+              includeColumns = true
             )
           case None => Map.empty[String, ExtractTableAttributes]
         }
