@@ -29,7 +29,30 @@ schedules= [{% for schedule in context.schedules %}
       ],
     }{% if not loop.last  %},{% endif %}
     {% endfor %}
-  ]
+  ],
+  'rawDomains':[{% for domain in schedule.rawDomains %}
+      {
+        'name':'{{ domain.name }}',
+        'rename':'{{ domain.rename }}',
+        'tables': [{% for table in domain.tables %}
+            {
+              'name':'{{ table.name }}',
+              'rename':'{{ table.rename }}',
+              'pattern':'{{ table.pattern }}',
+              'attributes': [{% for attr in table.attributes %}
+                {
+                  'name':'{{ attr.name }}',
+                  'type':'{{ attr.type }}',
+                  'comment':'{{ attr.comment }}',
+                }{% if not loop.last  %},{% endif %}
+                {% endfor %}
+              ],
+            }{% if not loop.last  %},{% endif %}
+            {% endfor %}
+        ],
+      }{% if not loop.last  %},{% endif %}
+      {% endfor %}
+    ]
 {% endfor %}
 ]
 
