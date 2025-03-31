@@ -2,10 +2,12 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
+import ai.starlake.core.utils.CaseClassToPojoConverter
 import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
 import org.apache.hadoop.fs.Path
 
+import java.util.regex.Pattern
 import scala.jdk.CollectionConverters._
 
 class Yml2DagGenerateCommandSpec extends TestHelper {
@@ -40,6 +42,51 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
                   TableDomain("table4", "finalTable4")
                 ).asJava
               )
+            ).asJava,
+            List(
+              CaseClassToPojoConverter.asJava(
+                Domain(
+                  name = "domain1",
+                  rename = Some("finalDomain1"),
+                  tables = List(
+                    Schema(
+                      name = "table1",
+                      rename = Some("finalTable1"),
+                      pattern = Pattern.compile("table1.*\\.json"),
+                      attributes =
+                        List(Attribute(name = "attr1", `type` = "int", comment = Some("Comment1")))
+                    ),
+                    Schema(
+                      name = "table2",
+                      rename = Some("finalTable2"),
+                      pattern = Pattern.compile("table2.*\\.json"),
+                      attributes = List(Attribute(name = "attr2", `type` = "double"))
+                    )
+                  )
+                )
+              ),
+              CaseClassToPojoConverter.asJava(
+                Domain(
+                  name = "domain2",
+                  rename = Some("finalDomain2"),
+                  tables = List(
+                    Schema(
+                      name = "table3",
+                      rename = Some("finalTable3"),
+                      pattern = Pattern.compile("table3.*\\.json"),
+                      attributes = List(
+                        Attribute(name = "attr3", `type` = "variant", comment = Some("Comment3"))
+                      )
+                    ),
+                    Schema(
+                      name = "table4",
+                      rename = Some("finalTable4"),
+                      pattern = Pattern.compile("table4.*\\.json"),
+                      attributes = List(Attribute(name = "attr4", `type` = "float"))
+                    )
+                  )
+                )
+              )
             ).asJava
           )
         ),
@@ -67,6 +114,10 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
       dagContent should include("SL_OPTION1':'value1'")
       dagContent should include("name':'domain1'")
       dagContent should include("table2'")
+      dagContent should include("'rename':'finalDomain2'")
+      dagContent should include("'pattern':'table3.*\\.json'")
+      dagContent should include("'comment':'Comment3'")
+      dagContent should include("'comment':''")
       println(dagContent)
 
     }
