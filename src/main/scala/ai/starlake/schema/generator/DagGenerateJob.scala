@@ -1,6 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.core.utils.CaseClassToPojoConverter
 import ai.starlake.job.ingest.DummyIngestionJob
 import ai.starlake.job.transform.{AutoTask, AutoTaskQueries}
 import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
@@ -318,6 +319,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         groupedBySchedule.foreach { case (schedule, groupedByDomain) =>
           groupedByDomain.foreach { case (domain, tables) =>
             tables.foreach { table =>
+              val rawDomains = CaseClassToPojoConverter.asJava(domain.copy(tables = List(table)))
               val dagDomain = DagDomain(
                 domain.name,
                 domain.finalName,
@@ -330,7 +332,14 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               )
               val cronIfNone = if (cron == "None") null else cron
               val schedules =
-                List(DagSchedule(schedule, cronIfNone, java.util.List.of[DagDomain](dagDomain)))
+                List(
+                  DagSchedule(
+                    schedule,
+                    cronIfNone,
+                    java.util.List.of[DagDomain](dagDomain),
+                    java.util.List.of(rawDomains)
+                  )
+                )
 
               val envVars =
                 schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
@@ -340,7 +349,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                   "renamedDomain" -> domain.finalName,
                   "table"         -> table.name,
                   "finalTable"    -> table.finalName,
-                  "renamedTable"  -> table.finalName
+                  "renamedTable"  -> table.finalName,
+                  "rawDomains"    -> rawDomains
                 )
               val options = dagConfig.options.map { case (k, v) =>
                 k -> Utils.parseJinja(v, envVars)
@@ -405,23 +415,30 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         domains.foreach { domain =>
           val schedules = groupedBySchedule
             .flatMap { case (schedule, groupedByDomain) =>
-              val tables = groupedByDomain.get(domain)
-              tables.map { table =>
+              val tablesOfDomain = groupedByDomain.get(domain)
+              tablesOfDomain.map { tables =>
+                val rawDomains = CaseClassToPojoConverter.asJava(domain.copy(tables = tables))
                 val dagDomain = DagDomain(
                   domain.name,
                   domain.finalName,
-                  table.map(t => TableDomain(t.name, t.finalName)).asJava
+                  tables.map(t => TableDomain(t.name, t.finalName)).asJava
                 )
                 val cron = settings.appConfig.schedulePresets.getOrElse(
                   schedule,
                   schedule
                 )
                 val cronIfNone = if (cron == "None") null else cron
-                DagSchedule(schedule, cronIfNone, java.util.List.of[DagDomain](dagDomain))
+                DagSchedule(
+                  schedule,
+                  cronIfNone,
+                  java.util.List.of[DagDomain](dagDomain),
+                  java.util.List.of(rawDomains)
+                )
               }
             }
             .toList
             .sortBy(_.schedule)
+          val rawDomain = CaseClassToPojoConverter.asJava(domain)
           if (filenameVars.contains("schedule")) {
             var scheduleIndex = 1
             schedules.foreach { schedule =>
@@ -433,7 +450,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                   "schedule"      -> scheduleValue,
                   "domain"        -> domain.name,
                   "renamedDomain" -> domain.finalName,
-                  "finalDomain"   -> domain.finalName
+                  "finalDomain"   -> domain.finalName,
+                  "rawDomain"     -> rawDomain
                 )
               val options = dagConfig.options.map { case (k, v) =>
                 k -> Utils.parseJinja(v, envVars)
@@ -459,7 +477,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
                 "domain"        -> domain.name,
                 "renamedDomain" -> domain.finalName,
-                "finalDomain"   -> domain.finalName
+                "finalDomain"   -> domain.finalName,
+                "rawDomain"     -> rawDomain
               )
             val options = dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
             val comment = Utils.parseJinja(dagConfig.comment, envVars)
@@ -490,22 +509,23 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               val (scheduleValue, nextScheduleIndex) =
                 getScheduleName(schedule, scheduleIndex)
               scheduleIndex = nextScheduleIndex
-              val dagDomains = groupedByDomain
+              val (dagDomains, rawDomains) = groupedByDomain
                 .map { case (domain, tables) =>
                   DagDomain(
                     domain.name,
                     domain.finalName,
                     tables.map(t => TableDomain(t.name, t.finalName)).asJava
-                  )
+                  ) -> CaseClassToPojoConverter.asJava(domain.copy(tables = tables))
                 }
                 .toList
-                .sortBy(_.name)
+                .sortBy { case (d, r) => d.name }
+                .unzip
               val cron = settings.appConfig.schedulePresets.getOrElse(
                 schedule,
                 scheduleValue
               )
               val cronIfNone = if (cron == "None") null else cron
-              DagSchedule(scheduleValue, cronIfNone, dagDomains.asJava)
+              DagSchedule(scheduleValue, cronIfNone, dagDomains.asJava, rawDomains.asJava)
             }
             .toList
             .sortBy(_.schedule)
