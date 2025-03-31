@@ -441,8 +441,8 @@ object JdbcDbUtils extends LazyLogging {
           |""".stripMargin)
       JdbcDbUtils.executeQuery(statement) { rs =>
         while (rs.next()) {
-          val schema = rs.getString("TABLE_SCHEMA")
-          val table = rs.getString("TABLE_NAME")
+          val schema = rs.getString(1)
+          val table = rs.getString(2)
           logger.info(s"Schema: $schema, Table: $table")
           result.append(schema -> table)
         }
