@@ -7,6 +7,8 @@ __New Feature__:
 - add the ability to have ingestion audit per input file by setting SL_DETAILED_LOAD_AUDIT to true. Useful when there is too many files that generates log entry or sql query higher than the limit.
 
 __Improvement__:
+- add rawDomains variable in dag templates in order to have access to the whole domain configuration
+- add rawDomain variable to filename variable.
 - minimize memory usage inference-schema and adjust attributes types
 - inference-schema detects more timestamp pattern
 - add confluent setup that can be enabled via ENABLE_KAFKA
