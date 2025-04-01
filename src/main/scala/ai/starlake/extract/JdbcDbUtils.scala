@@ -437,6 +437,7 @@ object JdbcDbUtils extends LazyLogging {
     withJDBCConnection(readOnlyConnection(connectionSettings).options) { connection =>
       val statement = connection.prepareStatement("""
           |SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+          |WHERE TABLE_SCHEMA NOT IN ('INFORMATION_SCHEMA')
           |GROUP BY TABLE_SCHEMA, TABLE_NAME
           |""".stripMargin)
       JdbcDbUtils.executeQuery(statement) { rs =>
@@ -489,7 +490,7 @@ object JdbcDbUtils extends LazyLogging {
 
           override def next(): String =
             resultSet.getString("TABLE_SCHEM")
-        }.toList.distinct.sorted
+        }.toList.filterNot(_.equalsIgnoreCase("INFORMATION_SCHEMA")).distinct.sorted
       }
     }
   }
@@ -621,7 +622,7 @@ object JdbcDbUtils extends LazyLogging {
         ).map { schemaName =>
           val lowerCasedExcludeTables = jdbcSchema.exclude.map(_.toLowerCase)
 
-          def tablesInScopePredicate(tablesToExtract: List[String] = Nil) =
+          def tablesInScopePredicate(tablesToExtract: List[String] = Nil): TableName => Boolean =
             (tableName: String) => {
               !lowerCasedExcludeTables.contains(
                 tableName.toLowerCase
@@ -672,6 +673,7 @@ object JdbcDbUtils extends LazyLogging {
           logger.whenDebugEnabled {
             selectedTables.keys.foreach(table => logger.debug(s"Selected: $table"))
           }
+          Utils.println(s"Found ${selectedTables.size} tables in $schemaName")
           (schemaName, selectedTables)
         }
       }
@@ -684,8 +686,8 @@ object JdbcDbUtils extends LazyLogging {
               .Manager { use =>
                 selectedTableNames.toList.map { case (tableName, tableRemarks) =>
                   ExtractUtils.timeIt(s"Table's schema extraction of $schemaName.$tableName") {
-                    logger.info(
-                      s"Extracting table's schema '$schemaName.$tableName' with remarks '$tableRemarks'"
+                    Utils.println(
+                      s"Extracting table '$schemaName.$tableName'"
                     )
                     withJDBCConnection(readOnlyConnection(connectionSettings).options) {
                       tableExtractConnection =>
@@ -778,6 +780,9 @@ object JdbcDbUtils extends LazyLogging {
       } else {
         schemaAndTableNames.map { case (schemaName, selectedTableNames) =>
           selectedTableNames.toList.map { case (tableName, tableRemarks) =>
+            Utils.println(
+              s"Extracting table '$schemaName.$tableName'"
+            )
             tableName -> ExtractTableAttributes(
               tableRemarks,
               Nil,
@@ -838,7 +843,7 @@ object JdbcDbUtils extends LazyLogging {
     val trimTemplate =
       domainTemplate.flatMap(_.tables.headOption.flatMap(_.attributes.head.trim))
 
-    val cometSchema = selectedTablesAndColumns.map { case (tableName, tableAttrs) =>
+    val starlakeSchema = selectedTablesAndColumns.map { case (tableName, tableAttrs) =>
       val sanitizedTableName = StringUtils.replaceNonAlphanumericWithUnderscore(tableName)
       Schema(
         name = tableName,
@@ -894,7 +899,7 @@ object JdbcDbUtils extends LazyLogging {
       metadata = domainTemplate
         .flatMap(_.metadata)
         .map(_.copy(directory = incomingDir, ack = ack)),
-      tables = cometSchema.toList,
+      tables = starlakeSchema.toList,
       comment = None
     )
   }

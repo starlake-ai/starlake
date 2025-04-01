@@ -24,6 +24,11 @@ object ExtractSchemaCmd extends Cmd[ExtractSchemaConfig] {
         .optional()
         .text("Database tables & connection info"),
       builder
+        .opt[Unit]("all")
+        .action((x, c) => c.copy(all = true, external = true))
+        .optional()
+        .text("Should we extract all schemas and tables to external folder ?"),
+      builder
         .opt[Seq[String]]("tables")
         .action((x, c) => c.copy(tables = x))
         .optional()

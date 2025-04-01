@@ -911,17 +911,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       case Left(errors) =>
         errors
     }
-
-    val renameErrors = Utils.duplicates(
-      "Domain rename",
-      nonEmptyDomains.map(d => d.rename.getOrElse(d.name)),
-      s"renamed domain %s is defined %d times. It can only appear once."
-    ) match {
-      case Right(_) => Nil
-      case Left(errors) =>
-        errors
-    }
-
     val directoryErrors = Utils.duplicates(
       "Domain directory",
       nonEmptyDomains.flatMap(_.resolveDirectoryOpt()),
@@ -945,7 +934,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         )
       case Success(_) => // ignore
     }
-    this._domainErrors = nameErrors ++ renameErrors ++ directoryErrors
+    this._domainErrors = nameErrors ++ directoryErrors
     this._domainErrors.foreach(err => logger.error(err.toString()))
     (this._domainErrors, nonEmptyDomains)
   }
