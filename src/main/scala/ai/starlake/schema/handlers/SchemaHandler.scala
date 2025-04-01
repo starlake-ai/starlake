@@ -1676,7 +1676,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     createTables.toList
   }
 
-  /** List of all domain.table including tasks but not externals
+  /** List of all domain.table including tasks and externals
     *
     * @return
     *   List of all objects in the metadata
