@@ -15,12 +15,19 @@ import scala.util.Try
 
 case class DagDesc(version: Int, dag: DagGenerationConfig)
 
-case class DagSchedule(schedule: String, cron: String, domains: java.util.List[DagDomain]) {
+case class DagSchedule(
+  schedule: String,
+  cron: String,
+  domains: java.util.List[DagDomain],
+  rawDomains: java.util.List[java.util.Map[String, Any]]
+) {
   def getSchedule(): String = schedule
 
   def getCron(): String = cron
 
   def getDomains(): java.util.List[DagDomain] = domains
+
+  def getRawDomains(): util.List[java.util.Map[String, Any]] = rawDomains
 }
 
 case class DagDomain(name: String, finalName: String, tables: java.util.List[TableDomain]) {
