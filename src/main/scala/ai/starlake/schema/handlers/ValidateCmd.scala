@@ -81,8 +81,7 @@ object ValidateCmd extends Cmd[ValidateConfig] {
           println(s"SUCCESS: Connection $connectionName is valid")
         case Failure(exception) =>
           // scalastyle:off println
-          println(s"ERROR: Connection $connectionName is invalid")
-          exception.printStackTrace()
+          println(s"ERROR: Could not connect to database using connection $connectionName ")
       }
     }
   }

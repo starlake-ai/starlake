@@ -19,8 +19,12 @@ trait ExtractPathHelper {
     findFileOrFallback(new Path(DatasetArea.extract, "openapi"), openAPIFileName)
   }
 
-  protected def schemaOutputDir(outputDir: Option[String])(implicit settings: Settings): Path =
-    new Path(outputDir.getOrElse(DatasetArea.load.toString))
+  protected def schemaOutputDir(config: ExtractSchemaConfig)(implicit settings: Settings): Path = {
+    if (config.external)
+      DatasetArea.external
+    else
+      new Path(config.outputDir.getOrElse(DatasetArea.load.toString))
+  }
 
   protected def dataOutputDir(outputDir: Option[String])(implicit settings: Settings): Path =
     new Path(outputDir.getOrElse(DatasetArea.extract.toString))
