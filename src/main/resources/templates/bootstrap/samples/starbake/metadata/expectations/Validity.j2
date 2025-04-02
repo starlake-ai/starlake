@@ -1,0 +1,417 @@
+{% macro expect_column_most_common_value_to_be_in_set(table_name, column, value_set, ties_okay=False) %}
+-- This macro checks if the most common value(s) in a given column are within the expected set.
+--
+-- Parameters:
+-- table_name: The name of the table to check.
+-- column: The column name to analyze.
+-- value_set: A list of expected values for the most common value.
+-- ties_okay: If True, allows values outside the set if they are equally common but not more common.
+--
+-- Returns:
+-- 0 if the expectation is met, 1 if it is not.
+
+WITH ValueCounts AS (
+    SELECT 
+        "{{ column }}" AS column_name, 
+        {{ column }} AS value, 
+        COUNT(*) AS frequency
+    FROM {{ table_name }}
+    GROUP BY {{ column }}
+),
+RankedValues AS (
+    SELECT 
+        value, 
+        frequency,
+        RANK() OVER (ORDER BY frequency DESC) AS rank
+    FROM ValueCounts
+),
+MostCommonValues AS (
+    SELECT value FROM RankedValues WHERE rank = 1
+)
+SELECT 
+    CASE 
+        WHEN NOT EXISTS (
+            SELECT 1 FROM MostCommonValues WHERE value IN (
+                {% for val in value_set %}
+                    {% if val is string %}'{{ val }}'{% else %}{{ val }}{% endif %}
+                    {% if not loop.last %}, {% endif %}
+                {% endfor %}
+            )
+        ) THEN 1 
+        {% if ties_okay %}
+        WHEN (SELECT COUNT(*) FROM MostCommonValues) > 1 THEN 0 
+        {% endif %}
+        ELSE 0 
+    END AS result;
+{% endmacro %}
+
+{% macro expect_column_pair_values_to_be_equal(table_name, column_a, column_b) %}
+-- This macro generates a SQL query that checks if the values in two specified columns are equal for each row.
+-- If any row has unequal values in the specified columns, it will be returned by the query.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_a: The name of the first column.
+-- column_b: The name of the second column.
+--
+-- Returns:
+-- A result set containing rows where the values in the specified columns are not equal.
+-- If the result set is empty, it means all values in the specified columns are equal.
+--
+-- This will generate a query like:
+-- SELECT *
+-- FROM table_name
+-- WHERE column_A <> column_B;
+
+SELECT 
+    CASE 
+        WHEN EXISTS (
+            SELECT 1
+            FROM {{ table_name }}
+            WHERE {{ column_a }} IS DISTINCT FROM {{ column_b }}
+            LIMIT 1
+        ) THEN 1
+        ELSE 0
+    END AS result;
+{% endmacro %}
+
+{% macro expect_column_pair_values_to_be_in_set(table_name, column_a, column_b, value_pairs) %}
+-- This macro generates a SQL query that checks if the values in two specified columns are within a given set for each row.
+-- If any row has values in the specified columns that are not within the set, it will be returned by the query.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_a: The name of the first column.
+-- column_b: The name of the second column.
+-- value_pairs: A list of tuples representing the allowed pairs of values.
+--
+-- Returns:
+-- A result set containing rows where the values in the specified columns are not within the given set.
+-- If the result set is empty, it means all values in the specified columns are within the given set.
+--
+-- This will generate a query like:
+-- SELECT *
+-- FROM table_name
+-- WHERE (column_A, column_B) NOT IN ((value1_A, value1_B), (value2_A, value2_B));
+
+SELECT CASE
+    WHEN EXISTS (
+        SELECT 1
+        FROM {{ table_name }}
+        WHERE (
+              {% for pair in value_pairs %}
+                (COALESCE({{ column_a }}, 'NULL_REPLACEMENT') = COALESCE('{{ pair[0] }}', 'NULL_REPLACEMENT')
+                AND COALESCE({{ column_b }}, 'NULL_REPLACEMENT') = COALESCE('{{ pair[1] }}', 'NULL_REPLACEMENT'))
+                {% if not loop.last %} OR {% endif %}
+            {% endfor %}
+        )
+    ) THEN 1
+    ELSE 0
+END AS result;
+{% endmacro %}
+
+{% macro expect_column_value_lengths_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
+-- This macro checks if all values in a column have lengths within a given range.
+--
+-- Returns:
+-- 0 if all values are within the range, 1 otherwise.
+
+SELECT 
+    CASE 
+        WHEN COUNT(*) = 0 THEN 0  
+        ELSE 1 
+    END AS result
+FROM {{ table_name }}
+WHERE 
+    LENGTH({{ column_name }}) < {{ lower_bound }} --ToAsk: charlength for databrick and bq
+    OR LENGTH({{ column_name }}) > {{ upper_bound }}
+    OR {{ column_name }} IS NULL;
+{% endmacro %}
+
+
+{% macro expect_column_value_lengths_to_equal(table_name, column_name, expected_length) %}
+-- This macro checks if all values in a column have the exact expected length.
+--
+-- Returns:
+-- 0 if all values match the expected length, 1 otherwise.
+
+SELECT 
+    CASE 
+        WHEN EXISTS (
+            SELECT 1 FROM {{ table_name }} 
+            WHERE LENGTH({{ column_name }}) <> {{ expected_length }}
+        ) THEN 1 
+        ELSE 0 
+    END AS result;
+{% endmacro %}
+
+
+{% macro expect_column_values_to_be_in_set(table_name, column_name, values) %}
+-- This macro generates a SQL query that checks if the values in a specified column are within a given set.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_name: The name of the column to check the values for.
+-- values: A list of values that the column values should be within.
+--
+-- Returns:
+-- The values in the specified column that are not within the given set.
+--
+-- This will generate a query like:
+-- SELECT column_name
+-- FROM table_name
+-- WHERE column_name NOT IN (value1, value2, value3);
+
+SELECT 
+    CASE 
+        WHEN EXISTS (
+            SELECT 1 
+            FROM {{ table_name }}
+            WHERE {{ column_name }} NOT IN ({{ values | join(', ') }})
+            OR {{ column_name }} IS NULL  
+        ) THEN 0  
+        ELSE 1  
+    END AS result;
+{% endmacro %}
+
+{% macro expect_column_values_to_match_like_pattern(table_name, column_name, pattern) %}
+-- This macro checks if all values in a column match a given LIKE pattern.
+-- 
+-- Returns:
+-- 0 if all values match the pattern, 1 otherwise.
+
+SELECT 
+    CASE 
+        WHEN EXISTS (
+            SELECT 1 FROM {{ table_name }} 
+            WHERE {{ column_name }} NOT LIKE '{{ pattern }}'
+        ) THEN 1 
+        ELSE 0 
+    END AS result;
+{% endmacro %}
+
+
+{% macro expect_column_values_to_match_like_pattern_list(table_name, column_name, patterns, match_on='any') %}
+-- This macro checks if all values in a specified column match at least one pattern or all patterns.
+-- 
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_name: The name of the column to check.
+-- patterns: A list of LIKE patterns that the column values should match.
+-- match_on: 'any' or 'all'. Use 'any' if the value should match at least one pattern, 
+--           and 'all' if it should match each like pattern in the list.
+--
+-- Returns:
+-- 0 if all values match at least one or all patterns (depending on match_on), otherwise 1.
+
+SELECT 
+    CASE 
+        WHEN COUNT(*) = 0 THEN 0 
+        ELSE 1
+    END AS result
+FROM {{ table_name }}
+WHERE 
+{% if match_on == 'any' %}
+    -- Match at least one pattern
+    NOT (
+        {{ column_name }} LIKE '{{ patterns[0] }}'
+        {% for pattern in patterns[1:] %}
+            OR {{ column_name }} LIKE '{{ pattern }}'
+        {% endfor %}
+    )
+{% else %}
+    -- Match all patterns
+    NOT (
+        {{ column_name }} LIKE '{{ patterns[0] }}'
+        {% for pattern in patterns[1:] %}
+            AND {{ column_name }} LIKE '{{ pattern }}'
+        {% endfor %}
+    )
+{% endif %}
+;
+{% endmacro %}
+
+{% macro expect_column_values_to_match_regex(table_name, column_name, regex, mostly=95) %}
+-- This macro checks if column values match a regex across different databases.
+-- It calculates the percentage of matching values and returns 0 (pass) or 1 (fail) based on the `mostly` threshold.
+
+WITH validation AS (
+    SELECT 
+        COUNT(*) AS total_rows,
+        SUM(
+            CASE 
+                WHEN {{ column_name }} REGEXP '{{ regex }}' THEN 1  -- MySQL, SQLite (if REGEXP function is enabled)
+                WHEN REGEXP_LIKE({{ column_name }}, '{{ regex }}') THEN 1  -- BigQuery, Snowflake, DuckDB
+                ELSE 0 
+            END
+        ) AS matching_rows
+    FROM {{ table_name }}
+)
+SELECT 
+    CASE 
+        WHEN (matching_rows * 100.0 / NULLIF(total_rows, 0)) >= {{ mostly }} THEN 0  -- Pass
+        ELSE 1  -- Fail
+    END AS result
+FROM validation;
+{% endmacro %}
+
+{% macro expect_column_values_to_match_regex_list(table_name, column_name, regex_patterns) %}
+-- This macro generates a SQL query that checks if the values in a specified column match any pattern in a given list of regular expression patterns.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_name: The name of the column to check the values for.
+-- regex_patterns: A list of regular expression patterns that the column values should match.
+--
+--
+-- Returns:
+-- The values in the specified column that do not match any pattern in the given list of regular expression patterns.
+--
+-- This will generate a query like:
+-- SELECT column_name
+-- FROM table_name
+-- WHERE column_name !~ 'regex_pattern1'
+-- AND column_name !~ 'regex_pattern2'
+-- AND column_name !~ 'regex_pattern3';
+
+SELECT {{ column_name }}
+FROM {{ table_name }}
+WHERE 
+{% for pattern in regex_patterns %}
+{{ column_name }} NOT REGEXP '{{ pattern }}'
+{% if not loop.last %}
+AND 
+{% endif %}
+{% endfor %};
+{% endmacro %}
+
+{% macro expect_column_values_to_not_be_in_set(table_name, column_name, values) %}
+-- This macro generates a SQL query that checks if the values in a specified column are not within a given set.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_name: The name of the column to check the values for.
+-- values: A list of values that the column values should not be within.
+--
+-- Returns:
+-- The values in the specified column that are within the given set.
+--
+-- This will generate a query like:
+-- SELECT column_name
+-- FROM table_name
+-- WHERE column_name NOT IN ('value1', 'value2', 'value3');
+
+SELECT 
+    CASE 
+        WHEN EXISTS (
+            SELECT 1 
+            FROM {{ table_name }}
+            WHERE {{ column_name }} IN ({{ values | map('string') | join(', ') }})
+        ) THEN 0
+        ELSE 1
+    END AS result;
+{% endmacro %}
+
+{% macro expect_column_values_to_not_match_like_pattern(table_name, column_name, pattern) %}
+-- This macro generates a SQL query that checks if the values in a specified column do not match a given LIKE pattern.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_name: The name of the column to check the values for.
+-- pattern: The LIKE pattern that the column values should not match.
+--
+-- Returns:
+-- 0 if all values do not match the given pattern, otherwise 1.
+
+SELECT 
+    CASE 
+        WHEN COUNT(*) = 0 THEN 0 
+        ELSE 1  
+    END
+FROM {{ table_name }}
+WHERE {{ column_name }} LIKE '{{ pattern }}';
+{% endmacro %}
+
+{% macro expect_column_values_to_not_match_like_pattern_list(table_name, column_name, patterns, mostly) %}
+-- This macro generates a SQL query that checks if the values in a specified column do not match any of a given list of LIKE patterns.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_name: The name of the column to check the values for.
+-- patterns: A list of LIKE patterns that the column values should not match.
+-- mostly: The minimum fraction of values that should not match the patterns.
+--
+-- Returns:
+-- 0 if the percentage of values that do not match any of the given patterns is greater than or equal to mostly, otherwise 1.
+
+WITH total_count AS (
+    SELECT COUNT(*) AS total
+    FROM {{ table_name }}
+),
+non_matching_count AS (
+    SELECT COUNT(*) AS non_matching
+    FROM {{ table_name }}
+    WHERE 
+    {% for pattern in patterns %}
+        {{ column_name }} LIKE '{{ pattern }}'
+        {% if not loop.last %}
+        OR 
+        {% endif %}
+    {% endfor %}
+)
+SELECT 
+    CASE 
+        WHEN (CAST(non_matching_count.non_matching AS FLOAT) / total_count.total) <= (1 - {{ mostly }})
+        THEN 0 
+        ELSE 1  
+    END AS result
+FROM total_count, non_matching_count;
+{% endmacro %}
+
+{% macro expect_column_values_to_not_match_regex(table_name, column_name, regex_pattern) %}
+-- This macro generates a SQL query that checks if the values in a specified column do not match a given regular expression pattern.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_name: The name of the column to check the values for.
+-- regex_pattern: The regular expression pattern that the column values should not match.
+--
+-- Returns:
+-- The values in the specified column that match the given regular expression pattern.
+--
+-- This will generate a query like:
+-- SELECT column_name
+-- FROM table_name
+-- WHERE column_name ~ 'regex_pattern';
+SELECT {{ column_name }}
+FROM {{ table_name }}
+WHERE {{ column_name }} REGEXP '{{ regex_pattern }}';
+{% endmacro %}
+
+{% macro expect_column_values_to_not_match_regex_list(table_name, column_name, regex_patterns) %}
+-- This macro generates a SQL query that checks if the values in a specified column do not match any pattern in a given list of regular expression patterns.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_name: The name of the column to check the values for.
+-- regex_patterns: A list of regular expression patterns that the column values should not match.
+--
+-- Returns:
+-- The values in the specified column that match any pattern in the given list of regular expression patterns.
+--
+-- This will generate a query like:
+-- SELECT column_name
+-- FROM table_name
+-- WHERE column_name REGEXP 'regex_pattern1'
+-- OR column_name REGEXP 'regex_pattern2'
+-- OR column_name REGEXP 'regex_pattern3';
+SELECT {{ column_name }}
+FROM {{ table_name }}
+WHERE 
+{% for pattern in regex_patterns %}
+{{ column_name }} REGEXP '{{ pattern }}'
+{% if not loop.last %}
+OR 
+{% endif %}
+{% endfor %};
+{% endmacro %}
