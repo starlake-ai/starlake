@@ -39,11 +39,11 @@ Test / javaOptions ++= testJavaOptions
 
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
-lazy val scala212 = "2.12.20"
+// lazy val scala212 = "2.12.20"
 
 lazy val scala213 = "2.13.16"
 
-lazy val supportedScalaVersions = List(scala212, scala213)
+lazy val supportedScalaVersions = List(scala213)
 
  ThisBuild / crossScalaVersions := supportedScalaVersions
 
