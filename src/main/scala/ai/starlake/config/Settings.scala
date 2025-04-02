@@ -178,6 +178,7 @@ object Settings extends StrictLogging {
   ) {
     def asMap(): Map[String, String] = this.options
 
+    @JsonIgnore
     def getCatalog(): String = {
       val catalog = this.getJdbcEngineName().toString match {
         case "snowflake" =>
