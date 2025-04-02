@@ -164,7 +164,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
             val jdbcSchemas = schemaNames.map { case (schema, tables) =>
               val jdbcSchema = JDBCSchema(
                 schema = schema,
-                tables = tables.map { t => new JDBCTable().copy(name = t) }.toList,
+                tables = tables.map { t => new JDBCTable().copy(name = t) },
                 pattern = None,
                 template = None
               )
