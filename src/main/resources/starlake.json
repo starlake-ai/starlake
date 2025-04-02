@@ -486,7 +486,7 @@
         },
         "viewPrefix": {
           "type": "string",
-          "description": "TODO"
+          "description": "When creating views, how they should be prefixed. Some databases like redshift require view name to be prefixed by the character '#'.\nThis is not required for other databases like snowflake or bigquery.\nDefault is empty string"
         },
         "preActions": {
           "type": "string",
@@ -811,11 +811,11 @@
         },
         "startTs": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": " "
+          "description": "column name to use for the start timestamp.\n This is used to update existing records in the target table by strategy SCD2."
         },
         "endTs": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "column name to use for the end timestamp.\n This is used to update existing records in the target table by strategy SCD2."
         }
       }
     },
@@ -901,7 +901,7 @@
         },
         "writeStrategy": {
           "$ref": "#/definitions/WriteStrategyV1",
-          "description": "TODO"
+          "description": "Write strategy to use when writing the data. Default is APPEND"
         }
       }
     },
@@ -1058,7 +1058,7 @@
     },
     "MetricTypeV1": {
       "$ref": "#/definitions/ConvertibleToString",
-      "description": "TODO",
+      "description": "Used to compute metrics on column values.",
       "oneOf": [
         {
           "const": "DISCRETE",
@@ -1264,7 +1264,7 @@
         },
         "writeStrategy": {
           "$ref": "#/definitions/WriteStrategyV1",
-          "description": "TODO"
+          "description": "Write strategy to use when writing the data. Default is APPEND"
         },
         "schedule": {
           "$ref": "#/definitions/ConvertibleToString",
@@ -1298,15 +1298,15 @@
         },
         "timeout": {
           "type": "integer",
-          "description": "TODO"
+          "description": "reserved"
         },
         "pollTime": {
           "type": "integer",
-          "description": "TODO. Default 5 seconds"
+          "description": "Default 5 seconds"
         },
         "refreshTime": {
           "type": "integer",
-          "description": "TODO. Default 5 seconds"
+          "description": "Default 5 seconds"
         }
       }
     },
@@ -1517,15 +1517,15 @@
         },
         "separator": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "Character used as a separator for each field and value. TODO: check if we are expecting character."
+          "description": "Character used as a separator for each field and value."
         },
         "quote": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "Character used for escaping quoted values where the separator can be part of the value. TODO: check if we are expecting character."
+          "description": "Character used for escaping quoted values where the separator can be part of the value."
         },
         "escape": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "Character used for escaping quotes inside an already quoted value. TODO: check if we are expecting character."
+          "description": "Character used for escaping quotes inside an already quoted value."
         },
         "nullValue": {
           "$ref": "#/definitions/ConvertibleToString",
@@ -2008,11 +2008,11 @@
       "properties": {
         "load": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "Dag config to use for load tasks. May be redefined at the table level"
         },
         "transform": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "Dag config to use for transform tasks. May be redefined at the task level"
         }
       }
     },
@@ -2149,11 +2149,11 @@
         },
         "scd2StartTimestamp": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "Column name to use for SCD2 start timestamp.@"
         },
         "scd2EndTimestamp": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "Column name to use for SCD2 end timestamp."
         },
         "area": {
           "$ref": "#/definitions/AreaV1",
