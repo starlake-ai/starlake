@@ -737,6 +737,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                         temp_stage = self.sl_incoming_file_stage or context.get('tempStage', None)
                         if not temp_stage:
                             raise ValueError(f"Temp stage for {sink} not found")
+                        temp_table_name = context.get('tempTableName', None)
                         context_schema: dict = context.get('schema', dict())
                         pattern: str = context_schema.get('pattern', None)
                         if not pattern:
@@ -881,7 +882,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             else:
                                 extension = ""
                             sql = f'''
-                                COPY INTO {sink} 
+                                COPY INTO {temp_table_name or sink} 
                                 FROM @{temp_stage}/{domain}/
                                 PATTERN = '{pattern}{extension}'
                                 PURGE = {purge}
@@ -908,7 +909,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             ]
                             extra_options = copy_extra_options(common_options)
                             sql = f'''
-                                COPY INTO {sink} 
+                                COPY INTO {temp_table_name or sink} 
                                 FROM @{temp_stage}/{domain}
                                 PATTERN = '{pattern}'
                                 PURGE = {purge}
@@ -928,7 +929,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             ]
                             extra_options = copy_extra_options(common_options)
                             sql = f'''
-                                COPY INTO {sink} 
+                                COPY INTO {temp_table_name or sink} 
                                 FROM @{temp_stage}/{domain} 
                                 PATTERN = '{pattern}'
                                 PURGE = {purge}
