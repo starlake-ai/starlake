@@ -330,7 +330,12 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   def listDirectories(path: Path): List[Path] = {
     pathSecurityCheck(path)
     val currentFS = fs(path)
-    currentFS.listStatus(path).filter(_.isDirectory).map(_.getPath).toList
+    currentFS
+      .listStatus(path)
+      .filter(_.isDirectory)
+      .map(_.getPath)
+      .toList
+      .filterNot(_.getName.startsWith("."))
   }
 
   def stat(path: Path): FileInfo = {
@@ -368,16 +373,19 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     Try {
       if (exists(path)) {
         val iterator: RemoteIterator[LocatedFileStatus] = currentFS.listFiles(path, recursive)
-        val files = iterator.filter { status =>
-          logger.debug(s"found file=$status")
-          val time = LocalDateTime.ofInstant(
-            Instant.ofEpochMilli(status.getModificationTime),
-            ZoneId.systemDefault
-          )
-          val excludeFile =
-            exclude.exists(_.matcher(status.getPath().getName()).matches())
-          !excludeFile && time.isAfter(since) && status.getPath().getName().endsWith(extension)
-        }.toList
+        val files = iterator
+          .filter { status =>
+            logger.debug(s"found file=$status")
+            val time = LocalDateTime.ofInstant(
+              Instant.ofEpochMilli(status.getModificationTime),
+              ZoneId.systemDefault
+            )
+            val excludeFile =
+              exclude.exists(_.matcher(status.getPath().getName()).matches())
+            !excludeFile && time.isAfter(since) && status.getPath().getName().endsWith(extension)
+          }
+          .toList
+          .filterNot(_.getPath.getName.startsWith(".")) // ignore all control files
         logger.info(s"Found ${files.size} files")
         val sorted =
           if (sortByName)

@@ -651,7 +651,7 @@ object AutoTask extends StrictLogging {
         if (connection.isDuckDb())
           s"SUMMARIZE $quote$domain$quote.$quote$table$quote"
         else
-          s"DESCRIBE $quote$domain$quote.$quote$table$quote"
+          s"DESCRIBE TABLE $quote$domain$quote.$quote$table$quote"
       else
         sql
 
