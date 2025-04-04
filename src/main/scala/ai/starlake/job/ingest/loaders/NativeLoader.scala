@@ -417,7 +417,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       }
     val engine = settings.appConfig.jdbcEngines(engineName.toString)
 
-    val tempStage = s"starlake_load_stage_${Random.alphanumeric take 10 mkString ""}"
+    val tempStage = s"starlake_load_stage_${Random.alphanumeric.take(10).mkString("")}"
     val commonOptionsMap = Map(
       "schema"     -> starlakeSchema.asMap().asJava,
       "sink"       -> sink.asMap(engine).asJava,
