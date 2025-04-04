@@ -509,15 +509,9 @@ trait BigQueryJobBase extends StrictLogging {
               .newBuilder(targetTableId, tableDefinition)
               .setDescription(tableInfo.maybeTableDescription.orNull)
 
-            if (tableInfo.maybePartition.isEmpty) {
-              cliConfig.days match {
-                case Some(days) =>
-                  bqTableInfoBuilder.setExpirationTime(
-                    System.currentTimeMillis() + days * 24 * 3600 * 1000
-                  )
-                case None =>
-              }
-            }
+            tableInfo.maybeDurationMs.foreach(d =>
+              bqTableInfoBuilder.setExpirationTime(System.currentTimeMillis() + d)
+            )
 
             val bqTableInfo = bqTableInfoBuilder.build
             logger.info(s"Creating table ${targetTableId.getDataset}.${targetTableId.getTable}")

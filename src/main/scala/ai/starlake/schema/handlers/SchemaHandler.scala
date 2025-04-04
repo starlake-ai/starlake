@@ -911,17 +911,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       case Left(errors) =>
         errors
     }
-
-    val renameErrors = Utils.duplicates(
-      "Domain rename",
-      nonEmptyDomains.map(d => d.rename.getOrElse(d.name)),
-      s"renamed domain %s is defined %d times. It can only appear once."
-    ) match {
-      case Right(_) => Nil
-      case Left(errors) =>
-        errors
-    }
-
     val directoryErrors = Utils.duplicates(
       "Domain directory",
       nonEmptyDomains.flatMap(_.resolveDirectoryOpt()),
@@ -945,7 +934,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         )
       case Success(_) => // ignore
     }
-    this._domainErrors = nameErrors ++ renameErrors ++ directoryErrors
+    this._domainErrors = nameErrors ++ directoryErrors
     this._domainErrors.foreach(err => logger.error(err.toString()))
     (this._domainErrors, nonEmptyDomains)
   }
@@ -1687,7 +1676,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     createTables.toList
   }
 
-  /** List of all domain.table including tasks but not externals
+  /** List of all domain.table including tasks and externals
     *
     * @return
     *   List of all objects in the metadata
@@ -1734,9 +1723,28 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           .sortBy(_.name)
       )
     }
-    val all = tableNames ++ taskNames ++ externalNames
+    val all = merge(externalNames, tableNames, taskNames)
     val result = all.sortBy(_.name)
     result
+  }
+
+  def merge(tables: List[DomainWithNameOnly]*): List[DomainWithNameOnly] = {
+    def toMap(list: List[DomainWithNameOnly]): Map[String, DomainWithNameOnly] = {
+      list.flatMap { domain =>
+        domain.tables.map { table =>
+          s"${domain.name.toLowerCase()}.${table.name.toLowerCase()}" -> domain
+        }
+      }.toMap
+    }
+    var result = Map.empty[String, DomainWithNameOnly]
+    tables.foreach { list =>
+      val incoming = toMap(list)
+      incoming.foreach { case (key, value) =>
+        if (!result.keys.exists(k => k == key))
+          result = result + (key -> value)
+      }
+    }
+    result.values.toList
   }
 
   def saveToExternals(domains: List[Domain]) = {

@@ -30,13 +30,24 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
   def extractSchemasAndTableNames(
     schemaHandler: SchemaHandler
   ): Try[List[(String, List[String])]] = {
-    val domains = extractSchemasAndTables(schemaHandler, config.tables)
     Try {
-      domains
-        .sortBy(_.name)
-        .map { domain =>
-          domain.name -> domain.tables.map(_.name).sorted
-        }
+      val datasets = bigquery
+        .listDatasets(DatasetListOption.pageSize(10000))
+        .iterateAll()
+        .asScala
+
+      datasets.map { dataset =>
+        val bqTables = bigquery
+          .listTables(dataset.getDatasetId, TableListOption.pageSize(10000))
+          .iterateAll()
+          .asScala
+          .filterNot(_.getTableId.getTable().startsWith("zztmp_"))
+          .map(_.getTableId.getTable())
+          .toList
+          .sorted
+        val datasetName = dataset.getDatasetId.getDataset()
+        datasetName -> bqTables
+      }.toList
     }
   }
 
