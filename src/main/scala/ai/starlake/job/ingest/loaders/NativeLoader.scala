@@ -194,6 +194,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
                 csvParser.getRecordMetadata.headers().toList
               }
             }
+            // The result is a list of effectiveAttributes that combines the attributes from the schema
+            // and the CSV file, ensuring compatibility between the two.
             val attributesMap = starlakeSchema.attributes.map(attr => attr.name -> attr).toMap
             val csvAttributesInOrders =
               csvHeaders.map(h =>
@@ -325,6 +327,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     }
   }
 
+  lazy val tempStage = s"starlake_load_stage_${Random.alphanumeric.take(10).mkString("")}"
+
   def buildSQLStatements(): Map[String, Object] = {
     val twoSteps = this.twoSteps
     val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
@@ -417,7 +421,6 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       }
     val engine = settings.appConfig.jdbcEngines(engineName.toString)
 
-    val tempStage = s"starlake_load_stage_${Random.alphanumeric.take(10).mkString("")}"
     val commonOptionsMap = Map(
       "schema"     -> starlakeSchema.asMap().asJava,
       "sink"       -> sink.asMap(engine).asJava,

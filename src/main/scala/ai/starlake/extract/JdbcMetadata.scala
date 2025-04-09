@@ -12,6 +12,7 @@ import ai.starlake.extract.JdbcDbUtils.{
 }
 import ai.starlake.schema.model.Attribute
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 
 import java.sql.{DatabaseMetaData, ResultSetMetaData}
 import java.sql.Types.{
@@ -55,7 +56,7 @@ sealed trait JdbcColumnMetadata extends StrictLogging {
   /** @return
     *   a map of foreign key name and its pk composite name
     */
-  def foreignKeys: Map[ColumnName, ColumnName]
+  def foreignKeys: CaseInsensitiveMap[ColumnName]
 
   /** @return
     *   a list of attributes representing resource's columns
@@ -237,7 +238,7 @@ final class JdbcColumnDatabaseMetadata(
   /** @return
     *   a map of foreign key name and its pk composite name
     */
-  override def foreignKeys: Map[String, String] = {
+  override def foreignKeys: CaseInsensitiveMap[String] = {
     Try {
       Using.resource(connectionSettings match {
         case d if d.isMySQLOrMariaDb() =>
@@ -263,7 +264,7 @@ final class JdbcColumnDatabaseMetadata(
             val pkColumnName = foreignKeysResultSet.getString("PKCOLUMN_NAME")
             val pkFinalColumnName = computeFinalColumnName(pkTableName, pkColumnName)
             val fkColumnName =
-              foreignKeysResultSet.getString("FKCOLUMN_NAME").toUpperCase
+              foreignKeysResultSet.getString("FKCOLUMN_NAME")
 
             val pkCompositeName =
               if (pkSchemaName == null) s"$pkTableName.$pkFinalColumnName"
@@ -276,8 +277,8 @@ final class JdbcColumnDatabaseMetadata(
     } match {
       case Failure(exception) =>
         logger.warn(s"Could not extract foreign keys for table $tableName")
-        Map.empty[String, String]
-      case Success(value) => value
+        CaseInsensitiveMap(Map.empty[String, String])
+      case Success(value) => CaseInsensitiveMap(value)
     }
   }
 
@@ -326,7 +327,7 @@ final class JdbcColumnDatabaseMetadata(
           val colRemarks =
             remarks.getOrElse(colName, columnsResultSet.getString("REMARKS"))
           val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
-          val foreignKey = foreignKeys.get(colName.toUpperCase)
+          val foreignKey = foreignKeys.get(colName)
           // val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
           Attribute(
             name = if (keepOriginalName) colName else finalColName,
@@ -362,7 +363,7 @@ class ResultSetColumnMetadata(
   /** @return
     *   a map of foreign key name and its pk composite name
     */
-  override def foreignKeys: Map[String, String] = Map.empty
+  override def foreignKeys: CaseInsensitiveMap[String] = CaseInsensitiveMap(Map.empty)
 
   /** @return
     *   a list of attributes representing resource's columns
