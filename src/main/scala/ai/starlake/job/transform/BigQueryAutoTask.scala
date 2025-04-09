@@ -143,13 +143,8 @@ class BigQueryAutoTask(
     sql: String,
     jobTimeoutMs: Option[Long] = None
   ): BigQueryNativeJob = {
-    val toUpperSql = sql.toUpperCase()
-    val finalSql =
-      if (toUpperSql.startsWith("WITH") || toUpperSql.startsWith("SELECT"))
-        sql // "(" + sql + ")"
-      else
-        sql
-    new BigQueryNativeJob(config, finalSql, this.resultPageSize, jobTimeoutMs)
+
+    new BigQueryNativeJob(config, sql, this.resultPageSize, jobTimeoutMs)
   }
 
   private def runSqls(sqls: List[String]): List[Try[BigQueryJobResult]] = {

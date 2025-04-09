@@ -82,7 +82,7 @@ case class TemplateParams(
           "full_export"  -> fullExport,
           "audit_schema" -> auditDB.getOrElse(domainToExport)
         )
-      ) { case (list, deltaCol) => list :+ ("delta_column" -> deltaCol.toUpperCase) }
+      ) { case (list, deltaCol) => list :+ ("delta_column" -> deltaCol) }
       .toMap ++ activeEnv
   }
 }

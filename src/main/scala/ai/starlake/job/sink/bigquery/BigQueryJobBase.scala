@@ -845,10 +845,10 @@ trait BigQueryJobBase extends StrictLogging {
                 table
               )
             val tableName =
-              tableIdPk.getDataset.toUpperCase() + "_" + tableIdPk.getTable.toUpperCase()
+              tableIdPk.getDataset + "_" + tableIdPk.getTable
             val fk = ForeignKey.newBuilder
               .setName(
-                s"FK_${datasetId.getDataset.toUpperCase()}_${tableId.getTable().toUpperCase()}_${attr.getFinalName().toUpperCase()}"
+                s"FK_${datasetId.getDataset}_${tableId.getTable()}_${attr.getFinalName()}"
               )
               .setColumnReferences(List(columnReference).asJava)
               .setReferencedTable(tableIdPk)
@@ -879,7 +879,7 @@ trait BigQueryJobBase extends StrictLogging {
       .newBuilder(TimePartitioning.Type.DAY)
       .setRequirePartitionFilter(requirePartitionFilter)
     val partitioned =
-      if (!Set("_PARTITIONTIME", "_PARTITIONDATE").contains(partitionField.toUpperCase))
+      if (!Set("_PARTITIONTIME", "_PARTITIONDATE").exists(_.equalsIgnoreCase(partitionField)))
         partitionFilter.setField(partitionField)
       else
         partitionFilter
