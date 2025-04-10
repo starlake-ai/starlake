@@ -168,6 +168,7 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
                 payload['execution_date'] = logical_date + 'Z'
             print(f"Starting pipeline {DAG_ID} with configuration {payload}")
             import requests
+            from requests.exceptions import HTTPError
             response = requests.post(
                 f"{AIRFLOW_API_BASE_URL}/dags/{DAG_ID}/dagRuns",
                 headers={'Content-Type': 'application/json'},
@@ -176,7 +177,7 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
             )
             try:
                 response.raise_for_status()
-            except Exception as e:
+            except HTTPError as e:
                 print(f"Pipeline {DAG_ID} failed with error {str(e)}")
                 return
             json_response: dict = response.json() or dict()
@@ -197,10 +198,17 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
                     elif state == DagRunState.SUCCESS:
                         print(f"Pipeline {DAG_ID} succeeded")
                         return True
+                    elif state == DagRunState.QUEUED:
+                        print(f"Pipeline {DAG_ID} is queued")
+                        time.sleep(5)
+                        return check_state()
                     elif state == DagRunState.RUNNING:
                         print(f"Pipeline {DAG_ID} is running")
                         time.sleep(5)
                         return check_state()
+                    else:
+                        print(f"Pipeline {DAG_ID} is in state {state}")
+                        return False
                 check_state()
             else:
                 raise Exception(f"Pipeline {DAG_ID} failed")
