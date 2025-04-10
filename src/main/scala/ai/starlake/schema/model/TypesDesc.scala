@@ -212,7 +212,7 @@ case class Type(
       this.ddlMapping
         .getOrElse(Map.empty)
         .keys
-        .find(mapping => !mapping.equals(mapping.toLowerCase()))
+        .find(mapping => !mapping.equalsIgnoreCase(mapping))
 
     notLowerCaseOnlyMapping match {
       case Some(mapping) =>

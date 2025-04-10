@@ -56,7 +56,6 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
     tablesToExtract: Map[String, List[String]]
   ): List[Domain] = {
     val datasetNames = tablesToExtract.keys.toList
-    val lowercaseDatasetNames = tablesToExtract.keys.map(_.toLowerCase()).toList
     val filteredDatasets =
       if (datasetNames.size == 1) {
         // We optimize extraction for a single dataset
@@ -69,10 +68,10 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
           .iterateAll()
           .asScala
           .filter(ds =>
-            datasetNames.isEmpty || lowercaseDatasetNames.contains(
-              ds.getDatasetId.getDataset().toLowerCase()
-            )
+            datasetNames.isEmpty || tablesToExtract.keys
+              .exists(_.equalsIgnoreCase(ds.getDatasetId.getDataset))
           )
+
       }
     filteredDatasets.map { dataset =>
       extractDataset(schemaHandler, dataset)
@@ -98,21 +97,23 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
     val tables =
       schemaHandler.domains().find(_.finalName.equalsIgnoreCase(datasetName)) match {
         case Some(domain) =>
-          val tablesToExclude = domain.tables.map(_.finalName.toLowerCase())
-          allTables.filterNot(t => tablesToExclude.contains(t.getTableId.getTable().toLowerCase()))
+          val tablesToExclude = domain.tables.map(_.finalName)
+          allTables.filterNot(t =>
+            tablesToExclude.exists(_.equalsIgnoreCase(t.getTableId.getTable))
+          )
         case None => allTables
       }
     val schemas = tables.flatMap { bqTable =>
-      logger.info(s"Extracting table $datasetName.${bqTable.getTableId.getTable()}")
+      logger.info(s"Extracting table $datasetName.${bqTable.getTableId.getTable}")
       // We get the Table again below because Tables are returned with a null definition by listTables above.
-      Try(bigquery.getTable(bqTable.getTableId())) match {
+      Try(bigquery.getTable(bqTable.getTableId)) match {
         case scala.util.Success(tableWithDefinition) =>
-          if (tableWithDefinition.getDefinition().isInstanceOf[StandardTableDefinition])
+          if (tableWithDefinition.getDefinition.isInstanceOf[StandardTableDefinition])
             Some(extractTable(tableWithDefinition))
           else
             None
         case scala.util.Failure(e) =>
-          logger.error(s"Failed to get table ${bqTable.getTableId()}", e)
+          logger.error(s"Failed to get table ${bqTable.getTableId}", e)
           None
       }
     }

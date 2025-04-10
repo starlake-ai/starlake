@@ -502,7 +502,7 @@ class BigQueryAutoTask(
     val isSCD2 = strategy.getEffectiveType() == WriteStrategyType.SCD2
     if (
       isSCD2 && !incomingTableSchema.getFields.asScala.exists(
-        _.getName().toLowerCase() == settings.appConfig.scd2StartTimestamp.toLowerCase()
+        _.getName.equalsIgnoreCase(settings.appConfig.scd2StartTimestamp)
       )
     ) {
       val startCol = Field
