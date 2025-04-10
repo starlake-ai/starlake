@@ -437,7 +437,7 @@ class SparkAutoTask(
         val endTs = strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
 
         val scd2FieldsFound =
-          incomingSchema.fields.exists(_.name.toLowerCase() == startTs.toLowerCase())
+          incomingSchema.fields.exists(_.name.equalsIgnoreCase(startTs))
 
         if (!scd2FieldsFound) {
           val incomingSchemaWithScd2 =
