@@ -325,6 +325,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     }
   }
 
+  lazy val tempStage = s"starlake_load_stage_${Random.alphanumeric.take(10).mkString("")}"
+
   def buildSQLStatements(): Map[String, Object] = {
     val twoSteps = this.twoSteps
     val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
@@ -423,7 +425,12 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       "sink"       -> sink.asMap(engine).asJava,
       "fileSystem" -> settings.appConfig.fileSystem,
       "tempStage"  -> tempStage,
-      "connection" -> sinkConnection.asMap()
+      "connection" -> sinkConnection.asMap(),
+      "variant" -> starlakeSchema.attributes
+        .exists(
+          _.primitiveType(schemaHandler).getOrElse(PrimitiveType.string) == PrimitiveType.variant
+        )
+        .toString
     )
     val result = stepMap ++ commonOptionsMap
     result
