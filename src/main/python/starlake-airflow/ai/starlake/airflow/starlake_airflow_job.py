@@ -337,33 +337,49 @@ class StarlakeDatasetMixin(LoggingMixin):
             if isinstance(dataset, StarlakeDataset):
                 params.update({
                     'uri': dataset.uri,
-                    'sl_schedule': dataset.cron,
+                    'cron': dataset.cron,
                     'sl_schedule_parameter_name': dataset.sl_schedule_parameter_name, 
                     'sl_schedule_format': dataset.sl_schedule_format,
                     'previous': previous
                 })
                 kwargs['params'] = params
-                self.dataset = "{{sl_scheduled_dataset(params.uri, params.sl_schedule, data_interval_end | ts, params.sl_schedule_parameter_name, params.sl_schedule_format, params.previous)}}"
+                self.dataset_str = "{{sl_scheduled_dataset(params.uri, params.cron, data_interval_end | ts, params.sl_schedule_parameter_name, params.sl_schedule_format, params.previous)}}"
             else:
-                self.dataset = dataset
-            outlets.append(DatasetAlias(self.alias))
+                self.dataset_str = dataset
+            self.__dataset_alias = DatasetAlias(self.alias)
+            outlets.append(self.dataset_alias)
             kwargs["outlets"] = outlets
             self.outlets = outlets
             self.template_fields = getattr(self, "template_fields", tuple()) + ("dataset",)
         else:
-            self.dataset = None
+            self.dataset_str = None
         super().__init__(task_id=task_id, **kwargs)  # Appelle l'init de l'opérateur principal
+
+    @property
+    def dataset_alias(self) -> Optional[DatasetAlias]:
+        """Returns the dataset alias."""
+        if not hasattr(self, "__dataset_alias"):
+            return None
+        return self.__dataset_alias
+
+    @property
+    def dataset(self) -> Optional[Dataset]:
+        """Returns the dataset."""
+        if not hasattr(self, "__dataset"):
+            return None
+        return self.__dataset
 
     @prepare_lineage
     def pre_execute(self, context):
-        if self.dataset:
-            self.log.info(f"Pre execute {self.task_id} with dataset={self.dataset}, alias={self.alias}, extra={self.extra}, outlets={self.outlets}")
+        if self.dataset_str:
+            self.log.info(f"Pre execute {self.task_id} with dataset={self.dataset_str}, alias={self.alias}, extra={self.extra}, outlets={self.outlets}")
             from urllib.parse import parse_qs
-            uri: str = self.render_template(self.dataset, context)
+            uri: str = self.render_template(self.dataset_str, context)
             query = uri.split("?")
             if query.__len__() > 1:
                 self.extra.update(parse_qs(query[-1]))
-            context["outlet_events"][self.alias].add(Dataset(uri, self.extra))
+            self.__dataset = Dataset(uri, self.extra)
+            context["outlet_events"][self.dataset_alias].add(self.dataset)
         return super().pre_execute(context)
 
     @apply_lineage
@@ -373,8 +389,8 @@ class StarlakeDatasetMixin(LoggingMixin):
 
         It is passed the execution context and any results returned by the operator.
         """
-        if self.dataset:
-            context["outlet_events"][self.alias].extra = self.extra
+        if self.dataset_alias:
+            context["outlet_events"][self.dataset_alias].extra = self.extra
         return super().post_execute(context, result)
 
 class StarlakeEmptyOperator(StarlakeDatasetMixin, EmptyOperator):
