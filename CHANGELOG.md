@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 1.4.1:
+__Bug fix__:
+- fix index out of bound exception when extracting table name from file name
+
 # 1.4.0
 
 __New Feature__:

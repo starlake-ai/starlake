@@ -46,7 +46,7 @@ case class InferSchemaConfig(
       val lastIndex = fileNameWithoutExt.lastIndexOf(matchedChar)
       val name = fileNameWithoutExt.substring(0, lastIndex)
       val deltaPart = fileNameWithoutExt.substring(lastIndex + 1)
-      if (deltaPart.nonEmpty && deltaPart(1).isDigit) {
+      if (deltaPart.nonEmpty && deltaPart(0).isDigit) {
         (name.replaceAll("\\.", "_").replaceAll("-", "_"), WriteMode.APPEND)
       } else {
         (fileNameWithoutExt, WriteMode.OVERWRITE)
