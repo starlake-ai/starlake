@@ -3,6 +3,7 @@ package ai.starlake.utils
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.sql.SQLUtils
+import ai.starlake.sql.SQLUtils.sqlCased
 import better.files.File
 import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
@@ -167,8 +168,8 @@ object SparkUtils extends StrictLogging {
     }
   }
 
-  def createSchema(session: SparkSession, domain: String): Unit = {
-    SparkUtils.sql(session, s"CREATE SCHEMA IF NOT EXISTS ${domain}")
+  def createSchema(session: SparkSession, domain: String)(implicit settings: Settings): Unit = {
+    SparkUtils.sql(session, s"CREATE SCHEMA IF NOT EXISTS ${sqlCased(domain)}")
   }
 
   def truncateTable(session: SparkSession, tableName: String): Unit = {
@@ -222,7 +223,7 @@ object SparkUtils extends StrictLogging {
     temporaryTable: Boolean,
     options: JdbcOptionsInWrite,
     attrDdlMapping: Map[String, Map[String, String]]
-  )(implicit settings: Settings): (String, String, Option[String]) = {
+  )(implicit settings: Settings): (String, String, List[String]) = {
     val strSchema =
       schemaString(
         schema,
@@ -239,18 +240,18 @@ object SparkUtils extends StrictLogging {
         strSchema.replaceAll("\"", "")
 
     val domainName = domainAndTableName.split('.').head
-    val createSchemaSQL = s"CREATE SCHEMA IF NOT EXISTS $domainName"
+    val createSchemaSQL = s"CREATE SCHEMA IF NOT EXISTS ${sqlCased(domainName)}"
     val temporary = if (temporaryTable) "TEMP" else ""
     val createTableSQL =
-      s"CREATE $temporary TABLE IF NOT EXISTS $domainAndTableName ($finalStrSchema) $createTableOptions"
+      s"CREATE $temporary TABLE IF NOT EXISTS ${sqlCased(domainAndTableName)} ($finalStrSchema) $createTableOptions"
 
     val commentSQL =
       if (options.tableComment.nonEmpty)
-        Some(s"COMMENT ON TABLE $domainAndTableName IS '${options.tableComment}'")
+        Some(s"COMMENT ON TABLE ${sqlCased(domainAndTableName)} IS '${options.tableComment}'")
       else
         None
-
-    (createSchemaSQL, createTableSQL, commentSQL)
+    val attrsComments = commentsOnAttributes(domainAndTableName, schema)
+    (createSchemaSQL, createTableSQL, commentSQL.toList ++ attrsComments)
   }
 
   def isFlat(fields: StructType): Boolean = {
@@ -376,7 +377,18 @@ object SparkUtils extends StrictLogging {
           }
         column
       }
-    columns.mkString(", ")
+    val result = columns.mkString(", ")
+    sqlCased(result)
+  }
+
+  def commentsOnAttributes(
+    domainAndTableName: String,
+    schema: StructType
+  )(implicit settings: Settings): List[String] = {
+    schema.fields.flatMap { field =>
+      getDescription(field)
+        .map(d => s"COMMENT ON COLUMN ${sqlCased(domainAndTableName + '.' + field.name)} IS '$d'")
+    }.toList
   }
 
   def sql(session: SparkSession, sql: String): DataFrame = {

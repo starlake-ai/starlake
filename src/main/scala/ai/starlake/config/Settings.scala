@@ -787,7 +787,8 @@ object Settings extends StrictLogging {
     maxInteractiveRecords: Int,
     duckdbPath: Option[String],
     ack: Option[String],
-    duckDbEnableExternalAccess: Boolean
+    duckDbEnableExternalAccess: Boolean,
+    sqlCaseSensitivity: String
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
