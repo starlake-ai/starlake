@@ -849,7 +849,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             compression_format = "COMPRESSION = NONE"
 
                         null_if = get_option('NULL_IF', None)
-                        if not null_if and is_true(metadata.get('emptyIsNull', "false"), False):
+                        if not null_if and is_true(metadata.get('emptyIsNull', "true"), False):
                             null_if = "NULL_IF = ('')"
                         elif null_if:
                             null_if = f"NULL_IF = {null_if}"
@@ -865,7 +865,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                         def build_copy_csv() -> str:
                             skipCount = get_option("SKIP_HEADER", None)
 
-                            if not skipCount and is_true(metadata.get('withHeader', 'false'), False):
+                            if not skipCount and is_true(metadata.get('withHeader', 'true'), False):
                                 skipCount = '1'
 
                             common_options = [
@@ -902,12 +902,17 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             return sql
 
                         def build_copy_json() -> str:
-                            strip_outer_array = get_option("STRIP_OUTER_ARRAY", 'array')
+                            strip_outer_array = get_option("STRIP_OUTER_ARRAY", 'true')
                             common_options = [
                                 'STRIP_OUTER_ARRAY', 
                                 'NULL_IF'
                             ]
                             extra_options = copy_extra_options(common_options)
+                            variant = context.get('variant', "false")
+                            if (variant == "false"):
+                                match_by_columnName = "MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE"
+                            else:
+                                ''
                             sql = f'''
                                 COPY INTO {temp_table_name or sink} 
                                 FROM @{temp_stage}/{domain}
@@ -920,6 +925,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                     {extra_options}
                                     {compression_format}
                                 )
+                                {match_by_columnName}
                             '''
                             return sql
                             
