@@ -1715,6 +1715,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 }.sorted
               )
             }
+            .distinctBy(_.name.toLowerCase())
             .sortBy(_.name)
         )
       }
@@ -1724,7 +1725,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         .map { job =>
           DomainWithNameOnly(
             job.name,
-            job.tasks.map(_.table).sorted.map(TableWithNameAndType(_, List.empty))
+            job.tasks
+              .map(_.table)
+              .distinctBy(_.toLowerCase())
+              .sorted
+              .map(TableWithNameAndType(_, List.empty))
           )
         }
     val externalNames = this.externals().map { domain =>
