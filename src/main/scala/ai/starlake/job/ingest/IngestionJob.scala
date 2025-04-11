@@ -4,7 +4,12 @@ import ai.starlake.config.{CometColumns, DatasetArea, Settings}
 import ai.starlake.exceptions.DisallowRejectRecordException
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.validator.SimpleRejectedRecord
-import ai.starlake.job.ingest.loaders.{BigQueryNativeLoader, DuckDbNativeLoader, NativeLoader}
+import ai.starlake.job.ingest.loaders.{
+  BigQueryNativeLoader,
+  DuckDbNativeLoader,
+  NativeLoader,
+  SnowflakeNativeLoader
+}
 import ai.starlake.job.metrics._
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.transform.{SparkAutoTask, SparkExportTask}
@@ -260,7 +265,7 @@ trait IngestionJob extends SparkJob {
     loader
   }
 
-  private def isNativeCandidate(dbType: String): Boolean = {
+  private def isNativeCandidate(dbName: String): Boolean = {
     val nativeValidator =
       mergedMetadata.loader
         .orElse(mergedMetadata.getSinkConnection().loader)
@@ -270,7 +275,7 @@ trait IngestionJob extends SparkJob {
     if (!nativeValidator) {
       false
     } else {
-      dbType match {
+      dbName match {
         case "bigquery" =>
           val csvOrJsonLines =
             !mergedMetadata.resolveArray() && Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
@@ -285,7 +290,7 @@ trait IngestionJob extends SparkJob {
               mergedMetadata.resolveFormat()
             )
         case "snowflake" =>
-          Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
+          Set(Format.DSV, Format.JSON, Format.JSON_FLAT, Format.XML, Format.PARQUET)
             .contains(
               mergedMetadata.resolveFormat()
             )
@@ -426,6 +431,9 @@ trait IngestionJob extends SparkJob {
     val jobResult = selectLoader() match {
       case "bigquery" =>
         val ingestionCounters = new BigQueryNativeLoader(this, accessToken).run()
+        ingestionCounters
+      case "snowflake" =>
+        val ingestionCounters = new SnowflakeNativeLoader(this).run()
         ingestionCounters
       case "duckdb" =>
         val ingestionCounters = new DuckDbNativeLoader(this).run()

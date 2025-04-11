@@ -130,19 +130,15 @@ object JdbcDbUtils extends LazyLogging {
   private var depth = 0
   private var count = 0
   def withJDBCConnection[T](
-    connectionOptions: Map[String, String]
+    connectionOptions: Map[String, String],
+    existingConnection: Option[SQLConnection] = None
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
     count = count + 1
-    /*
-    logger.info(s"count=$count / depth=$depth; Creating connection  $connectionOptions")
-    try {
-      throw new Exception(s"count=$count / depth=$depth Stack trace")
-    } catch {
-      case e: Exception =>
-        e.printStackTrace()
-    }
-     */
-    Try(StarlakeConnectionPool.getConnection(connectionOptions)) match {
+    val conn =
+      Try {
+        existingConnection.getOrElse(StarlakeConnectionPool.getConnection(connectionOptions))
+      }
+    conn match {
       case Failure(exception) =>
         // logger.error(s"count=$count / depth=$depth Error creating connection", exception)
         throw exception
@@ -176,7 +172,7 @@ object JdbcDbUtils extends LazyLogging {
         }
 
         val url = connectionOptions("url")
-        if (!isExtractCommandHack(url)) {
+        if (!isExtractCommandHack(url) && existingConnection.isEmpty) {
           Try(connection.close()) match {
             case Success(_) =>
               logger.debug(s"Closed connection $url")
@@ -293,6 +289,36 @@ object JdbcDbUtils extends LazyLogging {
     rs.close()
     stmt.close()
     result
+  }
+
+  def executeQueryAsTable(
+    query: String,
+    connection: SQLConnection
+  ): List[Map[String, String]] = {
+    val resultTable = ListBuffer[Map[String, String]]()
+    val statement = connection.createStatement()
+    logger.info(s"executing $query")
+    try {
+      // Establish the connection
+      val resultSet = statement.executeQuery(query)
+
+      // Get column names
+      val metaData = resultSet.getMetaData
+      val columnCount = metaData.getColumnCount
+      val columnNames = (1 to columnCount).map(metaData.getColumnName)
+
+      // Process the result set
+      while (resultSet.next()) {
+        val row = columnNames
+          .map(name => name -> Option(resultSet.getObject(name)).map(_.toString).getOrElse("null"))
+          .toMap
+        resultTable += row
+      }
+    } finally {
+      statement.close()
+    }
+
+    resultTable.toList
   }
 
   def execute(script: String, connection: SQLConnection): Try[Boolean] = {
