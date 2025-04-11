@@ -95,7 +95,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                 storageHandler,
                 schemaHandler
               )
-            job.run()
+            job.runJDBC(None, Some(conn))
             job.updateJdbcTableSchema(
               starlakeSchema.targetSparkSchemaWithIgnoreAndScript(schemaHandler),
               targetTableName
@@ -103,9 +103,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
 
             // TODO archive if set
             tempTables.foreach { tempTable =>
-              JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-                JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
-              }
+              JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
             }
           } else {
             singleStepLoad(
@@ -178,18 +176,50 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       .getOrElse("ENCODING", mergedMetadata.resolveEncoding())
 
   private def buildCopyJson(domainAndTableName: String) = {
-    val stripOuterArray = mergedMetadata.getOptions().getOrElse("STRIP_OUTER_ARRAY", "TRUE")
+    val stripOuterArray = mergedMetadata
+      .getOptions()
+      .getOrElse("STRIP_OUTER_ARRAY", mergedMetadata.resolveArray().toString.toUpperCase())
     val commonOptions = List("STRIP_OUTER_ARRAY", "NULL_IF")
+    val matchByColumnName =
+      if (
+        starlakeSchema.attributes.exists(
+          _.primitiveType(schemaHandler).getOrElse(PrimitiveType.string) ==
+            PrimitiveType.variant
+        )
+      )
+        ""
+      else
+        "MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE"
+
     val extraOptions = copyExtraOptions(commonOptions)
     val sql =
       s"""
-         |COPY INTO {sink}
-         |FROM @$tempStage/${domain}/
+         |COPY INTO $domainAndTableName
+         |FROM @$tempStage/${domain.finalName}/
          |PATTERN = '$pattern'
          |PURGE = ${purge}
          |FILE_FORMAT = (
          |  TYPE = JSON
          |  STRIP_OUTER_ARRAY = $stripOuterArray
+         |  $nullIf
+         |  $extraOptions
+         |  $compressionFormat
+         |)
+         |$matchByColumnName
+         |""".stripMargin
+    sql
+  }
+  private def buildCopyOther(domainAndTableName: String, format: String) = {
+    val commonOptions = List("NULL_IF")
+    val extraOptions = copyExtraOptions(commonOptions)
+    val sql =
+      s"""
+         |COPY INTO $domainAndTableName
+         |FROM @$tempStage/${domain.finalName}/
+         |PATTERN = '$pattern'
+         |PURGE = $purge
+         |FILE_FORMAT = (
+         |  TYPE = $format
          |  $nullIf
          |  $extraOptions
          |  $compressionFormat
@@ -218,15 +248,21 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
         .getOptions()
         .getOrElse("FIELD_DELIMITER", mergedMetadata.resolveSeparator())
 
+    /*
+    	First argument "\\\\": represents a single backslash in regex.
+	    Second argument "\\\\\\\\": each \\ is a single backslash in the result, so this inserts two backslashes.
+
+     */
     val escapeUnEnclosedField =
       mergedMetadata
         .getOptions()
         .getOrElse("ESCAPE_UNENCLOSED_FIELD", mergedMetadata.resolveEscape())
+        .replaceAll("\\\\", "\\\\\\\\")
 
     val sql =
       s"""
          |COPY INTO $domainAndTableName
-         |FROM @$tempStage/$domain/
+         |FROM @$tempStage/${domain.finalName}/
          |PATTERN = '$pattern$extension'
          |PURGE = $purge
          |FILE_FORMAT = (
@@ -309,7 +345,8 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     logger.info(res.toString())
     res = JdbcDbUtils.executeQueryAsTable(s"CREATE OR REPLACE TEMPORARY STAGE $tempStage", conn)
     logger.info(res.toString())
-    val putSqls = pathsAsString.map(path => s"PUT $path $tempStage/$domain")
+
+    val putSqls = pathsAsString.map(path => s"PUT $path @$tempStage/$domain")
     putSqls.map { putSql =>
       res = JdbcDbUtils.executeQueryAsTable(putSql, conn)
       logger.info(res.toString())
