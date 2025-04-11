@@ -7,6 +7,7 @@ import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
 import ai.starlake.job.Main
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
+import ai.starlake.sql.SQLUtils.sqlCased
 import ai.starlake.tests.StarlakeTestData.DomainName
 import ai.starlake.utils.{SparkUtils, Utils}
 import com.manticore.jsqlformatter.JSQLFormatter
@@ -221,7 +222,7 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   @throws[Exception]
-  def createSchema(conn: SQLConnection, domainName: String): Unit = {
+  def createSchema(conn: SQLConnection, domainName: String)(implicit settings: Settings): Unit = {
     executeUpdate(schemaCreateSQL(domainName), conn) match {
       case Success(_) =>
       case Failure(e) =>
@@ -231,15 +232,15 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   @throws[Exception]
-  def schemaCreateSQL(domainName: String): String = {
-    s"CREATE SCHEMA IF NOT EXISTS $domainName"
+  def schemaCreateSQL(domainName: String)(implicit settings: Settings): String = {
+    s"CREATE SCHEMA IF NOT EXISTS ${sqlCased(domainName)}"
   }
 
-  def buildDropTableSQL(tableName: String): String = {
-    s"DROP TABLE IF EXISTS $tableName"
+  def buildDropTableSQL(tableName: String)(implicit settings: Settings): String = {
+    s"DROP TABLE IF EXISTS ${sqlCased(tableName)}"
   }
   @throws[Exception]
-  def dropTable(conn: SQLConnection, tableName: String): Unit = {
+  def dropTable(conn: SQLConnection, tableName: String)(implicit settings: Settings): Unit = {
     executeUpdate(buildDropTableSQL(tableName), conn) match {
       case Success(_) =>
       case Failure(e) =>

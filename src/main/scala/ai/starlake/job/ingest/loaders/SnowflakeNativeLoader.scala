@@ -298,12 +298,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
           ddlMap
         )
     }
-    val columnsString =
-      attrsWithDDLTypes
-        .map { case (attr, ddlType) =>
-          s"'$attr': '$ddlType'"
-        }
-        .mkString(", ")
+
     val pathsAsString =
       path
         .map { p =>

@@ -344,7 +344,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
     val stepMap =
       if (twoSteps) {
-        val (tempCreateSchemaSql, tempCreateTableSql, _) = SparkUtils.buildCreateTableSQL(
+        val (tempCreateSchemaSql, tempCreateTableSql, commentsSQL) = SparkUtils.buildCreateTableSQL(
           tempTableName,
           incomingSparkSchema,
           caseSensitive = false,
@@ -360,7 +360,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           0
         )
 
-        val firstSTepCreateTableSqls = List(tempCreateSchemaSql, tempCreateTableSql)
+        val firstSTepCreateTableSqls = List(tempCreateSchemaSql, tempCreateTableSql) ++ commentsSQL
         val extraFileNameColumn =
           s"ALTER TABLE $tempTableName ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '{{sl_input_file_name}}';"
         val workflowStatements = this.secondStepSQL(List(tempTableName))
@@ -390,7 +390,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
             loadTaskSQL.asJava
           )
       } else {
-        val (createSchemaSql, createTableSql, _) = SparkUtils.buildCreateTableSQL(
+        val (createSchemaSql, createTableSql, commentsSQL) = SparkUtils.buildCreateTableSQL(
           targetTableName,
           incomingSparkSchema,
           caseSensitive = false,
@@ -398,7 +398,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           options,
           ddlMap
         )
-        val createTableSqls = List(createSchemaSql, createTableSql)
+        val createTableSqls = List(createSchemaSql, createTableSql) ++ commentsSQL
         val workflowStatements = this.secondStepSQL(List(targetTableName))
         val loadTaskSQL =
           Map(
