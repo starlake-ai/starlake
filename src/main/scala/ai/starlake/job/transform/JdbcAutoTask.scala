@@ -116,12 +116,15 @@ class JdbcAutoTask(
     }
   }
 
-  def runJDBC(df: Option[DataFrame]): Try[JdbcJobResult] = {
+  def runJDBC(
+    df: Option[DataFrame],
+    sqlConnection: Option[Connection] = None
+  ): Try[JdbcJobResult] = {
     val start = Timestamp.from(Instant.now())
 
     if (interactive.isEmpty && settings.appConfig.createSchemaIfNotExists) {
       // Creating a schema requires its own connection if called before a Spark save
-      JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+      JdbcDbUtils.withJDBCConnection(sinkConnection.options, sqlConnection) { conn =>
         JdbcDbUtils.createSchema(conn, fullDomainName)
       }
     }
@@ -142,7 +145,7 @@ class JdbcAutoTask(
 
       interactive match {
         case Some(_) =>
-          JdbcDbUtils.withJDBCConnection(sinkOptions) { conn =>
+          JdbcDbUtils.withJDBCConnection(sinkOptions, sqlConnection) { conn =>
             runInteractive(conn, mainSql)
           }
         case None =>
@@ -153,7 +156,7 @@ class JdbcAutoTask(
             )
           df match {
             case Some(loadedDF) =>
-              JdbcDbUtils.withJDBCConnection(sinkOptions) { conn =>
+              JdbcDbUtils.withJDBCConnection(sinkOptions, sqlConnection) { conn =>
                 Try {
                   conn.setAutoCommit(false)
                   runPreActions(conn, parsedPreActions.splitSql(";"))
@@ -185,7 +188,8 @@ class JdbcAutoTask(
                   .mode(SaveMode.Overwrite) // truncate done above if requested
                   .save(tablePath.toString)
                 JdbcDbUtils.withJDBCConnection(
-                  sinkConnection.options.updated("enable_external_access", "true")
+                  sinkConnection.options.updated("enable_external_access", "true"),
+                  sqlConnection
                 ) { conn =>
                   val sql =
                     s"INSERT INTO $fullTableName SELECT * FROM '$tablePath/*.parquet'"
@@ -202,7 +206,7 @@ class JdbcAutoTask(
               }
 
             case None =>
-              JdbcDbUtils.withJDBCConnection(sinkOptions) { conn =>
+              JdbcDbUtils.withJDBCConnection(sinkOptions, sqlConnection) { conn =>
                 Try {
                   conn.setAutoCommit(false)
                   runPreActions(conn, parsedPreActions.splitSql(";"))
@@ -219,7 +223,7 @@ class JdbcAutoTask(
               }
           }
 
-          JdbcDbUtils.withJDBCConnection(sinkOptions) { conn =>
+          JdbcDbUtils.withJDBCConnection(sinkOptions, sqlConnection) { conn =>
             Try {
               if (!test) applyJdbcAcl(conn, forceApply = true)
               runSqls(conn, postSql, "Post")
