@@ -334,12 +334,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
           ddlMap
         )
     }
-    val columnsString =
-      attrsWithDDLTypes
-        .map { case (attr, ddlType) =>
-          s"'$attr': '$ddlType'"
-        }
-        .mkString(", ")
+
     val pathsAsString =
       path
         .map { p =>
@@ -350,6 +345,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     logger.info(res.toString())
     res = JdbcDbUtils.executeQueryAsTable(s"CREATE OR REPLACE TEMPORARY STAGE $tempStage", conn)
     logger.info(res.toString())
+
     val putSqls = pathsAsString.map(path => s"PUT $path @$tempStage/$domain")
     putSqls.map { putSql =>
       res = JdbcDbUtils.executeQueryAsTable(putSql, conn)

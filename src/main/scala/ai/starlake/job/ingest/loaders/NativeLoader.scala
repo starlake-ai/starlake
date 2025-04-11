@@ -194,6 +194,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
                 csvParser.getRecordMetadata.headers().toList
               }
             }
+            // The result is a list of effectiveAttributes that combines the attributes from the schema
+            // and the CSV file, ensuring compatibility between the two.
             val attributesMap = starlakeSchema.attributes.map(attr => attr.name -> attr).toMap
             val csvAttributesInOrders =
               csvHeaders.map(h =>
@@ -342,7 +344,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
     val stepMap =
       if (twoSteps) {
-        val (tempCreateSchemaSql, tempCreateTableSql, _) = SparkUtils.buildCreateTableSQL(
+        val (tempCreateSchemaSql, tempCreateTableSql, commentsSQL) = SparkUtils.buildCreateTableSQL(
           tempTableName,
           incomingSparkSchema,
           caseSensitive = false,
@@ -358,7 +360,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           0
         )
 
-        val firstSTepCreateTableSqls = List(tempCreateSchemaSql, tempCreateTableSql)
+        val firstSTepCreateTableSqls = List(tempCreateSchemaSql, tempCreateTableSql) ++ commentsSQL
         val extraFileNameColumn =
           s"ALTER TABLE $tempTableName ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '{{sl_input_file_name}}';"
         val workflowStatements = this.secondStepSQL(List(tempTableName))
@@ -388,7 +390,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
             loadTaskSQL.asJava
           )
       } else {
-        val (createSchemaSql, createTableSql, _) = SparkUtils.buildCreateTableSQL(
+        val (createSchemaSql, createTableSql, commentsSQL) = SparkUtils.buildCreateTableSQL(
           targetTableName,
           incomingSparkSchema,
           caseSensitive = false,
@@ -396,7 +398,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           options,
           ddlMap
         )
-        val createTableSqls = List(createSchemaSql, createTableSql)
+        val createTableSqls = List(createSchemaSql, createTableSql) ++ commentsSQL
         val workflowStatements = this.secondStepSQL(List(targetTableName))
         val loadTaskSQL =
           Map(
@@ -419,7 +421,6 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       }
     val engine = settings.appConfig.jdbcEngines(engineName.toString)
 
-    val tempStage = s"starlake_load_stage_${Random.alphanumeric.take(10).mkString("")}"
     val commonOptionsMap = Map(
       "schema"     -> starlakeSchema.asMap().asJava,
       "sink"       -> sink.asMap(engine).asJava,
