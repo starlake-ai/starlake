@@ -426,7 +426,12 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       "sink"       -> sink.asMap(engine).asJava,
       "fileSystem" -> settings.appConfig.fileSystem,
       "tempStage"  -> tempStage,
-      "connection" -> sinkConnection.asMap()
+      "connection" -> sinkConnection.asMap(),
+      "variant" -> starlakeSchema.attributes
+        .exists(
+          _.primitiveType(schemaHandler).getOrElse(PrimitiveType.string) == PrimitiveType.variant
+        )
+        .toString
     )
     val result = stepMap ++ commonOptionsMap
     result
