@@ -9,6 +9,8 @@ __Bug fix__:
 
 __New Feature__:
 - add the ability to have ingestion audit per input file by setting SL_DETAILED_LOAD_AUDIT to true. Useful when there is too many files that generates log entry or sql query higher than the limit.
+- add rate limit exception retry during table deletion
+- fix premature shutdown of parallel executions
 
 __Improvement__:
 - add rawDomains variable in dag templates in order to have access to the whole domain configuration
