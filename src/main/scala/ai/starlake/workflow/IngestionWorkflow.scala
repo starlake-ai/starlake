@@ -934,6 +934,7 @@ class IngestionWorkflow(
     // TODO Interactive compilation should check table existence
     val sqlWhenTableDontExist = action.buildAllSQLQueries(None, Some(false))
     val sqlWhenTableExist = action.buildAllSQLQueries(None, Some(true))
+    // Create audit table if it does not exist
     val tableExists = Try(action.tableExists)
 
     val (formattedDontExist, formattedExist) =
