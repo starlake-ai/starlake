@@ -69,30 +69,50 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
             arguments.append("--options")
             arguments.append(",".join([f"{key}={value}" for key, value in self.sl_env_vars.items()])) # Add/overwrite with sl env variables
 
+        preload = False
+        if task_type and task_type==TaskType.PRELOAD:
+            preload = True
+
         command = __class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}"
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
 
         if kwargs.get('do_xcom_push', False):
-            return StarlakePythonOperator(
-                task_id=task_id,
-                dataset=dataset,
-                source=self.source,
-                python_callable=self.execute_command,
-                op_args=[command],
-                op_kwargs=kwargs,
-                provide_context=True,
-                **kwargs
-            )
-        else:
-            return StarlakeBashOperator(
-                task_id=task_id,
-                dataset=dataset,
-                source=self.source,
-                bash_command=command,
-                cwd=self.sl_root,
-                env=env,
-                **kwargs
-            )
+            if preload:
+                command=f"""
+                set -e
+                bash -c '
+                {command}
+                return_code=$?
+
+                # Push the return code to XCom
+                echo $return_code
+                '
+                """
+            else:
+                command=f"""
+                set -e
+                bash -c '
+                {command}
+                return_code=$?
+
+                # Push the return code to XCom
+                echo $return_code
+
+                # Exit with the captured return code if non-zero
+                if [ $return_code -ne 0 ]; then
+                    exit $return_code
+                fi
+                '
+                """
+        return StarlakeBashOperator(
+            task_id=task_id,
+            dataset=dataset,
+            source=self.source,
+            bash_command=command,
+            cwd=self.sl_root,
+            env=env,
+            **kwargs
+        )
 
 class StarlakePythonOperator(StarlakeDatasetMixin, PythonOperator):
     """Starlake Python Operator."""
