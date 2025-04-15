@@ -5,20 +5,19 @@ import ai.starlake.job.Main
 import better.files.File
 
 class StarbakeAutoLoadSpec extends IntegrationTestBase {
-
   logger.info(starlakeDir.pathAsString)
 
   override protected def cleanup(): Unit = {
     // do not cleanup between tests
   }
 
-  override def localDir: File = starlakeDir / "samples" / "starbake"
-  override def sampleDataDir: File = localDir / "sample-data"
-  override def incomingDir: File = localDir / "datasets" / "incoming"
-  logger.info(localDir.pathAsString)
+  override def theSampleFolder: File = samplesFolder / "starbake"
+  override def sampleDataDir: File = theSampleFolder / "sample-data"
+  override def incomingDir: File = theSampleFolder / "datasets" / "incoming"
+  logger.info(theSampleFolder.pathAsString)
   "Autoload" should "succeed" in {
     withEnvs(
-      "SL_ROOT" -> localDir.pathAsString,
+      "SL_ROOT" -> theSampleFolder.pathAsString,
       "SL_ENV"  -> "DUCKDB"
     ) {
       copyFilesToIncomingDir(sampleDataDir)

@@ -7,13 +7,8 @@ import ai.starlake.transpiler.schema.JdbcMetaData
 import better.files.File
 
 class ColLineageIntegrationSpec extends IntegrationTestBase {
-
-  override def templates: File = starlakeDir / "samples"
-  override def localDir: File = templates / "spark"
-  override def sampleDataDir: File = localDir / "sample-data"
-
   "Lineage Generation1" should "succeed" in {
-    withEnvs("SL_ROOT" -> localDir.pathAsString) {
+    withEnvs("SL_ROOT" -> theSampleFolder.pathAsString) {
       assert(
         new Main().run(
           Array("col-lineage", "--task", "sales_kpi.byseller_kpi0")
@@ -23,7 +18,7 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
   }
 
   "Lineage Generation2" should "succeed" in {
-    withEnvs("SL_ROOT" -> localDir.pathAsString) {
+    withEnvs("SL_ROOT" -> theSampleFolder.pathAsString) {
       assert(
         new Main().run(
           Array("col-lineage", "--task", "sales_kpi.byseller_kpi1")
@@ -33,7 +28,7 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
   }
 
   "Lineage" should "succeed" in {
-    withEnvs("SL_ROOT" -> localDir.pathAsString) {
+    withEnvs("SL_ROOT" -> theSampleFolder.pathAsString) {
       new Main().run(
         Array("col-lineage", "--task", "sales_kpi.byseller_kpi0")
       )
@@ -41,7 +36,7 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
   }
 
   "Lineage with multiple input cols" should "succeed" in {
-    withEnvs("SL_ROOT" -> (localDir.parent / "lineage").pathAsString) {
+    withEnvs("SL_ROOT" -> (theSampleFolder.parent / "lineage").pathAsString) {
       val tmpFile = File.newTemporaryFile()
       new Main().run(
         Array(
@@ -192,7 +187,7 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
     }
   }
   "Lineage with multiple input cols2" should "succeed" in {
-    withEnvs("SL_ROOT" -> (localDir.parent / "lineage").pathAsString) {
+    withEnvs("SL_ROOT" -> (theSampleFolder.parent / "lineage").pathAsString) {
       val tmpFile = File.newTemporaryFile()
       new Main().run(
         Array(

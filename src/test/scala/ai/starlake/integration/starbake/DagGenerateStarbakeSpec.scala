@@ -4,9 +4,8 @@ import ai.starlake.integration.BigQueryIntegrationSpecBase
 import ai.starlake.job.Main
 
 class DagGenerateStarbakeSpec extends BigQueryIntegrationSpecBase {
-  val samplesDir = starlakeDir / "samples"
   logger.info(starlakeDir.pathAsString)
-  override val localDir = samplesDir / "starbake"
+  override val theSampleFolder = samplesFolder / "starbake"
 
   override protected def cleanup(): Unit = {
     // do not cleanup between tests
@@ -14,7 +13,7 @@ class DagGenerateStarbakeSpec extends BigQueryIntegrationSpecBase {
 
   "All Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> localDir.pathAsString,
+      "SL_ROOT"                     -> theSampleFolder.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "all"

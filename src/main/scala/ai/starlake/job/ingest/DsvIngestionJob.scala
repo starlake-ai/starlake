@@ -82,26 +82,27 @@ class DsvIngestionJob(
         .options(sparkOptions)
         .options(settings.appConfig.dsvOptions)
 
-      val finalDfInReader = if (mergedMetadata.resolveWithHeader()) {
-        dfInReader
-      } else {
-        // In a DSV file there is no depth so we can just traverse the first level
-        val inputSchema = Attribute(
-          name = "root",
-          `type` = PrimitiveType.struct.value,
-          attributes = schema.attributesWithoutScriptedFields
-        ).sparkType(
-          schemaHandler,
-          (_, sf) => sf.copy(dataType = StringType, nullable = true)
-        ) match {
-          case st: StructType => st
-          case _ =>
-            throw new RuntimeException(
-              "Should never happen since we just converted root of type struct to spark type."
-            )
+      val finalDfInReader =
+        if (mergedMetadata.resolveWithHeader()) {
+          dfInReader
+        } else {
+          // In a DSV file there is no depth so we can just traverse the first level
+          val inputSchema = Attribute(
+            name = "root",
+            `type` = PrimitiveType.struct.value,
+            attributes = schema.attributesWithoutScriptedFields
+          ).sparkType(
+            schemaHandler,
+            (_, sf) => sf.copy(dataType = StringType, nullable = true)
+          ) match {
+            case st: StructType => st
+            case _ =>
+              throw new RuntimeException(
+                "Should never happen since we just converted root of type struct to spark type."
+              )
+          }
+          dfInReader.schema(inputSchema)
         }
-        dfInReader.schema(inputSchema)
-      }
 
       val dfIn = finalDfInReader.csv(path.map(_.toString): _*)
 

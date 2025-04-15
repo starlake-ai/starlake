@@ -8,7 +8,7 @@ class SchemaHandlerIntegrationSpec extends IntegrationTestBase {
 
   protected def clearDataDirectories(): Unit = {
     directoriesToClear.foreach { dir =>
-      val path = localDir / dir
+      val path = theSampleFolder / dir
       if (path.exists) {
         path.delete()
       }
@@ -24,7 +24,7 @@ class SchemaHandlerIntegrationSpec extends IntegrationTestBase {
 
   "Watch single schema" should "load only this schema" in {
     // It works locally but not in pipeline. Wrapping it in order to use it only locally
-    withEnvs("SL_ROOT" -> localDir.pathAsString) {
+    withEnvs("SL_ROOT" -> theSampleFolder.pathAsString) {
       clearDataDirectories()
       implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
       val schemaHandler = settings.schemaHandler()

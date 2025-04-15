@@ -5,13 +5,11 @@ import ai.starlake.job.Main
 import better.files.File
 
 class LoadPositionBQIntegrationSpec extends BigQueryIntegrationSpecBase {
-  override def templates: File = starlakeDir / "samples"
-  override def localDir: File = templates / "spark"
-  override def sampleDataDir: File = localDir / "sample-position"
+  override def sampleDataDir: File = theSampleFolder / "sample-position"
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
     "Import / Load / Transform BQ Position" should "succeed" in {
       withEnvs(
-        "SL_ROOT" -> localDir.pathAsString,
+        "SL_ROOT" -> theSampleFolder.pathAsString,
         "SL_ENV"  -> "BQ"
       ) {
         cleanup()
