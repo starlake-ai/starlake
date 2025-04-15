@@ -154,22 +154,22 @@ distrib/deps
 project/project
 metals.sbt
 samples/starbake/metadata/dags/generated
-samples/spark/test-reports
+samples/any-engine/test-reports
 lib2
-samples/spark/metadata/external
+samples/any-engine/metadata/external
 
 .bloop
 .metals
 .venv
 distrib/docker
-samples/spark/datasets/archive
+samples/any-engine/datasets/archive
 samples/starbake/airflow
 samples/starbake/audit
 samples/starbake/bin
 samples/starbake/storage
 bin
 samples/starbake/incoming
-/samples/spark/metadata/.build/
-samples/spark/incoming
+/samples/any-engine/metadata/.build/
+samples/any-engine/incoming
 samples/starbake/datasets/archive
 samples/starbake/metadata/.build

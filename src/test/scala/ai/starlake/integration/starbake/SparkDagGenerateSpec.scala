@@ -11,8 +11,6 @@ class SparkDagGenerateSpec extends IntegrationTestBase {
     // do not cleanup between tests
   }
 
-  override def theSampleFolder = samplesFolder / "spark"
-  override def sampleDataDir = theSampleFolder / "sample-data"
   logger.info(theSampleFolder.pathAsString)
   "Dag Generate" should "succeed" in {
     withEnvs("SL_ROOT" -> theSampleFolder.pathAsString, "SL_ENV" -> "SNOWFLAKE") {

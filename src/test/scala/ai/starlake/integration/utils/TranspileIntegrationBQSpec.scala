@@ -6,12 +6,6 @@ import better.files.File
 
 class TranspileIntegrationBQSpec extends BigQueryIntegrationSpecBase {
   override def beforeAll(): Unit = {}
-  override def samplesFolder: File = starlakeDir / "samples"
-
-  override def theSampleFolder: File = samplesFolder / "spark"
-
-  override def sampleDataDir: File = theSampleFolder / "sample-data"
-
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
     "Native Bigquery Transform" should "succeed" in {
