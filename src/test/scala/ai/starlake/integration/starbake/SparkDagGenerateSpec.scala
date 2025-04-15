@@ -11,11 +11,11 @@ class SparkDagGenerateSpec extends IntegrationTestBase {
     // do not cleanup between tests
   }
 
-  override def localDir = starlakeDir / "samples" / "spark"
-  override def sampleDataDir = localDir / "sample-data"
-  logger.info(localDir.pathAsString)
+  override def theSampleFolder = samplesFolder / "spark"
+  override def sampleDataDir = theSampleFolder / "sample-data"
+  logger.info(theSampleFolder.pathAsString)
   "Dag Generate" should "succeed" in {
-    withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "SNOWFLAKE") {
+    withEnvs("SL_ROOT" -> theSampleFolder.pathAsString, "SL_ENV" -> "SNOWFLAKE") {
       copyFilesToIncomingDir(sampleDataDir)
       assert(new Main().run(Array("dag-generate", "--clean", "--orchestrator", "snowflake")))
     }

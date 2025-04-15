@@ -6,13 +6,13 @@ import ai.starlake.job.Main
 class XlsIntegrationSpec extends BigQueryIntegrationSpecBase {
   "Convert to XLS" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> localDir.pathAsString,
+      "SL_ROOT"                     -> theSampleFolder.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "false"
     ) {
       cleanup()
       copyFilesToIncomingDir(sampleDataDir)
-      val loadDir = localDir / "metadata" / "load"
+      val loadDir = theSampleFolder / "metadata" / "load"
 
       assert(
         new Main().run(

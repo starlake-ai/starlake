@@ -4,17 +4,12 @@ import ai.starlake.integration.JDBCIntegrationSpecBase
 import ai.starlake.job.Main
 
 class LoadSnowflakeIntegrationSpec extends JDBCIntegrationSpecBase {
-  override def templates = starlakeDir / "samples"
-
-  override def localDir = templates / "spark"
-
-  override def sampleDataDir = localDir / "sample-data"
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
     if (sys.env.contains("SNOWFLAKE_ACCOUNT")) {
       "Import / Load / Transform Snowflake" should "succeed" in {
         withEnvs(
-          "SL_ROOT" -> localDir.pathAsString,
+          "SL_ROOT" -> theSampleFolder.pathAsString,
           "SL_ENV"  -> "SNOWFLAKE"
         ) {
           cleanup()
@@ -34,10 +29,10 @@ class LoadSnowflakeIntegrationSpec extends JDBCIntegrationSpecBase {
       }
       "Import / Load / Transform Snowflake 2" should "succeed" in {
         withEnvs(
-          "SL_ROOT" -> localDir.pathAsString,
+          "SL_ROOT" -> theSampleFolder.pathAsString,
           "SL_ENV"  -> "SNOWFLAKE"
         ) {
-          val sampleDataDir2 = localDir / "sample-data2"
+          val sampleDataDir2 = theSampleFolder / "sample-data2"
           copyFilesToIncomingDir(sampleDataDir2)
           assert(
             new Main().run(

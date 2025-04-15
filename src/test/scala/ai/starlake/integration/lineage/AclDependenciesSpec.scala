@@ -6,7 +6,7 @@ import ai.starlake.job.Main
 class AclDependenciesSpec extends IntegrationTestBase {
 
   "All ACL Generation" should "succeed" in {
-    withEnvs("SL_ROOT" -> localDir.pathAsString) {
+    withEnvs("SL_ROOT" -> theSampleFolder.pathAsString) {
       assert(
         new Main().run(
           Array("acl-dependencies", "--all")
@@ -16,7 +16,7 @@ class AclDependenciesSpec extends IntegrationTestBase {
   }
 
   "Some ACL Generation" should "succeed" in {
-    withEnvs("SL_ROOT" -> localDir.pathAsString) {
+    withEnvs("SL_ROOT" -> theSampleFolder.pathAsString) {
       assert(
         new Main().run(
           Array("acl-dependencies", "--grantees", "user:me@me.com,user:you@you.com")
@@ -26,7 +26,7 @@ class AclDependenciesSpec extends IntegrationTestBase {
   }
 
   "JSON ACL Generation" should "succeed" in {
-    withEnvs("SL_ROOT" -> localDir.pathAsString) {
+    withEnvs("SL_ROOT" -> theSampleFolder.pathAsString) {
       assert(
         new Main().run(
           Array("acl-dependencies", "--all", "--json")

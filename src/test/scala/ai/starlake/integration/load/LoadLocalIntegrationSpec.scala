@@ -8,10 +8,6 @@ import org.apache.spark.sql.DataFrame
 import scala.reflect.io.Directory
 
 class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
-  override def templates = starlakeDir / "samples"
-  override def localDir = templates / "spark"
-  override val incomingDir = localDir / "incoming"
-  override def sampleDataDir = localDir / "sample-data"
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -31,7 +27,7 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
 
   "Import / Load / Transform Local" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> localDir.pathAsString,
+      "SL_ROOT"                     -> theSampleFolder.pathAsString,
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_ENV"                      -> "LOCAL"
     ) {
@@ -61,18 +57,19 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
   }
   "Import / Load / Transform Local 2" should "succeed" in {
     withEnvs(
-      "SL_ROOT" -> localDir.pathAsString,
+      "SL_ROOT" -> theSampleFolder.pathAsString,
       "SL_ENV"  -> "LOCAL"
     ) {
       dropTables
-      List(localDir / "sample-data", localDir / "sample-data2").foreach { sampleDataDir =>
-        copyFilesToIncomingDir(sampleDataDir)
-        assert(
-          new Main().run(
-            Array("import")
+      List(theSampleFolder / "sample-data", theSampleFolder / "sample-data2").foreach {
+        sampleDataDir =>
+          copyFilesToIncomingDir(sampleDataDir)
+          assert(
+            new Main().run(
+              Array("import")
+            )
           )
-        )
-        assert(new Main().run(Array("load")))
+          assert(new Main().run(Array("load")))
       }
       val orders = sparkSession.sql("select * from sales.orders")
       orders.show(false)
