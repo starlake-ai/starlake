@@ -110,7 +110,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
   "JSON Relations Generation" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
-        "SL_ROOT" -> (starlakeDir / "samples" / "spark").pathAsString,
+        "SL_ROOT" -> theSampleFolder.pathAsString,
         "SL_ENV"  -> "DUCKDB"
       ) {
         assert(
