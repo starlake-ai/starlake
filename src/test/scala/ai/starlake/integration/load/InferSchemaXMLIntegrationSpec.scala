@@ -8,6 +8,7 @@ import better.files.File
 import scala.reflect.io.Directory
 
 class InferSchemaXMLIntegrationSpec extends IntegrationTestBase with TestHelper {
+  override def sampleDataDir = theSampleFolder / "sample-data"
   override def beforeEach(): Unit = {
     super.beforeEach()
   }

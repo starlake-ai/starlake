@@ -804,7 +804,8 @@ class SparkAutoTask(
             storageHandler,
             schemaHandler
           )
-        secondStepAutoTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
+        if (tableExists)
+          secondStepAutoTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
         val jobResult = secondStepAutoTask.runJDBC(None)
 
         JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
