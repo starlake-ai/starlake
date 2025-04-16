@@ -11,11 +11,6 @@ CREATE TEMPORARY VIEW SL_INCOMING AS
 
 
 -- insert new lines
-INSERT INTO {{ tableFullName }}
-    SELECT * FROM SL_INCOMING
-    LEFT JOIN {{ tableFullName }} SL_EXISTING
-    ON ({{ renderStrategyKeyJoinCondition('SL_INCOMING','SL_EXISTING',strategyKey) }})
-    WHERE AND SL_EXISTING.{{strategyEndTs}} IS NULL;
 
 CREATE TEMPORARY VIEW SL_INCOMING_ALL AS
     SELECT {{ renderStrategyKeyAsPseudo(strategyKey, 'SL_INCOMING') }}, SL_INCOMING.* FROM SL_INCOMING

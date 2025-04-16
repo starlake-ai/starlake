@@ -95,7 +95,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                 storageHandler,
                 schemaHandler
               )
-            job.runJDBC(None, Some(conn))
+            job.runJDBC(df = None, sqlConnection = Some(conn))
             job.updateJdbcTableSchema(
               starlakeSchema.targetSparkSchemaWithIgnoreAndScript(schemaHandler),
               targetTableName

@@ -4,6 +4,7 @@ import ai.starlake.integration.JDBCIntegrationSpecBase
 import ai.starlake.job.Main
 
 class LoadSnowflakeIntegrationSpec extends JDBCIntegrationSpecBase {
+  override def sampleDataDir = theSampleFolder / "sample-data"
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
     if (sys.env.contains("SNOWFLAKE_ACCOUNT")) {

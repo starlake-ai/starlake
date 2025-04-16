@@ -257,6 +257,16 @@ object Utils extends StrictLogging {
     }
   }
 
+  //
+  def isIcebergAvailable(): Boolean = {
+    try {
+      Class.forName("org.apache.iceberg.spark.SparkCatalog")
+      true
+    } catch {
+      case _: ClassNotFoundException => false
+    }
+  }
+
   def isDeltaAvailable(): Boolean = {
     try {
       Class.forName("io.delta.tables.DeltaTable")

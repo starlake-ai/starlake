@@ -4,6 +4,7 @@ import ai.starlake.integration.IntegrationTestBase
 import ai.starlake.job.Main
 
 class AutoTaskDependenciesSpec extends IntegrationTestBase {
+  override def theSampleFolder = samplesFolder / "starbake"
   logger.info(theSampleFolder.pathAsString)
 
   override def beforeEach(): Unit = {
