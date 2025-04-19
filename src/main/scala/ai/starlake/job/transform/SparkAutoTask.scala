@@ -804,10 +804,12 @@ class SparkAutoTask(
             storageHandler,
             schemaHandler
           )
-        if (tableExists)
+        if (
+          tableExists && !sinkConnection.isDuckDb()
+        ) // because DuckDB does not support standard merge statement
           secondStepAutoTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
-        val jobResult = secondStepAutoTask.runJDBC(None)
 
+        val jobResult = secondStepAutoTask.runJDBC(None)
         JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
           JdbcDbUtils.dropTable(conn, firstStepTempTable)
         }

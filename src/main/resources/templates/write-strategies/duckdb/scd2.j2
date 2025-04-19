@@ -24,7 +24,6 @@ CREATE TEMPORARY VIEW SL_INCOMING_ALL AS
     ON ({{ renderStrategyKeyJoinCondition('SL_INCOMING','SL_EXISTING',strategyKey) }} AND SL_EXISTING.{{strategyEndTs}} IS NULL)
     WHERE  SL_EXISTING.{{strategyTimestamp}} < SL_INCOMING.{{strategyTimestamp}};
 
-
 MERGE INTO {{ tableFullName }} USING SL_INCOMING_ALL
 ON ({{ renderStrategyJoinConditionWithPseudo('SL_INCOMING_ALL', '{{ tableFullName }}', strategyKey) }})
 WHEN MATCHED THEN UPDATE SET {{ strategyEndTs }} = CURRENT_TIMESTAMP
