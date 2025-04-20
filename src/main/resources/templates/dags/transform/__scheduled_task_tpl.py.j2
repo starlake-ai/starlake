@@ -17,7 +17,7 @@ sl_job = StarlakeJobFactory.create_job(
 
 cron = "{{ context.cron }}"
 
-from ai.starlake.orchestration import StarlakeDependencies, StarlakeDependency, StarlakeDependencyType, OrchestrationFactory, AbstractTaskGroup, AbstractTask
+from ai.starlake.orchestration import StarlakeDependencies, StarlakeDependency, StarlakeDependencyType, OrchestrationFactory, AbstractTaskGroup, AbstractTask, TreeNodeMixin as TreeNode
 
 from typing import List, Optional, Set, Union
 
@@ -26,79 +26,44 @@ dependencies=StarlakeDependencies(dependencies="""{{ context.dependencies }}""")
 with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
     with orchestration.sl_create_pipeline(dependencies=dependencies) as pipeline:
 
-        first_level_tasks: Set[str] = dependencies.first_level_tasks
-
-        all_dependencies: Set[str] = dependencies.all_dependencies
-
-        load_dependencies: Optional[bool] = pipeline.load_dependencies
+        graphs: Set[TreeNode] = pipeline.graphs
 
         start = pipeline.start_task()
-
         pre_tasks = pipeline.pre_tasks()
-
-        # create a task
-        def create_task(task_id: str, task_name: str, task_type: StarlakeDependencyType, task_sink:str) -> Union[AbstractTask, AbstractTaskGroup]:
-            if (task_type == StarlakeDependencyType.TASK):
-                return pipeline.sl_transform(
-                    task_id=task_id, 
-                    transform_name=task_name,
-                    params={'sink': task_sink},
-                )
-            else:
-                load_domain_and_table = task_name.split(".", 1)
-                domain = load_domain_and_table[0]
-                table = load_domain_and_table[-1]
-                return pipeline.sl_load(
-                    task_id=task_id, 
-                    domain=domain, 
-                    table=table,
-                )
-
-        # build group of tasks recursively
-        def generate_task_group_for_task(task: StarlakeDependency, parent_group_id: Optional[str] = None) -> Union[AbstractTaskGroup, AbstractTask]:
-            task_name = task.name
-            task_group_id = task.uri
-            task_type = task.dependency_type
-            task_id = f"{task_group_id}_{task_type}"
-            task_sink = task.sink
-            
-            if load_dependencies and parent_group_id:
-                task_id = parent_group_id + "_" + task_id # to ensure task_id uniqueness
-
-            children: List[StarlakeDependency] = []
-            if load_dependencies and len(task.dependencies) > 0: 
-                children = task.dependencies
-            else:
-                for child in task.dependencies:
-                    if child.name in first_level_tasks:
-                        children.append(child)
-
-            if children.__len__() > 0:
-                with orchestration.sl_create_task_group(group_id=task_group_id, pipeline=pipeline) as task_group:
-                    upstream_tasks = [generate_task_group_for_task(child, parent_group_id=task_group_id) for child in children]
-                    task = create_task(task_id, task_name, task_type, task_sink)
-                    task << upstream_tasks
-                return task_group
-            else:
-                task = create_task(task_id=task_id, task_name=task_name, task_type=task_type, task_sink=task_sink)
-                return task
-
-        all_transform_tasks = [generate_task_group_for_task(task) for task in dependencies if task.name not in all_dependencies]
-
         if pre_tasks:
-            start >> pre_tasks >> all_transform_tasks
-        else:
-            start >> all_transform_tasks
+            start >> pre_tasks
 
         end = pipeline.end_task()
-
-        end << all_transform_tasks
-
         post_tasks = pipeline.post_tasks()
-
+        all_done = None
         if post_tasks:
             all_done = pipeline.sl_dummy_op(task_id="all_done")
-            all_done << all_transform_tasks
             all_done >> post_tasks >> end
+
+        def generate_tasks_for_graph(graph: TreeNode):
+          parent_tasks: List[AbstractTask] = list()
+          for parent in graph.parents:
+              parent_task = pipeline.dependency_to_task(parent.node)
+              parent_tasks.append(parent_task)
+          task = pipeline.dependency_to_task(graph.node)
+          if pre_tasks:
+              if len(parent_tasks) > 0:
+                  task << parent_tasks
+                  pre_tasks >> parent_tasks
+              else:
+                  pre_tasks >> task
+          else:
+              if len(parent_tasks) > 0:
+                  start >> parent_tasks
+                  task << parent_tasks
+              else:
+                  start >> task
+          if all_done:
+              task >> all_done
+          else:
+              task >> end
+        
+        for graph in graphs:
+            generate_tasks_for_graph(graph)
 
 pipelines = [pipeline]

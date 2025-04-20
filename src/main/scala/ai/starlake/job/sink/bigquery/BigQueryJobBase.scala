@@ -7,6 +7,7 @@ import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{GcpCredentials, Utils}
 import better.files.File
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.gax.core.FixedCredentialsProvider
 import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1._
@@ -159,7 +160,7 @@ trait BigQueryJobBase extends StrictLogging {
     taxonomyRef: String,
     accessPolicy: String,
     policyTagClient: PolicyTagManagerClient
-  ) = {
+  ): String = {
     val policyTagsRequest =
       ListPolicyTagsRequest.newBuilder().setParent(taxonomyRef).build()
     val policyTags =
@@ -190,7 +191,9 @@ trait BigQueryJobBase extends StrictLogging {
       groupedPoliciyTags.foreach { case (policyTag, iamPolicyTags) =>
         val bindings = iamPolicyTags.map { iamPolicyTag =>
           val binding = Binding.newBuilder()
-          binding.setRole(iamPolicyTag.role)
+          binding.setRole(
+            iamPolicyTag.role.getOrElse(throw new Exception("Should never happen: Role not set"))
+          )
           // binding.setCondition()
           binding.addAllMembers(iamPolicyTag.members.asJava)
           binding.build()
@@ -259,11 +262,25 @@ trait BigQueryJobBase extends StrictLogging {
   ): Try[Unit] = {
     Try {
       if (forceApply || settings.appConfig.accessPolicies.apply) {
-        cliConfig.starlakeSchema match {
-          case None =>
-          case Some(schema) =>
+        val loadAttrs = cliConfig.starlakeSchema
+          .map(_.attributes)
+          .getOrElse(Nil)
+          .map(attribute => (attribute.getFinalName(), attribute.accessPolicy))
+        val transAttrs =
+          cliConfig.attributesDesc.map(attrDesc => (attrDesc.name, attrDesc.accessPolicy))
+        val attrsToSecure =
+          if (loadAttrs.isEmpty)
+            transAttrs
+          else
+            loadAttrs
+
+        attrsToSecure match {
+          case Nil =>
+          case attrs =>
             val anyAccessPolicyToApply =
-              schema.attributes.map(_.accessPolicy).count(_.isDefined) > 0
+              attrs
+                .map { case (attrName, attrAccessPolicy) => attrAccessPolicy }
+                .count(_.isDefined) > 0
             if (anyAccessPolicyToApply) {
               val (location, projectId, taxonomy, taxonomyRef) =
                 getTaxonomy(policyTagClient)
@@ -277,18 +294,17 @@ trait BigQueryJobBase extends StrictLogging {
               val tableDefinition = table.getDefinition[StandardTableDefinition]
               val bqSchema = tableDefinition.getSchema()
               val bqFields = bqSchema.getFields.asScala.toList
-              val attributesMap =
-                schema.attributes.map(attr => (attr.getFinalName().toLowerCase, attr)).toMap
+              val attributesMap = attrs.toMap
               val updatedFields = bqFields.map { field =>
                 attributesMap.get(field.getName.toLowerCase) match {
                   case None =>
                     // Maybe an ignored field
                     logger.info(
-                      s"Ignore this field ${schema.name}.${field.getName} during CLS application "
+                      s"Ignore this field ${table}.${field.getName} during CLS application "
                     )
                     field
-                  case Some(attr) =>
-                    attr.accessPolicy match {
+                  case Some(accessPolicy) =>
+                    accessPolicy match {
                       case None =>
                         field
                       case Some(accessPolicy) =>
@@ -493,15 +509,9 @@ trait BigQueryJobBase extends StrictLogging {
               .newBuilder(targetTableId, tableDefinition)
               .setDescription(tableInfo.maybeTableDescription.orNull)
 
-            if (tableInfo.maybePartition.isEmpty) {
-              cliConfig.days match {
-                case Some(days) =>
-                  bqTableInfoBuilder.setExpirationTime(
-                    System.currentTimeMillis() + days * 24 * 3600 * 1000
-                  )
-                case None =>
-              }
-            }
+            tableInfo.maybeDurationMs.foreach(d =>
+              bqTableInfoBuilder.setExpirationTime(System.currentTimeMillis() + d)
+            )
 
             val bqTableInfo = bqTableInfoBuilder.build
             logger.info(s"Creating table ${targetTableId.getDataset}.${targetTableId.getTable}")
@@ -1136,28 +1146,30 @@ object BigQueryJobBase extends StrictLogging {
     */
   def recoverBigqueryException[T](bigqueryProcess: => T): Try[T] = {
     def processWithRetry(retry: Int = 0, bigqueryProcess: => T): Try[T] = {
+      def retryOneMoreTime(be: Exception) = {
+        logger.error(be.getMessage)
+        val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
+        logger.error(s"Retry in $sleepTime. ${be.getMessage}")
+        Thread.sleep(sleepTime)
+        processWithRetry(retry + 1, bigqueryProcess)
+      }
       Try {
         bigqueryProcess
       }.recoverWith {
+        case be: GoogleJsonResponseException if be.getStatusCode == 503 =>
+          retryOneMoreTime(be)
         case be: BigQueryException
             if retry < 3 && scala
               .Option(be.getError)
               .exists(e =>
                 e.getReason() == "rateLimitExceeded" || e.getReason == "jobRateLimitExceeded"
               ) =>
-          val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
-          logger.error(s"Retry in $sleepTime. ${be.getMessage}")
-          Thread.sleep(sleepTime)
-          processWithRetry(retry + 1, bigqueryProcess)
+          retryOneMoreTime(be)
         case be: BigQueryException
             if retry < 3 && scala.Option(be.getError).exists(_.getReason() == "duplicate") =>
-          logger.error(be.getMessage)
           processWithRetry(retry + 1, bigqueryProcess)
         case te: TimeoutException if retry < 3 =>
-          val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
-          logger.error(s"Retry in $sleepTime. ${te.getMessage}")
-          Thread.sleep(sleepTime)
-          processWithRetry(retry + 1, bigqueryProcess)
+          retryOneMoreTime(te)
       }
     }
     processWithRetry(bigqueryProcess = bigqueryProcess)

@@ -220,9 +220,11 @@ class ExpectationJob(
         auditSink.getConnectionType() match {
           case ConnectionType.GCPLOG =>
             val logName = settings.appConfig.audit.getDomainExpectation()
-            expectationReports.foreach { log =>
-              GcpUtils.sinkToGcpCloudLogging(log.asMap(), "expectation", logName)
-            }
+            GcpUtils.sinkToGcpCloudLogging(
+              expectationReports.map(_.asMap()),
+              "expectation",
+              logName
+            )
             Success(new JobResult {})
           case _ =>
             val sqls = expectationReports

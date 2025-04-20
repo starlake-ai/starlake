@@ -4,16 +4,12 @@ import ai.starlake.integration.BigQueryIntegrationSpecBase
 import ai.starlake.job.Main
 
 class TransformIntegrationRedshiftSpec extends BigQueryIntegrationSpecBase {
-  override def templates = starlakeDir / "samples"
-  override def localDir = templates / "spark"
-  override def sampleDataDir = localDir / "sample-data"
-
   if (false && sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
     "Native REDSHIFT Transform" should "succeed" in {
       withEnvs(
         "SL_ENV"  -> "REDSHIFT",
-        "SL_ROOT" -> localDir.pathAsString
+        "SL_ROOT" -> theSampleFolder.pathAsString
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)

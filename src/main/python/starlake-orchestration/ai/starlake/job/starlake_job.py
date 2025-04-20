@@ -56,6 +56,26 @@ class StarlakeExecutionMode(str, Enum):
     def __str__(self):
         return self.value
 
+class TaskType(str, Enum):
+    START = "start"
+    PRELOAD = "preload"
+    IMPORT = "import"
+    LOAD = "load"
+    TRANSFORM = "transform"
+    EMPTY = "empty"
+    END = "end"
+
+    def __str__(self):
+        return self.value
+
+    @classmethod
+    def from_str(cls, value: str) -> TaskType:
+        """Returns an instance of TaskType if the value is valid, otherwise raise a ValueError exception."""
+        try:
+            return cls(value.lower())
+        except ValueError:
+            raise ValueError(f"Unsupported task type: {value}")
+
 class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
     def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict, **kwargs) -> None:
         """Init the class.
@@ -200,8 +220,8 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         self.__add_event(tmp_domain, **kwargs)
         task_id = f"import_{tmp_domain}" if not task_id else task_id
         kwargs.pop("task_id", None)
-        arguments = ["import", "--domains", domain, "--tables", ",".join(tables), "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
-        return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
+        arguments = [TaskType.IMPORT.value, "--domains", domain, "--tables", ",".join(tables), "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
+        return self.sl_job(task_id=task_id, arguments=arguments, task_type=TaskType.IMPORT, **kwargs)
 
     @classmethod
     def get_sl_pre_load_task_id(cls, domain: str, pre_load_strategy: StarlakePreLoadStrategy, **kwargs) -> Optional[str]:
@@ -247,7 +267,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         if pre_load_strategy == StarlakePreLoadStrategy.NONE:
             return None
         else:
-            arguments = ["preload", "--domain", domain, "--tables", ",".join(tables), "--strategy", pre_load_strategy.value, "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
+            arguments = [TaskType.PRELOAD.value, "--domain", domain, "--tables", ",".join(tables), "--strategy", pre_load_strategy.value, "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
 
             task_id = kwargs.get('task_id', __class__.get_sl_pre_load_task_id(domain, pre_load_strategy, **kwargs))
 
@@ -263,7 +283,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
                     'ack_file', 
                     __class__.get_context_var(
                         var_name='global_ack_file_path',
-                        default_value=f'{self.sl_datasets}/stage/{domain}/{current_dt()}.ack',
+                        default_value=f'{self.sl_datasets}/pending/{domain}/{current_dt()}.ack',
                         options=self.options
                     )
                 )
@@ -285,7 +305,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
 
                 kwargs.update({'retry_delay': timedelta(seconds=ack_wait_timeout)})
 
-            return self.sl_job(task_id=task_id, arguments=arguments, **kwargs)
+            return self.sl_job(task_id=task_id, arguments=arguments, task_type=TaskType.PRELOAD, **kwargs)
 
     def sl_load(self, task_id: str, domain: str, table: str, spark_config: Optional[StarlakeSparkConfig]=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> T:
         """Load job.
@@ -312,7 +332,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
             kwargs['params'] = params
             dataset = StarlakeDataset(name=f'{domain}.{table}', **kwargs)
         self.__add_event(dataset, **kwargs)
-        arguments = ["load", "--domains", domain, "--tables", table]
+        arguments = [TaskType.LOAD.value, "--domains", domain, "--tables", table]
         if spark_config is None:
             spark_config = self.get_spark_config(
                 self.__class__.get_context_var(
@@ -322,7 +342,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
                 ), 
                 **self.caller_globals.get('spark_properties', {})
             )
-        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, dataset=dataset, **kwargs)
+        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, dataset=dataset, task_type=TaskType.LOAD, **kwargs)
 
     def sl_transform(self, task_id: str, transform_name: str, transform_options: str=None, spark_config: Optional[StarlakeSparkConfig]=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> T:
         """Transform job.
@@ -349,7 +369,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
             kwargs['params'] = params
             dataset = StarlakeDataset(name=transform_name, **kwargs)
         self.__add_event(dataset, **kwargs)
-        arguments = ["transform", "--name", transform_name]
+        arguments = [TaskType.TRANSFORM.value, "--name", transform_name]
         options = list()
         if transform_options:
             options = transform_options.split(",")
@@ -367,7 +387,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
                 ), 
                 **self.caller_globals.get('spark_properties', {})
             )
-        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, dataset=dataset, **kwargs)
+        return self.sl_job(task_id=task_id, arguments=arguments, spark_config=spark_config, dataset=dataset, task_type=TaskType.TRANSFORM, **kwargs)
 
     def pre_tasks(self, *args, **kwargs) -> Optional[T]: #TODO rename to pre_ops
         """Pre tasks."""
@@ -385,14 +405,14 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
             datasets = least_frequent_datasets
         else:
             datasets = None
-        return self.dummy_op(task_id, list(map(lambda dataset: self.to_event(dataset=dataset, source=self.source), datasets or [])), **kwargs)
+        return self.dummy_op(task_id, list(map(lambda dataset: self.to_event(dataset=dataset, source=self.source), datasets or [])), task_type=TaskType.START, **kwargs)
 
     def end_op(self, task_id: str, events: Optional[List[E]] = None, **kwargs) -> Optional[T]:
         """End operation."""
-        return self.dummy_op(task_id, events, **kwargs)
+        return self.dummy_op(task_id, events, task_type=TaskType.END, **kwargs)
 
     @abstractmethod
-    def dummy_op(self, task_id, events: Optional[List[E]], **kwargs) -> T: 
+    def dummy_op(self, task_id, events: Optional[List[E]], task_type: Optional[TaskType]=TaskType.EMPTY, **kwargs) -> T: 
         pass
 
     @abstractmethod
@@ -400,7 +420,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         return None
 
     @abstractmethod
-    def sl_job(self, task_id: str, arguments: list, spark_config: Optional[StarlakeSparkConfig]=None, dataset: Optional[Union[StarlakeDataset, str]]=None, **kwargs) -> T:
+    def sl_job(self, task_id: str, arguments: list, spark_config: Optional[StarlakeSparkConfig]=None, dataset: Optional[Union[StarlakeDataset, str]]=None, task_type: Optional[TaskType]=None, **kwargs) -> T:
         """Generic job.
         Generate the scheduler task that will run the starlake command.
 
@@ -409,6 +429,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
             arguments (list): The required arguments of the starlake command to run.
             spark_config (StarlakeSparkConfig): The optional spark configuration to use.
             dataset (Union[StarlakeDataset, str]): The optional dataset to publish.
+            task_type (TaskType): The optional task type.
         
         Returns:
             T: The scheduler task.

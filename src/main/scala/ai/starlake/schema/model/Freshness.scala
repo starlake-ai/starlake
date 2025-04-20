@@ -25,7 +25,7 @@ case class Freshness(
             errorList += ValidationMessage(
               Error,
               s"Freshness in $tableName",
-              s"duration: $duration should does not support seconds"
+              s"duration: $duration does not support seconds"
             )
           }
           Try {

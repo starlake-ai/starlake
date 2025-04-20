@@ -40,7 +40,7 @@ class XlsIamPolicyTagsReader(input: Input) extends XlsModel {
               IamPolicyTag(
                 policyTag,
                 members.toList,
-                role
+                roleOpt
               )
             )
           case _ => None

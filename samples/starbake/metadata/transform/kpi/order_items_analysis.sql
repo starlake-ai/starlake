@@ -1,7 +1,7 @@
 WITH order_details AS (
     SELECT  o.order_id
          , o.customer_id
-         , List( p.name || ' (' || o.quantity || ')' ) AS purchased_items
+         , ListAgg( p.name || ' (' || o.quantity || ')' ) AS purchased_items
          , Sum( o.quantity * p.price ) AS total_order_value
     FROM starbake.order_lines o
              JOIN starbake.products p

@@ -4,7 +4,7 @@ from datetime import timedelta, datetime
 
 from typing import Any, Optional, List, Union
 
-from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOrchestrator
+from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOrchestrator, TaskType
 
 from ai.starlake.airflow.starlake_airflow_options import StarlakeAirflowOptions
 
@@ -34,7 +34,8 @@ DEFAULT_DAG_ARGS = {
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 1, 
-    'retry_delay': timedelta(minutes=5)
+    'retry_delay': timedelta(minutes=5),
+    'max_active_runs': 1,
 }
 
 class AirflowDataset(AbstractEvent[Dataset]):
@@ -93,49 +94,6 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         kwargs.update({'doc': kwargs.get('doc', f'Import tables {",".join(list(tables or []))} within {domain}.')})
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return super().sl_import(task_id=task_id, domain=domain, tables=tables, **kwargs)
-
-    def execute_command(self, command: str, **kwargs) -> int:
-        """
-        Execute the command and capture the return code.
-
-        Args:
-            command (str): The command to run.
-            **kwargs: The optional keyword arguments.
-
-        Returns:
-            int: The return code.
-        """
-        env = self.sl_env(command)
-
-        import subprocess
-        try:
-            # Run the command and capture the return code
-            result = subprocess.run(
-                args=command.split(' '), 
-                env=env,
-                check=True, 
-                stderr=subprocess.STDOUT, 
-                stdout=subprocess.PIPE,
-            )
-            return_code = result.returncode
-            if result.stdout is not None:
-                print(result.stdout.decode('utf-8'))
-            # if result.stderr is not None:
-            #     stderr = result.stderr.decode('utf-8')
-            #     print(stderr)
-            return return_code
-        except subprocess.CalledProcessError as e:
-            # Capture the return code in case of failure
-            return_code = e.returncode
-            # Push the return code to XCom
-            kwargs['ti'].xcom_push(key='return_value', value=return_code)
-            output = e.output.decode('utf-8')
-            print(output)
-            # if e.stderr is not None:
-            #     stderr = e.stderr.decode('utf-8')
-            #     print(stderr)
-            # Re-raise the exception to mark the task as failed
-            raise 
 
     def start_op(self, task_id, scheduled: bool, not_scheduled_datasets: Optional[List[StarlakeDataset]], least_frequent_datasets: Optional[List[StarlakeDataset]], most_frequent_datasets: Optional[List[StarlakeDataset]], **kwargs) -> Optional[BaseOperator]:
         """Overrides IStarlakeJob.start_op()
@@ -282,13 +240,14 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, dataset=dataset,  **kwargs)
 
-    def dummy_op(self, task_id, events: Optional[List[Dataset]] = None, **kwargs) -> BaseOperator :
+    def dummy_op(self, task_id, events: Optional[List[Dataset]] = None, task_type: Optional[TaskType] = TaskType.EMPTY, **kwargs) -> BaseOperator :
         """Dummy op.
         Generate a Airflow dummy op.
 
         Args:
             task_id (str): The required task id.
             events (Optional[List[Dataset]]): The optional events to materialize.
+            task_type (Optional[TaskType]): The optional task type.
 
         Returns:
             BaseOperator: The Airflow task.
@@ -313,9 +272,8 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         return dag_args
 
 from airflow.lineage import prepare_lineage, apply_lineage
-from airflow.utils.log.logging_mixin import LoggingMixin
 
-class StarlakeDatasetMixin(LoggingMixin):
+class StarlakeDatasetMixin:
     """Mixin to update Airflow outlets with Starlake datasets."""
     def __init__(self, 
                  task_id: str, 
@@ -331,37 +289,44 @@ class StarlakeDatasetMixin(LoggingMixin):
         extra.update({"source": source})
         self.extra = extra
         self.alias = sanitize_id(params.get("uri", task_id)).lower()
+        self.dataset_alias: Optional[DatasetAlias] = None
+        self.dataset: Optional[Dataset] = None
         if dataset:
             if isinstance(dataset, StarlakeDataset):
                 params.update({
                     'uri': dataset.uri,
-                    'sl_schedule': dataset.cron,
+                    'cron': dataset.cron,
                     'sl_schedule_parameter_name': dataset.sl_schedule_parameter_name, 
                     'sl_schedule_format': dataset.sl_schedule_format,
                     'previous': previous
                 })
                 kwargs['params'] = params
-                self.dataset = "{{sl_scheduled_dataset(params.uri, params.sl_schedule, data_interval_end | ts, params.sl_schedule_parameter_name, params.sl_schedule_format, params.previous)}}"
+                self.dataset_str = "{{sl_scheduled_dataset(params.uri, params.cron, data_interval_end | ts, params.sl_schedule_parameter_name, params.sl_schedule_format, params.previous)}}"
+                self.alias = dataset.uri
             else:
-                self.dataset = dataset
-            outlets.append(DatasetAlias(self.alias))
-            kwargs["outlets"] = outlets
+                self.dataset_str = dataset
+                self.alias = dataset
+            self.dataset_alias = DatasetAlias(self.alias)
+            outlets.append(self.dataset_alias)
             self.outlets = outlets
+            kwargs["outlets"] = outlets
             self.template_fields = getattr(self, "template_fields", tuple()) + ("dataset",)
         else:
-            self.dataset = None
+            self.alias = None
+            self.dataset_str = None
         super().__init__(task_id=task_id, **kwargs)  # Appelle l'init de l'opérateur principal
 
     @prepare_lineage
     def pre_execute(self, context):
-        if self.dataset:
-            self.log.info(f"Pre execute {self.task_id} with dataset={self.dataset}, alias={self.alias}, extra={self.extra}, outlets={self.outlets}")
+        if self.dataset_str:
+            self.log.info(f"Pre execute {self.task_id} with dataset={self.dataset_str}, alias={self.alias}, extra={self.extra}, outlets={self.outlets}")
             from urllib.parse import parse_qs
-            uri: str = self.render_template(self.dataset, context)
+            uri: str = self.render_template(self.dataset_str, context)
             query = uri.split("?")
             if query.__len__() > 1:
                 self.extra.update(parse_qs(query[-1]))
-            context["outlet_events"][self.alias].add(Dataset(uri, self.extra))
+            self.dataset = Dataset(uri, self.extra)
+            context["outlet_events"][self.dataset_alias].add(self.dataset)
         return super().pre_execute(context)
 
     @apply_lineage
@@ -371,8 +336,8 @@ class StarlakeDatasetMixin(LoggingMixin):
 
         It is passed the execution context and any results returned by the operator.
         """
-        if self.dataset:
-            context["outlet_events"][self.alias].extra = self.extra
+        if self.dataset_alias:
+            context["outlet_events"][self.dataset].extra = self.extra
         return super().post_execute(context, result)
 
 class StarlakeEmptyOperator(StarlakeDatasetMixin, EmptyOperator):

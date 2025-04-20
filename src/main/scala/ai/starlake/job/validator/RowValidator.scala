@@ -6,7 +6,7 @@ import ai.starlake.schema.model.Trim.{BOTH, LEFT, NONE, RIGHT}
 import ai.starlake.schema.model.{Attribute, PrimitiveType, TransformInput, Type}
 import ai.starlake.utils.TransformEngine
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{ArrayType, StringType}
+import org.apache.spark.sql.types.{ArrayType, Metadata, MetadataBuilder, StringType}
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 object RowValidator {
   val SL_INPUT_COL = "$SL_INPUT_COL"
@@ -75,6 +75,14 @@ class RowValidator(
         .otherwise(fittedAttribute)
     }
 
+    def buildSparkFieldMetadata(currentSchema: Attribute): Metadata = {
+      val metadataBuilder = new MetadataBuilder()
+      if (currentSchema.`type` == PrimitiveType.variant.value) {
+        metadataBuilder.putString("sqlType", "JSON")
+      }
+      metadataBuilder.build()
+    }
+
     def fitToSchema(
       currentSchema: Attribute,
       currentInputSchema: Option[Attribute]
@@ -93,13 +101,16 @@ class RowValidator(
               }
             )
           }
+        case Some(_) if currentSchema.`type` == PrimitiveType.variant.value =>
+          (column: Column) => column
         case Some(inputSchema) if currentSchema.attributes.nonEmpty =>
           (structColumn: Column) => {
             struct(currentSchema.attributes.map { field =>
               fitToSchema(
                 field,
                 inputSchema.attributes.find(_.name == field.name)
-              )(structColumn.getField(field.name)).as(field.name)
+              )(structColumn.getField(field.name))
+                .as(field.name, metadata = buildSparkFieldMetadata(field))
             }: _*)
           }
         case Some(_) =>
@@ -133,7 +144,7 @@ class RowValidator(
       fitToSchema(
         field,
         inputAttributes.find(_.name == field.name)
-      )(col(field.name)).as(field.name)
+      )(col(field.name)).as(field.name, metadata = buildSparkFieldMetadata(field))
     }
     inputDF.select(projectionsList: _*)
   }
@@ -249,7 +260,11 @@ class RowValidator(
     ): (Column, Column) => Column = {
       currentInputSchema match {
         case Some(inputSchema) =>
-          if (inputSchema.resolveArray() != currentSchema.resolveArray()) {
+          if (
+            currentSchema.`type` == PrimitiveType.variant.value && !currentSchema.resolveArray()
+          ) { (_: Column, _: Column) =>
+            array().cast(ArrayType(StringType))
+          } else if (inputSchema.resolveArray() != currentSchema.resolveArray()) {
             if (currentSchema.resolveArray()) { (dataColumn: Column, pathColumn: Column) =>
               array(rejectValue(pathColumn, "is not an array", dataColumn))
             } else { (column: Column, pathColumn: Column) =>
@@ -261,11 +276,12 @@ class RowValidator(
                 )
               )
             }
-          } else if (inputSchema.attributes.nonEmpty != currentSchema.attributes.nonEmpty) {
-            (column: Column, pathColumn: Column) =>
-              array(
-                rejectValue(pathColumn, "is not a " + currentSchema.`type`, column)
-              )
+          } else if (
+            inputSchema.attributes.nonEmpty != currentSchema.attributes.nonEmpty && currentSchema.`type` != PrimitiveType.variant.value
+          ) { (column: Column, pathColumn: Column) =>
+            array(
+              rejectValue(pathColumn, "is not a " + currentSchema.`type`, column)
+            )
           }
           // at this point, there is no container mismatch
           else if (currentSchema.resolveArray()) {
@@ -445,6 +461,30 @@ class RowValidator(
             }
           })
         case Some(inputSchema)
+            if currentSchema.`type` == PrimitiveType.variant.value && !currentSchema
+              .resolveArray() =>
+          val column_as_json = Some((strColumn: Column) => {
+            to_json(
+              replaceWithDefaultValue(
+                currentSchema,
+                substituteToNull(applyTrim(currentSchema, strColumn))
+              )
+            )
+          })
+          inputSchema.`type` match {
+            case PrimitiveType.struct.value =>
+              column_as_json
+            case _ if inputSchema.resolveArray() =>
+              column_as_json
+            case _ =>
+              Some((strColumn: Column) => {
+                replaceWithDefaultValue(
+                  currentSchema,
+                  substituteToNull(applyTrim(currentSchema, strColumn))
+                ).cast(StringType)
+              })
+          }
+        case Some(inputSchema)
             if currentSchema.attributes.nonEmpty && inputSchema.attributes.nonEmpty && inputSchema
               .resolveArray() == currentSchema
               .resolveArray() =>
@@ -464,7 +504,6 @@ class RowValidator(
               .resolveArray() =>
           // This is the leaf case where we expect primitive types and not containers.
           // at this point we should not have array anymore if expected schema is matched but in some cases, we may still have array in inputSchema so we ignore them.
-          // TODO: check if we should handle variant differently while preparing data (apply to_json)
           Some((strColumn: Column) => {
             // default value is not subject to trim. This means that default value, if column is trimmed, should be trimmed.
             replaceWithDefaultValue(

@@ -58,7 +58,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       .hasTransformOrIgnoreOrScriptColumns() ||
     strategy.isMerge() ||
     schema.filter.nonEmpty ||
-    settings.appConfig.archiveTable
+    settings.appConfig.archiveTable || settings.appConfig.audit.detailedLoadAudit && path.size > 1
   }
 
   val twoSteps: Boolean = requireTwoSteps(starlakeSchema)
@@ -318,12 +318,14 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
   def auditStatements(): Option[TaskSQLStatements] = {
     if (settings.appConfig.audit.active.getOrElse(true)) {
       val auditStatements =
-        AuditLog.buildListOfSQLStatements(auditLog)(settings, storageHandler, schemaHandler)
+        AuditLog.buildListOfSQLStatements(List(auditLog))(settings, storageHandler, schemaHandler)
       auditStatements
     } else {
       None
     }
   }
+
+  lazy val tempStage = s"starlake_load_stage_${Random.alphanumeric.take(10).mkString("")}"
 
   def buildSQLStatements(): Map[String, Object] = {
     val twoSteps = this.twoSteps
@@ -417,13 +419,18 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       }
     val engine = settings.appConfig.jdbcEngines(engineName.toString)
 
-    val tempStage = s"starlake_load_stage_${Random.alphanumeric take 10 mkString ""}"
+    val tempStage = s"starlake_load_stage_${Random.alphanumeric.take(10).mkString("")}"
     val commonOptionsMap = Map(
       "schema"     -> starlakeSchema.asMap().asJava,
       "sink"       -> sink.asMap(engine).asJava,
       "fileSystem" -> settings.appConfig.fileSystem,
       "tempStage"  -> tempStage,
-      "connection" -> sinkConnection.asMap()
+      "connection" -> sinkConnection.asMap(),
+      "variant" -> starlakeSchema.attributes
+        .exists(
+          _.primitiveType(schemaHandler).getOrElse(PrimitiveType.string) == PrimitiveType.variant
+        )
+        .toString
     )
     val result = stepMap ++ commonOptionsMap
     result

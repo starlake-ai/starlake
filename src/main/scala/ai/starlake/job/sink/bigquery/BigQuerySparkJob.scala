@@ -163,24 +163,30 @@ class BigQuerySparkJob(
         s"BigQuery Saving to  ${table.getTableId} which contained ${stdTableDefinition.getNumRows} rows"
       )
 
-      lazy val containsArrayOfRecords = {
-        val maybeStarlakeSchema = cliConfig.starlakeSchema
-          .orElse(
-            cliConfig.source.toOption.map(df =>
-              Schema
-                .fromSparkSchema("df_schema", StructField("ignore", df.schema))
-            )
+      lazy val maybeStarlakeSchema = cliConfig.starlakeSchema
+        .orElse(
+          cliConfig.source.toOption.map(df =>
+            Schema
+              .fromSparkSchema("df_schema", StructField("ignore", df.schema))
           )
+        )
+      lazy val containsVariant = {
+        maybeStarlakeSchema.exists(_.containsVariant())
+      }
+      lazy val containsArrayOfRecords = {
         maybeStarlakeSchema.exists(_.containsArrayOfRecords())
       }
       val intermediateFormatSettings = settings.appConfig.internal.map(_.intermediateBigqueryFormat)
       val pretendingIntermediateFormat = intermediateFormatSettings.getOrElse("parquet")
 
-      val intermediateFormat =
-        if (pretendingIntermediateFormat == "parquet" && containsArrayOfRecords)
+      val intermediateFormat = {
+        if (containsVariant) {
+          "avro"
+        } else if (pretendingIntermediateFormat == "parquet" && containsArrayOfRecords)
           "orc"
         else
           pretendingIntermediateFormat
+      }
 
       val output: Try[Long] =
         cliConfig.writeDisposition match {
@@ -235,7 +241,7 @@ class BigQuerySparkJob(
         updateColumnsDescription(BigQueryJobBase.dictToBQSchema(attributesDescMap))
       // TODO verify if there is a difference between maybeTableDescription, schema.comment , task.desc
       updateTableDescription(table, maybeTableDescription.getOrElse(""))
-      output.map(rejected => SparkJobResult(None, Some(IngestionCounters(0, 0, rejected))))
+      output.map(rejected => SparkJobResult(None, Some(IngestionCounters(0, 0, rejected, Nil))))
     }
   }
 

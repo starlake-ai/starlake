@@ -28,15 +28,10 @@ class StarlakeCronPeriod(str, Enum):
 
     @classmethod
     def from_str(cls, value: str):
-        if value.lower() == 'day':
-            return cls.DAY
-        elif value.lower() == 'week':
-            return cls.WEEK
-        elif value.lower() == 'month':
-            return cls.MONTH
-        elif value.lower() == 'year':
-            return cls.YEAR
-        else:
+        """Returns an instance of StarlakeCronPeriod if the value is valid, otherwise raise a ValueError exception."""
+        try:
+            return cls(value.lower())
+        except ValueError:
             raise ValueError(f"Unsupported cron period: {value}")
 
 TODAY = datetime.today().strftime('%Y-%m-%d')
@@ -56,8 +51,14 @@ def cron_start_time() -> datetime:
 
 sl_schedule_format = '%Y%m%dT%H%M'
 
-def sl_schedule(cron: str, start_time: datetime = cron_start_time(), format: str = sl_schedule_format) -> str:
+def sl_schedule(cron: str, start_time: Optional[Union[str, datetime]] = None, format: str = sl_schedule_format) -> str:
     from croniter import croniter
+    if start_time is None:
+        start_time = cron_start_time()
+    elif isinstance(start_time, str):
+        from dateutil import parser
+        import pytz
+        start_time = parser.isoparse(start_time).astimezone(pytz.timezone('UTC'))
     return croniter(cron, start_time).get_prev(datetime).strftime(format)
 
 def get_cron_frequency(cron_expression, start_time: datetime, period=StarlakeCronPeriod.DAY):

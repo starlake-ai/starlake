@@ -57,6 +57,7 @@ import org.apache.spark.sql.types.{
   TimestampType
 }
 
+import java.nio.charset.Charset
 import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 import scala.util.Try
@@ -566,6 +567,7 @@ object InferSchemaHandler extends StrictLogging {
 
   def createMetaData(
     format: Format,
+    encoding: Charset,
     array: Option[Boolean] = None,
     withHeader: Option[Boolean] = None,
     separator: Option[String] = None,
@@ -573,7 +575,7 @@ object InferSchemaHandler extends StrictLogging {
   ): Metadata =
     Metadata(
       format = Some(format),
-      encoding = None,
+      encoding = Some(encoding.name()),
       multiline = None,
       array = if (array.contains(true)) array else None,
       withHeader = withHeader,

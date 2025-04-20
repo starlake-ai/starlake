@@ -7,27 +7,29 @@ table:
   - name: "_id"
     type: "string"
     array: false
-    sample: "bk101"
+    rename: "id"
+    sample: "bk112"
   - name: "author"
     type: "string"
     array: false
-    sample: "Gambardella, Matthew"
+    sample: "Thurman, Paula"
   - name: "description"
     type: "string"
     array: false
-    sample: "An in-depth look at creating applications\n            with XML."
+    sample: "When Carla meets Paul at an ornithology\n            conference, tempers\
+      \ fly as feathers get ruffled."
   - name: "genre"
     type: "string"
     array: false
-    sample: "Computer"
+    sample: "Science Fiction"
   - name: "price"
     type: "double"
     array: false
-    sample: "44.95"
+    sample: "6.95"
   - name: "publish_date"
     type: "date"
     array: false
-    sample: "2000-10-01"
+    sample: "2001-09-10"
   - name: "title-item"
     type: "string"
     array: false
@@ -35,6 +37,7 @@ table:
     sample: "XML Developer's Guide"
   metadata:
     format: "XML"
+    encoding: "UTF-8"
     withHeader: true
     options:
       rowTag: "book-item"

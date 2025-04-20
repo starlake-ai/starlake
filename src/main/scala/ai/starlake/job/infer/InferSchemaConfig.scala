@@ -22,6 +22,7 @@ package ai.starlake.job.infer
 import ai.starlake.schema.model.{Format, WriteMode}
 import better.files.File
 
+import java.nio.charset.{Charset, StandardCharsets}
 import java.util.regex.Pattern
 
 case class InferSchemaConfig(
@@ -32,7 +33,8 @@ case class InferSchemaConfig(
   format: Option[Format] = None,
   write: Option[WriteMode] = None,
   rowTag: Option[String] = None,
-  clean: Boolean = false
+  clean: Boolean = false,
+  encoding: Charset = StandardCharsets.UTF_8
 ) {
   def extractTableNameAndWriteMode(): (String, WriteMode) = {
     val file: File = File(inputPath)
@@ -44,7 +46,7 @@ case class InferSchemaConfig(
       val lastIndex = fileNameWithoutExt.lastIndexOf(matchedChar)
       val name = fileNameWithoutExt.substring(0, lastIndex)
       val deltaPart = fileNameWithoutExt.substring(lastIndex + 1)
-      if (deltaPart.nonEmpty && deltaPart(1).isDigit) {
+      if (deltaPart.nonEmpty && deltaPart(0).isDigit) {
         (name.replaceAll("\\.", "_").replaceAll("-", "_"), WriteMode.APPEND)
       } else {
         (fileNameWithoutExt, WriteMode.OVERWRITE)

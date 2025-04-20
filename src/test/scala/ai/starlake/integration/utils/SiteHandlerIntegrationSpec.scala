@@ -11,7 +11,7 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
   override val directoriesToClear = List("site")
 
   // select quickstart or starbake here
-  val projectDir = localDir
+  val projectDir = theSampleFolder
   // val projectDir = starbakeDir
 
   // select docusaurus folder

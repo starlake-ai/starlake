@@ -48,7 +48,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
   lazy val effectiveSchema: Schema = computeEffectiveInputSchema()
   lazy val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
 
-  def run(): Try[IngestionCounters] = {
+  def run(): Try[List[IngestionCounters]] = {
     Try {
       val sinkConnection = mergedMetadata.getSinkConnection()
       val twoSteps = requireTwoSteps(effectiveSchema)
@@ -121,7 +121,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
         singleStepLoad(domain.finalName, schema.finalName, schemaWithMergedMetadata, path)
       }
     }.map { - =>
-      IngestionCounters(-1, -1, -1)
+      List(IngestionCounters(-1, -1, -1, path.map(_.toString)))
     }
   }
 

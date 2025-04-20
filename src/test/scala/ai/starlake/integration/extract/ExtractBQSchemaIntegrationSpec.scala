@@ -8,7 +8,7 @@ class ExtractBQSchemaIntegrationSpec extends BigQueryIntegrationSpecBase {
 
     "External Load" should "succeed" in {
       withEnvs(
-        "SL_ROOT"                                       -> localDir.pathAsString,
+        "SL_ROOT"                                       -> theSampleFolder.pathAsString,
         "SL_ENV"                                        -> "BQ-NATIVE",
         "SL_INTERNAL_SUBSTITUTE_VARS"                   -> "true",
         "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",

@@ -30,6 +30,7 @@ table:
     sample: "9"
   metadata:
     format: "XML"
+    encoding: "UTF-8"
     withHeader: true
     options:
       rowTag: "record"

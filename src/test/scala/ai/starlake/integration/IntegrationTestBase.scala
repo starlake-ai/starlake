@@ -23,10 +23,10 @@ class IntegrationTestBase
 
   val starlakeDir = File(".")
   logger.info(starlakeDir.pathAsString)
-  def templates = starlakeDir / "samples"
-  def localDir = templates / "spark"
-  def incomingDir = localDir / "incoming"
-  def sampleDataDir = templates / "sample-data"
+  def samplesFolder = starlakeDir / "samples"
+  def theSampleFolder = samplesFolder / "any-engine"
+  def incomingDir = theSampleFolder / "incoming"
+  def sampleDataDir = samplesFolder / "sample-data"
   def migrationDir = starlakeDir / "migration"
 
   override protected def beforeAll() = {
@@ -83,7 +83,7 @@ class IntegrationTestBase
     List("incoming", "audit", "datasets", "diagrams", "metadata/dags/generated")
 
   protected def cleanup(): Unit = {
-    cleanup(localDir)
+    cleanup(theSampleFolder)
   }
 
   protected def cleanup(directory: File): Unit = {

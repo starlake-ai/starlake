@@ -6,7 +6,7 @@ import ai.starlake.job.Main
 class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
   "All Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> localDir.pathAsString,
+      "SL_ROOT"                     -> theSampleFolder.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "all"
@@ -24,7 +24,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
 
   "Domain Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> localDir.pathAsString,
+      "SL_ROOT"                     -> theSampleFolder.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "domain"
@@ -42,7 +42,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
 
   "Domain / Table Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> localDir.pathAsString,
+      "SL_ROOT"                     -> theSampleFolder.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "domain_table"
@@ -60,7 +60,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
 
   "Schedule Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> localDir.pathAsString,
+      "SL_ROOT"                     -> theSampleFolder.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "schedule"
@@ -78,7 +78,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
 
   "Schedule / Domain Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> localDir.pathAsString,
+      "SL_ROOT"                     -> theSampleFolder.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "schedule_domain"
@@ -95,7 +95,7 @@ class DagIntegrationSpec extends BigQueryIntegrationSpecBase {
   }
   "Schedule / Domain / Table Dag generation" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> localDir.pathAsString,
+      "SL_ROOT"                     -> theSampleFolder.pathAsString,
       "SL_ENV"                      -> "LOCAL",
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_DAG_REF"                  -> "schedule_domain_table"

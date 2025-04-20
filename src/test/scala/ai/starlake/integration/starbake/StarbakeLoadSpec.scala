@@ -10,12 +10,12 @@ class StarbakeLoadSpec extends IntegrationTestBase {
   override protected def cleanup(): Unit = {
     // do not cleanup between tests
   }
-  override def incomingDir = localDir / "datasets" / "incoming"
-  override def localDir = starlakeDir / "samples" / "starbake"
-  override def sampleDataDir = localDir / "sample-data"
-  logger.info(localDir.pathAsString)
+  override def incomingDir = theSampleFolder / "datasets" / "incoming"
+  override def theSampleFolder = starlakeDir / "samples" / "starbake"
+  override def sampleDataDir = theSampleFolder / "sample-data"
+  logger.info(theSampleFolder.pathAsString)
   "Autoload" should "succeed" in {
-    withEnvs("SL_ROOT" -> localDir.pathAsString, "SL_ENV" -> "SNOWFLAKE") {
+    withEnvs("SL_ROOT" -> theSampleFolder.pathAsString, "SL_ENV" -> "SNOWFLAKE") {
       copyFilesToIncomingDir(sampleDataDir)
       assert(new Main().run(Array("load")))
     }

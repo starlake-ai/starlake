@@ -29,7 +29,6 @@ import org.apache.spark.sql.types.StructType
 
 import java.sql.Timestamp
 import java.time.Instant
-import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -192,6 +191,11 @@ class BigQueryAutoTask(
       }
 
     val config = bigQuerySinkConfig
+
+    Utils.println(s"""
+     |Table: $fullTableName
+     |Connection: ${sinkConnectionRef}(${taskDesc.getSinkConnectionType()})
+     |""".stripMargin)
 
     val start = Timestamp.from(Instant.now())
     if (truncate) {

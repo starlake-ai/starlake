@@ -206,4 +206,15 @@ case class JDBCTable(
       None,
       None
     ) // Should never be called. Here for Jackson deserialization only
+  def this(name: String) =
+    this(
+      name,
+      None,
+      Nil,
+      None,
+      None,
+      Map.empty,
+      None,
+      None
+    )
 }

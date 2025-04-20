@@ -5,9 +5,7 @@ import ai.starlake.job.Main
 import better.files.File
 
 class LoadDuckDbIntegrationSpec extends JDBCIntegrationSpecBase {
-  override def templates: File = starlakeDir / "samples"
-  override def localDir: File = starlakeDir / "samples" / "duckdb"
-  override def sampleDataDir: File = localDir / "sample-data"
+  override def theSampleFolder: File = samplesFolder / "duckdb"
 
   override protected def cleanup(): Unit = {
     // cleanup(localDir)
@@ -15,9 +13,9 @@ class LoadDuckDbIntegrationSpec extends JDBCIntegrationSpecBase {
 
   if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
     "Import / Load / Transform DUCKDB" should "succeed" in {
-      (localDir / "datasets").createDirectoryIfNotExists(createParents = true)
+      (theSampleFolder / "datasets").createDirectoryIfNotExists(createParents = true)
       withEnvs(
-        "SL_ROOT" -> localDir.pathAsString,
+        "SL_ROOT" -> theSampleFolder.pathAsString,
         "SL_ENV"  -> "DUCKDB"
       ) {
         cleanup()

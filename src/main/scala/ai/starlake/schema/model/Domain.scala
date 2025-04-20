@@ -343,7 +343,8 @@ object Domain {
   ): List[Either[List[ValidationMessage], Boolean]] = {
     val domainRootFiles = storage.list(DatasetArea.load, recursive = false, exclude = None)
     val domainRootDirectories = storage.listDirectories(DatasetArea.load)
-    val diff = domainRootFiles.diff(domainRootDirectories)
+    val diff = domainRootFiles
+      .diff(domainRootDirectories)
     val extraFileWarnings = if (diff.nonEmpty) {
       List(
         Left(
@@ -437,7 +438,7 @@ object Domain {
       else if (settings.storageHandler().exists(ssp))
         ssp
       else
-        throw new Exception(s"No $ddlType.mustache/ssp found for datawarehouse $datawarehouse")
+        throw new Exception(s"No $mustache or $ssp found for datawarehouse $datawarehouse")
     template -> settings.storageHandler().read(template)
   }
 }

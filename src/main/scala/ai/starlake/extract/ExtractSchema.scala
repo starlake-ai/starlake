@@ -47,7 +47,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     }
     jdbcSchemas.openAPI match {
       case Some(openAPIConfig) =>
-        // TODO: temporarely doing switch case but plans to remove it once all others extractions implement Schema Extractor
+        // TODO: temporarily doing switch case but plans to remove it once all others extractions implement Schema Extractor
         // TODO: implement templates as in jdbcSchema
         SchemaExtractorWorkflow.run(config, jdbcSchemas)
       case None =>
@@ -58,7 +58,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
               ExtractBigQuerySchemaCmd.fromExtractSchemaConfig(config, jdbcSchema)
             ExtractBigQuerySchemaCmd.run(bigQueryConfig, schemaHandler)
           }
-        } else {
+        } else { // JDBC
           implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
             ParUtils.createForkSupport(config.parallelism)
           ParUtils.makeParallel(jdbcSchemas.jdbcSchemas.getOrElse(Nil)).iterator.foreach {
@@ -108,7 +108,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
                 extractSchema(
                   jdbcSchema,
                   connectionSettings,
-                  schemaOutputDir(config.outputDir),
+                  schemaOutputDir(config),
                   domainTemplate,
                   currentDomain,
                   config.external
@@ -130,51 +130,86 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
   private def fromConfig(
     config: ExtractSchemaConfig
   )(implicit settings: _root_.ai.starlake.config.Settings): ExtractSchemas = {
-    if (config.tables.isEmpty && config.extractConfig.isEmpty) {
-      throw new Exception("Either tables or extractConfig must be defined")
-    }
-    if (config.tables.nonEmpty) {
-      val jdbcTablesDesc = config.tables
-        .map { table =>
-          val parts = table.split("\\.")
-          if (parts.length != 2) {
-            throw new Exception(s"Invalid table format: $table")
-          }
-          val schema = parts(0)
-          val t = parts(1)
-          (schema, t)
+    val userConfig =
+      Try {
+        val extractArea = if (config.external) DatasetArea.external else DatasetArea.extract
+        val extractConfigPath = mappingPath(extractArea, config.extractConfig)
+        settings.storageHandler().exists(extractConfigPath) match {
+          case false =>
+            throw new FileNotFoundException(
+              s"Could not found extract config ${config.extractConfig}. Please check its existence."
+            )
+          case true => // do nothing
+            val content = settings
+              .storageHandler()
+              .read(extractConfigPath)
+              .richFormat(schemaHandler.activeEnvVars(), Map.empty)
+            val extractSchemasConfig =
+              YamlSerde.deserializeYamlExtractConfig(content, config.extractConfig)
+            extractSchemasConfig
         }
-        .groupBy(_._1)
-        .toList
-
-      val jdbcSchemas =
-        jdbcTablesDesc.map { case (schema, tables) =>
-          val jdbcSchema = JDBCSchema(
-            schema = schema,
-            tables = tables.map { t => new JDBCTable().copy(name = t._2) }.toList,
-            pattern = None,
-            template = None
-          )
-          jdbcSchema
-        }
-      ExtractSchemas(jdbcSchemas = Some(jdbcSchemas), connectionRef = config.connectionRef)
-    } else {
-      val extractArea = if (config.external) DatasetArea.external else DatasetArea.extract
-      val extractConfigPath = mappingPath(extractArea, config.extractConfig)
-      Try(settings.storageHandler().exists(extractConfigPath)) match {
-        case Failure(_) | Success(false) =>
-          throw new FileNotFoundException(
-            s"Could not found extract config ${config.extractConfig}. Please check its existence."
-          )
-        case _ => // do nothing
       }
-      val content = settings
-        .storageHandler()
-        .read(extractConfigPath)
-        .richFormat(schemaHandler.activeEnvVars(), Map.empty)
-      val extractSchemasConfig =
-        YamlSerde.deserializeYamlExtractConfig(content, config.extractConfig)
-      extractSchemasConfig
+    if (config.all) {
+      val connectionRef =
+        userConfig.toOption
+          .flatMap(_.connectionRef)
+          .orElse(config.connectionRef)
+          .getOrElse(settings.appConfig.connectionRef)
+      val schemaNames = SchemaExtractor.extractSchemaNames(connectionRef, config.accessToken)
+      val result =
+        schemaNames match {
+          case Failure(e) =>
+            throw e
+          case Success(schemaNames) =>
+            val jdbcSchemas = schemaNames.map { case (schema, tables) =>
+              val jdbcSchema = JDBCSchema(
+                schema = schema,
+                tables = tables.map { t => new JDBCTable().copy(name = t) },
+                pattern = None,
+                template = None
+              )
+              jdbcSchema
+            }
+            ExtractSchemas(jdbcSchemas = Some(jdbcSchemas), connectionRef = Some(connectionRef))
+        }
+      result
+    } else {
+      if (config.tables.isEmpty && config.extractConfig.isEmpty) {
+        throw new Exception("Either tables or extractConfig must be defined")
+      }
+      if (config.tables.nonEmpty) {
+        val jdbcTablesDesc = config.tables
+          .map { table =>
+            val parts = table.split("\\.")
+            if (parts.length != 2) {
+              throw new Exception(s"Invalid table format: $table")
+            }
+            val schema = parts(0)
+            val t = parts(1)
+            (schema, t)
+          }
+          .groupBy(_._1)
+          .toList
+
+        val jdbcSchemas =
+          jdbcTablesDesc.map { case (schema, tables) =>
+            val jdbcSchema = JDBCSchema(
+              schema = schema,
+              tables = tables.map { t => new JDBCTable().copy(name = t._2) }.toList,
+              pattern = None,
+              template = None
+            )
+            jdbcSchema
+          }
+        ExtractSchemas(jdbcSchemas = Some(jdbcSchemas), connectionRef = config.connectionRef)
+      } else {
+        userConfig match {
+          case Success(extractSchemasConfig) =>
+            extractSchemasConfig
+          case Failure(e) =>
+            throw e
+        }
+      }
     }
   }
 
@@ -277,7 +312,8 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
         jdbcSchema,
         connectionSettings,
         skipRemarks = false,
-        keepOriginalName = false
+        keepOriginalName = false,
+        includeColumns = true
       )
     JdbcDbUtils.extractDomain(jdbcSchema, domainTemplate, selectedTablesAndColumns)
   }

@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple, Union
 
 from ai.starlake.common import MissingEnvironmentVariable
 
-from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions, StarlakeOrchestrator, StarlakeExecutionEnvironment
+from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions, StarlakeOrchestrator, StarlakeExecutionEnvironment, TaskType
 
 from ai.starlake.dataset import StarlakeDataset, AbstractEvent
 
@@ -93,13 +93,14 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
         # TODO: implement the definition to update SL_START_DATE and SL_END_DATE if the backfill is enabled and the DAG is not scheduled - maybe we will have to retrieve all the dag runs that didn't execute successfully ?
         return super().end_op(task_id=task_id, events=events, **kwargs)
 
-    def dummy_op(self, task_id: str, events: Optional[List[StarlakeDataset]] = None, **kwargs) -> DAGTask:
+    def dummy_op(self, task_id: str, events: Optional[List[StarlakeDataset]] = None, task_type: Optional[TaskType]=TaskType.EMPTY, **kwargs) -> DAGTask:
         """Dummy op.
         Generate a Snowflake dummy task.
 
         Args:
             task_id (str): The required task id.
             events (Optional[List[StarlakeDataset]]): The optional events to materialize.
+            task_type (Optional[TaskType]): The optional task type.
 
         Returns:
             DAGTask: The Snowflake task.
@@ -228,7 +229,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
         kwargs.update({'comment': comment})
         return super().sl_transform(task_id=task_id, transform_name=transform_name, transform_options=transform_options, spark_config=spark_config, dataset=dataset, **kwargs)
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> DAGTask:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, task_type: Optional[TaskType]=None, **kwargs) -> DAGTask:
         """Overrides IStarlakeJob.sl_job()
         Generate the Snowflake task that will run the starlake command.
 
@@ -237,12 +238,14 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
             arguments (list): The required arguments of the starlake command to run.
             spark_config (StarlakeSparkConfig, optional): The optional spark configuration. Defaults to None.
             dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
+            task_type (Optional[TaskType], optional): The optional task type. Defaults to None.
 
         Returns:
             DAGTask: The Snowflake task.
         """
         sink = kwargs.get('sink', None)
-        command = arguments[0].lower()
+        if not task_type and len(arguments) > 0:
+            task_type = TaskType.from_str(arguments[0])
         if sink:
             kwargs.pop('sink', None)
             domainAndTable = sink.split('.')
@@ -590,7 +593,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                 """
                 execute_sql(session, "ROLLBACK", "ROLLBACK transaction:", dry_run)
 
-            if command == 'transform':
+            if task_type == TaskType.TRANSFORM:
                 if statements:
 
                     cron_expr = kwargs.get('cron_expr', None)
@@ -603,7 +606,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                         from datetime import datetime
 
                         if dry_run:
-                            print(f"--Executing transform for {sink} in dry run mode")
+                            print(f"-- Executing transform for {sink} in dry run mode")
 
                         if cron_expr:
                             from croniter import croniter
@@ -622,7 +625,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             original_schedule = config.get("logical_date", None)
                             if not original_schedule:
                                 query = "SELECT to_timestamp(system$task_runtime_info('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))"
-                                print(f"--Get the original scheduled timestamp of the initial graph run:\n{query};")
+                                print(f"-- Get the original scheduled timestamp of the initial graph run:\n{query};")
                                 rows = execute_sql(session, query, "Get the original scheduled timestamp of the initial graph run", dry_run)
                                 if rows.__len__() == 1:
                                     original_schedule = rows[0][0]
@@ -694,17 +697,17 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             commit_transaction(session, dry_run)
                             end = datetime.now()
                             duration = (end - start).total_seconds()
-                            print(f"--Duration in seconds: {duration}")
+                            print(f"-- Duration in seconds: {duration}")
                             log_audit(session, None, -1, -1, -1, True, duration, 'Success', end, jobid, "TRANSFORM", dry_run)
                             
                         except Exception as e:
                             # ROLLBACK transaction
                             error_message = str(e)
-                            print(f"Error executing transform for {sink}: {error_message}")
+                            print(f"-- Error executing transform for {sink}: {error_message}")
                             rollback_transaction(session, dry_run)
                             end = datetime.now()
                             duration = (end - start).total_seconds()
-                            print(f"Duration in seconds: {duration}")
+                            print(f"-- Duration in seconds: {duration}")
                             log_audit(session, None, -1, -1, -1, False, duration, error_message, end, jobid, "TRANSFORM", dry_run)
                             raise e
 
@@ -725,7 +728,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                 else:
                     # sink statements are required
                     raise ValueError(f"Transform '{sink}' statements not found")
-            elif command == 'load':
+            elif task_type == TaskType.LOAD:
                 json_context = self.caller_globals.get('json_context', None)
                 if json_context:
                     import json
@@ -734,6 +737,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                         temp_stage = self.sl_incoming_file_stage or context.get('tempStage', None)
                         if not temp_stage:
                             raise ValueError(f"Temp stage for {sink} not found")
+                        temp_table_name = context.get('tempTableName', None)
                         context_schema: dict = context.get('schema', dict())
                         pattern: str = context_schema.get('pattern', None)
                         if not pattern:
@@ -845,7 +849,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             compression_format = "COMPRESSION = NONE"
 
                         null_if = get_option('NULL_IF', None)
-                        if not null_if and is_true(metadata.get('emptyIsNull', "false"), False):
+                        if not null_if and is_true(metadata.get('emptyIsNull', "true"), False):
                             null_if = "NULL_IF = ('')"
                         elif null_if:
                             null_if = f"NULL_IF = {null_if}"
@@ -861,7 +865,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                         def build_copy_csv() -> str:
                             skipCount = get_option("SKIP_HEADER", None)
 
-                            if not skipCount and is_true(metadata.get('withHeader', 'false'), False):
+                            if not skipCount and is_true(metadata.get('withHeader', 'true'), False):
                                 skipCount = '1'
 
                             common_options = [
@@ -878,7 +882,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             else:
                                 extension = ""
                             sql = f'''
-                                COPY INTO {sink} 
+                                COPY INTO {temp_table_name or sink} 
                                 FROM @{temp_stage}/{domain}/
                                 PATTERN = '{pattern}{extension}'
                                 PURGE = {purge}
@@ -898,14 +902,19 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             return sql
 
                         def build_copy_json() -> str:
-                            strip_outer_array = get_option("STRIP_OUTER_ARRAY", 'array')
+                            strip_outer_array = get_option("STRIP_OUTER_ARRAY", 'true')
                             common_options = [
                                 'STRIP_OUTER_ARRAY', 
                                 'NULL_IF'
                             ]
                             extra_options = copy_extra_options(common_options)
+                            variant = context.get('variant', "false")
+                            if (variant == "false"):
+                                match_by_columnName = "MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE"
+                            else:
+                                ''
                             sql = f'''
-                                COPY INTO {sink} 
+                                COPY INTO {temp_table_name or sink} 
                                 FROM @{temp_stage}/{domain}
                                 PATTERN = '{pattern}'
                                 PURGE = {purge}
@@ -916,6 +925,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                     {extra_options}
                                     {compression_format}
                                 )
+                                {match_by_columnName}
                             '''
                             return sql
                             
@@ -925,7 +935,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             ]
                             extra_options = copy_extra_options(common_options)
                             sql = f'''
-                                COPY INTO {sink} 
+                                COPY INTO {temp_table_name or sink} 
                                 FROM @{temp_stage}/{domain} 
                                 PATTERN = '{pattern}'
                                 PURGE = {purge}
@@ -941,12 +951,12 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                         def build_copy() -> str:
                             if format == 'DSV':
                                 return build_copy_csv()
-                            elif format == 'JSON':
+                            elif format == 'JSON' or format == 'JSON_FLAT':
                                 return build_copy_json()
                             elif format == 'PARQUET':
-                                return build_copy_other()
+                                return build_copy_other(format)
                             elif format == 'XML':
-                                return build_copy_other()
+                                return build_copy_other(format)
                             else:
                                 raise ValueError(f"Unsupported format {format}")
   
@@ -1032,7 +1042,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                 commit_transaction(session, dry_run)
                                 end = datetime.now()
                                 duration = (end - start).total_seconds()
-                                print(f"--Duration in seconds: {duration}")
+                                print(f"-- Duration in seconds: {duration}")
                                 files, first_error_line, first_error_column_name, rows_parsed, rows_loaded, errors_seen = get_audit_info(copy_results)
                                 message = first_error_line + '\n' + first_error_column_name
                                 success = errors_seen == 0
@@ -1041,11 +1051,11 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             except Exception as e:
                                 # ROLLBACK transaction
                                 error_message = str(e)
-                                print(f"Error executing load for {sink}: {error_message}")
+                                print(f"-- Error executing load for {sink}: {error_message}")
                                 rollback_transaction(session, dry_run)
                                 end = datetime.now()
                                 duration = (end - start).total_seconds()
-                                print(f"Duration in seconds: {duration}")
+                                print(f"-- Duration in seconds: {duration}")
                                 log_audit(session, None, -1, -1, -1, False, duration, error_message, end, jobid, "LOAD", dry_run)
                                 raise e
 
@@ -1069,7 +1079,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                     raise ValueError("context is required")
             else:
                 # only load and transform commands are implemented
-                raise NotImplementedError(f"{command} is not implemented")
+                raise NotImplementedError(f"{task_type} is not implemented")
         else:
             # sink is required
             raise ValueError("sink is required")

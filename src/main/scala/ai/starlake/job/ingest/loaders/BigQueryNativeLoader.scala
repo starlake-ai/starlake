@@ -1,7 +1,7 @@
 package ai.starlake.job.ingest.loaders
 
 import ai.starlake.config.{CometColumns, Settings}
-import ai.starlake.exceptions.NullValueFoundException
+import ai.starlake.extract.{ExtractUtils, ParUtils}
 import ai.starlake.job.ingest.{BqLoadInfo, IngestionJob}
 import ai.starlake.job.sink.bigquery.{
   BigQueryJobBase,
@@ -17,6 +17,7 @@ import com.google.cloud.bigquery
 import com.google.cloud.bigquery.{Field, JobInfo, StandardSQLTypeName, TableId}
 import com.typesafe.scalalogging.StrictLogging
 
+import java.time.Duration
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -25,16 +26,16 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
 ) extends NativeLoader(ingestionJob, accessToken)
     with StrictLogging {
   lazy val effectiveSchema: Schema = computeEffectiveInputSchema()
-  lazy val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
+  lazy val schemaWithMergedMetadata: Schema = effectiveSchema.copy(metadata = Some(mergedMetadata))
 
-  lazy val targetTableId =
+  lazy val targetTableId: TableId =
     BigQueryJobBase.extractProjectDatasetAndTable(
       schemaHandler.getDatabase(domain),
       domain.finalName,
       effectiveSchema.finalName
     )
 
-  def run(): Try[IngestionCounters] = {
+  def run(): Try[List[IngestionCounters]] = {
     Try {
       val bqSink = mergedMetadata.getSink().asInstanceOf[BigQuerySink]
 
@@ -59,16 +60,16 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           accessToken = accessToken
         )
       if (twoSteps) {
+        val startTime = System.currentTimeMillis()
         val (loadResults, tempTableIds, tableInfos) =
-          path
-            .map(_.toString)
-            .foldLeft[(List[Try[BqLoadInfo]], List[TableId], List[TableInfo])]((Nil, Nil, Nil)) {
-              case ((loadResultList, tempTableIdList, tableInfoList), sourceUri) =>
+          ParUtils
+            .runInParallel(settings.appConfig.maxParTask, path.map(_.toString).zipWithIndex) {
+              case (sourceUri, index) =>
                 val firstStepTempTable =
                   BigQueryJobBase.extractProjectDatasetAndTable(
                     schemaHandler.getDatabase(domain),
                     domain.finalName,
-                    tempTableName
+                    tempTableName + "_" + index
                   )
                 val firstStepConfig =
                   targetConfig
@@ -89,8 +90,8 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                   _.targetBqSchemaWithIgnoreAndScript(schemaHandler)
                 )
 
-                val enrichedTableInfo = firstStepTableInfo.copy(maybeSchema =
-                  firstStepTableInfo.maybeSchema.map((schema: bigquery.Schema) =>
+                val enrichedTableInfo = firstStepTableInfo.copy(
+                  maybeSchema = firstStepTableInfo.maybeSchema.map((schema: bigquery.Schema) =>
                     bigquery.Schema.of(
                       (schema.getFields.asScala :+
                       Field
@@ -101,38 +102,53 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                         .setDefaultValueExpression(s"'$sourceUri'")
                         .build()).asJava
                     )
-                  )
+                  ),
+                  maybeDurationMs = Some(Duration.ofHours(24).toMillis)
                 )
 
                 // TODO What if type is changed by transform ? we need to use safe_cast to have the same behavior as in SPARK.
                 val firstStepResult =
-                  firstStepBigqueryJob.loadPathsToBQ(firstStepTableInfo, Some(enrichedTableInfo))
+                  firstStepBigqueryJob
+                    .loadPathsToBQ(firstStepTableInfo, Some(enrichedTableInfo))
+                (
+                  firstStepResult,
+                  firstStepTempTable,
+                  enrichedTableInfo
+                )
+            }
+            .foldLeft[(List[Try[BqLoadInfo]], List[TableId], List[TableInfo])]((Nil, Nil, Nil)) {
+              case (
+                    (loadResultList, tempTableIdList, tableInfoList),
+                    (firstStepResult, firstStepTempTable, enrichedTableInfo)
+                  ) =>
                 (
                   loadResultList :+ firstStepResult,
                   tempTableIdList :+ firstStepTempTable,
                   tableInfoList :+ enrichedTableInfo
                 )
             }
-        def combineStats(bqLoadInfo1: BqLoadInfo, bqLoadInfo2: BqLoadInfo): BqLoadInfo = {
-          BqLoadInfo(
-            bqLoadInfo1.totalAcceptedRows + bqLoadInfo2.totalAcceptedRows,
-            bqLoadInfo1.totalRejectedRows + bqLoadInfo2.totalRejectedRows,
-            jobResult = BigQueryJobResult(
-              None,
-              bqLoadInfo1.jobResult.totalBytesProcessed + bqLoadInfo2.jobResult.totalBytesProcessed,
-              None
-            )
-          )
-        }
-        val globalLoadResult: Try[BqLoadInfo] = loadResults.reduce { (result1, result2) =>
-          result1.flatMap(r => result2.map(combineStats(_, r)))
+        def tryListSequence[A](list: List[Try[A]]): Try[List[A]] = {
+          list.foldRight(Try(List.empty[A])) { (tryElem, acc) =>
+            for {
+              elem <- tryElem
+              rest <- acc
+            } yield elem :: rest
+          }
         }
 
-        val output: Try[BqLoadInfo] =
+        println("First step done in : " + ExtractUtils.toHumanElapsedTimeFrom(startTime))
+
+        val output: Try[List[BqLoadInfo]] =
           applyBigQuerySecondStep(
             targetConfig,
-            tempTableIds,
-            globalLoadResult
+            List(
+              BigQueryJobBase.extractProjectDatasetAndTable(
+                schemaHandler.getDatabase(domain),
+                domain.finalName,
+                tempTableName + "_*"
+              )
+            ),
+            tryListSequence(loadResults)
           )
 
         tempTableIds.zip(tableInfos).foreach { case (id, info) =>
@@ -141,7 +157,9 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           val table = Option(id.getTable()).getOrElse("")
           archiveTableTask(database, schema, table, info).foreach(_.run())
         }
-        Try(tempTableIds.foreach(new BigQueryNativeJob(targetConfig, "").dropTable))
+        Try(ParUtils.runInParallel(settings.appConfig.maxParTask, tempTableIds) { tableId =>
+          new BigQueryNativeJob(targetConfig, "").dropTable(tableId)
+        })
           .flatMap(_ => output)
           .recoverWith { case exception =>
             Utils.logException(logger, exception)
@@ -149,22 +167,45 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           } // ignore exception but log it
       } else {
         val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
-        bigqueryJob.loadPathsToBQ(
-          bigqueryJob.getTableInfo(targetTableId, _.targetBqSchemaWithoutIgnore(schemaHandler))
-        )
+        bigqueryJob
+          .loadPathsToBQ(
+            bigqueryJob.getTableInfo(targetTableId, _.targetBqSchemaWithoutIgnore(schemaHandler))
+          )
+          .map(List(_))
       }
     }.map {
-      case res @ Success(result) =>
-        result.jobResult.job.flatMap(j => Option(j.getStatus.getExecutionErrors)).foreach {
-          errors =>
+      case Success(results) =>
+        results.foreach {
+          _.jobResult.job.flatMap(j => Option(j.getStatus.getExecutionErrors)).foreach { errors =>
             errors.forEach(err => logger.error(f"${err.getReason} - ${err.getMessage}"))
+          }
         }
-        IngestionCounters(
-          result.totalRows,
-          result.totalAcceptedRows,
-          result.totalRejectedRows
-        )
-      case res @ Failure(exception) =>
+        val bqLoadInfoOutput = if (settings.appConfig.audit.detailedLoadAudit) {
+          results
+        } else {
+          def combineStats(bqLoadInfo1: BqLoadInfo, bqLoadInfo2: BqLoadInfo): BqLoadInfo = {
+            BqLoadInfo(
+              totalAcceptedRows = bqLoadInfo1.totalAcceptedRows + bqLoadInfo2.totalAcceptedRows,
+              totalRejectedRows = bqLoadInfo1.totalRejectedRows + bqLoadInfo2.totalRejectedRows,
+              paths = bqLoadInfo1.paths ++ bqLoadInfo2.paths,
+              jobResult = BigQueryJobResult(
+                None,
+                bqLoadInfo1.jobResult.totalBytesProcessed + bqLoadInfo2.jobResult.totalBytesProcessed,
+                None
+              )
+            )
+          }
+          List(results.reduce(combineStats))
+        }
+        bqLoadInfoOutput.map { bli =>
+          IngestionCounters(
+            bli.totalRows,
+            bli.totalAcceptedRows,
+            bli.totalRejectedRows,
+            bli.paths
+          )
+        }
+      case Failure(exception) =>
         Utils.logException(logger, exception)
         throw exception
     }
@@ -173,11 +214,11 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
   private def applyBigQuerySecondStep(
     targetConfig: BigQueryLoadConfig,
     firstStepTempTable: List[TableId],
-    firstStepResult: Try[BqLoadInfo]
-  ): Try[BqLoadInfo] = {
+    firstStepResult: Try[List[BqLoadInfo]]
+  ): Try[List[BqLoadInfo]] = {
     firstStepResult match {
       case Success(loadFileResult) =>
-        logger.info(s"First step result: $loadFileResult")
+        logger.info(s"First step result: ${loadFileResult.map(_.toString).mkString(", ")}")
         val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
         val secondStepResult =
           targetBigqueryJob.cliConfig.outputTableId
@@ -188,55 +229,16 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
             }
             .getOrElse(throw new Exception("Should never happen"))
 
-        def updateRejectedCount(nullCountValues: Long): Try[BqLoadInfo] = {
-          firstStepResult.map(r =>
-            r.copy(
-              totalAcceptedRows = r.totalAcceptedRows - nullCountValues,
-              totalRejectedRows = r.totalRejectedRows + nullCountValues
-            )
-          )
-        }
-
         secondStepResult
           .flatMap { _ =>
-            updateRejectedCount(0)
-          } // keep loading stats
-          .recoverWith { case ex: NullValueFoundException =>
-            updateRejectedCount(ex.nbRecord)
+            firstStepResult
           }
       case res @ Failure(_) =>
         res
     }
   }
 
-  private def getArchiveTableComponents(): (Option[String], String, String) = {
-    val fullArchiveTableName = Utils.parseJinja(
-      settings.appConfig.archiveTablePattern,
-      Map("domain" -> domain.finalName, "table" -> starlakeSchema.finalName)
-    )
-    val archiveTableComponents = fullArchiveTableName.split('.')
-    val (archiveDatabaseName, archiveDomainName, archiveTableName) =
-      if (archiveTableComponents.length == 3) {
-        (
-          Some(archiveTableComponents(0)),
-          archiveTableComponents(1),
-          archiveTableComponents(2)
-        )
-      } else if (archiveTableComponents.length == 2) {
-        (
-          schemaHandler.getDatabase(domain),
-          archiveTableComponents(0),
-          archiveTableComponents(1)
-        )
-      } else {
-        throw new Exception(
-          s"Archive table name must be in the format <domain>.<table> but got $fullArchiveTableName"
-        )
-      }
-    (archiveDatabaseName, archiveDomainName, archiveTableName)
-  }
-
-  def applyBigQuerySecondStepSQL(
+  private def applyBigQuerySecondStepSQL(
     firstStepTempTableTableNames: List[String]
   ): Try[JobResult] = {
     val task = this.secondStepSQLTask(firstStepTempTableTableNames)
