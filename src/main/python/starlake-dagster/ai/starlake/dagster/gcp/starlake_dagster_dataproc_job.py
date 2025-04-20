@@ -6,9 +6,9 @@ from typing import List, Optional, Union
 
 from ai.starlake.dataset import StarlakeDataset
 
-from ai.starlake.dagster import StarlakeDagsterJob
+from ai.starlake.dagster import StarlakeDagsterJob, StarlakeDagsterUtils, DagsterLogicalDatetimeConfig
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment, TaskType
 
 from ai.starlake.common import TODAY
 
@@ -69,9 +69,13 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             ins=kwargs.get("ins", {}),
             out={kwargs.get("out", "result"): Out(str)},
         )
-        def create_dataproc_cluster(context, **kwargs):
-            context.log.info(f"Creating Dataproc cluster {self.__dataproc__.cluster_name} with cluster details: \n{json.dumps(self.__dataproc__.cluster_config_dict, indent=2)}")
-            self.__client__().create_cluster()
+        def create_dataproc_cluster(context, config: DagsterLogicalDatetimeConfig, **kwargs):
+            if config.dry_run:
+                output = f"Dataproc cluster {self.__dataproc__.cluster_name} creation skipped due to dry run mode."
+                context.log.info(output)
+            else:
+                context.log.info(f"Creating Dataproc cluster {self.__dataproc__.cluster_name} with cluster details: \n{json.dumps(self.__dataproc__.cluster_config_dict, indent=2)}")
+                self.__client__().create_cluster()
             if asset_key:
                 yield AssetMaterialization(asset_key=asset_key.path, description=f"Dataproc cluster {self.__dataproc__.cluster_name} created")
             yield Output(value=task_id, output_name="result")
@@ -91,16 +95,20 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             ins=kwargs.get("ins", {}),
             out={kwargs.get("out", "result"): Out(str)},
         )
-        def delete_dataproc_cluster(context, **kwargs):
-            context.log.info(f"Deleting Dataproc cluster {self.__dataproc__.cluster_name}")
-            self.__client__().delete_cluster()
+        def delete_dataproc_cluster(context, config: DagsterLogicalDatetimeConfig, **kwargs):
+            if config.dry_run:
+                output = f"Dataproc cluster {self.__dataproc__.cluster_name} deletion skipped due to dry run mode."
+                context.log.info(output)
+            else:
+                context.log.info(f"Deleting Dataproc cluster {self.__dataproc__.cluster_name}")
+                self.__client__().delete_cluster()
             if asset_key:
                 yield AssetMaterialization(asset_key=asset_key.path, description=f"Dataproc cluster {self.__dataproc__.cluster_name} deleted")
             yield Output(value=task_id, output_name="result")
 
         return delete_dataproc_cluster
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> NodeDefinition:
+    def sl_job(self, task_id: str, arguments: list, spark_config: StarlakeSparkConfig=None, dataset: Optional[Union[StarlakeDataset, str]]= None, task_type: Optional[TaskType] = None, **kwargs) -> NodeDefinition:
         """Overrides IStarlakeJob.sl_job()
         Generate the Dagster node that will run the starlake command within the dataproc cluster by submitting the corresponding spark job.
 
@@ -109,6 +117,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             arguments (list): The required arguments of the starlake command to run.
             spark_config (Optional[StarlakeSparkConfig], optional): The optional spark configuration. Defaults to None.
             dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
+            task_type (Optional[TaskType], optional): The optional task type. Defaults to None.
 
         Returns:
             NodeDefinition: The Dagster node.
@@ -155,9 +164,12 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             }
         }
 
+        if not task_type and len(arguments) > 0:
+            task_type = TaskType.from_str(arguments[0])
+        transform = task_type == TaskType.TRANSFORM
+        params = kwargs.get('params', dict())
+
         assets: List[AssetKey] = kwargs.get("assets", [])
-        if dataset:
-            assets.append(self.to_event(dataset))
 
         ins=kwargs.get("ins", {})
 
@@ -178,9 +190,29 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             out=outs,
             retry_policy=retry_policy,
         )
-        def submit_dataproc_job(context, **kwargs):
-            context.log.info(f"Submitting Spark job {job_id} to Dataproc cluster {self.__dataproc__.cluster_name} with job details: \n{json.dumps(job_details, indent=2)}")
-            result = self.__client__().submit_job(job_details=job_details)
+        def submit_dataproc_job(context, config: DagsterLogicalDatetimeConfig, **kwargs):
+            if dataset:
+                assets.append(StarlakeDagsterUtils.get_asset(context, config, dataset))
+
+            if transform:
+                opts = arguments[-1].split(",")
+                transform_opts = StarlakeDagsterUtils.get_transform_options(context, config, params).split(',')
+                opts.extend(transform_opts)
+                arguments[-1] = ",".join(opts)
+                job = job_details.get("job", {})
+                spark_job = job.get("spark_job", {})
+                spark_job["args"] = arguments
+                job["spark_job"] = spark_job
+                job_details["job"] = job
+
+            if config.dry_run:
+                output = f"Starlake command {command} execution skipped due to dry run mode."
+                context.log.info(output)
+                result = {"status": {"state": "DONE"}}
+            else:
+                context.log.info(f"Submitting Spark job {job_id} to Dataproc cluster {self.__dataproc__.cluster_name} with job details: \n{json.dumps(job_details, indent=2)}")
+                result = self.__client__().submit_job(job_details=job_details)
+
             if result.get("status", {}).get("state") != "DONE":
                 value=f"Spark job {job_id} submission failed with result: {result}"
                 if failure:

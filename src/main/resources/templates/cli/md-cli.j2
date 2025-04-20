@@ -1,0 +1,22 @@
+---
+sidebar_position: {{ index }}
+title: {{ programName }}
+---
+
+
+## Synopsis
+
+**{{synopsis}}**
+
+## Description
+{{description}}
+
+## Parameters
+
+Parameter|Cardinality|Description
+---|---|---
+{% for option in options %}--{{option.name}}:`{{option.value}}`|*{{option.required}}{{option.unbounded}}*|{{option.description}}
+{% endfor %}
+
+
+{{extra}}

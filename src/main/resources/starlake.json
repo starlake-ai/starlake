@@ -44,11 +44,11 @@
       "oneOf": [
         {
           "const": "TARGET",
-          "description": "TODO"
+          "description": "Merge operation will be applied on the target table only"
         },
         {
           "const": "SOURCE_AND_TARGET",
-          "description": "TODO"
+          "description": "Merge operation will be applied on the incoming source data and target tables"
         }
       ]
     },
@@ -382,7 +382,7 @@
         },
         "name": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "This Access Control Entry unique name"
         }
       },
       "required": [
@@ -424,7 +424,7 @@
         },
         {
           "const": "TEXT_XML",
-          "description": "TODO"
+          "description": "Used for privacy jobs"
         },
         {
           "const": "KAFKA",
@@ -440,7 +440,7 @@
         },
         {
           "const": "PARQUET",
-          "description": "TODO"
+          "description": "Any parquet file"
         }
       ]
     },
@@ -482,35 +482,35 @@
         },
         "quote": {
           "type": "string",
-          "description": "TODO"
+          "description": "How to quote identifiers"
         },
         "viewPrefix": {
           "type": "string",
-          "description": "TODO"
+          "description": "When creating views, how they should be prefixed. Some databases like redshift require view name to be prefixed by the character '#'.\nThis is not required for other databases like snowflake or bigquery.\nDefault is empty string"
         },
         "preActions": {
           "type": "string",
-          "description": "TODO"
+          "description": "Any actrion that should be executed right after the connection to the database is opened"
         },
         "partitionBy": {
           "type": "string",
-          "description": "TODO"
+          "description": "keyword used to partition the table. Default is PARTITION BY"
         },
         "clusterBy": {
           "type": "string",
-          "description": "TODO"
+          "description": "keyword used to cluster the table. Default is CLUSTER BY"
         },
         "strategyBuilder": {
           "type": "string",
-          "description": "TODO"
+          "description": "With this property, you can override the default strategy builder used to write the data. A stragey is a folder locxted under metadata/templates/write-strategies/[strategyBuilder]"
         },
         "columnRemarks": {
           "type": "string",
-          "description": "TODO"
+          "description": "How to get column remarks"
         },
         "tableRemarks": {
           "type": "string",
-          "description": "TODO"
+          "description": "How to get table remarks"
         }
       },
       "required": [
@@ -549,7 +549,7 @@
           "type": "boolean"
         },
         "bqAuditSaveInBatchMode": {
-          "description": "TODO",
+          "description": "Should audit logs when using BigQuery be saved in batch or interactive mode ? Interactive by default (false)",
           "type": "boolean"
         }
       }
@@ -723,31 +723,31 @@
       "oneOf": [
         {
           "const": "OVERWRITE",
-          "description": "TODO"
+          "description": "Truncate table before writing new data"
         },
         {
           "const": "APPEND",
-          "description": "TODO"
+          "description": "Append incoming data to the target table"
         },
         {
           "const": "UPSERT_BY_KEY",
-          "description": "TODO"
+          "description": "Append incoming data to the target table and update existing records using the column key(s)"
         },
         {
           "const": "UPSERT_BY_KEY_AND_TIMESTAMP",
-          "description": "TODO"
+          "description": "Append incoming data to the target table and update existing records using the column key(s) and timestamp"
         },
         {
           "const": "DELETE_THEN_INSERT",
-          "description": "TODO"
+          "description": "Delete all records in the target table and insert incoming data"
         },
         {
           "const": "SCD2",
-          "description": "TODO"
+          "description": "Slowly changing dimension type 2: Append incoming data to the target table and update existing records using the column key(s) and timestamp.\n  If the target table does not have a start and end date columns, they will be added automatically.\n  If the target table does not have a current flag column, it will be added automatically.\n  If the target table does not have a version column, it will be added automatically.\n  If the target table does not have a hash column, it will be added automatically.\n  If the target table does not have a hash column, it will be added automatically."
         },
         {
           "const": "OVERWRITE_BY_PARTITION",
-          "description": "TODO"
+          "description": "Overwrite the partition(s) of the target table with the incoming data and append new ones"
         }
       ]
     },
@@ -795,11 +795,11 @@
           "items": {
             "$ref": "#/definitions/ConvertibleToString"
           },
-          "description": "TODO"
+          "description": "List of columns to use as key(s) for the target table.\n  This is used to update existing records in the target table."
         },
         "timestamp": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "timestamp column to use for the target table.\n This is used to update existing records in the target table by strategies UPSERT_BY_KEY_AND_TIMESTAMP and SCD2."
         },
         "queryFilter": {
           "$ref": "#/definitions/ConvertibleToString",
@@ -807,15 +807,15 @@
         },
         "on": {
           "$ref": "#/definitions/MergeOnV1",
-          "description": "TODO"
+          "description": "Merge strategy: TARGET or SOURCE_AND_TARGET.\n  TARGET means that the merge operation will be applied on the target table only.\n  SOURCE_AND_TARGET means that the merge operation will be applied on the incoming source data and target tables."
         },
         "startTs": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "column name to use for the start timestamp.\n This is used to update existing records in the target table by strategy SCD2."
         },
         "endTs": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "column name to use for the end timestamp.\n This is used to update existing records in the target table by strategy SCD2."
         }
       }
     },
@@ -901,7 +901,7 @@
         },
         "writeStrategy": {
           "$ref": "#/definitions/WriteStrategyV1",
-          "description": "TODO"
+          "description": "Write strategy to use when writing the data. Default is APPEND"
         }
       }
     },
@@ -1058,7 +1058,7 @@
     },
     "MetricTypeV1": {
       "$ref": "#/definitions/ConvertibleToString",
-      "description": "TODO",
+      "description": "Used to compute metrics on column values.",
       "oneOf": [
         {
           "const": "DISCRETE",
@@ -1264,7 +1264,7 @@
         },
         "writeStrategy": {
           "$ref": "#/definitions/WriteStrategyV1",
-          "description": "TODO"
+          "description": "Write strategy to use when writing the data. Default is APPEND"
         },
         "schedule": {
           "$ref": "#/definitions/ConvertibleToString",
@@ -1298,15 +1298,15 @@
         },
         "timeout": {
           "type": "integer",
-          "description": "TODO"
+          "description": "reserved"
         },
         "pollTime": {
           "type": "integer",
-          "description": "TODO. Default 5 seconds"
+          "description": "Default 5 seconds"
         },
         "refreshTime": {
           "type": "integer",
-          "description": "TODO. Default 5 seconds"
+          "description": "Default 5 seconds"
         }
       }
     },
@@ -1337,6 +1337,10 @@
         },
         "domainRejected": {
           "$ref": "#/definitions/ConvertibleToString"
+        },
+        "detailedLoadAudit": {
+          "type": "boolean",
+          "description": "Create individual entry for each ingested file instead of a global one. Default: false"
         },
         "active": {
           "type": "boolean",
@@ -1513,15 +1517,15 @@
         },
         "separator": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "Character used as a separator for each field and value. TODO: check if we are expecting character."
+          "description": "Character used as a separator for each field and value."
         },
         "quote": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "Character used for escaping quoted values where the separator can be part of the value. TODO: check if we are expecting character."
+          "description": "Character used for escaping quoted values where the separator can be part of the value."
         },
         "escape": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "Character used for escaping quotes inside an already quoted value. TODO: check if we are expecting character."
+          "description": "Character used for escaping quotes inside an already quoted value."
         },
         "nullValue": {
           "$ref": "#/definitions/ConvertibleToString",
@@ -2004,11 +2008,11 @@
       "properties": {
         "load": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "Dag config to use for load tasks. May be redefined at the table level"
         },
         "transform": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "Dag config to use for transform tasks. May be redefined at the task level"
         }
       }
     },
@@ -2145,11 +2149,11 @@
         },
         "scd2StartTimestamp": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "Column name to use for SCD2 start timestamp.@"
         },
         "scd2EndTimestamp": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "TODO"
+          "description": "Column name to use for SCD2 end timestamp."
         },
         "area": {
           "$ref": "#/definitions/AreaV1",

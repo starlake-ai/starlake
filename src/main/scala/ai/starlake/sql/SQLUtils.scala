@@ -2,6 +2,7 @@ package ai.starlake.sql
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
+import ai.starlake.schema.handlers.TableWithNameAndType
 import ai.starlake.schema.model._
 import ai.starlake.transpiler.{JSQLColumResolver, JSQLTranspiler}
 import ai.starlake.utils.Utils
@@ -503,14 +504,30 @@ object SQLUtils extends StrictLogging {
           JSQLTranspiler.Dialect.ANY // Should not happen
     }
 
-  def resolve(sql: String)(implicit settings: Settings): String = {
-    val schemaDefinition = settings.schemaHandler().objectDefinitions()
-    val resolved = Try(
-      new JSQLColumResolver(schemaDefinition)
-        .getResolvedStatementText(sql)
-        .replaceAll("/\\* Resolved Column\\*/", "")
+  def extractTableNamesWithTypes(
+    sql: String
+  )(implicit settings: Settings): List[(String, TableWithNameAndType)] = {
+    val tables = SQLUtils.extractTableNamesUsingRegEx(
+      Utils.parseJinja(sql, settings.schemaHandler().activeEnvVars())
     )
+    val objects = settings.schemaHandler().objectsMap()
+    tables.flatMap { t =>
+      if (objects.contains(t)) {
+        Some((t, objects(t)))
+      } else {
+        None
+      }
+    }
+  }
 
+  def resolveStar(sql: String)(implicit settings: Settings): String = {
+    val schemaDefinition = settings.schemaHandler().objectJdbcDefinitions()
+    val resolved =
+      Try {
+        val resolver = new JSQLColumResolver(schemaDefinition)
+        resolver.setCommentFlag(false)
+        resolver.getResolvedStatementText(sql)
+      }
     resolved.getOrElse(sql)
   }
 

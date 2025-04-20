@@ -4,13 +4,11 @@ import ai.starlake.integration.BigQueryIntegrationSpecBase
 import ai.starlake.job.Main
 
 class LoadBQNativeIntegrationSpec extends BigQueryIntegrationSpecBase {
-  override def templates = starlakeDir / "samples"
-  override def localDir = templates / "spark"
-  override def sampleDataDir = localDir / "sample-data"
+  override def sampleDataDir = theSampleFolder / "sample-data"
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
     "Import / Load / Transform BQ NATIVE" should "succeed" in {
       withEnvs(
-        "SL_ROOT" -> localDir.pathAsString,
+        "SL_ROOT" -> theSampleFolder.pathAsString,
         "SL_ENV"  -> "BQ-NATIVE"
       ) {
         cleanup()
@@ -29,10 +27,10 @@ class LoadBQNativeIntegrationSpec extends BigQueryIntegrationSpecBase {
     }
     "Import / Load / Transform BQ NATIVE2" should "succeed" in {
       withEnvs(
-        "SL_ROOT" -> localDir.pathAsString,
+        "SL_ROOT" -> theSampleFolder.pathAsString,
         "SL_ENV"  -> "BQ-NATIVE"
       ) {
-        val sampleDataDir2 = localDir / "sample-data2"
+        val sampleDataDir2 = theSampleFolder / "sample-data2"
         sampleDataDir2.copyTo(incomingDir)
 
         assert(

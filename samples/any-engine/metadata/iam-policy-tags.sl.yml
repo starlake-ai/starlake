@@ -1,0 +1,5 @@
+iamPolicyTags:
+  - policyTag: "Toi et moi"
+    members:
+      - "user:hayssam@saleh.fr"
+    role: "roles/datacatalog.categoryFineGrainedReader"

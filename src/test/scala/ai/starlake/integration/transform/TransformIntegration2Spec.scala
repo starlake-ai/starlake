@@ -12,7 +12,7 @@ class TransformIntegration2Spec extends BigQueryIntegrationSpecBase {
 
     "Import / Load / Transform BQ" should "succeed" in {
       withEnvs(
-        "SL_ROOT" -> localDir.pathAsString,
+        "SL_ROOT" -> theSampleFolder.pathAsString,
         "SL_ENV"  -> "BQ"
       ) {
         cleanup()

@@ -127,7 +127,10 @@ class SparkAutoTask(
   def sink(dataframe: DataFrame, schema: Option[Schema] = None): Boolean = {
     val sink = this.sinkConfig
     logger.info(s"Sinking data to $sink")
-    Utils.println(s"Sinking data to ${sink.connectionRef}")
+    Utils.println(s"""
+        |Table/View: $fullTableName
+        |Connection: ${sink.connectionRef}(${taskDesc.getSinkConnectionType()})
+        |""".stripMargin)
     val result =
       sink match {
         case _: EsSink =>
@@ -678,13 +681,13 @@ class SparkAutoTask(
   ///////////////////////////////////////////////////
   ///////////////////////////////////////////////////
   def sinkToJDBC(loadedDF: DataFrame): Try[JobResult] = {
-    val targetTableName = s"${taskDesc.domain}.${taskDesc.table}"
     val sinkConnectionRefOptions = sinkConnection.options
 
     val allAttributeNames = loadedDF.schema.fields.map(_.name)
     val attributesSelectAsString = allAttributeNames.mkString(",")
 
     /*
+    val targetTableName = s"${taskDesc.domain}.${taskDesc.table}"
     val targetTableExists: Boolean = { // TODO declaration is never used
       JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
         val url = sinkConnection.options("url")
@@ -801,9 +804,12 @@ class SparkAutoTask(
             storageHandler,
             schemaHandler
           )
-        secondStepAutoTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
-        val jobResult = secondStepAutoTask.runJDBC(None)
+        if (
+          tableExists && !sinkConnection.isDuckDb()
+        ) // because DuckDB does not support standard merge statement
+          secondStepAutoTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
 
+        val jobResult = secondStepAutoTask.runJDBC(None)
         JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
           JdbcDbUtils.dropTable(conn, firstStepTempTable)
         }

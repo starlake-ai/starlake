@@ -1,15 +1,27 @@
 
 # Release notes
 
+# 1.4.1:
+__Bug fix__:
+- fix index out of bound exception when extracting table name from file name
+
 # 1.4.0
 
+__New Feature__:
+- add the ability to have ingestion audit per input file by setting SL_DETAILED_LOAD_AUDIT to true. Useful when there is too many files that generates log entry or sql query higher than the limit.
+
 __Improvement__:
+- add rawDomains variable in dag templates in order to have access to the whole domain configuration
+- add rawDomain variable to filename variable.
 - minimize memory usage inference-schema and adjust attributes types
 - inference-schema detects more timestamp pattern
 - add confluent setup that can be enabled via ENABLE_KAFKA
+- when variant is detected inside a schema for bigquery, intermediate format is forced to AVRO. Indirect mode still needs to be set manually.
 - **BREAKING CHANGE** flat and tree row validator have been unified and is optimized by spark
 - **BREAKING CHANGE** schema inference consider Numbers starting with 0 as String, such as for company identifier
 - **BREAKING CHANGE** schema inference consider Numbers starting with + as String, such as a telephone number
+- Move files in parallel during ingestion phase. In order to increase parallelism, set SL_MAX_PAR_COPY. Default to 1.
+- add encoding option to schema-inference
 
 __Miscellaneous__:
 - **BREAKING CHANGE** default value don't apply on empty string directly. It depends on the definition of emptyIsNull instead. So if emptyIsNull=true then default value is used
@@ -17,8 +29,11 @@ __Miscellaneous__:
 - revamped validation phase.
 
 __Bug fix__:
+- Fix file pattern inference when last character is not a letter or digit.
+- JSON type ingestion in bigquery are now created with JSON type instead of String.
 - excluded table during data extraction defined in jdbcSchema are now taken into account
 - if column is renamed, check pattern of renamed column instead of original name since it is the target table column's name during schema extraction
+- restore time expiration for temporary tables
 - **BREAKING CHANGE** when no fields could be inferred from input, inferred schema now fails
 
 

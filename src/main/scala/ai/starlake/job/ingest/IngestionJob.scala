@@ -3,7 +3,13 @@ package ai.starlake.job.ingest
 import ai.starlake.config.{CometColumns, DatasetArea, Settings}
 import ai.starlake.exceptions.DisallowRejectRecordException
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.ingest.loaders.{BigQueryNativeLoader, DuckDbNativeLoader, NativeLoader}
+import ai.starlake.job.validator.SimpleRejectedRecord
+import ai.starlake.job.ingest.loaders.{
+  BigQueryNativeLoader,
+  DuckDbNativeLoader,
+  NativeLoader,
+  SnowflakeNativeLoader
+}
 import ai.starlake.job.metrics._
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.job.transform.{SparkAutoTask, SparkExportTask}
@@ -90,7 +96,7 @@ trait IngestionJob extends SparkJob {
     * @param dataset
     *   : Spark Dataset
     */
-  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row], Long) = {
+  protected def ingest(dataset: DataFrame): (Dataset[SimpleRejectedRecord], Dataset[Row]) = {
     val validationResult = rowValidator.validate(
       session,
       mergedMetadata.resolveFormat(),
@@ -118,8 +124,8 @@ trait IngestionJob extends SparkJob {
     } match {
       case Failure(exception) =>
         throw exception
-      case Success(rejectedRecordCount) =>
-        (validationResult.errors, validationResult.accepted, rejectedRecordCount);
+      case Success(_) => // rejectedRecordCount is always 0 in saveAccepted
+        (validationResult.errors, validationResult.accepted);
     }
   }
 
@@ -259,7 +265,7 @@ trait IngestionJob extends SparkJob {
     loader
   }
 
-  private def isNativeCandidate(dbType: String): Boolean = {
+  private def isNativeCandidate(dbName: String): Boolean = {
     val nativeValidator =
       mergedMetadata.loader
         .orElse(mergedMetadata.getSinkConnection().loader)
@@ -269,7 +275,7 @@ trait IngestionJob extends SparkJob {
     if (!nativeValidator) {
       false
     } else {
-      dbType match {
+      dbName match {
         case "bigquery" =>
           val csvOrJsonLines =
             !mergedMetadata.resolveArray() && Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
@@ -284,7 +290,7 @@ trait IngestionJob extends SparkJob {
               mergedMetadata.resolveFormat()
             )
         case "snowflake" =>
-          Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
+          Set(Format.DSV, Format.JSON, Format.JSON_FLAT, Format.XML, Format.PARQUET)
             .contains(
               mergedMetadata.resolveFormat()
             )
@@ -302,58 +308,86 @@ trait IngestionJob extends SparkJob {
     exception.printStackTrace()
     val end = Timestamp.from(Instant.now())
     val err = Utils.exceptionAsString(exception)
-    val log = AuditLog(
-      applicationId(),
-      Some(path.map(_.toString).mkString(",")),
-      domain.name,
-      schema.name,
-      success = false,
-      0,
-      0,
-      0,
-      start,
-      end.getTime - start.getTime,
-      err,
-      Step.LOAD.toString,
-      schemaHandler.getDatabase(domain),
-      settings.appConfig.tenant,
-      false
-    )
-    AuditLog.sink(log)(settings, storageHandler, schemaHandler)
+    val logs = if (settings.appConfig.audit.detailedLoadAudit) {
+      // create duplicated log entry for each entry path because we currently don't know which job fails at this step.
+      // need more rework to target path that fails.
+      // splitting by path allows to reduce size of one log entry or query which is what we are aiming at with
+      // detailed load audit
+      path.map { p =>
+        AuditLog(
+          applicationId(),
+          Some(p.toString),
+          domain.name,
+          schema.name,
+          success = false,
+          0,
+          0,
+          0,
+          start,
+          end.getTime - start.getTime,
+          err,
+          Step.LOAD.toString,
+          schemaHandler.getDatabase(domain),
+          settings.appConfig.tenant,
+          false
+        )
+      }
+    } else {
+      List(
+        AuditLog(
+          applicationId(),
+          Some(path.map(_.toString).mkString(",")),
+          domain.name,
+          schema.name,
+          success = false,
+          0,
+          0,
+          0,
+          start,
+          end.getTime - start.getTime,
+          err,
+          Step.LOAD.toString,
+          schemaHandler.getDatabase(domain),
+          settings.appConfig.tenant,
+          false
+        )
+      )
+    }
+    AuditLog.sink(logs)(settings, storageHandler, schemaHandler)
     logger.error(err)
     Failure(exception)
   }
 
   def logLoadInAudit(
     start: Timestamp,
-    inputCount: Long,
-    acceptedCount: Long,
-    rejectedCount: Long
-  ): Try[AuditLog] = {
-    val inputFiles = path.map(_.toString).mkString(",")
-    logger.info(
-      s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
-    )
-    val end = Timestamp.from(Instant.now())
-    val success = !settings.appConfig.rejectAllOnError || rejectedCount == 0
-    val log = AuditLog(
-      applicationId(),
-      Some(inputFiles),
-      domain.name,
-      schema.name,
-      success = success,
-      inputCount,
-      acceptedCount,
-      rejectedCount,
-      start,
-      end.getTime - start.getTime,
-      if (success) "success" else s"$rejectedCount invalid records",
-      Step.LOAD.toString,
-      schemaHandler.getDatabase(domain),
-      settings.appConfig.tenant,
-      test = false
-    )
-    AuditLog.sink(log)(settings, storageHandler, schemaHandler).map(_ => log)
+    ingestionCounters: List[IngestionCounters]
+  ): Try[List[AuditLog]] = {
+    val logs = ingestionCounters.map { counter =>
+      val inputFiles = counter.paths.mkString(",")
+      logger.info(
+        s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: ${counter.inputCount}, accepted: ${counter.acceptedCount}, rejected:${counter.rejectedCount}"
+      )
+      val end = Timestamp.from(Instant.now())
+      val success = !settings.appConfig.rejectAllOnError || counter.rejectedCount == 0
+      AuditLog(
+        applicationId(),
+        Some(inputFiles),
+        domain.name,
+        schema.name,
+        success = success,
+        counter.inputCount,
+        counter.acceptedCount,
+        counter.rejectedCount,
+        start,
+        end.getTime - start.getTime,
+        if (success) "success" else s"${counter.rejectedCount} invalid records",
+        Step.LOAD.toString,
+        schemaHandler.getDatabase(domain),
+        settings.appConfig.tenant,
+        test = false
+      )
+    }
+    AuditLog.sink(logs)(settings, storageHandler, schemaHandler).map(_ => logs)
   }
 
   @throws[Exception]
@@ -398,6 +432,9 @@ trait IngestionJob extends SparkJob {
       case "bigquery" =>
         val ingestionCounters = new BigQueryNativeLoader(this, accessToken).run()
         ingestionCounters
+      case "snowflake" =>
+        val ingestionCounters = new SnowflakeNativeLoader(this).run()
+        ingestionCounters
       case "duckdb" =>
         val ingestionCounters = new DuckDbNativeLoader(this).run()
         ingestionCounters
@@ -414,27 +451,43 @@ trait IngestionJob extends SparkJob {
         // on failure log failures
         logLoadFailureInAudit(now, exception)
       }
-      .map { case counters @ IngestionCounters(inputCount, acceptedCount, rejectedCount) =>
-        // On success log counters
-        if (!counters.ignore) {
-          logLoadInAudit(now, inputCount, acceptedCount, rejectedCount) match {
-            case Failure(exception) => throw exception
-            case Success(auditLog) =>
-              if (auditLog.success) {
-                // run expectations
-                val expectationsResult = runExpectations()
-
-                expectationsResult match {
-                  case Failure(exception) if settings.appConfig.expectations.failOnError =>
-                    throw exception
-                  case _ =>
-                }
-                SparkJobResult(None, Some(counters))
-              } else throw new DisallowRejectRecordException()
-          }
-        } else {
-          SparkJobResult(None, Some(counters))
+      .map { counterResults: List[IngestionCounters] =>
+        val validCounterResults = counterResults.filter(!_.ignore)
+        logLoadInAudit(now, validCounterResults) match {
+          case Failure(exception) => throw exception
+          case Success(auditLogs) =>
+            if (auditLogs.exists(!_.success)) {
+              throw new DisallowRejectRecordException()
+            }
         }
+        // run expectations
+        val expectationsResult = runExpectations()
+        expectationsResult match {
+          case Failure(exception) if settings.appConfig.expectations.failOnError =>
+            throw exception
+          case _ =>
+        }
+        val globalCounters: Option[IngestionCounters] =
+          validCounterResults.foldLeft[Option[IngestionCounters]](None) {
+            case (
+                  cumulatedCounters,
+                  counters @ IngestionCounters(inputCount, acceptedCount, rejectedCount, paths)
+                ) =>
+              cumulatedCounters
+                .map { cc =>
+                  IngestionCounters(
+                    inputCount = cc.inputCount + inputCount,
+                    acceptedCount = cc.acceptedCount + acceptedCount,
+                    rejectedCount = cc.rejectedCount + rejectedCount,
+                    paths = cc.paths ++ paths
+                  )
+                }
+                .orElse(Some(counters))
+          }
+        SparkJobResult(
+          None,
+          globalCounters.orElse(Some(IngestionCounters(-1, -1, -1, path.map(_.toString))))
+        )
       }
   }
 
@@ -447,7 +500,7 @@ trait IngestionJob extends SparkJob {
     * @return
     *   : Spark Session used for the job
     */
-  def ingestWithSpark(): Try[IngestionCounters] = {
+  def ingestWithSpark(): Try[List[IngestionCounters]] = {
     session.sparkContext.setLocalProperty(
       "spark.scheduler.pool",
       settings.appConfig.sparkScheduling.poolName
@@ -458,11 +511,42 @@ trait IngestionJob extends SparkJob {
       dataset match {
         case Success(dataset) =>
           Try {
-            val (rejectedDS, acceptedDS, rejectedCount) = ingest(dataset)
-            val inputCount = dataset.count()
-            val totalAcceptedCount = acceptedDS.count() - rejectedCount
-            val totalRejectedCount = rejectedDS.count() + rejectedCount
-            IngestionCounters(inputCount, totalAcceptedCount, totalRejectedCount)
+            val (rejectedDS, acceptedDS) = ingest(dataset)
+            if (settings.appConfig.audit.detailedLoadAudit && path.size > 1) {
+              import session.implicits._
+              rejectedDS
+                .groupBy("path")
+                .count()
+                .withColumnRenamed("count", "rejectedCount")
+                .join(
+                  acceptedDS
+                    .groupBy(col(CometColumns.cometInputFileNameColumn).as("path"))
+                    .count()
+                    .withColumnRenamed("count", "acceptedCount"),
+                  "path",
+                  "full_outer"
+                )
+                .select(
+                  array(col("path")).as("paths"),
+                  coalesce(col("rejectedCount"), lit(0L)).as("rejectedCount"),
+                  coalesce(col("acceptedCount"), lit(0L)).as("acceptedCount")
+                )
+                .withColumn("inputCount", col("rejectedCount") + col("acceptedCount"))
+                .as[IngestionCounters]
+                .collect()
+                .toList
+            } else {
+              val totalAcceptedCount = acceptedDS.count()
+              val totalRejectedCount = rejectedDS.count()
+              List(
+                IngestionCounters(
+                  totalAcceptedCount + totalRejectedCount,
+                  totalAcceptedCount,
+                  totalRejectedCount,
+                  path.map(_.toString)
+                )
+              )
+            }
           }
         case Failure(exception) =>
           logLoadFailureInAudit(start, exception)
@@ -778,7 +862,7 @@ trait IngestionJob extends SparkJob {
   def defineOutputAsOriginalFormat(rejectedLines: DataFrame): DataFrameWriter[Row]
 
   protected def saveRejected(
-    errMessagesDS: Dataset[String],
+    errMessagesDS: Dataset[SimpleRejectedRecord],
     rejectedLinesDS: DataFrame
   )(implicit
     settings: Settings,
@@ -787,7 +871,9 @@ trait IngestionJob extends SparkJob {
   ): Try[Path] = {
     logger.whenDebugEnabled {
       logger.debug(s"rejected SIZE ${errMessagesDS.count()}")
-      errMessagesDS.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
+      errMessagesDS
+        .take(100)
+        .foreach(rejected => logger.debug(rejected.errors.replaceAll("\n", "|")))
     }
     val domainName = domain.name
     val schemaName = schema.name

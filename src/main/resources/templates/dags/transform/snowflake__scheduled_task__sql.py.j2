@@ -3,7 +3,7 @@
 # - stage_location: the location of the stage in snowflake [REQUIRED]
 # - warehouse(COMPUTE_WH): the warehouse to use for the DAG [OPTIONAL], default to COMPUTE_WH
 # - timezone(UTC): the timezone to use for the schedule [OPTIONAL], default to UTC
-# - packages(croniter,python-dateutil): a list of packages to install before running the task [OPTIONAL], default to croniter,python-dateutil
+# - packages(croniter,python-dateutil,snowflake-snowpark-python): a list of packages to install before running the task [OPTIONAL], default to croniter,python-dateutil,snowflake-snowpark-python
 # - sl_env_var: starlake variables specified as a map in json format - at least the root project path SL_ROOT should be specified [OPTIONAL]
 # - tags: a list of tags to be applied to the dag [OPTIONAL]
 # - retries(1): the number of retries to attempt before failing the task [OPTIONAL]

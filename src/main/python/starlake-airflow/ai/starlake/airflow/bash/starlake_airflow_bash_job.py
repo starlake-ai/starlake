@@ -2,7 +2,7 @@ from typing import Optional, Union
 
 from ai.starlake.dataset import StarlakeDataset
 
-from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment
+from ai.starlake.job import StarlakePreLoadStrategy, StarlakeSparkConfig, StarlakeExecutionEnvironment, TaskType
 
 from ai.starlake.airflow import StarlakeAirflowJob, StarlakeDatasetMixin
 
@@ -26,7 +26,7 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
         """
         return StarlakeExecutionEnvironment.SHELL
 
-    def sl_job(self, task_id: str, arguments: list, spark_config: Optional[StarlakeSparkConfig] = None, dataset: Optional[Union[StarlakeDataset, str]]= None, **kwargs) -> BaseOperator:
+    def sl_job(self, task_id: str, arguments: list, spark_config: Optional[StarlakeSparkConfig] = None, dataset: Optional[Union[StarlakeDataset, str]]= None, task_type: Optional[TaskType] = None, **kwargs) -> BaseOperator:
         """Overrides StarlakeAirflowJob.sl_job()
         Generate the Airflow task that will run the starlake command.
 
@@ -35,6 +35,7 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
             arguments (list): The required arguments of the starlake command to run.
             spark_config (Optional[StarlakeSparkConfig], optional): The optional spark configuration. Defaults to None.
             dataset (Optional[Union[StarlakeDataset, str]], optional): The optional dataset to materialize. Defaults to None.
+            task_type (Optional[TaskType], optional): The optional task type. Defaults to None.
 
         Returns:
             BaseOperator: The Airflow task.
@@ -68,30 +69,50 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
             arguments.append("--options")
             arguments.append(",".join([f"{key}={value}" for key, value in self.sl_env_vars.items()])) # Add/overwrite with sl env variables
 
+        preload = False
+        if task_type and task_type==TaskType.PRELOAD:
+            preload = True
+
         command = __class__.get_context_var("SL_STARLAKE_PATH", "starlake", self.options) + f" {' '.join(arguments)}"
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
 
         if kwargs.get('do_xcom_push', False):
-            return StarlakePythonOperator(
-                task_id=task_id,
-                dataset=dataset,
-                source=self.source,
-                python_callable=self.execute_command,
-                op_args=[command],
-                op_kwargs=kwargs,
-                provide_context=True,
-                **kwargs
-            )
-        else:
-            return StarlakeBashOperator(
-                task_id=task_id,
-                dataset=dataset,
-                source=self.source,
-                bash_command=command,
-                cwd=self.sl_root,
-                env=env,
-                **kwargs
-            )
+            if preload:
+                command=f"""
+                set -e
+                bash -c '
+                {command}
+                return_code=$?
+
+                # Push the return code to XCom
+                echo $return_code
+                '
+                """
+            else:
+                command=f"""
+                set -e
+                bash -c '
+                {command}
+                return_code=$?
+
+                # Push the return code to XCom
+                echo $return_code
+
+                # Exit with the captured return code if non-zero
+                if [ $return_code -ne 0 ]; then
+                    exit $return_code
+                fi
+                '
+                """
+        return StarlakeBashOperator(
+            task_id=task_id,
+            dataset=dataset,
+            source=self.source,
+            bash_command=command,
+            cwd=self.sl_root,
+            env=env,
+            **kwargs
+        )
 
 class StarlakePythonOperator(StarlakeDatasetMixin, PythonOperator):
     """Starlake Python Operator."""

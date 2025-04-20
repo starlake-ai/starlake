@@ -44,9 +44,10 @@ object FlatRowValidator extends GenericRowValidator {
             lit("\n\nFILE -> "),
             col(CometColumns.cometInputFileNameColumn)
           )
-          .as("errors")
+          .as("errors"),
+        col(CometColumns.cometInputFileNameColumn).as("path")
       )
-      .as[String]
+      .as[SimpleRejectedRecord]
 
     CheckValidityResult(
       formattedRejectedDF.persist(cacheStorageLevel),

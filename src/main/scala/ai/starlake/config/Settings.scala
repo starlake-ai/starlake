@@ -130,7 +130,8 @@ object Settings extends StrictLogging {
     active: Option[Boolean],
     sql: Option[String],
     domainExpectation: Option[String],
-    domainRejected: Option[String]
+    domainRejected: Option[String],
+    detailedLoadAudit: Boolean
   ) {
     def isActive(): Boolean = this.active.getOrElse(false)
 
@@ -177,6 +178,7 @@ object Settings extends StrictLogging {
   ) {
     def asMap(): Map[String, String] = this.options
 
+    @JsonIgnore
     def getCatalog(): String = {
       val catalog = this.getJdbcEngineName().toString match {
         case "snowflake" =>
@@ -259,7 +261,7 @@ object Settings extends StrictLogging {
       }
     }
 
-    def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
+    def checkValidity(name: String)(implicit settings: Settings): List[ValidationMessage] = {
       var errors = List.empty[ValidationMessage]
       val defaultTypes = new Path(DatasetArea.types, "default.sl.yml")
       if (!settings.storageHandler().exists(defaultTypes))
@@ -276,31 +278,39 @@ object Settings extends StrictLogging {
           "Environment",
           s"env.sl.comet not found in ${globalsCometPath.toString}"
         )
-
+      println(options)
+      // Make sure we do not give twice the database name
+      if (options.contains("db") && options.contains("database")) {
+        errors = errors :+ ValidationMessage(
+          Severity.Error,
+          "Connection",
+          s"Connection '${name}' requires a db or database property, not both"
+        )
+      }
       `type` match {
         case ConnectionType.JDBC =>
           if (!options.contains("url") && !options.contains("sfUrl")) {
             errors = errors :+ ValidationMessage(
               Severity.Error,
               "Connection",
-              s"Connection type ${`type`} requires a url or sfUrl for snowflake spark"
+              s"Connection '${name}' requires a url or sfUrl for snowflake spark"
             )
           } else {
             sparkDatasource() match {
               case Some(datasource) =>
                 if (datasource.contains("redshift")) {
-                  if (options.get("aws_iam_role").isEmpty) {
+                  if (!options.contains("aws_iam_role")) {
                     errors = errors :+ ValidationMessage(
                       Severity.Error,
                       "Connection",
-                      s"Redshift connection type ${`type`} requires an aws_iam_role"
+                      s"Redshift Connection '${name}' requires an aws_iam_role"
                     )
                   }
                   if (options.get("tempdir").isEmpty) {
                     errors = errors :+ ValidationMessage(
                       Severity.Error,
                       "Connection",
-                      s"Redshift connection type ${`type`} requires an tempdir"
+                      s"Redshift Connection '${name}' requires an tempdir"
                     )
                   }
                 }
@@ -309,14 +319,14 @@ object Settings extends StrictLogging {
                     errors = errors :+ ValidationMessage(
                       Severity.Error,
                       "Connection",
-                      s"Snowflake connection type ${`type`} requires a sfWarehouse property"
+                      s"Snowflake Connection '${name}' requires a sfWarehouse property"
                     )
                   }
                   if (options.get("db").isEmpty && options.get("sfDatabase").isEmpty) {
                     errors = errors :+ ValidationMessage(
                       Severity.Error,
                       "Connection",
-                      s"Snowflake connection type ${`type`} requires a sfDatabase property"
+                      s"Snowflake Connection '${name}' requires a sfDatabase property"
                     )
                   }
                 }
@@ -328,7 +338,7 @@ object Settings extends StrictLogging {
             errors = errors :+ ValidationMessage(
               Severity.Error,
               "Connection",
-              s"Connection type ${`type`} requires a location"
+              s"Connection '${name}' requires a location"
             )
           }
           if (this.sparkFormat.isDefined) {
@@ -337,14 +347,14 @@ object Settings extends StrictLogging {
               errors = errors :+ ValidationMessage(
                 Severity.Error,
                 "Connection",
-                s"Connection type ${`type`} requires a gcsBucket"
+                s"Connection '${name}' requires a gcsBucket"
               )
             }
             if (isIndirectWriteMethod && !options.contains("temporaryGcsBucket")) {
               errors = errors :+ ValidationMessage(
                 Severity.Warning,
                 "Connection",
-                s"Connection type ${`type`}: using gcsBucket as temporaryGcsBucket"
+                s"Connection '${name}': using gcsBucket as temporaryGcsBucket"
               )
             }
           }
@@ -355,7 +365,7 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Warning,
                   "Connection",
-                  s"authScopes not defined in Connection type ${`type`}. Using 'https://www.googleapis.com/auth/cloud-platform'"
+                  s"authScopes not defined in Connection '${name}'. Using 'https://www.googleapis.com/auth/cloud-platform'"
                 )
               }
             case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
@@ -363,7 +373,7 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Error,
                   "Connection",
-                  s"Connection type ${`type`} requires a jsonKeyfile"
+                  s"Connection '${name}' requires a jsonKeyfile"
                 )
               }
             case "USER_CREDENTIALS" =>
@@ -374,7 +384,7 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Error,
                   "Connection",
-                  s"Connection type ${`type`} requires a clientId, clientSecret and refreshToken options"
+                  s"Connection '${name}' requires a clientId, clientSecret and refreshToken options"
                 )
               }
             case "ACCESS_TOKEN" =>
@@ -383,14 +393,14 @@ object Settings extends StrictLogging {
                 errors = errors :+ ValidationMessage(
                   Severity.Error,
                   "Connection",
-                  s"Connection type ${`type`} requires a gcpAccessToken option"
+                  s"Connection '${name}' requires a gcpAccessToken option"
                 )
               }
             case _ =>
               errors = errors :+ ValidationMessage(
                 Severity.Error,
                 "Connection",
-                s"Connection type ${`type`} requires an authType"
+                s"Connection '${name}' requires an authType"
               )
           }
         case _ =>
@@ -913,7 +923,7 @@ object Settings extends StrictLogging {
         )
       }
       this.connections.foreach { case (name, connection) =>
-        errors = errors ++ connection.checkValidity()(settings)
+        errors = errors ++ connection.checkValidity(name)(settings)
       }
       val path = new Path(this.root)
       if (!storageHandler.exists(path)) {

@@ -28,7 +28,7 @@ trait Yml2XlsCmd extends Cmd[Yml2XlsConfig] {
         .action((x, c) => c.copy(iamPolicyTagsFile = Some(x)))
         .optional()
         .text(
-          "IAM PolicyTag file to convert to XLS, SL_METADATA/iam-policy-tags.yml by default)"
+          "IAM PolicyTag file to convert to XLS, SL_METADATA/iam-policy-tags.sl.yml by default)"
         ),
       builder
         .opt[String]("xls")

@@ -25,7 +25,12 @@ object Yml2XlsIamPolicyTags extends LazyLogging with XlsModel {
       val policyRow = sheet.createRow(2 + rowIndex)
       policyRow.createCell(0).setCellValue(iamPolicyTag.policyTag)
       policyRow.createCell(1).setCellValue(iamPolicyTag.members.mkString(","))
-      policyRow.createCell(2).setCellValue(iamPolicyTag.role)
+      policyRow
+        .createCell(2)
+        .setCellValue(
+          iamPolicyTag.role
+            .getOrElse(throw new RuntimeException("Should never happen. Role is required"))
+        )
     }
     for (i <- allIamPolicyTagHeaders.indices)
       sheet.autoSizeColumn(i)

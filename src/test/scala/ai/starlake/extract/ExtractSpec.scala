@@ -735,6 +735,7 @@ class ExtractSpec extends TestHelper {
       """
         |Usage: starlake extract-schema [options]
         |  --config <value>        Database tables & connection info
+        |  --all                    Should we extract all schemas and tables to external folder ?
         |  --tables <value>         Database tables info
         |  --connectionRef <value>  Database connection to use
         |  --outputDir <value>    Where to output YML files

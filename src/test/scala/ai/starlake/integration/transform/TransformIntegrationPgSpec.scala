@@ -4,12 +4,6 @@ import ai.starlake.integration.JDBCIntegrationSpecBase
 import ai.starlake.job.Main
 
 class TransformIntegrationPgSpec extends JDBCIntegrationSpecBase {
-  override def templates = starlakeDir / "samples"
-
-  override def localDir = templates / "spark"
-
-  override def sampleDataDir = localDir / "sample-data"
-
   val jdbcUrl = pgContainer.jdbcUrl
   val jdbcHost = pgContainer.host
   val jdbcPort = pgContainer.mappedPort(5432)
@@ -24,13 +18,13 @@ class TransformIntegrationPgSpec extends JDBCIntegrationSpecBase {
         |  POSTGRES_PASSWORD: "test"
         |  POSTGRES_DATABASE: "starlake"
         |""".stripMargin
-  val envFile = localDir / "metadata" / "env.PG.sl.yml"
+  val envFile = theSampleFolder / "metadata" / "env.PG.sl.yml"
   envFile.write(envContent)
   "Native Postgres Transform" should "succeed" in {
     if (false) {
       withEnvs(
         "SL_ENV"  -> "PG",
-        "SL_ROOT" -> localDir.pathAsString
+        "SL_ROOT" -> theSampleFolder.pathAsString
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)

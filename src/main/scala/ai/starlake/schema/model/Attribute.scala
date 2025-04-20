@@ -463,6 +463,15 @@ case class Attribute(
     }
   }
 
+  def containsVariant(): Boolean = {
+    val isVariant = this.`type` == PrimitiveType.variant.value
+    if (isVariant) {
+      true
+    } else {
+      attributes.exists(_.containsVariant())
+    }
+  }
+
   def deepForeignKey(): Option[String] = {
     this.foreignKey match {
       case Some(_) => this.foreignKey

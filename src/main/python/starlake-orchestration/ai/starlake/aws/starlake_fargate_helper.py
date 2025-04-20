@@ -21,42 +21,44 @@ class StarlakeFargateHelper:
         caller_globals = job.caller_globals
 
         # aws profile
-        self._profile = kwargs.get("profile", caller_globals.get("aws_profile", job.__class__.get_context_var("aws_profile", "default", options)))
+        self.__profile = kwargs.get("profile", caller_globals.get("aws_profile", job.__class__.get_context_var("aws_profile", "default", options)))
         kwargs.pop("profile", None)
         # aws region
-        self._region = kwargs.get("region", caller_globals.get("aws_region", job.__class__.get_context_var("aws_region", "eu-west-3", options)))
+        self.__region = kwargs.get("region", caller_globals.get("aws_region", job.__class__.get_context_var("aws_region", "eu-west-3", options)))
         kwargs.pop("region", None)
         # aws cluster name
-        self._cluster = kwargs.get("cluster", caller_globals.get("aws_cluster_name", job.__class__.get_context_var("aws_cluster_name", None, options)))
+        self.__cluster = kwargs.get("cluster", caller_globals.get("aws_cluster_name", job.__class__.get_context_var("aws_cluster_name", None, options)))
         kwargs.pop("cluster", None)
         # aws task private subnets
         subnets = kwargs.get("subnets", caller_globals.get("aws_task_private_subnets", job.__class__.get_context_var("aws_task_private_subnets", [], options)))
         if isinstance(subnets, str):
-            self._subnets = subnets.split(",")
+            self.__subnets = subnets.split(",")
         else:
-            self._subnets = subnets
+            self.__subnets = subnets
         kwargs.pop("subnets", None)
         # aws security groups
         security_groups = kwargs.get("security_groups", caller_globals.get("aws_task_security_groups", job.__class__.get_context_var("aws_task_security_groups", [], options)))
         if isinstance(security_groups, str):
-            self._security_groups = security_groups.split(",")
+            self.__security_groups = security_groups.split(",")
         else:
-            self._security_groups = security_groups
+            self.__security_groups = security_groups
         kwargs.pop("security_groups", None)
         # aws task definition name
-        self._task_definition = kwargs.get("task_definition", caller_globals.get("aws_task_definition_name", job.__class__.get_context_var("aws_task_definition_name", None, options)))
+        self.__task_definition = kwargs.get("task_definition", caller_globals.get("aws_task_definition_name", job.__class__.get_context_var("aws_task_definition_name", None, options)))
         kwargs.pop("task_definition", None)
         # aws task definition container name
-        self._container_name = kwargs.get("container_name", caller_globals.get("aws_task_definition_container_name", job.__class__.get_context_var("aws_task_definition_container_name", None, options)))
+        self.__container_name = kwargs.get("container_name", caller_globals.get("aws_task_definition_container_name", job.__class__.get_context_var("aws_task_definition_container_name", None, options)))
         kwargs.pop("container_name", None)
         # overrides aws container cpu
-        self._cpu: int = int(kwargs.get("cpu", caller_globals.get("cpu", job.__class__.get_context_var("cpu", 1024, options))))
+        self.__cpu: int = int(kwargs.get("cpu", caller_globals.get("cpu", job.__class__.get_context_var("cpu", 1024, options))))
         kwargs.pop("cpu", None)
         # overrides aws container memory
-        self._memory: int = int(kwargs.get("memory", caller_globals.get("memory", job.__class__.get_context_var("memory", 2048, options))))
+        self.__memory: int = int(kwargs.get("memory", caller_globals.get("memory", job.__class__.get_context_var("memory", 2048, options))))
         kwargs.pop("memory", None)
 
         sl_env_vars = job.__class__.get_sl_env_vars(options)
+
+        self.__arguments = arguments
 
         env_vars = dict()
         if arguments is None:
@@ -89,88 +91,99 @@ class StarlakeFargateHelper:
         # Convert the env vars to the required format
         for key, value in env_vars.items():
             environment.append({"name": key, "value": value})
-        self._environment = environment
-
-        # overrides aws container command
-        self._command = ",".join(arguments)
+        self.__environment = environment
 
         # aws sdk path
-        self._sdk = kwargs.get("sdk", caller_globals.get("AWS_SDK",job.__class__.get_context_var('AWS_SDK', '/usr/local/aws-cli', options)))
+        self.__sdk = kwargs.get("sdk", caller_globals.get("AWS_SDK",job.__class__.get_context_var('AWS_SDK', '/usr/local/aws-cli', options)))
 
-        # task definition overrides
-        self._overrides = {
+
+    @property
+    def arguments(self) -> list:
+        """The arguments of the starlake command to run."""
+        return self.__arguments or []
+
+    @arguments.setter
+    def arguments(self, value: list):
+        """Set the arguments of the starlake command to run."""
+        self.__arguments = value
+
+    @property
+    def profile(self) -> str:
+        """The AWS profile to use."""
+        return self.__profile
+
+    @property
+    def region(self) -> str:
+        """The AWS region to use."""
+        return self.__region
+    
+    @property
+    def cluster(self) -> str:
+        """The AWS ecs cluster name to use."""
+        return self.__cluster
+    
+    @property
+    def subnets(self) -> List[str]:
+        """The AWS ecs task private subnets to use."""
+        return self.__subnets
+    
+    @property
+    def security_groups(self) -> List[str]:
+        """The AWS ecs task security groups to use."""
+        return self.__security_groups
+    
+    @property
+    def task_definition(self) -> str:
+        """The AWS ecs task definition name to use."""
+        return self.__task_definition
+    
+    @property
+    def container_name(self) -> str:
+        """The AWS ecs task definition container name to override."""
+        return self.__container_name
+    
+    @property
+    def cpu(self) -> int:
+        """The AWS ecs task definition container cpu to override."""
+        return self.__cpu
+    
+    @property
+    def memory(self) -> int:
+        """The AWS ecs task definition container memory to override."""
+        return self.__memory
+    
+    @property
+    def environment(self) -> List[dict]:
+        """The AWS ecs task definition container environment to override."""
+        return self.__environment
+
+    @environment.setter
+    def environment(self, value: List[dict]):
+        """Set the AWS ecs task definition container environment to override."""
+        self.__environment = value
+
+    @property
+    def command(self) -> str:
+        """The AWS ecs task definition container command to override."""
+        return " ".join(self.arguments)
+
+    @property
+    def sdk(self) -> str:
+        """The AWS sdk path to use."""
+        return self.__sdk
+
+    @property
+    def overrides(self) -> dict:
+        """The AWS ecs task definition overrides."""
+        return {
             "containerOverrides": [{
                 "name": self.container_name,
-                "command": arguments,
+                "command": self.arguments,
                 "environment": self.environment,
                 "cpu": self.cpu,
                 "memory": self.memory
             }]
         }
-    @property
-    def profile(self) -> str:
-        """The AWS profile to use."""
-        return self._profile
-
-    @property
-    def region(self) -> str:
-        """The AWS region to use."""
-        return self._region
-    
-    @property
-    def cluster(self) -> str:
-        """The AWS ecs cluster name to use."""
-        return self._cluster
-    
-    @property
-    def subnets(self) -> List[str]:
-        """The AWS ecs task private subnets to use."""
-        return self._subnets
-    
-    @property
-    def security_groups(self) -> List[str]:
-        """The AWS ecs task security groups to use."""
-        return self._security_groups
-    
-    @property
-    def task_definition(self) -> str:
-        """The AWS ecs task definition name to use."""
-        return self._task_definition
-    
-    @property
-    def container_name(self) -> str:
-        """The AWS ecs task definition container name to override."""
-        return self._container_name
-    
-    @property
-    def cpu(self) -> int:
-        """The AWS ecs task definition container cpu to override."""
-        return self._cpu
-    
-    @property
-    def memory(self) -> int:
-        """The AWS ecs task definition container memory to override."""
-        return self._memory
-    
-    @property
-    def environment(self) -> List[dict]:
-        """The AWS ecs task definition container environment to override."""
-        return self._environment
-
-    @property
-    def command(self) -> str:
-        """The AWS ecs task definition container command to override."""
-        return self._command
-
-    @property
-    def sdk(self) -> str:
-        """The AWS sdk path to use."""
-        return self._sdk
-
-    @property
-    def overrides(self) -> dict:
-        """The AWS ecs task definition overrides."""
-        return self._overrides
 
     @property
     def overrides_str(self) -> str:

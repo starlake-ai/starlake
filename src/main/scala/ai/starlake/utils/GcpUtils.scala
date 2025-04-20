@@ -5,13 +5,15 @@ import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import better.files.File
 import com.google.cloud.MonitoredResource
 import com.google.cloud.logging.Payload.JsonPayload
-import com.google.cloud.logging.{LogEntry, LoggingOptions}
+import com.google.cloud.logging.{LogEntry, LoggingException, LoggingOptions}
+import com.typesafe.scalalogging.StrictLogging
 
-import java.util.{Collections, Locale}
+import java.time.Duration
+import java.util.Locale
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
-object GcpUtils {
+object GcpUtils extends StrictLogging {
   private val WELL_KNOWN_CREDENTIALS_FILE = "application_default_credentials.json"
 
   private val CLOUDSDK_CONFIG_DIRECTORY = "gcloud"
@@ -73,28 +75,40 @@ object GcpUtils {
     }
   }
 
-  def sinkToGcpCloudLogging(log: Map[String, Any], typ: String, logName: String)(implicit
+  def sinkToGcpCloudLogging(logs: Seq[Map[String, Any]], typ: String, logName: String)(implicit
     settings: Settings
   ): Unit = {
     val connProjectId = settings.appConfig.audit.getSink().getConnection().options.get("projectId")
     val logging = LoggingOptions.getDefaultInstance
       .toBuilder()
+      .setRetrySettings(
+        LoggingOptions.getDefaultInstance.getRetrySettings.toBuilder
+          .setInitialRpcTimeoutDuration(Duration.ZERO) // Increase initial timeout
+          .setTotalTimeoutDuration(Duration.ZERO)
+          .setMaxRetryDelayDuration(Duration.ofSeconds(10))
+          .setMaxAttempts(Int.MaxValue)
+          .build()
+      )
       .setProjectId(BigQueryJobBase.projectId(connProjectId, settings.appConfig.audit.database))
       .build()
       .getService
     try {
-      val entry = LogEntry
-        .newBuilder(JsonPayload.of(adapt_map_to_gcp_log(log).asJava))
-        .setSeverity(com.google.cloud.logging.Severity.INFO)
-        .addLabel("type", typ)
-        .addLabel("app", "starlake")
-        .setLogName(logName)
-        .setResource(MonitoredResource.newBuilder("global").build)
-        .build
+      val entry = logs.map { log =>
+        LogEntry
+          .newBuilder(JsonPayload.of(adapt_map_to_gcp_log(log).asJava))
+          .setSeverity(com.google.cloud.logging.Severity.INFO)
+          .addLabel("type", typ)
+          .addLabel("app", "starlake")
+          .setLogName(logName)
+          .setResource(MonitoredResource.newBuilder("global").build)
+          .build
+      }
       // Writes the log entry asynchronously
-      logging.write(Collections.singleton(entry))
+      logging.write(entry.asJava)
       // Optional - flush any pending log entries just before Logging is closed
       BigQueryJobBase.recoverBigqueryException(logging.flush()) match {
+        case Failure(exception: LoggingException) =>
+          logger.error("Failed to log entry " + entry, exception)
         case Failure(exception) => throw exception
         case Success(_)         => //
       }

@@ -11,13 +11,13 @@ class StarbakeSpec extends IntegrationTestBase {
     // do not cleanup between tests
   }
 
-  override def localDir = starlakeDir / "samples" / "starbake"
-  override def sampleDataDir = localDir / "sample-data"
-  logger.info(localDir.pathAsString)
+  override def theSampleFolder = starlakeDir / "samples" / "starbake"
+  override def sampleDataDir = theSampleFolder / "sample-data"
+  logger.info(theSampleFolder.pathAsString)
 
   "Autoload" should "succeed" in {
     withEnvs(
-      "SL_ROOT"             -> localDir.pathAsString,
+      "SL_ROOT"             -> theSampleFolder.pathAsString,
       "SL_ENV"              -> "DUCKDB",
       "SL_VALIDATE_ON_LOAD" -> "true"
     ) {
@@ -28,7 +28,7 @@ class StarbakeSpec extends IntegrationTestBase {
 
   "Infer Schema" should "succeed" in {
     withEnvs(
-      "SL_ROOT"             -> localDir.pathAsString,
+      "SL_ROOT"             -> theSampleFolder.pathAsString,
       "SL_ENV"              -> "DUCKDB",
       "SL_VALIDATE_ON_LOAD" -> "true"
     ) {
@@ -38,7 +38,7 @@ class StarbakeSpec extends IntegrationTestBase {
           Array(
             "infer-schema",
             "--input",
-            s"$localDir/incoming/starbake",
+            s"$theSampleFolder/incoming/starbake",
             "--clean"
           )
         )
@@ -48,7 +48,7 @@ class StarbakeSpec extends IntegrationTestBase {
 
   "Import files" should "succeed" in {
     withEnvs(
-      "SL_ROOT"             -> localDir.pathAsString,
+      "SL_ROOT"             -> theSampleFolder.pathAsString,
       "SL_ENV"              -> "DUCKDB",
       "SL_VALIDATE_ON_LOAD" -> "true"
     ) {
@@ -58,7 +58,7 @@ class StarbakeSpec extends IntegrationTestBase {
 
   "Load files" should "succeed" in {
     withEnvs(
-      "SL_ROOT"             -> localDir.pathAsString,
+      "SL_ROOT"             -> theSampleFolder.pathAsString,
       "SL_ENV"              -> "DUCKDB",
       "SL_VALIDATE_ON_LOAD" -> "true"
     ) {
@@ -67,7 +67,7 @@ class StarbakeSpec extends IntegrationTestBase {
   }
   "Transform revenue" should "succeed" in {
     withEnvs(
-      "SL_ROOT"             -> localDir.pathAsString,
+      "SL_ROOT"             -> theSampleFolder.pathAsString,
       "SL_ENV"              -> "DUCKDB",
       "SL_VALIDATE_ON_LOAD" -> "true"
     ) {
@@ -77,7 +77,7 @@ class StarbakeSpec extends IntegrationTestBase {
 
   "Transform product" should "succeed" in {
     withEnvs(
-      "SL_ROOT"             -> localDir.pathAsString,
+      "SL_ROOT"             -> theSampleFolder.pathAsString,
       "SL_ENV"              -> "DUCKDB",
       "SL_VALIDATE_ON_LOAD" -> "true"
     ) {
@@ -87,7 +87,7 @@ class StarbakeSpec extends IntegrationTestBase {
 
   "Transform order" should "succeed" in {
     withEnvs(
-      "SL_ROOT"             -> localDir.pathAsString,
+      "SL_ROOT"             -> theSampleFolder.pathAsString,
       "SL_ENV"              -> "DUCKDB",
       "SL_VALIDATE_ON_LOAD" -> "true"
     ) {
@@ -97,7 +97,7 @@ class StarbakeSpec extends IntegrationTestBase {
 
   "Transform lineage" should "succeed" in {
     withEnvs(
-      "SL_ROOT"             -> localDir.pathAsString,
+      "SL_ROOT"             -> theSampleFolder.pathAsString,
       "SL_ENV"              -> "DUCKDB",
       "SL_VALIDATE_ON_LOAD" -> "true"
     ) {
@@ -111,7 +111,7 @@ class StarbakeSpec extends IntegrationTestBase {
 
   "Transform recursive" should "succeed" in {
     withEnvs(
-      "SL_ROOT"             -> localDir.pathAsString,
+      "SL_ROOT"             -> theSampleFolder.pathAsString,
       "SL_ENV"              -> "DUCKDB",
       "SL_VALIDATE_ON_LOAD" -> "true"
     ) {

@@ -8,11 +8,7 @@ import better.files.File
 import scala.reflect.io.Directory
 
 class InferSchemaXMLIntegrationSpec extends IntegrationTestBase with TestHelper {
-  override def templates = starlakeDir / "samples"
-  override def localDir = templates / "spark"
-  override val incomingDir = localDir / "incoming"
-  override def sampleDataDir = localDir / "sample-data"
-
+  override def sampleDataDir = theSampleFolder / "sample-data"
   override def beforeEach(): Unit = {
     super.beforeEach()
   }
@@ -22,7 +18,7 @@ class InferSchemaXMLIntegrationSpec extends IntegrationTestBase with TestHelper 
 
   "Infer Schema XML" should "succeed" in {
     withEnvs(
-      "SL_ROOT"                     -> localDir.pathAsString,
+      "SL_ROOT"                     -> theSampleFolder.pathAsString,
       "SL_INTERNAL_SUBSTITUTE_VARS" -> "true",
       "SL_ENV"                      -> "LOCAL"
     ) {

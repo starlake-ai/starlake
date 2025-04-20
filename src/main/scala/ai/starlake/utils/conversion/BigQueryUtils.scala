@@ -46,30 +46,41 @@ object BigQueryUtils {
     schema.copy(fields = fields)
   }
 
+  /** This function normalizes the incoming schema to be compatible with the existing schema. It
+    * ensures that integer types are converted to long types and that nullable fields in the
+    * existing schema remain nullable in the incoming schema.
+    *
+    * @param incomingSchema
+    *   The schema of the incoming data.
+    * @param existingSchema
+    *   The schema of the existing data.
+    * @return
+    *   A normalized schema that is compatible with the existing schema.
+    */
   def normalizeCompatibleSchema(
     incomingSchema: StructType,
     existingSchema: StructType
   ): StructType = {
     val existingFields = existingSchema.fields.map { field => field.name -> field }.toMap
-    val incomingFields = incomingSchema.fields.map { field =>
-      val typedField = field.dataType match {
+    val incomingFields = incomingSchema.fields.map { incomingField =>
+      val incomingTypedField = incomingField.dataType match {
         case dataType: StructType =>
-          field.copy(dataType = normalizeSchema(dataType))
+          incomingField.copy(dataType = normalizeSchema(dataType))
         case ArrayType(elementType: StructType, nullable) =>
-          field.copy(dataType = ArrayType(normalizeSchema(elementType), nullable))
+          incomingField.copy(dataType = ArrayType(normalizeSchema(elementType), nullable))
         case ArrayType(_: IntegerType, nullable) =>
-          field.copy(dataType = ArrayType(LongType, nullable))
-        case IntegerType => field.copy(dataType = LongType)
-        case _           => field
+          incomingField.copy(dataType = ArrayType(LongType, nullable))
+        case IntegerType => incomingField.copy(dataType = LongType)
+        case _           => incomingField
       }
-      existingFields.get(typedField.name) match {
+      existingFields.get(incomingTypedField.name) match {
         case Some(existingField) =>
-          if (existingField.nullable && !typedField.nullable)
-            typedField.copy(nullable = true)
+          if (existingField.nullable && !incomingTypedField.nullable)
+            incomingTypedField.copy(nullable = true)
           else
-            typedField
+            incomingTypedField
         case None =>
-          typedField
+          incomingTypedField
       }
     }
     incomingSchema.copy(fields = incomingFields)
@@ -135,8 +146,8 @@ object BigQueryUtils {
     (tableId.getProject, tableId.getDataset, tableId.getTable) match {
       case (null, null, null)        => ""
       case (null, null, table)       => table
-      case (null, dataset, table)    => s"$dataset.$table"
-      case (project, dataset, table) => s"`$project`.$dataset.$table"
+      case (null, dataset, table)    => s"`$dataset`.`$table`"
+      case (project, dataset, table) => s"`$project`.`$dataset`.`$table`"
     }
   }
 }
