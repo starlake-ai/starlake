@@ -78,7 +78,7 @@ object Dependencies {
   )
 
   val azure = Seq(
-    "org.apache.hadoop" % "hadoop-azure" % "3.4.0" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.hadoop" % "hadoop-azure" % "3.4.1" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "com.microsoft.azure" % "azure-storage" % "8.6.6" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
   )
 
@@ -89,7 +89,7 @@ object Dependencies {
 
   val redshift = Seq(
     "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % "provided" excludeAll (jacksonExclusions: _*),
-    "org.apache.hadoop" % "hadoop-aws" % "3.3.4" % "provided" excludeAll (jacksonExclusions: _*),
+    "org.apache.hadoop" % "hadoop-aws" % "3.3.6" % "provided" excludeAll (jacksonExclusions: _*),
     "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.782" % "provided" excludeAll (jacksonExclusions: _*)
   )
 
@@ -170,14 +170,14 @@ object Dependencies {
   )
 
   val pgGcp = Seq(
-    "com.google.cloud.sql" % "postgres-socket-factory" % "1.23.1" % Test,
+    "com.google.cloud.sql" % "postgres-socket-factory" % "1.24.2" % Test,
     "com.dimafeng" %% "testcontainers-scala-postgresql" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
     "org.postgresql" % "postgresql" % "42.7.5" % "provided"
   )
 
   val mariadb = Seq(
     "com.dimafeng" %% "testcontainers-scala-mariadb" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
-    "org.mariadb.jdbc" % "mariadb-java-client" % "3.5.1" % Test,
+    "org.mariadb.jdbc" % "mariadb-java-client" % "3.5.3" % Test,
     "com.mysql" % "mysql-connector-j" % "9.2.0" % Test
   )
 
