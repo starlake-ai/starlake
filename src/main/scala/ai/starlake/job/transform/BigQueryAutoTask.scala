@@ -52,7 +52,8 @@ class BigQueryAutoTask(
       test,
       logExecution,
       truncate,
-      resultPageSize
+      resultPageSize,
+      accessToken
     ) {
 
   private lazy val bqSink = taskDesc.sink

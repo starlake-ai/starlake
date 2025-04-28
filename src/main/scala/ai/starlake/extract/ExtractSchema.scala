@@ -39,11 +39,13 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     */
   def run(config: ExtractSchemaConfig, jdbcSchemas: ExtractSchemas)(implicit settings: Settings) = {
     val connectionSettings: Connection = jdbcSchemas.connectionRef match {
-      case Some(connectionRef) => settings.appConfig.getConnection(connectionRef)
+      case Some(connectionRef) =>
+        settings.appConfig.getConnection(connectionRef).withAccessToken(config.accessToken)
       case None =>
         config.connectionRef
           .map(settings.appConfig.getConnection)
           .getOrElse(settings.appConfig.getDefaultConnection())
+          .withAccessToken(config.accessToken)
     }
     jdbcSchemas.openAPI match {
       case Some(openAPIConfig) =>

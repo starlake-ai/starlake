@@ -112,14 +112,15 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       )
 
       val autoTask = AutoTask.task(
-        Option(ingestionJob.applicationId()),
-        taskDesc,
-        Map.empty,
-        None,
+        appId = Option(ingestionJob.applicationId()),
+        taskDesc = taskDesc,
+        configOptions = Map.empty,
+        interactive = None,
         truncate = false,
         test = false,
-        engine,
-        logExecution = true
+        engine = engine,
+        logExecution = true,
+        accessToken = accessToken
       )(
         settings,
         storageHandler,
@@ -318,7 +319,11 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
   def auditStatements(): Option[TaskSQLStatements] = {
     if (settings.appConfig.audit.active.getOrElse(true)) {
       val auditStatements =
-        AuditLog.buildListOfSQLStatements(List(auditLog))(settings, storageHandler, schemaHandler)
+        AuditLog.buildListOfSQLStatements(List(auditLog), accessToken)(
+          settings,
+          storageHandler,
+          schemaHandler
+        )
       auditStatements
     } else {
       None

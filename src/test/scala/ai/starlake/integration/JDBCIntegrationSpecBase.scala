@@ -25,7 +25,11 @@ class JDBCIntegrationSpecBase extends IntegrationTestBase with PgContainerHelper
       val connectionRef = settings.appConfig.connectionRef
       val connection = settings.appConfig.connections(connectionRef)
       val jdbcOptions =
-        JdbcDbUtils.jdbcOptions(connection.options, connection.sparkDatasource().getOrElse("jdbc"))
+        JdbcDbUtils.jdbcOptions(
+          connection.options,
+          connection.sparkDatasource().getOrElse("jdbc"),
+          None
+        )
       JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
         // drop table using jdbc statement connection conn in the lines below
         val allTables = List("sales.customers", "sales.orders", "hr.locations", "hr.sellers")

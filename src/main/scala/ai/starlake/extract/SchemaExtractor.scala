@@ -13,7 +13,7 @@ object SchemaExtractor {
     accessToken: Option[String],
     domainAndTablesNames: Map[String, List[String]] = Map.empty
   )(implicit settings: Settings) = {
-    val connection = settings.appConfig.connections(connectionName)
+    val connection = settings.appConfig.connections(connectionName).withAccessToken(accessToken)
     val connType = connection.`type`
     val schemaHandler = settings.schemaHandler()
     if (settings.appConfig.autoExportSchema) {
@@ -55,7 +55,7 @@ object SchemaExtractor {
     accessToken: Option[String],
     tables: Map[String, List[String]] = Map.empty
   )(implicit settings: Settings): Try[List[(String, List[String])]] = {
-    val connection = settings.appConfig.connections(connectionName)
+    val connection = settings.appConfig.connections(connectionName).withAccessToken(accessToken)
     val connType = connection.`type`
     connType match {
       case ConnectionType.JDBC =>

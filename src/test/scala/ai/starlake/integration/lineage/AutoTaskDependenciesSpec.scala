@@ -45,7 +45,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
     }
   }
 
-  "Lineage" should "succeed" in {
+  "Table Lineage" should "succeed" in {
     if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
       withEnvs(
         "SL_ROOT" -> theSampleFolder.pathAsString,
@@ -60,7 +60,7 @@ class AutoTaskDependenciesSpec extends IntegrationTestBase {
     }
   }
 
-  "Lineage-2" should "succeed" in {
+  "Column Lineage" should "succeed" in {
     withEnvs(
       "SL_ROOT" -> (theSampleFolder.parent / "lineage").pathAsString
     ) {

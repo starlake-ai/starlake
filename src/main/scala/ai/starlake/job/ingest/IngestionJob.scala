@@ -229,7 +229,7 @@ trait IngestionJob extends SparkJob {
 
       case Engine.JDBC =>
         val connection = settings.appConfig.connections(mergedMetadata.getSinkConnectionRef())
-        JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
+        JdbcDbUtils.withJDBCConnection(connection.withAccessToken(accessToken).options) { conn =>
           sqls.foreach { sql =>
             val compiledSql = sql.richFormat(schemaHandler.activeEnvVars(), options)
             JdbcDbUtils.executeUpdate(compiledSql, conn)
@@ -353,7 +353,7 @@ trait IngestionJob extends SparkJob {
         )
       )
     }
-    AuditLog.sink(logs)(settings, storageHandler, schemaHandler)
+    AuditLog.sink(logs, accessToken)(settings, storageHandler, schemaHandler)
     logger.error(err)
     Failure(exception)
   }
@@ -387,7 +387,7 @@ trait IngestionJob extends SparkJob {
         test = false
       )
     }
-    AuditLog.sink(logs)(settings, storageHandler, schemaHandler).map(_ => logs)
+    AuditLog.sink(logs, accessToken)(settings, storageHandler, schemaHandler).map(_ => logs)
   }
 
   @throws[Exception]
@@ -580,7 +580,7 @@ trait IngestionJob extends SparkJob {
         )
         runBigQueryExpectations(bqNativeJob(tableId, ""))
       case _: JdbcSink =>
-        val options = mergedMetadata.getSinkConnection().options
+        val options = mergedMetadata.getSinkConnection().withAccessToken(accessToken).options
         runJdbcExpectations(options)
       case _ =>
         runSparkExpectations(session)

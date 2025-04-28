@@ -237,7 +237,7 @@ class Main extends StrictLogging {
             Runtime.getRuntime.halt(1)
           }
         case Success(result: PreLoadJobResult) =>
-          logger.info(s"Successfully $executedCommand")
+          logger.info(s"Preload Successfully $executedCommand")
           logger.info("\n" + result.prettyPrint("table"))
           val status =
             if (result.empty)

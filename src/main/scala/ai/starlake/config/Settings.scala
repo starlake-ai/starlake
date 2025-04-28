@@ -177,6 +177,13 @@ object Settings extends StrictLogging {
     _transpileDialect: Option[String] = None
   ) {
     def asMap(): Map[String, String] = this.options
+    def withAccessToken(accessToken: Option[String]): Connection = {
+      accessToken
+        .map(accessToken =>
+          this.copy(options = this.options.updated("sl_access_token", accessToken))
+        )
+        .getOrElse(this.copy(options = this.options.removed("sl_access_token")))
+    }
 
     @JsonIgnore
     def getCatalog(): String = {

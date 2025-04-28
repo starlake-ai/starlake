@@ -1262,7 +1262,8 @@ class IngestionWorkflow(
             case jdbcSink: JdbcSink =>
               val connectionName = jdbcSink.connectionRef
                 .getOrElse(throw new Exception("JdbcSink requires a connectionRef"))
-              val connection = settings.appConfig.connections(connectionName)
+              val connection =
+                settings.appConfig.connections(connectionName).withAccessToken(config.accessToken)
               dummyIngestionJob.applyJdbcAcl(connection)
             case _: BigQuerySink =>
               val database = schemaHandler.getDatabase(domain)

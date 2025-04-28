@@ -37,7 +37,8 @@ class JdbcAutoTask(
       test,
       logExecution,
       truncate,
-      resultPageSize
+      resultPageSize,
+      accessToken
     ) {
 
   def applyJdbcAcl(connection: Connection, forceApply: Boolean): Try[Unit] =
@@ -109,10 +110,10 @@ class JdbcAutoTask(
   override protected lazy val sinkConnection: Settings.Connection = {
     if (interactive.isDefined) {
       JdbcDbUtils.readOnlyConnection(
-        settings.appConfig.connections(sinkConnectionRef)
+        settings.appConfig.connections(sinkConnectionRef).withAccessToken(accessToken)
       )(settings)
     } else {
-      settings.appConfig.connections(sinkConnectionRef)
+      settings.appConfig.connections(sinkConnectionRef).withAccessToken(accessToken)
     }
   }
 
@@ -444,12 +445,13 @@ class JdbcAutoTask(
 }
 
 object JdbcAutoTask extends StrictLogging {
-  def executeUpdate(sql: String, connectionName: String)(implicit
+  def executeUpdate(sql: String, connectionName: String, accessToken: Option[String])(implicit
     settings: Settings
   ): Try[Boolean] = {
     val connection = settings.appConfig
       .connection(connectionName)
       .getOrElse(throw new Exception(s"Connection not found $connectionName"))
+      .withAccessToken(accessToken)
 
     // This is an update statement. No readonly connection is needed
     JdbcDbUtils.withJDBCConnection(connection.options) { conn =>

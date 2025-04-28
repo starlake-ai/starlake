@@ -45,7 +45,8 @@ class SparkAutoTask(
       test,
       logExecution,
       truncate,
-      resultPageSize
+      resultPageSize,
+      accessToken
     ) {
 
   override def run(): Try[JobResult] = {
@@ -405,7 +406,8 @@ class SparkAutoTask(
                 None,
                 truncate = false,
                 test,
-                logExecution = logExecution
+                logExecution = logExecution,
+                accessToken = this.accessToken
               )(
                 settings,
                 storageHandler,
@@ -798,7 +800,8 @@ class SparkAutoTask(
             None,
             truncate = false,
             test,
-            logExecution = logExecution
+            logExecution = logExecution,
+            accessToken = this.accessToken
           )(
             settings,
             storageHandler,
@@ -830,7 +833,8 @@ class SparkAutoTask(
             None,
             truncate = false,
             test,
-            logExecution = logExecution
+            logExecution = logExecution,
+            accessToken = this.accessToken
           )
         secondAutoStepTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
         val jobResult = secondAutoStepTask.runJDBC(Some(loadedDF))
@@ -845,7 +849,8 @@ class SparkAutoTask(
 object SparkAutoTask extends StrictLogging {
   def executeUpdate(
     sql: String,
-    connectionName: String
+    connectionName: String,
+    accessToken: Option[String]
   )(implicit iSettings: Settings): Try[Boolean] = {
     val job = new SparkJob {
       override def name: String = "BigQueryTablesInfo"

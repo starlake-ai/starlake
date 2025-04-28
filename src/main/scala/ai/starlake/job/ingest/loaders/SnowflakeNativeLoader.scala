@@ -35,86 +35,88 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       val sinkConnection = mergedMetadata.getSinkConnection()
       val twoSteps = requireTwoSteps(effectiveSchema)
       JdbcDbUtils
-        .withJDBCConnection(sinkConnection.options) { conn =>
-          if (twoSteps) {
-            val tempTables =
-              path.map { p =>
-                logger.info(s"Loading $p to temporary table")
-                val tempTable = SQLUtils.temporaryTableName(effectiveSchema.finalName)
-                singleStepLoad(
-                  domain.finalName,
-                  tempTable,
-                  schemaWithMergedMetadata,
-                  List(p),
-                  temporary = true,
-                  conn
-                )
-                val filenameSQL =
-                  s"ALTER TABLE ${domain.finalName}.$tempTable ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '$p';"
+        .withJDBCConnection(sinkConnection.withAccessToken(ingestionJob.accessToken).options) {
+          conn =>
+            if (twoSteps) {
+              val tempTables =
+                path.map { p =>
+                  logger.info(s"Loading $p to temporary table")
+                  val tempTable = SQLUtils.temporaryTableName(effectiveSchema.finalName)
+                  singleStepLoad(
+                    domain.finalName,
+                    tempTable,
+                    schemaWithMergedMetadata,
+                    List(p),
+                    temporary = true,
+                    conn
+                  )
+                  val filenameSQL =
+                    s"ALTER TABLE ${domain.finalName}.$tempTable ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '$p';"
 
-                JdbcDbUtils.execute(filenameSQL, conn)
+                  JdbcDbUtils.execute(filenameSQL, conn)
 
-                tempTable
-              }
+                  tempTable
+                }
 
-            val unionTempTables =
-              tempTables.map("SELECT * FROM " + _).mkString("(", " UNION ALL ", ")")
-            val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
-            val sqlWithTransformedFields = starlakeSchema.buildSqlSelectOnLoad(unionTempTables)
+              val unionTempTables =
+                tempTables.map("SELECT * FROM " + _).mkString("(", " UNION ALL ", ")")
+              val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
+              val sqlWithTransformedFields = starlakeSchema.buildSqlSelectOnLoad(unionTempTables)
 
-            val taskDesc = AutoTaskDesc(
-              name = targetTableName,
-              sql = Some(sqlWithTransformedFields),
-              database = schemaHandler.getDatabase(domain),
-              domain = domain.finalName,
-              table = starlakeSchema.finalName,
-              presql = starlakeSchema.presql,
-              postsql = starlakeSchema.postsql,
-              sink = mergedMetadata.sink,
-              rls = starlakeSchema.rls,
-              expectations = starlakeSchema.expectations,
-              acl = starlakeSchema.acl,
-              comment = starlakeSchema.comment,
-              tags = starlakeSchema.tags,
-              writeStrategy = mergedMetadata.writeStrategy,
-              parseSQL = Some(true),
-              connectionRef = Option(mergedMetadata.getSinkConnectionRef())
-            )
-
-            val job =
-              new JdbcAutoTask(
-                Option(ingestionJob.applicationId()),
-                taskDesc,
-                Map.empty,
-                None,
-                truncate = false,
-                test = false,
-                logExecution = true
-              )(
-                settings,
-                storageHandler,
-                schemaHandler
+              val taskDesc = AutoTaskDesc(
+                name = targetTableName,
+                sql = Some(sqlWithTransformedFields),
+                database = schemaHandler.getDatabase(domain),
+                domain = domain.finalName,
+                table = starlakeSchema.finalName,
+                presql = starlakeSchema.presql,
+                postsql = starlakeSchema.postsql,
+                sink = mergedMetadata.sink,
+                rls = starlakeSchema.rls,
+                expectations = starlakeSchema.expectations,
+                acl = starlakeSchema.acl,
+                comment = starlakeSchema.comment,
+                tags = starlakeSchema.tags,
+                writeStrategy = mergedMetadata.writeStrategy,
+                parseSQL = Some(true),
+                connectionRef = Option(mergedMetadata.getSinkConnectionRef())
               )
-            job.runJDBC(df = None, sqlConnection = Some(conn))
-            job.updateJdbcTableSchema(
-              starlakeSchema.targetSparkSchemaWithIgnoreAndScript(schemaHandler),
-              targetTableName
-            )
 
-            // TODO archive if set
-            tempTables.foreach { tempTable =>
-              JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
+              val job =
+                new JdbcAutoTask(
+                  Option(ingestionJob.applicationId()),
+                  taskDesc,
+                  Map.empty,
+                  None,
+                  truncate = false,
+                  test = false,
+                  logExecution = true,
+                  accessToken = ingestionJob.accessToken
+                )(
+                  settings,
+                  storageHandler,
+                  schemaHandler
+                )
+              job.runJDBC(df = None, sqlConnection = Some(conn))
+              job.updateJdbcTableSchema(
+                starlakeSchema.targetSparkSchemaWithIgnoreAndScript(schemaHandler),
+                targetTableName
+              )
+
+              // TODO archive if set
+              tempTables.foreach { tempTable =>
+                JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
+              }
+            } else {
+              singleStepLoad(
+                domain.finalName,
+                starlakeSchema.finalName,
+                schemaWithMergedMetadata,
+                path,
+                temporary = false,
+                conn
+              )
             }
-          } else {
-            singleStepLoad(
-              domain.finalName,
-              starlakeSchema.finalName,
-              schemaWithMergedMetadata,
-              path,
-              temporary = false,
-              conn
-            )
-          }
         }
     }.map { - =>
       List(IngestionCounters(-1, -1, -1, path.map(_.toString)))

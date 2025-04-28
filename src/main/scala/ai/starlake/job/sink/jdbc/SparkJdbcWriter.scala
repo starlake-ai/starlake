@@ -18,7 +18,8 @@ class SparkJdbcWriter(
   val conf = session.sparkContext.hadoopConfiguration
   logger.info(s"JDBC Config $cliConfig")
 
-  val jdbcOptions = JdbcDbUtils.jdbcOptions(cliConfig.options, cliConfig.format)
+  val jdbcOptions =
+    JdbcDbUtils.jdbcOptions(cliConfig.options, cliConfig.format, cliConfig.accessToken)
 
   private def isFile(): Boolean = cliConfig.sourceFile.isLeft
 
