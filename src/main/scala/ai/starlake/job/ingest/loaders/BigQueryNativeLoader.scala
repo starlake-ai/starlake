@@ -76,7 +76,6 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                       source = Left(sourceUri),
                       outputTableId = Some(firstStepTempTable),
                       outputTableDesc = Some("Temporary table created during data ingestion."),
-                      days = Some(1),
                       // force first step to be write append, otherwise write_truncate overwrite the
                       // created structure with default values, making second step query to fail if it relies on
                       // technical column such as comet_input_filename.
