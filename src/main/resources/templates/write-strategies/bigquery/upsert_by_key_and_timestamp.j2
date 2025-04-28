@@ -1,6 +1,12 @@
+{% if quotedPartitionPruningKey != '' %}
+DECLARE incomingPartitionKeys DEFAULT (select array_agg(distinct {{ quotedPartitionPruningKey }}) from ({{ selectStatement }}));
+{% endif %}
 {% if strategyOn == 'TARGET' %}
 
-MERGE INTO  {{ tableFullName }} SL_EXISTING USING ({{ selectStatement }}) SL_INCOMING ON ( {{ strategyKeyJoinCondition }})
+MERGE INTO  {{ tableFullName }} SL_EXISTING USING (
+    {{ selectStatement }}
+) SL_INCOMING
+ON ( {{ strategyKeyJoinCondition }}{% if quotedPartitionPruningKey != '' %} AND SL_EXISTING.{{ quotedPartitionPruningKey }} IN unnest(incomingPartitionKeys) {% endif %})
 WHEN MATCHED AND SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }} THEN  UPDATE {{ tableUpdateSetExpression }}
 WHEN NOT MATCHED THEN {{ tableInsert }}
 
@@ -12,7 +18,7 @@ USING (
     FROM ({{ selectStatement }})
     QUALIFY ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY {{ strategyTimestamp }} DESC) = 1    
 ) SL_INCOMING
-ON ( {{ strategyKeyJoinCondition }})
+ON ( {{ strategyKeyJoinCondition }}{% if quotedPartitionPruningKey != '' %} AND SL_EXISTING.{{ quotedPartitionPruningKey }} IN unnest(incomingPartitionKeys) {% endif %})
 WHEN MATCHED AND SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }} THEN  UPDATE {{ tableUpdateSetExpression }}
 WHEN NOT MATCHED THEN {{ tableInsert }}
 

@@ -8,6 +8,7 @@ import scala.collection.parallel.ForkJoinTaskSupport
 import scala.concurrent.ExecutionContext.fromExecutor
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 object ParUtils extends StrictLogging {
   def makeParallel[T](
@@ -47,11 +48,23 @@ object ParUtils extends StrictLogging {
     implicit val ec: ExecutionContext = fromExecutor(executor)
 
     try {
-      // Wrap each element's computation in a Future
       val futures: Iterable[Future[U]] = collection.map(item => Future(action(item)))
 
-      // Await and return all results
-      Await.result(Future.sequence(futures), Duration.Inf)
+      def lift[T](futures: Iterable[Future[T]]): Iterable[Future[Try[T]]] =
+        futures.map(_.map { Success(_) }.recover { case t => Failure(t) })
+
+      def waitAll[T](futures: Iterable[Future[T]]): Future[Iterable[Try[T]]] =
+        Future.sequence(
+          lift(futures)
+        )
+
+      // Waiting for just Future.sequence without wrapping into a Try makes
+      // exception thrown to shutdown executorService prematuraly.
+      // This allows other futures to be scheduled.
+      Await.result(waitAll(futures), Duration.Inf).map {
+        case Success(e)         => e
+        case Failure(exception) => throw exception
+      }
     } finally {
       // Shutdown the thread pool
       executor.shutdown()
