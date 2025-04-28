@@ -584,7 +584,11 @@ object Settings extends StrictLogging {
     columnRemarks: Option[String] = None,
     tableRemarks: Option[String] = None,
     supportsJson: Option[Boolean] = None
-  )
+  ) {
+    def quoteIdentifier(anyIdentifier: String) = {
+      s"$quote$anyIdentifier$quote"
+    }
+  }
 
   object JdbcEngine {
 
@@ -721,6 +725,7 @@ object Settings extends StrictLogging {
     dags: String,
     tests: String,
     writeStrategies: String,
+    prunePartitionOnMerge: Boolean,
     loadStrategies: String,
     metadata: String,
     metrics: Metrics,

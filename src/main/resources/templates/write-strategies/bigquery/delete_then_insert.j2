@@ -1,3 +1,6 @@
+{% if quotedPartitionPruningKey != '' %}
+DECLARE incomingPartitionKeys DEFAULT (select array_agg(distinct {{ quotedPartitionPruningKey }}) from ({{ selectStatement }}));
+{% endif %}
 MERGE INTO {{ tableFullName  }} SL_EXISTING
 USING (
   WITH
@@ -6,7 +9,7 @@ USING (
     FROM ({{ selectStatement }})
   ),
   sl_existing_keys AS (
-    select distinct {{ strategyKeyCsv }} from {{ tableFullName  }}
+    select distinct {{ strategyKeyCsv }} from {{ tableFullName  }}{% if quotedPartitionPruningKey != '' %} where {{ quotedPartitionPruningKey }} IN unnest(incomingPartitionKeys){% endif %}
   ),
   line_action as(
     select
@@ -21,6 +24,6 @@ USING (
   )
   select * from line_action
 ) SL_INCOMING
-ON {% for mergeKey in quotedStrategyKey %}SL_EXISTING.{{ mergeKey }} = SL_INCOMING.{{ mergeKey }} AND {%endfor%}SL_INCOMING.sl_merge_action = 'KEEP'
-WHEN NOT MATCHED BY SOURCE THEN DELETE
+ON {% if quotedPartitionPruningKey != '' %}FALSE{% else %}{% for mergeKey in quotedStrategyKey %}SL_EXISTING.{{ mergeKey }} = SL_INCOMING.{{ mergeKey }} AND {%endfor%}SL_INCOMING.sl_merge_action = 'KEEP'{% endif %}
+WHEN NOT MATCHED BY SOURCE{% if quotedPartitionPruningKey != '' %} AND SL_EXISTING.{{ quotedPartitionPruningKey }} IN unnest(incomingPartitionKeys){% endif %} THEN DELETE
 WHEN NOT MATCHED THEN {{ tableInsert }}
