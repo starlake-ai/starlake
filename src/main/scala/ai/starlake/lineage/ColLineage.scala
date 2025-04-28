@@ -75,6 +75,10 @@ class ColLineage(
     }
   }
 
+  def targetTableColumnNames(colLineage: ColLineage.Lineage) = {
+    colLineage.relations.map(_.to.column)
+  }
+
   def colLineage(
     outputFile: Option[File],
     domainName: String,

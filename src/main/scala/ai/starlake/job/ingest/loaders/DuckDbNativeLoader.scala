@@ -99,7 +99,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             None,
             truncate = false,
             test = false,
-            logExecution = true
+            logExecution = true,
+            accessToken = ingestionJob.accessToken
           )(
             settings,
             storageHandler,

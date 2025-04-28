@@ -62,10 +62,11 @@ object JdbcDbUtils extends LazyLogging {
         // No connection pool for duckdb. This is a single user database on write.
         // We need to release the connection asap
         val properties = new Properties()
-        (connectionOptions - "url" - "driver" - "dbtable" - "numpartitions").foreach {
-          case (k, v) =>
+        (connectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token")
+          .foreach { case (k, v) =>
             properties.setProperty(k, v)
-        }
+          }
+
         val dbKey = url + properties.toString
         if (!isExtractCommandHack(url)) {
           val sqlConn = DriverManager.getConnection(url, properties)
@@ -88,14 +89,30 @@ object JdbcDbUtils extends LazyLogging {
           )
         }
       } else {
+        val finalConnectionOptions =
+          if (url.startsWith("jdbc:snowflake") && connectionOptions.contains("sl_access_token")) {
+            val accountUserAndToken = connectionOptions("sl_access_token").split(":")
+            val accessToken =
+              accountUserAndToken.drop(2).mkString(":") // in case the token contains the ':' char
+            connectionOptions
+              .updated("authenticator", "oauth")
+              .updated("account", accountUserAndToken(0))
+              .updated("user", accountUserAndToken(1))
+              .updated("password", accessToken)
+            // password is the token in Snowflake 3.13+
+            // properties.setProperty("user", ...)
+            // properties.setProperty("role", ...)
+          } else connectionOptions
+        val poolKey = url + connectionOptions.getOrElse("sl_access_token", "")
         hikariPools
           .getOrElseUpdate(
-            url, {
+            poolKey, {
               val config = new HikariConfig()
-              (connectionOptions - "url" - "driver" - "dbtable" - "numpartitions").foreach {
-                case (key, value) =>
+              (finalConnectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token")
+                .foreach { case (key, value) =>
+                  logger.info(s"Adding property $key=$value")
                   config.addDataSourceProperty(key, value)
-              }
+                }
               config.setJdbcUrl(url)
               config.setDriverClassName(driver)
               config.setMinimumIdle(1)
@@ -350,10 +367,10 @@ object JdbcDbUtils extends LazyLogging {
     }
     result match {
       case Failure(exception) =>
-        logger.error(s"Error running JDBC SQL with id $sqlId: ${exception.getMessage}")
+        logger.error(s"Error running JDBC SQL [$script] with id $sqlId: ${exception.getMessage}")
         throw exception
       case Success(value) =>
-        logger.info(s"end running JDBC SQL with id $sqlId with return value $value")
+        logger.info(s"end running JDBC SQL [$script] with id $sqlId with return value $value")
     }
     statement.close()
     result
@@ -932,7 +949,8 @@ object JdbcDbUtils extends LazyLogging {
 
   def jdbcOptions(
     jdbcOptions: Map[String, String],
-    sparkFormat: String
+    sparkFormat: String,
+    accessToken: Option[String]
   ): CaseInsensitiveMap[TableName] = {
     val options = if (sparkFormat == "snowflake") {
       jdbcOptions.flatMap { case (k, v) =>
@@ -953,7 +971,12 @@ object JdbcDbUtils extends LazyLogging {
       }
     } else
       jdbcOptions
-    CaseInsensitiveMap[String](options)
+    val optionsWithAccessToken = accessToken match {
+      case Some(token) =>
+        options + ("sl_access_token" -> token)
+      case None => options
+    }
+    CaseInsensitiveMap[String](optionsWithAccessToken)
   }
 
   def getCommonJDBCType(dt: DataType): Option[JdbcType] = {

@@ -197,12 +197,12 @@ object AuditLog extends StrictLogging {
     None,
     None
   )
-  def sink(logs: List[AuditLog])(implicit
+  def sink(logs: List[AuditLog], accessToken: Option[String])(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Try[JobResult] = {
-    this.createTask(logs).map { task =>
+    this.createTask(logs, accessToken).map { task =>
       val res = task.run()
       Utils.logFailure(res, logger)
     } match {
@@ -211,20 +211,20 @@ object AuditLog extends StrictLogging {
     }
   }
 
-  def buildListOfSQLStatements(logs: List[AuditLog])(implicit
+  def buildListOfSQLStatements(logs: List[AuditLog], accessToken: Option[String])(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): Option[TaskSQLStatements] = {
     val auditSink = settings.appConfig.audit.getSink()
     val template = AuditLog.selectTemplate(auditSink.getConnection().getJdbcEngineName()).pyFormat()
-    createTask(logs).map { task =>
+    createTask(logs, accessToken).map { task =>
       val statements = task.buildListOfSQLStatements()
       statements.copy(mainSqlIfExists = List(template), mainSqlIfNotExists = null)
     }
   }
 
-  private def createTask(logs: List[AuditLog])(implicit
+  private def createTask(logs: List[AuditLog], accessToken: Option[String])(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
@@ -271,14 +271,15 @@ object AuditLog extends StrictLogging {
             }
           val task = AutoTask
             .task(
-              Option(jobId),
-              auditTaskDesc,
-              Map.empty,
-              None,
+              appId = Option(jobId),
+              taskDesc = auditTaskDesc,
+              configOptions = Map.empty,
+              interactive = None,
               truncate = false,
               test = false,
               engine = engine,
-              logExecution = false // We do not log the job that write the logs :)
+              logExecution = false, // We do not log the job that write the logs :)
+              accessToken = accessToken
             )
           Some(task)
       }

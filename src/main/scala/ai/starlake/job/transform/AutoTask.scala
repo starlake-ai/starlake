@@ -62,7 +62,8 @@ abstract class AutoTask(
   val test: Boolean,
   val logExecution: Boolean,
   val truncate: Boolean = false,
-  val resultPageSize: Int = 1
+  val resultPageSize: Int = 1,
+  val accessToken: Option[String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
@@ -120,7 +121,7 @@ abstract class AutoTask(
     sinkConfig.connectionRef.getOrElse(settings.appConfig.connectionRef)
 
   protected lazy val sinkConnection: Settings.Connection =
-    settings.appConfig.connections(sinkConnectionRef)
+    settings.appConfig.connections(sinkConnectionRef).withAccessToken(accessToken)
 
   protected def strategy: WriteStrategy = taskDesc.getStrategy()
 
@@ -299,12 +300,12 @@ abstract class AutoTask(
     test: Boolean
   ): Unit = {
     val log = auditLog(start, end, jobResultCount, success = true, "success", test)
-    log.foreach(al => AuditLog.sink(List(al)))
+    log.foreach(al => AuditLog.sink(List(al), accessToken))
   }
 
   def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable, test: Boolean): Unit = {
     val log = auditLog(start, end, -1, success = false, Utils.exceptionAsString(e), test)
-    log.foreach(al => AuditLog.sink(List(al)))
+    log.foreach(al => AuditLog.sink(List(al), accessToken))
   }
 
   def dependencies(streams: CaseInsensitiveMap[String]): List[String] = {
@@ -384,7 +385,7 @@ abstract class AutoTask(
           success = true,
           "success",
           test
-        ).flatMap(al => AuditLog.buildListOfSQLStatements(List(al)))
+        ).flatMap(al => AuditLog.buildListOfSQLStatements(List(al), accessToken))
       auditStatements
     } else {
       None
@@ -501,13 +502,12 @@ object AutoTask extends StrictLogging {
       case Engine.BQ =>
         BigQueryJobBase.executeUpdate(sql, connectionRef, accessToken)
       case Engine.JDBC =>
-        JdbcAutoTask.executeUpdate(sql, connectionRef)
+        JdbcAutoTask.executeUpdate(sql, connectionRef, accessToken)
       case Engine.SPARK =>
-        SparkAutoTask.executeUpdate(sql, connectionRef)
+        SparkAutoTask.executeUpdate(sql, connectionRef /* ignored */, accessToken /* ignored */ )
       case _ =>
         Failure(throw new Exception(s"Unsupported engine $engine"))
     }
-
   }
 
   def task(
@@ -607,6 +607,7 @@ object AutoTask extends StrictLogging {
         settings.appConfig
           .connection(connectionName)
           .getOrElse(throw new Exception(s"Connection not found $connectionName"))
+          .withAccessToken(accessToken)
       )
     connection match {
       case Success(conn) =>

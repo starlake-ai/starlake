@@ -11,7 +11,8 @@ case class JdbcConnectionLoadConfig(
   format: String = "jdbc",
   options: Map[String, String] = Map.empty,
   rls: Option[List[RowLevelSecurity]] = None,
-  createTableIfAbsent: Boolean = false
+  createTableIfAbsent: Boolean = false,
+  accessToken: Option[String] = None
 ) {
   override def toString: String = {
     val redactedOptions = Utils.redact(options)
