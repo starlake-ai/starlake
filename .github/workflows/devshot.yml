@@ -1,5 +1,5 @@
 name: Devshot
-# Run workflow whenever a pull_request has been closed to the `master` and `branch-*` branches
+# This workflow is triggered on demand only. Publish the snapshot, trigger the API workflow and build the docker image.
 on:
   workflow_dispatch:
 jobs:

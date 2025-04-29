@@ -1,5 +1,5 @@
 name: Apishot
-# Run workflow whenever a pull_request has been closed to the `master` and `branch-*` branches
+# This workflow is triggered on demand only. Publish the snapshot version of the library and trigger the API workflow.
 on:
   workflow_dispatch:
 jobs:
