@@ -60,7 +60,6 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           accessToken = accessToken
         )
       if (twoSteps) {
-        val startTime = System.currentTimeMillis()
         val (loadResults, tempTableIds, tableInfos) =
           ParUtils
             .runInParallel(settings.appConfig.maxParTask, path.map(_.toString).zipWithIndex) {
@@ -77,7 +76,6 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                       source = Left(sourceUri),
                       outputTableId = Some(firstStepTempTable),
                       outputTableDesc = Some("Temporary table created during data ingestion."),
-                      days = Some(1),
                       // force first step to be write append, otherwise write_truncate overwrite the
                       // created structure with default values, making second step query to fail if it relies on
                       // technical column such as comet_input_filename.
@@ -136,8 +134,6 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           }
         }
 
-        println("First step done in : " + ExtractUtils.toHumanElapsedTimeFrom(startTime))
-
         val output: Try[List[BqLoadInfo]] =
           applyBigQuerySecondStep(
             targetConfig,
@@ -158,7 +154,9 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           archiveTableTask(database, schema, table, info).foreach(_.run())
         }
         Try(ParUtils.runInParallel(settings.appConfig.maxParTask, tempTableIds) { tableId =>
-          new BigQueryNativeJob(targetConfig, "").dropTable(tableId)
+          BigQueryJobBase.recoverBigqueryException {
+            new BigQueryNativeJob(targetConfig, "").dropTable(tableId)
+          }
         })
           .flatMap(_ => output)
           .recoverWith { case exception =>

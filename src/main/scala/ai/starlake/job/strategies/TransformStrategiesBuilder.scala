@@ -238,16 +238,29 @@ object TransformStrategiesBuilder {
   ) {
 
     def asMap()(implicit settings: Settings): Map[String, Any] = {
+      val (partitionPruningKey, quotedPartitionPruningKey) =
+        if (settings.appConfig.prunePartitionOnMerge && strategy.key.nonEmpty) {
+          sinkConfig
+            .toAllSinks()
+            .partition
+            .flatMap(partitions => partitions.find(p => strategy.key.contains(p)))
+            .map(k => k -> jdbcEngine.quoteIdentifier(k))
+            .getOrElse("" -> "")
+        } else {
+          "" -> ""
+        }
       val tableFormat = sinkConfig
         .toAllSinks()
         .format
         .getOrElse(settings.appConfig.defaultWriteFormat)
       strategy.asMap(jdbcEngine) ++ tableComponents.asMap(jdbcEngine) ++ Map(
-        "selectStatement"  -> selectStatement,
-        "tableExists"      -> targetTableExists,
-        "tableTruncate"    -> truncate,
-        "materializedView" -> materializedView.toString,
-        "tableFormat"      -> tableFormat
+        "selectStatement"           -> selectStatement,
+        "tableExists"               -> targetTableExists,
+        "tableTruncate"             -> truncate,
+        "materializedView"          -> materializedView.toString,
+        "tableFormat"               -> tableFormat,
+        "partitionPruningKey"       -> partitionPruningKey,
+        "quotedPartitionPruningKey" -> quotedPartitionPruningKey
       ) ++ jdbcEngine.asMap() ++ sinkConfig.toAllSinks().asMap(jdbcEngine)
 
     }
