@@ -1,9 +1,24 @@
 
 # Release notes
 
-# 1.4.1:
+# 1.5.0:
+__Improvement__:
+- add `SL_PRUNE_PARTITION_ON_MERGE` settings to prune partition on merge. Currently for bigquery only. Recommended to be set to true for load scenarios with merge.
+- add `partitionPruningKey` and `quotedPartitionPruningKey` variables in write strategy templates. They are only set when target table's partition column is one of the merge keys and feature is enabled. 
+
 __Bug fix__:
 - fix index out of bound exception when extracting table name from file name
+- add rate limit exception retry during table deletion
+- fix premature shutdown of parallel executions
+- fix incoming data kept for current partition day only when table is partitionned with bq native and requires temporary tables. Now, it follows target expiration. Affected jobs met the criteria below and is recommended to upgrade to this version:
+  - target table is partitionned
+  - incoming data partitions are older than yesterday 
+  - and one of:
+    - any load job with scripted fields or ignored fields
+    - use merge strategy: scd2, upsert_by_key, delete_then_insert, upsert_by_key_and_timestamp
+    - filter incoming data
+    - archiveTable
+    - detailedLoadAudit is enabled with multiple files to ingest at once (SL_GROUPED set to true)
 
 # 1.4.0
 

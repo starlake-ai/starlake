@@ -18,7 +18,8 @@ object Versions {
   val jacksonForSpark3 = "2.15.2"
   val pureConfig = "0.14.0"
   val esSpark212 = "8.16.3"
-  val jsonSchemaValidator = "1.4.3"
+  // starting 1.4.1, it uses 2.17.0 of jackson which is not compatible with provided version in spark
+  val jsonSchemaValidator = "1.4.0"
   val scopt = "4.1.0"
   val bigquery = "2.49.0"
   // val gcsConnector = "3.0.4"
@@ -45,6 +46,7 @@ object Versions {
   val redshiftJDBC = "2.1.0.32"
   val scalaCompat = "2.12.0"
   val scalaParallelCollections = "1.0.4"
-  val derbyVersion = "10.17.1.0" // last version compatible with Java 8
+  val derbyVersion =
+    "10.14.2.0" // last version compatible with Java 8, see https://db.apache.org/derby/derby_downloads.html
   val jSqlFormatter = "5.1-SNAPSHOT"
 }

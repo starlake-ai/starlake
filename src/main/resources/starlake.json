@@ -2052,6 +2052,10 @@
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Path to tests folder. Default is ${metadata}/tests"
         },
+        "prunePartitionOnMerge": {
+          "type": "boolean",
+          "description": "Pre-compute incoming partitions to prune partitions on merge statement"
+        },
         "writeStrategies": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Location where are located user defined write strategies; Default is ${metadata}/write-strategies"
