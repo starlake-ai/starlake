@@ -138,6 +138,21 @@ object Utils extends StrictLogging {
     logger.error(exceptionAsString(exception))
   }
 
+  @annotation.tailrec
+  def hasCauseInStack[T <: Throwable](
+    ex: Throwable
+  )(implicit ct: reflect.ClassTag[T]): Boolean = {
+    if (ct.runtimeClass.isInstance(ex)) {
+      true
+    } else {
+      if (ex.getCause() == null) {
+        false
+      } else {
+        hasCauseInStack(ex.getCause())
+      }
+    }
+  }
+
   def exceptionMessagesChainAsString(exception: Throwable): String = {
     val messages = mutable.ListBuffer.empty[String]
     var currentException = exception
