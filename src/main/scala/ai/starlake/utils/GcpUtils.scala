@@ -6,8 +6,10 @@ import better.files.File
 import com.google.cloud.MonitoredResource
 import com.google.cloud.logging.Payload.JsonPayload
 import com.google.cloud.logging.{LogEntry, LoggingException, LoggingOptions}
+import com.google.common.base.VerifyException
 import com.typesafe.scalalogging.StrictLogging
 
+import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.util.Locale
 import scala.jdk.CollectionConverters._
@@ -75,6 +77,34 @@ object GcpUtils extends StrictLogging {
     }
   }
 
+  private def estimateSize(entry: LogEntry): Int = {
+    entry.toString.getBytes(StandardCharsets.UTF_8).length
+  }
+
+  private def chunkLogs(
+    entries: Seq[LogEntry],
+    maxChunkSize: Int = 9 * 1024 * 1024 // 9 MB
+  ): Seq[Seq[LogEntry]] = {
+    val result = scala.collection.mutable.ArrayBuffer[Seq[LogEntry]]()
+    var currentChunk = scala.collection.mutable.ArrayBuffer[LogEntry]()
+    var currentSize = 0
+
+    for (entry <- entries) {
+      val size = estimateSize(entry)
+      if (currentSize + size > maxChunkSize && currentChunk.nonEmpty) {
+        result += currentChunk.toSeq
+        currentChunk = scala.collection.mutable.ArrayBuffer(entry)
+        currentSize = size
+      } else {
+        currentChunk += entry
+        currentSize += size
+      }
+    }
+
+    if (currentChunk.nonEmpty) result += currentChunk.toSeq
+    result.toSeq
+  }
+
   def sinkToGcpCloudLogging(logs: Seq[Map[String, Any]], typ: String, logName: String)(implicit
     settings: Settings
   ): Unit = {
@@ -93,7 +123,7 @@ object GcpUtils extends StrictLogging {
       .build()
       .getService
     try {
-      val entry = logs.map { log =>
+      val entries = logs.map { log =>
         LogEntry
           .newBuilder(JsonPayload.of(adapt_map_to_gcp_log(log).asJava))
           .setSeverity(com.google.cloud.logging.Severity.INFO)
@@ -104,15 +134,21 @@ object GcpUtils extends StrictLogging {
           .build
       }
       // Writes the log entry asynchronously
-      logging.write(entry.asJava)
-      // Optional - flush any pending log entries just before Logging is closed
-      BigQueryJobBase.recoverBigqueryException(logging.flush()) match {
-        case Failure(exception: LoggingException) =>
-          logger.error("Failed to log entry " + entry, exception)
-        case Failure(exception) => throw exception
-        case Success(_)         => //
+      val chunks = chunkLogs(entries)
+
+      chunks.foreach { chunk =>
+        logging.write(chunk.asJava)
+        // Optional - flush any pending log entries just before Logging is closed
+        BigQueryJobBase.recoverBigqueryException(logging.flush()) match {
+          case Failure(exception: VerifyException)
+              if Utils.hasCauseInStack[LoggingException](exception) =>
+            logger.error("Failed to log entries " + chunk, exception)
+          case Failure(exception: LoggingException) =>
+            logger.error("Failed to log entries " + chunk, exception)
+          case Failure(exception) => throw exception
+          case Success(_)         => //
+        }
       }
     } finally if (logging != null) logging.close()
   }
-
 }
