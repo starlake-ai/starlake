@@ -5,6 +5,7 @@
 __Improvement__:
 - add `SL_PRUNE_PARTITION_ON_MERGE` settings to prune partition on merge. Currently for bigquery only. Recommended to be set to true for load scenarios with merge.
 - add `partitionPruningKey` and `quotedPartitionPruningKey` variables in write strategy templates. They are only set when target table's partition column is one of the merge keys and feature is enabled.
+- chunk log entries for gcp logs in order to avoid `INVALID_ARGUMENT: Request payload size exceeds the limit: 10485760 bytes`
 - retry on `TimeoutException` wrapped into `VerifyException`
 
 __Bug fix__:
