@@ -1,4 +1,4 @@
-name: Apishot
+name: Apishot-arm64
 # This workflow is triggered on demand only. Publish the snapshot version of the library and trigger the API workflow.
 on:
   workflow_dispatch:
@@ -35,7 +35,7 @@ jobs:
         uses: sbt/setup-sbt@v1
       - name: Publish Snapshot on Sonatype Spark 3 for scala 2.13
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 publish
-      - name: trigger-starlake-api
+      - name: trigger-starlake-api-arm64
         if: ${{ success() }}
         uses: actions/github-script@v6
         with:
@@ -44,6 +44,5 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
             owner: 'starlake-ai',
             repo: 'starlake-api',
-            workflow_id: 'docker-hub.yml',
+            workflow_id: 'docker-hub-arm64.yml',
             ref: 'main'})
-
