@@ -1,4 +1,4 @@
-name: Apishot
+name: Apishot-arm64
 # This workflow is triggered on demand only. Publish the snapshot version of the library and trigger the API workflow.
 on:
   workflow_dispatch:

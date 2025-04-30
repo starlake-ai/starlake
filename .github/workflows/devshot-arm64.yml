@@ -1,4 +1,4 @@
-name: Devshot
+name: Devshot-arm64
 # This workflow is triggered on demand only. Publish the snapshot, trigger the API workflow and build the docker image.
 on:
   workflow_dispatch:
