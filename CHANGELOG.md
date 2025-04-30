@@ -4,7 +4,8 @@
 # 1.5.0:
 __Improvement__:
 - add `SL_PRUNE_PARTITION_ON_MERGE` settings to prune partition on merge. Currently for bigquery only. Recommended to be set to true for load scenarios with merge.
-- add `partitionPruningKey` and `quotedPartitionPruningKey` variables in write strategy templates. They are only set when target table's partition column is one of the merge keys and feature is enabled. 
+- add `partitionPruningKey` and `quotedPartitionPruningKey` variables in write strategy templates. They are only set when target table's partition column is one of the merge keys and feature is enabled.
+- retry on `TimeoutException` wrapped into `VerifyException`
 
 __Bug fix__:
 - fix index out of bound exception when extracting table name from file name
