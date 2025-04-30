@@ -19,6 +19,7 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.{
 import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.{Credentials => GcsCredentials}
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.storage.{Storage, StorageOptions}
 import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
+import com.google.common.base.VerifyException
 import com.google.iam.v1.{Binding, Policy => IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
@@ -1170,6 +1171,11 @@ object BigQueryJobBase extends StrictLogging {
           processWithRetry(retry + 1, bigqueryProcess)
         case te: TimeoutException if retry < 3 =>
           retryOneMoreTime(te)
+        case ve: VerifyException if retry < 3 && Option(ve.getCause).exists {
+              case _: TimeoutException => true
+              case _                   => false
+            } =>
+          retryOneMoreTime(ve)
       }
     }
     processWithRetry(bigqueryProcess = bigqueryProcess)
