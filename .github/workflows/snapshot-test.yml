@@ -40,6 +40,8 @@ jobs:
           echo "SL_VERSION=${SL_VERSION}" >> $GITHUB_ENV
           SL_MAJOR_MINOR_VERSION=$(echo "${SL_VERSION}" | cut -d'.' -f1-2)
           echo "SL_MAJOR_MINOR_VERSION=${SL_MAJOR_MINOR_VERSION}" >> $GITHUB_ENV
+          SL_MAJOR_VERSION=$(echo "${SL_VERSION}" | cut -d'.' -f1)
+          echo "SL_MAJOR_VERSION=${SL_MAJOR_VERSION}" >> $GITHUB_ENV
           REGISTRY_IMAGE=starlakeai/starlake
           echo "REGISTRY_IMAGE=${REGISTRY_IMAGE}" >> $GITHUB_ENV
           REGISTRY_IMAGE_LATEST=${REGISTRY_IMAGE}:${SL_VERSION:-latest}
@@ -66,9 +68,9 @@ jobs:
           # generate Docker tags based on the following events/attributes
           tags: |
             type=schedule
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern=$SL_VERSION
+            type=semver,pattern=$SL_MAJOR_MINOR_VERSION
+            type=semver,pattern=$SL_MAJOR_VERSION
 #            type=sha
 
       - name: Set up QEMU
@@ -127,6 +129,8 @@ jobs:
           echo "SL_VERSION=${SL_VERSION}" >> $GITHUB_ENV
           SL_MAJOR_MINOR_VERSION=$(echo "${SL_VERSION}" | cut -d'.' -f1-2)
           echo "SL_MAJOR_MINOR_VERSION=${SL_MAJOR_MINOR_VERSION}" >> $GITHUB_ENV
+          SL_MAJOR_VERSION=$(echo "${SL_VERSION}" | cut -d'.' -f1)
+          echo "SL_MAJOR_VERSION=${SL_MAJOR_VERSION}" >> $GITHUB_ENV
           REGISTRY_IMAGE=starlakeai/starlake
           echo "REGISTRY_IMAGE=${REGISTRY_IMAGE}" >> $GITHUB_ENV
           REGISTRY_IMAGE_LATEST=${REGISTRY_IMAGE}:${SL_VERSION:-latest}
@@ -159,8 +163,8 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern=$SL_VERSION
+            type=semver,pattern=$SL_MAJOR_MINOR_VERSION
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
