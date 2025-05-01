@@ -68,9 +68,9 @@ jobs:
           # generate Docker tags based on the following events/attributes
           tags: |
             type=schedule
-            type=semver,pattern=$SL_VERSION
-            type=semver,pattern=$SL_MAJOR_MINOR_VERSION
-            type=semver,pattern=$SL_MAJOR_VERSION
+            type=semver,pattern={{version}},value=$SL_VERSION
+            type=semver,pattern={{major}}.{{minor}},value=$SL_MAJOR_MINOR_VERSION
+            type=semver,pattern={{major}},value=$SL_MAJOR_VERSION
 #            type=sha
 
       - name: Set up QEMU
@@ -163,8 +163,8 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr
-            type=semver,pattern=$SL_VERSION
-            type=semver,pattern=$SL_MAJOR_MINOR_VERSION
+            type=semver,pattern={{version}},value=$SL_VERSION
+            type=semver,pattern={{major}}.{{minor}},value=$SL_MAJOR_MINOR_VERSION
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
