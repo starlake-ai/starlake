@@ -720,6 +720,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def getTablesWithColumnNames(tableNames: List[String]): List[(String, TableWithNameAndType)] = {
+    val objects = objectNames()
     tableNames.flatMap { tableFullName =>
       val tableComponents = tableFullName.split('.')
       val (domainName, tableName) = tableComponents match {
@@ -1391,14 +1392,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     jobs().flatMap(_.tasks)
   }
 
-  def getTask(taskName: String) = {
+  def task(taskName: String): Try[AutoTaskDesc] = Try {
     val allTasks = tasks()
     allTasks
       .find(t => t.name == taskName)
-  }
-
-  def task(taskName: String): Try[AutoTaskDesc] = Try {
-    getTask(taskName).getOrElse(throw new Exception(s"Task $taskName not found"))
+      .getOrElse(throw new Exception(s"Task $taskName not found"))
   }
 
   def taskOnly(
