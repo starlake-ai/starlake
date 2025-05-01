@@ -115,7 +115,9 @@ jobs:
     needs:
       - docker-build
     steps:
-
+      - name: Checkout
+        id: vcs
+        uses: actions/checkout@v4
       - name: Env
         run: |
           cat .versions >> $GITHUB_ENV
