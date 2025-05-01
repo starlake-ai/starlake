@@ -157,6 +157,7 @@ jobs:
           password: ${{ env.DOCKERHUB_TOKEN }}
 
       - name: Build and export to Docker
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: "./distrib/docker"
