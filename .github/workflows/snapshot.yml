@@ -82,17 +82,19 @@ jobs:
             workflow_id: 'docker-hub.yml',
             ref: 'main'})
 
-  docker-hub:
+  docker-build:
     needs: snapshot
     name: Snapshot Docker Image
     runs-on: ubuntu-latest
+    strategy:
+        fail-fast: false
+        matrix:
+          platform: [amd64, arm64]
     permissions:
       packages: write
       contents: read
       attestations: write
       id-token: write
-    strategy:
-      fail-fast: false
     steps:
       - name: Checkout
         id: vcs
@@ -103,6 +105,8 @@ jobs:
       - name: Env
         run: |
           cat .versions >> $GITHUB_ENV
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
           source .versions
           FIRST_LINE=$(head -n 1 version.sbt)
           SL_VERSION=$(echo "$FIRST_LINE" | sed -E 's/.*version := "([0-9]+\.[0-9]+\.?.*)"/\1/')
@@ -120,7 +124,7 @@ jobs:
       - name: Prepare
         run: |
           ./scripts/docker-prepare.sh
-      
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -139,62 +143,83 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
 #            type=sha
-        
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ env.DOCKERHUB_TOKEN }}
-      
+
       - name: Build and export to Docker
         uses: docker/build-push-action@v6
         with:
           context: "./distrib/docker"
-          pull: true
-          load: true
           tags: ${{ steps.meta.outputs.tags }},${{ env.REGISTRY_IMAGE_LATEST }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
               BUILD_DATE=${{ env.BUILD_DATE }}
               VCS_REF=${{ steps.vcs.outputs.commit }}
               SL_VERSION=${{ env.SL_VERSION }}
+          platforms: linux/${{ matrix.platform }}
+          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p ${{ runner.temp }}/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    needs:
+      - docker-build
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
 
       - name: Inspect image
         run: |
-          docker image inspect --format='{{json .Config.Labels}}' ${{ env.REGISTRY_IMAGE_LATEST }}
-
-      - name: Test
-        run: |
-          docker run --rm ${{ env.REGISTRY_IMAGE_LATEST }} help
-
-      - name: Push image
-        if: github.event_name != 'pull_request'
-        id: push
-        uses: docker/build-push-action@v6
-        with:
-          context: "./distrib/docker"
-          platforms: ${{ env.PLATFORMS }}
-          pull: true
-          push: true
-          provenance: mode=max
-          tags: ${{ steps.meta.outputs.tags }},${{ env.REGISTRY_IMAGE_LATEST }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-              BUILD_DATE=${{ env.BUILD_DATE }}
-              VCS_REF=${{ steps.vcs.outputs.commit }}
-              SL_VERSION=${{ env.SL_VERSION }}
-
-      # - name: Generate artifact attestation
-      #   if: github.event_name != 'pull_request'
-      #   uses: actions/attest-build-provenance@v1
-      #   with:
-      #     subject-name: ${{ env.REGISTRY_IMAGE }}
-      #     subject-digest: ${{ steps.push.outputs.digest }}
-      #     push-to-registry: true
-      #     github-token: ${{ env.GITHUB_TOKEN }}
+          docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
