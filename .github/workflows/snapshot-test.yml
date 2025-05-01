@@ -67,11 +67,7 @@ jobs:
             org.opencontainers.image.url=https://starlake.ai
           # generate Docker tags based on the following events/attributes
           tags: |
-            type=schedule
-            type=semver,pattern={{version}},value=$SL_VERSION
-            type=semver,pattern={{major}}.{{minor}},value=$SL_MAJOR_MINOR_VERSION
-            type=semver,pattern={{major}},value=$SL_MAJOR_VERSION
-#            type=sha
+            type=semver,pattern={{version}},value=v$SL_VERSION
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -161,10 +157,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}},value=$SL_VERSION
-            type=semver,pattern={{major}}.{{minor}},value=$SL_MAJOR_MINOR_VERSION
+            type=semver,pattern={{version}},value=v$SL_VERSION
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
