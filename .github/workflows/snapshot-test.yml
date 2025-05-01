@@ -115,6 +115,24 @@ jobs:
     needs:
       - docker-build
     steps:
+
+      - name: Env
+        run: |
+          cat .versions >> $GITHUB_ENV
+          source .versions
+          FIRST_LINE=$(head -n 1 version.sbt)
+          SL_VERSION=$(echo "$FIRST_LINE" | sed -E 's/.*version := "([0-9]+\.[0-9]+\.?.*)"/\1/')
+          echo "SL_VERSION=${SL_VERSION}" >> $GITHUB_ENV
+          SL_MAJOR_MINOR_VERSION=$(echo "${SL_VERSION}" | cut -d'.' -f1-2)
+          echo "SL_MAJOR_MINOR_VERSION=${SL_MAJOR_MINOR_VERSION}" >> $GITHUB_ENV
+          REGISTRY_IMAGE=starlakeai/starlake
+          echo "REGISTRY_IMAGE=${REGISTRY_IMAGE}" >> $GITHUB_ENV
+          REGISTRY_IMAGE_LATEST=${REGISTRY_IMAGE}:${SL_VERSION:-latest}
+          echo "REGISTRY_IMAGE_LATEST=${REGISTRY_IMAGE_LATEST}" >> $GITHUB_ENV
+          echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" >> $GITHUB_ENV
+          echo "DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}" >> $GITHUB_ENV
+          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
