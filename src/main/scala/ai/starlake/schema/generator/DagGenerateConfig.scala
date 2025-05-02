@@ -33,6 +33,5 @@ case class DagGenerateConfig(
   domains: Boolean = false,
   tasks: Boolean = false,
   masterProjectId: Option[String] = None,
-  masterProjectName: Option[String] = None,
-  orchestrator: Option[String] = None
+  masterProjectName: Option[String] = None
 )
