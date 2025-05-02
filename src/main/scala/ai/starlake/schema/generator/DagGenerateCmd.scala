@@ -51,13 +51,6 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
         .optional()
         .text(
           """Whether to generate DAG file(s) for domains or not""".stripMargin
-        ),
-      builder
-        .opt[String]("orchestrator")
-        .action((x, c) => c.copy(orchestrator = Some(x)))
-        .optional()
-        .text(
-          """snowflake or databricks""".stripMargin
         )
     )
   }
