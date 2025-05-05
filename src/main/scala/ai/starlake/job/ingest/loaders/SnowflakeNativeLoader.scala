@@ -366,7 +366,9 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       case Format.JSON_FLAT | Format.JSON =>
         val sql = buildCopyJson(domainAndTableName)
         JdbcDbUtils.executeQueryAsTable(sql, conn)
-      case _ =>
+      case format =>
+        val sql = buildCopyOther(domainAndTableName, format.toString.toUpperCase())
+        JdbcDbUtils.executeQueryAsTable(sql, conn)
     }
 
   }

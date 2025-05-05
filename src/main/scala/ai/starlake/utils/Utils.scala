@@ -49,7 +49,15 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 object Utils extends StrictLogging {
-  case class CommandOutput(exit: Int, output: String, error: String)
+  case class CommandOutput(exit: Int, output: String, error: String) {
+    override def toString: String = {
+      s"""
+         |exit: $exit
+         |output: $output
+         |error: $error
+         |""".stripMargin
+    }
+  }
 
   type Closeable = { def close(): Unit }
 
