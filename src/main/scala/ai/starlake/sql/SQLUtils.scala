@@ -561,4 +561,12 @@ object SQLUtils extends StrictLogging {
         sql
     }
   }
+
+  def sqlCased(obj: String)(implicit settings: Settings): String = {
+    settings.appConfig.sqlCaseSensitivity.toLowerCase() match {
+      case "upper" => obj.toUpperCase
+      case "lower" => obj.toLowerCase
+      case _       => obj
+    }
+  }
 }

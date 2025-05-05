@@ -4,39 +4,19 @@ import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.IngestionJob
 import ai.starlake.job.transform.JdbcAutoTask
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.{IngestionCounters, SparkUtils}
-import com.typesafe.scalalogging.StrictLogging
-import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 
-import java.nio.charset.Charset
-import scala.util.{Try, Using}
+import scala.util.Try
 
-class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
-  val settings: Settings
-) extends StrictLogging {
+class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit settings: Settings)
+    extends NativeLoader(ingestionJob, None) {
 
-  val domain: Domain = ingestionJob.domain
-
-  val schema: Schema = ingestionJob.schema
-
-  val storageHandler: StorageHandler = ingestionJob.storageHandler
-
-  val schemaHandler: SchemaHandler = ingestionJob.schemaHandler
-
-  val path: List[Path] = ingestionJob.path
-
-  val options: Map[String, String] = ingestionJob.options
-
-  val strategy: WriteStrategy = ingestionJob.mergedMetadata.getStrategyOptions()
-
-  lazy val mergedMetadata: Metadata = ingestionJob.mergedMetadata
-
-  private def requireTwoSteps(schema: Schema): Boolean = {
+  override protected def requireTwoSteps(schema: Schema): Boolean = {
     // renamed attribute can be loaded directly so it's not in the condition
     schema
       .hasTransformOrIgnoreOrScriptColumns() ||
@@ -69,23 +49,23 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           }
 
         val unionTempTables = tempTables.map("SELECT * FROM " + _).mkString("(", " UNION ALL ", ")")
-        val targetTableName = s"${domain.finalName}.${schema.finalName}"
-        val sqlWithTransformedFields = schema.buildSqlSelectOnLoad(unionTempTables)
+        val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
+        val sqlWithTransformedFields = starlakeSchema.buildSqlSelectOnLoad(unionTempTables)
 
         val taskDesc = AutoTaskDesc(
           name = targetTableName,
           sql = Some(sqlWithTransformedFields),
           database = schemaHandler.getDatabase(domain),
           domain = domain.finalName,
-          table = schema.finalName,
-          presql = schema.presql,
-          postsql = schema.postsql,
+          table = starlakeSchema.finalName,
+          presql = starlakeSchema.presql,
+          postsql = starlakeSchema.postsql,
           sink = mergedMetadata.sink,
-          rls = schema.rls,
-          expectations = schema.expectations,
-          acl = schema.acl,
-          comment = schema.comment,
-          tags = schema.tags,
+          rls = starlakeSchema.rls,
+          expectations = starlakeSchema.expectations,
+          acl = starlakeSchema.acl,
+          comment = starlakeSchema.comment,
+          tags = starlakeSchema.tags,
           writeStrategy = mergedMetadata.writeStrategy,
           parseSQL = Some(true),
           connectionRef = Option(mergedMetadata.getSinkConnectionRef())
@@ -108,7 +88,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           )
         job.run()
         job.updateJdbcTableSchema(
-          schema.targetSparkSchemaWithIgnoreAndScript(schemaHandler),
+          starlakeSchema.targetSparkSchemaWithIgnoreAndScript(schemaHandler),
           targetTableName
         )
 
@@ -119,73 +99,10 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           }
         }
       } else {
-        singleStepLoad(domain.finalName, schema.finalName, schemaWithMergedMetadata, path)
+        singleStepLoad(domain.finalName, starlakeSchema.finalName, schemaWithMergedMetadata, path)
       }
     }.map { - =>
       List(IngestionCounters(-1, -1, -1, path.map(_.toString)))
-    }
-  }
-
-  private def computeEffectiveInputSchema(): Schema = {
-    mergedMetadata.resolveFormat() match {
-      case Format.DSV =>
-        (mergedMetadata.resolveWithHeader(), path.map(_.toString).headOption) match {
-          case (java.lang.Boolean.TRUE, Some(sourceFile)) =>
-            val csvHeaders = storageHandler.readAndExecute(
-              new Path(sourceFile),
-              Charset.forName(mergedMetadata.resolveEncoding())
-            ) { is =>
-              Using.resource(is) { reader =>
-                assert(
-                  mergedMetadata.resolveQuote().length <= 1,
-                  "quote must be a single character"
-                )
-                assert(
-                  mergedMetadata.resolveEscape().length <= 1,
-                  "quote must be a single character"
-                )
-                val csvParserSettings = new CsvParserSettings()
-                val format = new CsvFormat()
-                format.setDelimiter(mergedMetadata.resolveSeparator())
-                mergedMetadata.resolveQuote().headOption.foreach(format.setQuote)
-                mergedMetadata.resolveEscape().headOption.foreach(format.setQuoteEscape)
-                csvParserSettings.setFormat(format)
-                // allocate twice the declared columns. If fail a strange exception is thrown: https://github.com/uniVocity/univocity-parsers/issues/247
-                csvParserSettings.setMaxColumns(schema.attributes.length * 2)
-                csvParserSettings.setNullValue(mergedMetadata.resolveNullValue())
-                csvParserSettings.setHeaderExtractionEnabled(true)
-                csvParserSettings.setMaxCharsPerColumn(-1)
-                val csvParser = new CsvParser(csvParserSettings)
-                csvParser.beginParsing(reader)
-                // call this in order to get the headers even if there is no record
-                csvParser.parseNextRecord()
-                csvParser.getRecordMetadata.headers().toList
-              }
-            }
-            val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
-            val csvAttributesInOrders =
-              csvHeaders.map(h =>
-                attributesMap.getOrElse(h, Attribute(h, ignore = Some(true), required = None))
-              )
-            // attributes not in csv input file must not be required but we don't force them to optional.
-            val effectiveAttributes =
-              csvAttributesInOrders ++ schema.attributes.diff(csvAttributesInOrders)
-            if (effectiveAttributes.length > schema.attributes.length) {
-              logger.warn(
-                s"Attributes in the CSV file are bigger from the schema. " +
-                s"Schema will be updated to match the CSV file. " +
-                s"Schema: ${schema.attributes.map(_.name).mkString(",")}. " +
-                s"CSV: ${csvHeaders.mkString(",")}"
-              )
-              schema.copy(attributes = effectiveAttributes.take(schema.attributes.length))
-
-            } else {
-              schema.copy(attributes = effectiveAttributes)
-            }
-
-          case _ => schema
-        }
-      case _ => schema
     }
   }
 
@@ -248,29 +165,30 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           .map { p =>
             val ps = p.toString
             if (ps.startsWith("file:"))
-              StorageHandler.localFile(p).pathAsString
-            else if (ps.contains { "://" }) {
-              val defaultEndpoint =
-                ps.substring(2) match {
-                  case "gs" => "storage.googleapis.com"
-                  case "s3" => "s3.amazonaws.com"
-                  case _    => "s3.amazonaws.com"
-                }
-              val endpoint =
-                sinkConnection.options.getOrElse("s3_endpoint", defaultEndpoint)
-              val keyid =
-                sinkConnection.options("s3_access_key_id")
-              val secret =
-                sinkConnection.options("s3_secret_access_key")
-              JdbcDbUtils.execute("INSTALL httpfs;", conn)
-              JdbcDbUtils.execute("LOAD httpfs;", conn)
-              JdbcDbUtils.execute(s"SET s3_endpoint='$endpoint';", conn)
-              JdbcDbUtils.execute(s"SET s3_access_key_id='$keyid';", conn)
-              JdbcDbUtils.execute(s"SET s3_secret_access_key='$secret';", conn)
-              ps
-            } else {
-              ps
-            }
+              if (ps.startsWith("file:"))
+                StorageHandler.localFile(p).pathAsString
+              else if (ps.contains { "://" }) {
+                val defaultEndpoint =
+                  ps.substring(2) match {
+                    case "gs" => "storage.googleapis.com"
+                    case "s3" => "s3.amazonaws.com"
+                    case _    => "s3.amazonaws.com"
+                  }
+                val endpoint =
+                  sinkConnection.options.getOrElse("s3_endpoint", defaultEndpoint)
+                val keyid =
+                  sinkConnection.options("s3_access_key_id")
+                val secret =
+                  sinkConnection.options("s3_secret_access_key")
+                JdbcDbUtils.execute("INSTALL httpfs;", conn)
+                JdbcDbUtils.execute("LOAD httpfs;", conn)
+                JdbcDbUtils.execute(s"SET s3_endpoint='$endpoint';", conn)
+                JdbcDbUtils.execute(s"SET s3_access_key_id='$keyid';", conn)
+                JdbcDbUtils.execute(s"SET s3_secret_access_key='$secret';", conn)
+                ps
+              } else {
+                ps
+              }
           }
           .mkString("['", "','", "']")
       mergedMetadata.resolveFormat() match {

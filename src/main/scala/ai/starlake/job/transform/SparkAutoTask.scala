@@ -8,6 +8,7 @@ import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
+import ai.starlake.sql.SQLUtils.sqlCased
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
 import ai.starlake.utils.kafka.KafkaClient
@@ -247,7 +248,7 @@ class SparkAutoTask(
         val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
         SparkUtils.sql(
           session,
-          s"CREATE SCHEMA IF NOT EXISTS ${taskDesc.domain} WITH DBPROPERTIES($tagsAsString)"
+          s"CREATE SCHEMA IF NOT EXISTS ${sqlCased(taskDesc.domain)} WITH DBPROPERTIES($tagsAsString)"
         )
       } else {
         SparkUtils.createSchema(session, taskDesc.domain)
@@ -439,7 +440,7 @@ class SparkAutoTask(
         val endTs = strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
 
         val scd2FieldsFound =
-          incomingSchema.fields.exists(_.name.toLowerCase() == startTs.toLowerCase())
+          incomingSchema.fields.exists(_.name.equalsIgnoreCase(startTs))
 
         if (!scd2FieldsFound) {
           val incomingSchemaWithScd2 =

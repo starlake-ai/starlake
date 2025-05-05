@@ -78,8 +78,8 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
       .filter { s =>
         (config.includeSchemas, config.excludeSchemas) match {
           case (Nil, Nil) => true
-          case (inc, Nil) => inc.map(_.toLowerCase).contains(s.schema.toLowerCase)
-          case (Nil, exc) => !exc.map(_.toLowerCase).contains(s.schema.toLowerCase)
+          case (inc, Nil) => inc.exists(_.equalsIgnoreCase(s.schema))
+          case (Nil, exc) => !exc.exists(_.equalsIgnoreCase(s.schema))
           case (_, _) =>
             throw new RuntimeException(
               "You can't specify includeShemas and excludeSchemas at the same time"

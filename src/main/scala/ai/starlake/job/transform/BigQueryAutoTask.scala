@@ -144,13 +144,8 @@ class BigQueryAutoTask(
     sql: String,
     jobTimeoutMs: Option[Long] = None
   ): BigQueryNativeJob = {
-    val toUpperSql = sql.toUpperCase()
-    val finalSql =
-      if (toUpperSql.startsWith("WITH") || toUpperSql.startsWith("SELECT"))
-        sql // "(" + sql + ")"
-      else
-        sql
-    new BigQueryNativeJob(config, finalSql, this.resultPageSize, jobTimeoutMs)
+
+    new BigQueryNativeJob(config, sql, this.resultPageSize, jobTimeoutMs)
   }
 
   private def runSqls(sqls: List[String]): List[Try[BigQueryJobResult]] = {
@@ -508,7 +503,7 @@ class BigQueryAutoTask(
     val isSCD2 = strategy.getEffectiveType() == WriteStrategyType.SCD2
     if (
       isSCD2 && !incomingTableSchema.getFields.asScala.exists(
-        _.getName().toLowerCase() == settings.appConfig.scd2StartTimestamp.toLowerCase()
+        _.getName.equalsIgnoreCase(settings.appConfig.scd2StartTimestamp)
       )
     ) {
       val startCol = Field
