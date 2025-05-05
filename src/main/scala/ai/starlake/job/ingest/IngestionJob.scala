@@ -250,6 +250,7 @@ trait IngestionJob extends SparkJob {
     val sinkConn = mergedMetadata.getSinkConnection()
     val dbName = sinkConn.getDbName()
     val nativeCandidate: Boolean = isNativeCandidate(dbName)
+    logger.info(s"Native candidate: $nativeCandidate")
 
     val loader =
       if (nativeCandidate) {
