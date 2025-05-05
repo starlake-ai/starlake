@@ -17,7 +17,7 @@ class StarbakeDagGenerateSpec extends IntegrationTestBase {
   "Dag Generate" should "succeed" in {
     withEnvs("SL_ROOT" -> theSampleFolder.pathAsString, "SL_ENV" -> "SNOWFLAKE") {
       copyFilesToIncomingDir(sampleDataDir)
-      assert(new Main().run(Array("dag-generate", "--clean", "--orchestrator", "snowflake")))
+      assert(new Main().run(Array("dag-generate", "--clean")))
     }
   }
 }
