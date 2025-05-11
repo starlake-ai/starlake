@@ -37,7 +37,7 @@ object BootstrapCmd extends Cmd[BootstrapConfig] {
     settings: Settings
   ): Try[JobResult] = {
     Bootstrap.bootstrap(config.template)
-    Utils.println(s"Project created based on ${config.template.getOrElse("default")} template")
+    Utils.printOut(s"Project created based on ${config.template.getOrElse("default")} template")
     Success(JobResult.empty)
   }
 }

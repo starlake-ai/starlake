@@ -29,6 +29,16 @@ trait TransformCmd extends Cmd[TransformConfig] {
         .optional()
         .text("Return final query only"),
       builder
+        .opt[String]("query")
+        .action((x, c) => c.copy(query = Some(x)))
+        .optional()
+        .text("Run this query instead of the one in the task"),
+      builder
+        .opt[Unit]("dry-run")
+        .action((_, c) => c.copy(dryRun = true))
+        .optional()
+        .text("Dry run only (supported on BigQuery only)"),
+      builder
         .opt[Seq[String]]("tags")
         .action((x, c) => c.copy(tags = x))
         .optional()

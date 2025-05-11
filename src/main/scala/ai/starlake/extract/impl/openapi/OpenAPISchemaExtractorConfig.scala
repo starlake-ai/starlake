@@ -87,7 +87,7 @@ case class OpenAPIRouteExplosion(
   rename: Map[String, Pattern] = Map.empty
 ) {
   @JsonCreator
-  private def this() { // Should never be called. Here for Jackson deserialization only
+  private def this() = { // Should never be called. Here for Jackson deserialization only
     this(exclude = Nil)
   }
 }
@@ -97,7 +97,7 @@ case class OpenAPISchema(
   exclude: List[Pattern] = Nil
 ) {
   @JsonCreator
-  private def this() { // Should never be called. Here for Jackson deserialization only
+  private def this() = { // Should never be called. Here for Jackson deserialization only
     this(exclude = Nil)
   }
 }
@@ -111,7 +111,7 @@ case class OpenAPIRoute(
   explode: Option[OpenAPIRouteExplosion] = None
 ) {
   @JsonCreator
-  private def this() { // Should never be called. Here for Jackson deserialization only
+  private def this() = { // Should never be called. Here for Jackson deserialization only
     this(as = None)
   }
 }
@@ -123,7 +123,7 @@ case class OpenAPIDomain(
   routes: List[OpenAPIRoute] = Nil
 ) {
   @JsonCreator
-  private def this() { // Should never be called. Here for Jackson deserialization only
+  private def this() = { // Should never be called. Here for Jackson deserialization only
     this(name = "")
   }
 }

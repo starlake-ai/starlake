@@ -95,7 +95,7 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] with StrictLogging {
         ) match {
         case Success(_) =>
           logger.info(s"Successfully inferred schema for $inputPath")
-          Utils.println(s"Successfully inferred schema for $inputPath")
+          Utils.printOut(s"Successfully inferred schema for $inputPath")
           Success(JobResult.empty)
         case Failure(exception) =>
           logger.error(s"Failed to infer schema for $inputPath", exception)

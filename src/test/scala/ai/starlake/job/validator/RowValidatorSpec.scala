@@ -657,8 +657,8 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
 
   "validate" should "validate all primitive types with string type" in {
     new WithSettings() {
-      implicit val schemaHandler = settings.schemaHandler()
-      implicit val spark = sparkSession
+      implicit val schemaHandler: SchemaHandler = settings.schemaHandler()
+      implicit val spark: SparkSession = sparkSession
       // Create attributes for each primitive type
 
       val (inputRow, inputSchema, ingestionSchema) = primitiveStringType()
@@ -676,8 +676,8 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
   it should "validate all primitive types with native type" in {
     // allows to support files such as parquet where timestamp or date are already defined
     new WithSettings() {
-      implicit val schemaHandler = settings.schemaHandler()
-      implicit val spark = sparkSession
+      implicit val schemaHandler: SchemaHandler = settings.schemaHandler()
+      implicit val spark: SparkSession = sparkSession
 
       val (inputRow, inputSchema, ingestionSchema) = primitiveNativeType()
       assertValidateFun(
@@ -1008,8 +1008,8 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
 
   "fitToSchema" should "convert string type to native type" in {
     new WithSettings() {
-      implicit val schemaHandler = settings.schemaHandler()
-      implicit val spark = sparkSession
+      implicit val schemaHandler: SchemaHandler = settings.schemaHandler()
+      implicit val spark: SparkSession = sparkSession
       // ensure timezone doesn't makes unit test fail
       spark.conf.set("spark.sql.session.timeZone", "+06:00")
       // Create attributes for each primitive type
@@ -1054,8 +1054,8 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
   it should "keep all primitive types" in {
     // allows to support files such as parquet where timestamp or date are already defined
     new WithSettings() {
-      implicit val schemaHandler = settings.schemaHandler()
-      implicit val spark = sparkSession
+      implicit val schemaHandler: SchemaHandler = settings.schemaHandler()
+      implicit val spark: SparkSession = sparkSession
       spark.conf.set("spark.sql.session.timeZone", "+06:00")
 
       val (inputRow, inputSchema, ingestionSchema) = primitiveNativeType()
@@ -1097,8 +1097,8 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
   it should "create missing columns with default value if defined" in {
     // allows to support files such as parquet where timestamp or date are already defined
     new WithSettings() {
-      implicit val schemaHandler = settings.schemaHandler()
-      implicit val spark = sparkSession
+      implicit val schemaHandler: SchemaHandler = settings.schemaHandler()
+      implicit val spark: SparkSession = sparkSession
       spark.conf.set("spark.sql.session.timeZone", "+06:00")
 
       val inputRow = Row(Row(), 2.5)
@@ -1169,8 +1169,8 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
 
   "validate workflow" should "validate native input" in {
     new WithSettings() {
-      implicit val schemaHandler = settings.schemaHandler()
-      implicit val spark = sparkSession
+      implicit val schemaHandler: SchemaHandler = settings.schemaHandler()
+      implicit val spark: SparkSession = sparkSession
 
       val (inputRow, inputSchema, ingestionSchema) = primitiveNativeType()
       val df = spark.createDataFrame(
@@ -1194,8 +1194,8 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
 
   it should "validate string input" in {
     new WithSettings() {
-      implicit val schemaHandler = settings.schemaHandler()
-      implicit val spark = sparkSession
+      implicit val schemaHandler: SchemaHandler = settings.schemaHandler()
+      implicit val spark: SparkSession = sparkSession
 
       val (inputRow, inputSchema, ingestionSchema) = primitiveStringType()
       val df = spark.createDataFrame(

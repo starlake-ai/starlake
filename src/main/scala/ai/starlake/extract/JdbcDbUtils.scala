@@ -716,7 +716,7 @@ object JdbcDbUtils extends LazyLogging {
           logger.whenDebugEnabled {
             selectedTables.keys.foreach(table => logger.debug(s"Selected: $table"))
           }
-          Utils.println(s"Found ${selectedTables.size} tables in $schemaName")
+          Utils.printOut(s"Found ${selectedTables.size} tables in $schemaName")
           (schemaName, selectedTables)
         }
       }
@@ -729,7 +729,7 @@ object JdbcDbUtils extends LazyLogging {
               .Manager { use =>
                 selectedTableNames.toList.map { case (tableName, tableRemarks) =>
                   ExtractUtils.timeIt(s"Table's schema extraction of $schemaName.$tableName") {
-                    Utils.println(
+                    Utils.printOut(
                       s"Extracting table '$schemaName.$tableName'"
                     )
                     withJDBCConnection(readOnlyConnection(connectionSettings).options) {
@@ -823,7 +823,7 @@ object JdbcDbUtils extends LazyLogging {
       } else {
         schemaAndTableNames.map { case (schemaName, selectedTableNames) =>
           selectedTableNames.toList.map { case (tableName, tableRemarks) =>
-            Utils.println(
+            Utils.printOut(
               s"Extracting table '$schemaName.$tableName'"
             )
             tableName -> ExtractTableAttributes(

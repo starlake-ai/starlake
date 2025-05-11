@@ -21,11 +21,12 @@
 package ai.starlake.schema.model
 
 import ai.starlake.TestHelper
+import ai.starlake.schema.handlers.SchemaHandler
 
 class AttributeSpec extends TestHelper {
   new WithSettings() {
 
-    implicit val schemaHandler = settings.schemaHandler()
+    implicit val schemaHandler: SchemaHandler = settings.schemaHandler()
 
     val refAttributes = mapper.readValue[List[Attribute]]("""
         |- name: "attr1"

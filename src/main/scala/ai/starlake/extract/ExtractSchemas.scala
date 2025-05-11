@@ -58,7 +58,7 @@ case class ExtractSchemas(
 ) {
 
   @JsonCreator
-  private def this() { // Should never be called. Here for Jackson deserialization only
+  private def this() = { // Should never be called. Here for Jackson deserialization only
     this(jdbcSchemas = None)
   }
 

@@ -40,7 +40,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
       case None         => config.inputFolder
       case Some(folder) => folder
     }
-    allPaths.flatMap { path: Path =>
+    allPaths.flatMap { path =>
       val fileFound = Try {
         storageHandler.list(path, recursive = false).nonEmpty ||
         storageHandler.listDirectories(path).nonEmpty

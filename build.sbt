@@ -12,6 +12,7 @@ javacOptions ++= Seq(
   "-Xlint"
 )
 
+
 Test / javaOptions ++= Seq("-Dfile.encoding=UTF-8")
 
 val testJavaOptions = {
@@ -41,11 +42,13 @@ ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 // lazy val scala212 = "2.12.20"
 
-lazy val scala213 = "2.13.16"
+lazy val scala213 = "2.13.15"
+lazy val scala3 = "3.3.1"
 
-lazy val supportedScalaVersions = List(scala213)
+lazy val supportedScalaVersions = Seq(scala213, scala3)
 
- ThisBuild / crossScalaVersions := supportedScalaVersions
+
+ThisBuild / crossScalaVersions := supportedScalaVersions
 
 organization := "ai.starlake"
 
@@ -110,8 +113,8 @@ scalacOptions ++= {
     "-deprecation",
     "-feature",
     "-Xmacro-settings:materialize-derivations",
-    "-Ywarn-unused:imports"
-  ) ++ extractOptions
+    "-Ywarn-unused:imports",
+    "-Xsource:3"  ) ++ extractOptions
 
 }
 

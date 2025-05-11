@@ -75,7 +75,7 @@ trait LoadCmd extends Cmd[LoadConfig] {
     val result = workflow(schemaHandler).load(config)
     result match {
       case scala.util.Success(sparkResult: SparkJobResult) =>
-        sparkResult.counters.foreach(c => Utils.println(c.toString()))
+        sparkResult.counters.foreach(c => Utils.printOut(c.toString()))
         if (sys.env.contains("SL_API"))
           System.out.println(
             "IngestionCounters:" + JsonSerializer.mapper.writeValueAsString(sparkResult.counters)

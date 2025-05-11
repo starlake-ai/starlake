@@ -189,11 +189,11 @@ class IngestionWorkflow(
       val filesToLoad = listStageFiles(domain, dryMode = false).flatMap { case (_, files) => files }
       val destFolder = DatasetArea.stage(domain.name)
       val inputDir = new Path(domain.resolveDirectory())
-      Utils.println(s"Moving ${filesToLoad.size} file(s) from $inputDir to $destFolder")
+      Utils.printOut(s"Moving ${filesToLoad.size} file(s) from $inputDir to $destFolder")
       filesToLoad.foreach { file =>
         logger.info(s"Importing $file")
         val destFile = new Path(destFolder, file.path.getName)
-        Utils.println(s"Moving ${file.path.getName}")
+        Utils.printOut(s"Moving ${file.path.getName}")
         storageHandler.moveFromLocal(file.path, destFile)
       }
 
@@ -698,7 +698,7 @@ class IngestionWorkflow(
     test: Boolean
   ): Try[JobResult] = {
     val metadata = schema.mergedMetadata(domain.metadata)
-    Utils.println(
+    Utils.printOut(
       s"""Loading
          |Format: ${metadata.resolveFormat()}
          |File(s): ${ingestingPaths.mkString(",")}
@@ -962,8 +962,8 @@ class IngestionWorkflow(
          |$formattedExist
          |""".stripMargin
       )
-    Utils.println(result._1)
-    Utils.println(result._2)
+    Utils.printOut(result._1)
+    Utils.printOut(result._2)
     result
   }
 
@@ -1081,11 +1081,11 @@ class IngestionWorkflow(
   def autoJob(config: TransformConfig): Try[String] = {
     val result =
       if (config.recursive) {
-        Utils.println(s"Building dependency tree for task ${config.name}...")
+        Utils.printOut(s"Building dependency tree for task ${config.name}...")
         val taskConfig = AutoTaskDependenciesConfig(tasks = Some(List(config.name)))
         val dependencyTree = new AutoTaskDependencies(settings, schemaHandler, storageHandler)
           .jobsDependencyTree(taskConfig)
-        Utils.println(s"Dependency tree built for task ${config.name}")
+        Utils.printOut(s"Dependency tree built for task ${config.name}")
         dependencyTree.foreach(_.print())
         transform(dependencyTree, config.options)
       } else if (config.tags.nonEmpty) {
@@ -1133,7 +1133,7 @@ class IngestionWorkflow(
     logger.info(s"Transforming with config $transformConfig")
     logger.info(s"Entering ${action.taskDesc.getRunEngine()} engine")
     val runEngine = action.taskDesc.getRunEngine()
-    Utils.println(s"Using engine $runEngine")
+    Utils.printOut(s"Using engine $runEngine")
     runEngine match {
       case BQ =>
         val result = action.run()
@@ -1144,6 +1144,7 @@ class IngestionWorkflow(
               case Some(format) =>
                 val bqJobResult = res.asInstanceOf[BigQueryJobResult]
                 val pretty = bqJobResult.prettyPrint(format, transformConfig.dryRun)
+                Utils.printOut(pretty)
                 Success(pretty)
               case None =>
                 Success("")
@@ -1155,6 +1156,7 @@ class IngestionWorkflow(
         (action.run(), transformConfig.interactive) match {
           case (Success(jdbcJobResult: JdbcJobResult), Some(format)) =>
             val pretty = jdbcJobResult.prettyPrint(format)
+            Utils.printOut(pretty)
             Success(pretty) // Sink already done in JDBC
           case (Success(_), _) =>
             Success("")
@@ -1166,6 +1168,7 @@ class IngestionWorkflow(
         (action.run(), transformConfig.interactive) match {
           case (Success(jobResult: SparkJobResult), Some(format)) =>
             val result = jobResult.prettyPrint(format)
+            Utils.printOut(result)
             Success(result)
           case (Success(_), None) =>
             Success("")

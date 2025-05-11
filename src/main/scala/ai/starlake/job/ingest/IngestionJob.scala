@@ -248,7 +248,7 @@ trait IngestionJob extends SparkJob {
 
   private def selectLoader(): String = {
     val sinkConn = mergedMetadata.getSinkConnection()
-    val dbName = sinkConn.getDbName()
+    val dbName = sinkConn.targetDatawareHouse()
     val nativeCandidate: Boolean = isNativeCandidate(dbName)
     logger.info(s"Native candidate: $nativeCandidate")
 
@@ -452,7 +452,7 @@ trait IngestionJob extends SparkJob {
         // on failure log failures
         logLoadFailureInAudit(now, exception)
       }
-      .map { counterResults: List[IngestionCounters] =>
+      .map { (counterResults: List[IngestionCounters]) =>
         val validCounterResults = counterResults.filter(!_.ignore)
         logLoadInAudit(now, validCounterResults) match {
           case Failure(exception) => throw exception

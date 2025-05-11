@@ -397,7 +397,7 @@ object Utils extends StrictLogging {
 
   def save(outputFile: Option[File], result: String): Unit = {
     outputFile match {
-      case None => println(result)
+      case None => printOut(result)
       case Some(outputFile) =>
         outputFile.parent.createDirectories()
         outputFile.overwrite(result)
@@ -434,7 +434,7 @@ object Utils extends StrictLogging {
       dotFile.delete(swallowIOExceptions = false)
       outputFile match {
         case None =>
-          println(svgFile.contentAsString)
+          printOut(svgFile.contentAsString)
           svgFile.delete(swallowIOExceptions = false)
         case Some(_) =>
       }
@@ -571,9 +571,9 @@ object Utils extends StrictLogging {
     exitValue
   }
 
-  def println(s: String): Unit = {
+  def printOut(s: String): Unit = {
     if (Main.cliMode)
-      System.out.println(s)
+      println(s)
   }
 }
 

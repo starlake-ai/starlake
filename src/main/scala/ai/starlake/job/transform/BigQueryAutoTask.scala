@@ -193,7 +193,7 @@ class BigQueryAutoTask(
 
     val config = bigQuerySinkConfig
 
-    Utils.println(s"""
+    Utils.printOut(s"""
      |Table: $fullTableName
      |Connection: ${sinkConnectionRef}(${taskDesc.getSinkConnectionType()})
      |""".stripMargin)
