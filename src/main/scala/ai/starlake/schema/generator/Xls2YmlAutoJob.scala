@@ -21,7 +21,7 @@ object Xls2YmlAutoJob extends LazyLogging {
     val basePath = outputPath.getOrElse(DatasetArea.transform.toString)
     val reader = new XlsAutoJobReader(
       InputPath(inputPath),
-      policyPath.map(InputPath),
+      policyPath.map(InputPath.apply),
       settings.storageHandler()
     )
     reader.autoTasksDesc

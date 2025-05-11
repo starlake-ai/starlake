@@ -432,14 +432,15 @@ object Settings extends StrictLogging {
     }
 
     @JsonIgnore
-    def getDbName() = {
+    def targetDatawareHouse(): String = {
       `type` match {
         case ConnectionType.BQ => "bigquery"
         case ConnectionType.JDBC =>
-          val urlKey = if (options.contains("url")) "url" else "sfUrl"
-          val engineName =
-            if (urlKey == "sfUrl") "snowflake" else options(urlKey).split(':')(1).toLowerCase()
-          engineName
+          if (options.contains("sfUrl"))
+            options("sfUrl").split(':')(1).toLowerCase() // should return snowflake
+          else if (options.contains("url")) {
+            options("url").split(':')(1).toLowerCase()
+          } else "spark"
         case _ => "spark"
       }
     }
@@ -1081,10 +1082,6 @@ object Settings extends StrictLogging {
         JsonWrapped(asJson)
       }
     }
-  }
-
-  implicit val sinkHint: FieldCoproductHint[Sink] = new FieldCoproductHint[Sink]("type") {
-    override def fieldValue(name: String) = name
   }
 
   implicit val connectionTypeReader: ConfigReader[ConnectionType] =

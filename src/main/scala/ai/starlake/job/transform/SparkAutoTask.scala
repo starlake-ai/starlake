@@ -128,7 +128,7 @@ class SparkAutoTask(
   def sink(dataframe: DataFrame, schema: Option[Schema] = None): Boolean = {
     val sink = this.sinkConfig
     logger.info(s"Sinking data to $sink")
-    Utils.println(s"""
+    Utils.printOut(s"""
         |Table/View: $fullTableName
         |Connection: ${sink.connectionRef}(${taskDesc.getSinkConnectionType()})
         |""".stripMargin)

@@ -33,7 +33,14 @@ class DatasetAreaSpec extends TestHelper {
         assertCommonStructure(settings)
         assertFoldersExist(
           settings,
-          List("out", "diagrams/load", "diagrams/acl", "diagrams/transform", "metadata", "incoming")
+          List(
+            ".out",
+            ".diagrams/load",
+            ".diagrams/acl",
+            ".diagrams/transform",
+            "metadata",
+            "incoming"
+          )
         )
       }
 
@@ -54,7 +61,7 @@ class DatasetAreaSpec extends TestHelper {
         )
         assertNoFilesInFolder(
           settings,
-          List("out", "diagrams/load", "diagrams/acl", "diagrams/transform")
+          List(".out", ".diagrams/load", ".diagrams/acl", ".diagrams/transform")
         )
       }
 
@@ -87,7 +94,7 @@ class DatasetAreaSpec extends TestHelper {
         )
         assertNoFilesInFolder(
           settings,
-          List("out", "diagrams/load", "diagrams/acl", "diagrams/transform")
+          List(".out", ".diagrams/load", ".diagrams/acl", ".diagrams/transform")
         )
       }
     }
@@ -96,7 +103,14 @@ class DatasetAreaSpec extends TestHelper {
   private def assertCommonStructure(settings: Settings): Unit = {
     assertExistence(
       settings,
-      List("out", "diagrams/load", "diagrams/acl", "diagrams/transform", "metadata", "incoming"),
+      List(
+        "out.",
+        ".diagrams/load",
+        ".diagrams/acl",
+        ".diagrams/transform",
+        "metadata",
+        "incoming"
+      ),
       List(".vscode/extensions.json")
     )
   }

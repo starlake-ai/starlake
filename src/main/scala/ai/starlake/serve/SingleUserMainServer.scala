@@ -16,7 +16,7 @@ object SingleUserMainServer {
     val server = new Server(new InetSocketAddress(host, port))
     val handler = new ServletHandler()
     server.setHandler(handler)
-    handler.addServletWithMapping(classOf[SingleUserRequestHandler], "/")
+    handler.addServletWithMapping(classOf[SingleUserRequestHandler], "/extension/cli")
     server.start()
     println(s"Server started at $host:$port")
     server.join()
@@ -62,33 +62,38 @@ object SingleUserMainServer {
         SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.objectNames()(settings))
       case "jobs" =>
         SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.jobs(reload)(settings))
+      case "datawarehouse" =>
+        SingleUserMainServer.mapper.writeValueAsString(
+          SingleUserServices.targetDatawarehHouse()(settings)
+        )
       case "types" =>
         SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.types(reload)(settings))
       case _ =>
         val errCapture = new ByteArrayOutputStream()
         val outCapture = new ByteArrayOutputStream()
-        Console.withOut(outCapture) {
-          Console.withErr(errCapture) {
-            val result = SingleUserServices.core(args, reload)(settings)
-            result match {
-              case Failure(e: IllegalArgumentException) =>
-                s"""
-              |--------------------------------------------------
-              |${errCapture.toString().trim}
-              |--------------------------------------------------
-              |${e.getMessage}""".stripMargin
-              case Failure(exception) =>
-                val errMessage = Utils.exceptionAsString(exception)
-
-                SingleUserMainServer.mapper.writeValueAsString(
-                  Response(errMessage)
-                )
-              case Success(_) =>
-                SingleUserMainServer.mapper.writeValueAsString(
-                  Response(outCapture.toString.trim)
-                )
+        val result =
+          Console.withOut(outCapture) {
+            Console.withErr(errCapture) {
+              SingleUserServices.core(args, reload)(settings)
             }
           }
+        result match {
+          case Failure(e: IllegalArgumentException) =>
+            s"""
+               |--------------------------------------------------
+               |${errCapture.toString().trim}
+               |--------------------------------------------------
+               |${e.getMessage}""".stripMargin
+          case Failure(exception) =>
+            val errMessage = Utils.exceptionAsString(exception)
+
+            SingleUserMainServer.mapper.writeValueAsString(
+              Response(errMessage)
+            )
+          case Success(_) =>
+            SingleUserMainServer.mapper.writeValueAsString(
+              Response(outCapture.toString.trim)
+            )
         }
     }
     response

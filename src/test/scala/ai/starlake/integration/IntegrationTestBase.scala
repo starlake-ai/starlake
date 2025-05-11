@@ -3,6 +3,7 @@ package ai.starlake.integration
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import better.files.File
+import better.files.File.CopyOptions
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -19,7 +20,7 @@ class IntegrationTestBase
     with StrictLogging {
   implicit var settings: Settings = Settings(Settings.referenceConfig, None, None)
 
-  implicit val copyOptions = File.CopyOptions(overwrite = true)
+  implicit val copyOptions: CopyOptions = File.CopyOptions(overwrite = true)
 
   val starlakeDir = File(".")
   logger.info(starlakeDir.pathAsString)
@@ -80,7 +81,7 @@ class IntegrationTestBase
   }
 
   val directoriesToClear =
-    List("incoming", "audit", "datasets", "diagrams", "metadata/dags/generated")
+    List("incoming", "audit", "datasets", ".diagrams", "metadata/dags/generated")
 
   protected def cleanup(): Unit = {
     cleanup(theSampleFolder)

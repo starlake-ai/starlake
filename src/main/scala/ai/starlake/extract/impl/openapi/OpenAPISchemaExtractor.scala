@@ -311,7 +311,7 @@ class OpenAPISchemaExtractor(
   private def checkSchemaCollision(infos: List[ApiEssentialInformation]): Unit = {
     if (infos.size > 1) {
       val collisionPaths = infos
-        .map(i => i.apiMethod + " " + i.apiPath + " (" + i.schema.schemaNamesStr + ")")
+        .map(i => i.apiMethod.toString + " " + i.apiPath + " (" + i.schema.schemaNamesStr + ")")
         .mkString(", ")
       if (infos.map(_.schema).distinct.size > 1) {
         throw new RuntimeException(

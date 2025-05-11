@@ -46,4 +46,7 @@ object SingleUserServices {
   def external(reload: Boolean)(implicit settings: Settings): Unit = {
     core(Array("extract-bq-schema", "--external"), reload)
   }
+  def targetDatawarehHouse()(implicit settings: Settings): Unit = {
+    settings.appConfig.getDefaultConnection().targetDatawareHouse()
+  }
 }
