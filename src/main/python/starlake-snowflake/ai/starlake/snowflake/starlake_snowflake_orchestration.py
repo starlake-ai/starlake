@@ -53,6 +53,10 @@ class SnowflakeDag(DAG):
 
         changes = dict() # tracks the datasets whose changes have to be checked
 
+        streams = set() # set of streams which underlying datasets are scheduled
+
+        not_scheduled_streams = set() # set of streams which underlying datasets are not scheduled
+
         if not schedule: # if the DAG is not scheduled we will rely on streams to trigger the underlying dag and check if the scheduled datasets without streams have data using CHANGES
 
             if least_frequent_datasets:
@@ -60,7 +64,6 @@ class SnowflakeDag(DAG):
                 for dataset in least_frequent_datasets:
                     changes.update({dataset.sink: dataset.cron})
 
-            not_scheduled_streams = set() # set of streams which underlying datasets are not scheduled
             not_scheduled_datasets_without_streams = []
             if not_scheduled_datasets:
                 self.logger.info(f"not scheduled datasets: {','.join(list(map(lambda x: x.sink, not_scheduled_datasets)))}")
@@ -75,7 +78,6 @@ class SnowflakeDag(DAG):
 
             if most_frequent_datasets:
                 self.logger.info(f"most frequent datasets: {','.join(list(map(lambda x: x.sink, most_frequent_datasets)))}")
-            streams = set()
             most_frequent_datasets_without_streams = []
             if most_frequent_datasets:
                 for dataset in most_frequent_datasets:
@@ -137,7 +139,7 @@ class SnowflakeDag(DAG):
                 config = json.loads(config)
             else:
                 config = {}
-            check_freshness = config.get("check_freshness", True)
+            check_freshness = config.get("check_freshness", False)
             logical_date: Optional[Union[str, datetime]] = config.get("logical_date", None)
             if not logical_date:
                 query = f"select to_timestamp(system$task_runtime_info('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))"
@@ -243,8 +245,12 @@ class SnowflakeDag(DAG):
             imports=imports, packages=packages, 
             use_func_return_value=use_func_return_value
         )
-        self.definition = definition
-        self.condition = condition
+
+        self._definition = definition
+        self._condition = condition
+        self._changes = changes
+        self._streams = streams
+        self._not_scheduled_streams = not_scheduled_streams
 
     def _to_low_level_task(self) -> Task:
         return Task(
@@ -263,6 +269,40 @@ class SnowflakeDag(DAG):
             session_parameters=self.session_parameters,
             config=self.config,
         )
+
+    @property
+    def definition(self) -> StoredProcedureCall:
+        return self._definition
+
+    @property
+    def condition(self) -> Optional[str]:
+        return self._condition
+
+    @property
+    def changes(self) -> dict[str, str]:
+        return self._changes
+
+    @property
+    def streams(self) -> set[str]:
+        return self._streams
+
+    @property
+    def not_scheduled_streams(self) -> set[str]:
+        return self._not_scheduled_streams
+
+    def has_changes(self) -> bool:
+        """Check if the DAG has changes.
+        Returns:
+            bool: True if the DAG has changes, False otherwise.
+        """
+        return self._changes.__len__() > 0
+
+    def has_streams(self) -> bool:
+        """Check if the DAG has streams.
+        Returns:
+            bool: True if the DAG has streams, False otherwise.
+        """
+        return self._streams.__len__() > 0 or self._not_scheduled_streams.__len__() > 0
 
 class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], StarlakeDataset], StarlakeDataset):
     def __init__(self, job: StarlakeSnowflakeJob, schedule: Optional[StarlakeSchedule] = None, dependencies: Optional[StarlakeDependencies] = None, orchestration: Optional[AbstractOrchestration[SnowflakeDag, DAGTask, List[DAGTask], StarlakeDataset]] = None, **kwargs) -> None:
@@ -286,6 +326,10 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
         self._stage_location = job.stage_location
         self._warehouse = job.warehouse
 
+        config = {
+            "check_freshness": job.check_freshness,
+        }
+
         self.dag = SnowflakeDag(
             name=self.pipeline_id,
             schedule=snowflake_schedule,
@@ -298,7 +342,8 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             least_frequent_datasets=self.least_frequent_datasets,
             most_frequent_datasets=self.most_frequent_datasets,
             task_auto_retry_attempts=job.retries,
-            
+            allow_overlapping_execution=job.allow_overlapping_execution,
+            config=config,
         )
 
     def __enter__(self):
@@ -391,8 +436,8 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             schema = kwargs.get('SNOWFLAKE_SCHEMA', env.get('SNOWFLAKE_SCHEMA', None))
             op = self.get_dag_operation(session, database, schema)
             task = op.schema.tasks[self.pipeline_id]
-            config = dict()
-            config.update({"check_freshness": False})
+            config = dict() # TODO load the config from the task
+            config.update({"check_freshness": False}) # disable freshness check
             if logical_date:
                 config.update({"logical_date": logical_date})
             task.suspend()
@@ -475,6 +520,106 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
 
         else:
             raise StarlakeSnowflakeError(f"Execution mode {mode} is not supported")
+
+    def backfill(self, timeout: str = '120', start_date: Optional[str] = None, end_date: Optional[str] = None, **kwargs) -> None:
+        """Backfill the pipeline.
+        Args:
+            timeout (str): the timeout in seconds.
+            start_date (Optional[str]): the start date.
+            end_date (Optional[str]): the end date.
+        """
+        # check if backfill has been enabled for the pipeline and that there is no use of streams
+        if self.job.allow_overlapping_execution and not self.dag.has_streams():
+            from datetime import datetime
+            import pytz
+            start_time = datetime.fromisoformat(start_date).astimezone(pytz.timezone('UTC'))
+            end_time = datetime.fromisoformat(end_date).astimezone(pytz.timezone('UTC'))
+            if start_time > end_time:
+                raise ValueError("The start date must be before the end date")
+            cron = None
+            interval = kwargs.get('interval', None)
+            schedule = self.dag.schedule
+            if schedule:
+                if isinstance(schedule, Cron):
+                    cron = schedule.expr
+                elif isinstance(schedule, timedelta) and not interval:
+                    interval = int(schedule.total_seconds() / 60)
+                else:
+                    raise ValueError("The schedule must be a Cron or timedelta object")
+            if interval is None:
+                if cron and cron.strip().lower() != 'none':
+                    from croniter import croniter
+                    # reference datetime
+                    base_time = datetime.now()
+
+                    # Init croniter
+                    iter = croniter(cron, base_time)
+
+                    # Get the next cron time
+                    next_time = iter.get_next(datetime)
+                    next_next_time = iter.get_next(datetime)
+
+                    # Calculate the interval in minutes
+                    interval = int((next_next_time - next_time).total_seconds() / 60)
+            else:
+                interval = int(interval)
+
+            session = self.__class__.session(**kwargs)
+            import json
+            # call the backfill stored procedure
+            rows = session.sql(f"call system$task_backfill(?, ?, ?, ?)", (self.pipeline_id, ('TIMESTAMP_LTZ', start_time), ('TIMESTAMP_LTZ', end_time), f'{interval} minutes')).collect()
+
+            start = datetime.now()
+
+            # get the backfill job id and partition count
+            if not rows:
+                raise StarlakeSnowflakeError(f"Pipeline {self.pipeline_id} backfill failed")
+            else:
+                result: dict = json.loads(rows[0][0])
+
+            backfill_job_id: Optional[str] = result.get('backfill_job_id', None)
+
+            partition_count: Optional[int] = result.get('partition_count', None)
+
+            if backfill_job_id is None:
+                raise StarlakeSnowflakeError(f"Pipeline {self.pipeline_id} backfill failed")
+
+            format = '%Y-%m-%d %H:%M:%S%z'
+            print(f" Pipeline {self.pipeline_id} is executing backfill job '{backfill_job_id}' with {partition_count} partition(s) from '{start_time.strftime(format)}' to '{end_time.strftime(format)}' using {interval} minutes interval")
+
+            # check the backfill job status
+            def check_status():
+                import time
+                while True:
+                    rows = session.sql(f"select * FROM TABLE(information_schema.task_backfill_jobs(root_task_name=>'{self.pipeline_id}')) where BACKFILL_JOB_ID='{backfill_job_id}'").collect()
+                    if rows:
+                        result: dict = rows[0].as_dict()
+                        TOTAL_PARTITIONS_COUNT: int = result.get('TOTAL_PARTITIONS_COUNT', partition_count)
+                        EXECUTING_PARTITIONS_COUNT: int = result.get('EXECUTING_PARTITIONS_COUNT', 0)
+                        SKIPPED_PARTITIONS_COUNT: int = result.get('SKIPPED_PARTITIONS_COUNT', 0)
+                        CANCELED_PARTITIONS_COUNT: int = result.get('CANCELED_PARTITIONS_COUNT', 0)
+                        FAILED_PARTITIONS_COUNT: int = result.get('FAILED_PARTITIONS_COUNT', 0)
+                        SUCCEEDED_PARTITIONS_COUNT: int = result.get('SUCCEEDED_PARTITIONS_COUNT', 0)
+                        if EXECUTING_PARTITIONS_COUNT > 0:
+                            print(f"Pipeline {self.pipeline_id} backfill job '{backfill_job_id}' is executing {EXECUTING_PARTITIONS_COUNT} partition(s)")
+                            time.sleep(5)
+                            return check_status()
+                        elif SKIPPED_PARTITIONS_COUNT > 0 or CANCELED_PARTITIONS_COUNT > 0 or FAILED_PARTITIONS_COUNT > 0:
+                            raise StarlakeSnowflakeError(f"Pipeline {self.pipeline_id} backfill job '{backfill_job_id}' failed with {SKIPPED_PARTITIONS_COUNT} skipped partition(s), {CANCELED_PARTITIONS_COUNT} canceled partition(s) and {FAILED_PARTITIONS_COUNT} failed partition(s)")
+                        elif SUCCEEDED_PARTITIONS_COUNT == TOTAL_PARTITIONS_COUNT:
+                            print(f"Pipeline {self.pipeline_id} backfill job '{backfill_job_id}' succeeded with {SUCCEEDED_PARTITIONS_COUNT} partition(s) succeeded")
+                            return
+                    elif datetime.now() - start > timedelta(seconds=int(timeout)):
+                        raise TimeoutError(f"Pipeline {self.pipeline_id} backfill timed out")
+                    else:
+                        print(f"No task backfill jobs found for {self.pipeline_id} yet")
+                        time.sleep(5)
+                        return check_status()
+
+            check_status()
+
+        else:
+            super().backfill(timeout=timeout, start_date=start_date, end_date=end_date, **kwargs)
 
     def get_dag_operation(self, session: Session, database: str, schema: str) -> DAGOperation:
         session.sql(f"USE DATABASE {database}").collect()

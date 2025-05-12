@@ -892,7 +892,6 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         """
         self.run(mode=StarlakeExecutionMode.DRY_RUN, **kwargs)
 
-    @final
     def backfill(self, timeout: str = '120', start_date: Optional[str] = None, end_date: Optional[str] = None, **kwargs) -> None:
         """Backfill the pipeline.
         Args:
