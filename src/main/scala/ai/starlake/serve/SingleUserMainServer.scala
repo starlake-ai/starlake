@@ -16,7 +16,7 @@ object SingleUserMainServer {
     val server = new Server(new InetSocketAddress(host, port))
     val handler = new ServletHandler()
     server.setHandler(handler)
-    handler.addServletWithMapping(classOf[SingleUserRequestHandler], "/extension/cli")
+    handler.addServletWithMapping(classOf[SingleUserRequestHandler], "/cli")
     server.start()
     println(s"Server started at $host:$port")
     server.join()
