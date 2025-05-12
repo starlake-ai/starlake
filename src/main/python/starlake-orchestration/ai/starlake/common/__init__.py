@@ -165,5 +165,8 @@ def is_valid_cron(cron_expr: str) -> bool:
         # Attempt to instantiate a croniter object
         croniter(cron_expr)
         return True
-    except (CroniterBadCronError, ValueError):
+    except (CroniterBadCronError, ValueError, AttributeError) as e:
+        # Handle the exception if the cron expression is invalid
+        print(f"Invalid cron expression: {cron_expr}. Error: {e}")
+        # Return False if the cron expression is invalid
         return False
