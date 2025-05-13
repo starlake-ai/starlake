@@ -5,6 +5,7 @@ import ai.starlake.extract.{ExtractSchemaCmd, ExtractSchemaConfig, JdbcDbUtils}
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Engine, WriteStrategyType}
+import ai.starlake.sql.SQLUtils.sqlCased
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
 import com.typesafe.scalalogging.StrictLogging
@@ -92,9 +93,9 @@ class JdbcAutoTask(
         val scd2Columns = List(startTsCol, endTsCol)
         val alterTableSqls = scd2Columns.map { column =>
           if (engineName.toString.toLowerCase() == "redshift")
-            s"ALTER TABLE $fullTableName ADD COLUMN $column TIMESTAMP"
+            s"ALTER TABLE ${sqlCased(fullTableName)} ADD COLUMN ${sqlCased(column)} TIMESTAMP"
           else
-            s"ALTER TABLE $fullTableName ADD COLUMN IF NOT EXISTS $column TIMESTAMP NULL"
+            s"ALTER TABLE ${sqlCased(fullTableName)} ADD COLUMN IF NOT EXISTS ${sqlCased(column)} TIMESTAMP NULL"
         }
         alterTableSqls
       case _ =>
@@ -415,7 +416,7 @@ class JdbcAutoTask(
             optionsWrite,
             attDdl()
           )
-        val allSqls = List(createSchema, createTable, commentSQL.getOrElse(""))
+        val allSqls = List(createSchema, createTable) ++ commentSQL
         (allSqls, false)
       }
     }

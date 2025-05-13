@@ -30,6 +30,7 @@ import ai.starlake.job.strategies.TransformStrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
+import ai.starlake.sql.SQLUtils.sqlCased
 import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
@@ -342,9 +343,9 @@ abstract class AutoTask(
         val scd2Columns = List(startTsCol, endTsCol)
         val alterTableSqls = scd2Columns.map { column =>
           if (engineName.toString.toLowerCase() == "redshift")
-            s"ALTER TABLE $fullTableName ADD COLUMN $column TIMESTAMP"
+            s"ALTER TABLE ${sqlCased(fullTableName)} ADD COLUMN ${sqlCased(column)} TIMESTAMP"
           else
-            s"ALTER TABLE $fullTableName ADD COLUMN IF NOT EXISTS $column TIMESTAMP NULL"
+            s"ALTER TABLE ${sqlCased(fullTableName)} ADD COLUMN IF NOT EXISTS ${sqlCased(column)} TIMESTAMP NULL"
         }
         alterTableSqls
       case _ =>

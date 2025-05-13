@@ -24,6 +24,7 @@ import com.google.iam.v1.{Binding, Policy => IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 
 import java.io.ByteArrayInputStream
 import java.security.SecureRandom
@@ -295,13 +296,13 @@ trait BigQueryJobBase extends StrictLogging {
               val tableDefinition = table.getDefinition[StandardTableDefinition]
               val bqSchema = tableDefinition.getSchema()
               val bqFields = bqSchema.getFields.asScala.toList
-              val attributesMap = attrs.toMap
+              val attributesMap = CaseInsensitiveMap(attrs.toMap)
               val updatedFields = bqFields.map { field =>
-                attributesMap.get(field.getName.toLowerCase) match {
+                attributesMap.get(field.getName) match {
                   case None =>
                     // Maybe an ignored field
                     logger.info(
-                      s"Ignore this field ${table}.${field.getName} during CLS application "
+                      s"Ignore this field $table.$field during CLS application "
                     )
                     field
                   case Some(accessPolicy) =>
@@ -846,10 +847,10 @@ trait BigQueryJobBase extends StrictLogging {
                 table
               )
             val tableName =
-              tableIdPk.getDataset.toUpperCase() + "_" + tableIdPk.getTable.toUpperCase()
+              tableIdPk.getDataset + "_" + tableIdPk.getTable
             val fk = ForeignKey.newBuilder
               .setName(
-                s"FK_${datasetId.getDataset.toUpperCase()}_${tableId.getTable().toUpperCase()}_${attr.getFinalName().toUpperCase()}"
+                s"FK_${datasetId.getDataset}_${tableId.getTable()}_${attr.getFinalName()}"
               )
               .setColumnReferences(List(columnReference).asJava)
               .setReferencedTable(tableIdPk)
@@ -880,7 +881,7 @@ trait BigQueryJobBase extends StrictLogging {
       .newBuilder(TimePartitioning.Type.DAY)
       .setRequirePartitionFilter(requirePartitionFilter)
     val partitioned =
-      if (!Set("_PARTITIONTIME", "_PARTITIONDATE").contains(partitionField.toUpperCase))
+      if (!Set("_PARTITIONTIME", "_PARTITIONDATE").exists(_.equalsIgnoreCase(partitionField)))
         partitionFilter.setField(partitionField)
       else
         partitionFilter

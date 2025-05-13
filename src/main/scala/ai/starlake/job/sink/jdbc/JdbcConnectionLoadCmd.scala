@@ -78,17 +78,9 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
         checkTablePresent(starlakeConnection, jdbcEngine, outputTable)
       }
 
-    // This is to make sure that the column names are uppercase on JDBC databases
-    // TODO: Once spark 3.3 is not supported anymore, switch to withColumnsRenamed(colsMap: Map[String, String])
-    val dfWithUppercaseColumns = sourceFile.map { df =>
-      df.columns.foldLeft(df) { case (df, colName) =>
-        df.withColumnRenamed(colName, colName.toUpperCase())
-      }
-    }
-
     JdbcConnectionLoadConfig(
-      sourceFile = dfWithUppercaseColumns,
-      outputDomainAndTableName = outputTable.toUpperCase(),
+      sourceFile = sourceFile,
+      outputDomainAndTableName = outputTable,
       strategy = strategy,
       starlakeConnection.sparkDatasource().getOrElse("jdbc"),
       starlakeConnection.options

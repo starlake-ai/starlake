@@ -263,7 +263,7 @@ case class LoadDesc(version: Int, load: Domain)
     val filteredTables = tableNames.flatMap { tableName =>
       this.tables.filter { table =>
         tableNames
-          .exists(_.toLowerCase() == (this.finalName + "." + table.finalName).toLowerCase())
+          .exists(_.equalsIgnoreCase(this.finalName + "." + table.finalName))
       }
     }
     filteredTables.toList
@@ -272,9 +272,7 @@ case class LoadDesc(version: Int, load: Domain)
   def aclTables(config: AclDependenciesConfig): List[Schema] = {
     val filteredTables = if (config.tables.nonEmpty) {
       tables.filter { table =>
-        config.tables.exists(
-          _.toLowerCase() == (this.finalName + "." + table.finalName).toLowerCase()
-        )
+        config.tables.exists(_.equalsIgnoreCase(this.finalName + "." + table.finalName))
       }
     } else {
       tables
@@ -294,9 +292,7 @@ case class LoadDesc(version: Int, load: Domain)
   def rlsTables(config: AclDependenciesConfig): Map[String, List[RowLevelSecurity]] = {
     val filteredTables = if (config.tables.nonEmpty) {
       tables.filter { table =>
-        config.tables.exists(
-          _.toLowerCase() == (this.finalName + "." + table.finalName).toLowerCase()
-        )
+        config.tables.exists(_.equalsIgnoreCase(this.finalName + "." + table.finalName))
       }
     } else {
       tables
@@ -394,7 +390,7 @@ object Domain {
         (
           table,
           incoming.tables
-            .find(_.name.toLowerCase() == table.name.toLowerCase())
+            .find(_.name.equalsIgnoreCase(table.name))
             .getOrElse(throw new Exception("Should not happen"))
         )
       }

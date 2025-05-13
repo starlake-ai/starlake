@@ -164,6 +164,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
             output
           } // ignore exception but log it
       } else {
+        // One single step load
         val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
         bigqueryJob
           .loadPathsToBQ(

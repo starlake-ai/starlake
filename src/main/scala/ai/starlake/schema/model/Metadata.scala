@@ -25,6 +25,7 @@ import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude}
+import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -281,10 +282,10 @@ case class Metadata(
 
   def resolveEmptyIsNull(): java.lang.Boolean = emptyIsNull.getOrElse(true).booleanValue()
 
-  def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
+  def getOptions(): CaseInsensitiveMap[String] = CaseInsensitiveMap(options.getOrElse(Map.empty))
 
   @JsonIgnore
-  def getXmlOptions(): Map[String, String] = this.getOptions()
+  def getXmlOptions(): CaseInsensitiveMap[String] = this.getOptions()
 
   @JsonIgnore
   def getXsdPath(): Option[String] = {

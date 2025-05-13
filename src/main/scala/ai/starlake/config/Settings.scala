@@ -800,7 +800,8 @@ object Settings extends StrictLogging {
     maxInteractiveRecords: Int,
     duckdbPath: Option[String],
     ack: Option[String],
-    duckDbEnableExternalAccess: Boolean
+    duckDbEnableExternalAccess: Boolean,
+    sqlCaseSensitivity: String
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
@@ -1014,7 +1015,7 @@ object Settings extends StrictLogging {
           if (this.connections.isEmpty)
             s"connectionRef must be defined. Define a connection first and set it to this newly defined connection"
           else
-            s"connectionRef must be defined. Valid connection names are $validConnectionNames"
+            s"connectionRef resolves to an empty value. It must be defined. Valid connection names are $validConnectionNames"
         errors = errors :+ ValidationMessage(Severity.Error, "AppConfig", msg)
       } else {
         this.connections.get(this.connectionRef) match {

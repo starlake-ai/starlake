@@ -7,6 +7,7 @@ import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
 import ai.starlake.job.Main
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
+import ai.starlake.sql.SQLUtils.sqlCased
 import ai.starlake.tests.StarlakeTestData.DomainName
 import ai.starlake.utils.{SparkUtils, Utils}
 import com.manticore.jsqlformatter.JSQLFormatter
@@ -234,7 +235,7 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   @throws[Exception]
-  def createSchema(conn: SQLConnection, domainName: String): Unit = {
+  def createSchema(conn: SQLConnection, domainName: String)(implicit settings: Settings): Unit = {
     executeUpdate(schemaCreateSQL(domainName), conn) match {
       case Success(_) =>
       case Failure(e) =>
@@ -244,15 +245,15 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   @throws[Exception]
-  def schemaCreateSQL(domainName: String): String = {
-    s"CREATE SCHEMA IF NOT EXISTS $domainName"
+  def schemaCreateSQL(domainName: String)(implicit settings: Settings): String = {
+    s"CREATE SCHEMA IF NOT EXISTS ${sqlCased(domainName)}"
   }
 
-  def buildDropTableSQL(tableName: String): String = {
-    s"DROP TABLE IF EXISTS $tableName"
+  def buildDropTableSQL(tableName: String)(implicit settings: Settings): String = {
+    s"DROP TABLE IF EXISTS ${sqlCased(tableName)}"
   }
   @throws[Exception]
-  def dropTable(conn: SQLConnection, tableName: String): Unit = {
+  def dropTable(conn: SQLConnection, tableName: String)(implicit settings: Settings): Unit = {
     executeUpdate(buildDropTableSQL(tableName), conn) match {
       case Success(_) =>
       case Failure(e) =>
@@ -306,6 +307,34 @@ object JdbcDbUtils extends LazyLogging {
     rs.close()
     stmt.close()
     result
+  }
+  def executeQueryAsTable(
+    query: String,
+    connection: SQLConnection
+  ): List[Map[String, String]] = {
+    val resultTable = ListBuffer[Map[String, String]]()
+    val statement = connection.createStatement()
+    try {
+      // Establish the connection
+      val resultSet = statement.executeQuery(query)
+
+      // Get column names
+      val metaData = resultSet.getMetaData
+      val columnCount = metaData.getColumnCount
+      val columnNames = (1 to columnCount).map(metaData.getColumnName)
+
+      // Process the result set
+      while (resultSet.next()) {
+        val row = columnNames
+          .map(name => name -> Option(resultSet.getObject(name)).map(_.toString).getOrElse("null"))
+          .toMap
+        resultTable += row
+      }
+    } finally {
+      statement.close()
+    }
+
+    resultTable.toList
   }
 
   def executeQueryAsTable(
@@ -651,10 +680,12 @@ object JdbcDbUtils extends LazyLogging {
     val jdbcServer = url.split(":")(1)
     val jdbcEngine = settings.appConfig.jdbcEngines.get(jdbcServer)
     val jdbcTableMap =
-      jdbcSchema.tables
-        .map(tblSchema => tblSchema.name.toUpperCase -> tblSchema)
-        .toMap
-    val uppercaseTableNames = jdbcTableMap.keys.toList
+      CaseInsensitiveMap(
+        jdbcSchema.tables
+          .map(tblSchema => tblSchema.name -> tblSchema)
+          .toMap
+      )
+    val tableNamesToExtract = jdbcTableMap.keys.toList
     val schemaAndTableNames =
       withJDBCConnection(readOnlyConnection(connectionSettings).options) { connection =>
         val databaseMetaData = connection.getMetaData()
@@ -663,56 +694,53 @@ object JdbcDbUtils extends LazyLogging {
           databaseMetaData,
           jdbcSchema.schema
         ).map { schemaName =>
-          val lowerCasedExcludeTables = jdbcSchema.exclude.map(_.toLowerCase)
-
           def tablesInScopePredicate(tablesToExtract: List[String] = Nil): TableName => Boolean =
             (tableName: String) => {
-              !lowerCasedExcludeTables.contains(
-                tableName.toLowerCase
-              ) && (tablesToExtract.isEmpty || tablesToExtract.contains(tableName.toUpperCase()))
+              !jdbcSchema.exclude.exists(
+                _.equalsIgnoreCase(tableName)
+              ) && (tablesToExtract.isEmpty ||
+              tablesToExtract.exists(_.equalsIgnoreCase(tableName)))
             }
 
           val sqlDefinedTables = jdbcSchema.tables.filter(_.sql.isDefined).map(_.name)
-          val selectedTables = uppercaseTableNames match {
-            case list if list.isEmpty || list.contains("*") =>
-              extractTableNames(
-                schemaName,
-                jdbcSchema,
-                sqlDefinedTables,
-                tablesInScopePredicate(),
-                connectionSettings,
-                databaseMetaData,
-                skipRemarks,
-                jdbcEngine,
-                connection
-              )
-            case list =>
-              val extractedTableNames =
+          val selectedTables =
+            tableNamesToExtract match {
+              case list if list.isEmpty || list.contains("*") =>
                 extractTableNames(
                   schemaName,
                   jdbcSchema,
                   sqlDefinedTables,
-                  tablesInScopePredicate(list),
+                  tablesInScopePredicate(),
                   connectionSettings,
                   databaseMetaData,
                   skipRemarks,
                   jdbcEngine,
                   connection
                 )
-              val notExtractedTable = list.diff(
-                extractedTableNames
-                  .map { case (tableName, _) => tableName }
-                  .map(_.toUpperCase())
-                  .toList
-              )
-              if (notExtractedTable.nonEmpty) {
-                val tablesNotExtractedStr = notExtractedTable.mkString(", ")
-                logger.warn(
-                  s"The following tables where not extracted for $schemaName.${jdbcSchema.schema} : $tablesNotExtractedStr"
+              case list =>
+                val extractedTableNames =
+                  extractTableNames(
+                    schemaName,
+                    jdbcSchema,
+                    sqlDefinedTables,
+                    tablesInScopePredicate(list),
+                    connectionSettings,
+                    databaseMetaData,
+                    skipRemarks,
+                    jdbcEngine,
+                    connection
+                  )
+                val notExtractedTable = list.diff(
+                  extractedTableNames.map { case (tableName, _) => tableName }.toList
                 )
-              }
-              extractedTableNames
-          }
+                if (notExtractedTable.nonEmpty) {
+                  val tablesNotExtractedStr = notExtractedTable.mkString(", ")
+                  logger.warn(
+                    s"The following tables where not extracted for $schemaName.${jdbcSchema.schema} : $tablesNotExtractedStr"
+                  )
+                }
+                extractedTableNames
+            }
           logger.whenDebugEnabled {
             selectedTables.keys.foreach(table => logger.debug(s"Selected: $table"))
           }
@@ -765,36 +793,41 @@ object JdbcDbUtils extends LazyLogging {
                               )
                             )
                         val primaryKeys = jdbcColumnMetadata.primaryKeys
-                        val foreignKeys: Map[TableName, TableName] = jdbcColumnMetadata.foreignKeys
+                        val foreignKeys: CaseInsensitiveMap[TableName] =
+                          CaseInsensitiveMap(jdbcColumnMetadata.foreignKeys)
                         val columns: List[Attribute] = jdbcColumnMetadata.columns
                         logger.whenDebugEnabled {
                           columns
                             .foreach(column => logger.debug(s"column: $tableName.${column.name}"))
                         }
                         val jdbcCurrentTable = jdbcTableMap
-                          .get(tableName.toUpperCase)
+                          .get(tableName)
                         // Limit to the columns specified by the user if any
-                        val currentTableRequestedColumns: Map[ColumnName, Option[ColumnName]] =
-                          jdbcCurrentTable
-                            .map(
-                              _.columns.map(c =>
-                                (if (keepOriginalName) c.name.toUpperCase.trim
-                                 else c.rename.getOrElse(c.name).toUpperCase.trim) -> c.rename
-                              )
-                            )
-                            .getOrElse(Map.empty)
-                            .toMap
+                        val currentTableRequestedColumns: CaseInsensitiveMap[Option[ColumnName]] =
+                          CaseInsensitiveMap(
+                            jdbcCurrentTable
+                              .map {
+                                _.columns.map { c =>
+                                  val key =
+                                    if (keepOriginalName) c.name.trim
+                                    else c.rename.getOrElse(c.name).trim
+                                  key -> c.rename
+                                }
+                              }
+                              .getOrElse(Map.empty)
+                              .toMap
+                          )
                         val currentFilter = jdbcCurrentTable.flatMap(_.filter)
                         val selectedColumns: List[Attribute] =
                           columns
                             .filter(col =>
                               currentTableRequestedColumns.isEmpty || currentTableRequestedColumns
-                                .contains("*") || currentTableRequestedColumns
-                                .contains(col.name.toUpperCase())
+                                .contains("*") || currentTableRequestedColumns.keys
+                                .exists(_.equalsIgnoreCase(col.name))
                             )
                             .map(c =>
                               c.copy(
-                                foreignKey = foreignKeys.get(c.name.toUpperCase)
+                                foreignKey = foreignKeys.get(c.name)
                               )
                             )
                         logger.whenDebugEnabled {
