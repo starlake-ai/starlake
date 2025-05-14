@@ -140,6 +140,37 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input], storageHandler:
         row.getCell(headerMapSchema("_dagRef"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
       ).flatMap(formatter.formatCellValue)
 
+      val freshnessOpt = Option(
+        row.getCell(headerMapSchema("_freshness"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+
+      val freshness = freshnessOpt
+        .map(
+          _.split(",")
+            .flatMap { pair =>
+              pair.split("=", 2) match {
+                case Array(k, v) => Some(k -> v)
+                case _           => None
+              }
+            }
+            .toMap
+        )
+        .map { pairs =>
+          val warn = pairs.get("warn").filter(_.nonEmpty)
+          val error = pairs.get("error").filter(_.nonEmpty)
+          Freshness(
+            warn = warn,
+            error = error
+          )
+        }
+        .flatMap {
+          case freshness if freshness.warn.isEmpty && freshness.error.isEmpty =>
+            None
+          case freshness if !freshness.checkValidity("test").toOption.getOrElse(false) =>
+            None
+          case other => Some(other)
+        }
+
       val partitionColumns = partitionOpt.map(List(_)).getOrElse(Nil)
       val writeStrategy =
         if (partitionColumns.nonEmpty && writeStrategyOpt.contains(WriteStrategyType.OVERWRITE))
@@ -232,7 +263,8 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input], storageHandler:
               writeStrategy = Option(writeStrategy),
               taskTimeoutMs = None,
               connectionRef = runConnectionRefOpt,
-              dagRef = dagRefOpt
+              dagRef = dagRefOpt,
+              freshness = freshness
             )
           )
       task

@@ -110,7 +110,17 @@ object TaskViewDependency extends StrictLogging {
       )
       val task = jobs(jobName)
       if (parentRefs.isEmpty)
-        List(TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, "", task.taskDesc.writeStrategy))
+        List(
+          TaskViewDependency(
+            jobName,
+            typ,
+            "",
+            UNKNOWN_TYPE,
+            "",
+            task.taskDesc.writeStrategy,
+            freshness = task.taskDesc.freshness.map(_.acceptability()).getOrElse(0L)
+          )
+        )
       else {
         parentRefs.map { parentSQLRef =>
           val parts = parentSQLRef.split('.')
@@ -173,7 +183,8 @@ object TaskViewDependency extends StrictLogging {
                   parentJobName,
                   TASK_TYPE,
                   parentSQLRef,
-                  task.taskDesc.writeStrategy
+                  task.taskDesc.writeStrategy,
+                  freshness = task.taskDesc.freshness.map(_.acceptability()).getOrElse(0L)
                 )
               if (typ == TASK_TYPE) {
                 // TODO We just handle one task per job which is always the case till now.
@@ -219,7 +230,8 @@ object TaskViewDependency extends StrictLogging {
                     parentDomainName + "." + parentTableName,
                     TABLE_TYPE,
                     parentSQLRef,
-                    task.taskDesc.writeStrategy
+                    task.taskDesc.writeStrategy,
+                    freshness = task.taskDesc.freshness.map(_.acceptability()).getOrElse(0L)
                   )
                 case None =>
                   TaskViewDependency(
@@ -228,7 +240,8 @@ object TaskViewDependency extends StrictLogging {
                     "",
                     UNKNOWN_TYPE,
                     parentSQLRef,
-                    task.taskDesc.writeStrategy
+                    task.taskDesc.writeStrategy,
+                    freshness = task.taskDesc.freshness.map(_.acceptability()).getOrElse(0L)
                   )
               }
           }
@@ -259,7 +272,25 @@ object TaskViewDependency extends StrictLogging {
             m <- t.metadata
             w <- m.writeStrategy
           } yield w
-        TaskViewDependency(tableName, TABLE_TYPE, "", UNKNOWN_TYPE, "", writeStrategy, None, cron)
+        val domainFreshness = domain.flatMap(_.metadata).flatMap(_.freshness.map(_.acceptability()))
+        val tableFreshness = domain
+          .flatMap(
+            _.tables
+              .find(_.finalName.toLowerCase() == tableNameOnly.toLowerCase())
+              .flatMap(_.metadata)
+          )
+          .flatMap(_.freshness.map(_.acceptability()))
+        TaskViewDependency(
+          tableName,
+          TABLE_TYPE,
+          "",
+          UNKNOWN_TYPE,
+          "",
+          writeStrategy,
+          None,
+          cron,
+          freshness = tableFreshness.orElse(domainFreshness).getOrElse(0L)
+        )
       }
     }
     val jobAndViewDepsWithSink = jobAndViewDeps.map { dep =>
@@ -291,7 +322,8 @@ case class TaskViewDependency(
   parentRef: String,
   writeStrategy: Option[WriteStrategy],
   sink: Option[String] = None,
-  cron: Option[String] = None
+  cron: Option[String] = None,
+  freshness: Long = 0
 ) {
 
   @JsonIgnore

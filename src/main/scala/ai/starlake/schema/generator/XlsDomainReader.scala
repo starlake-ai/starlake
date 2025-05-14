@@ -61,6 +61,38 @@ class XlsDomainReader(input: Input) extends XlsModel {
           row.getCell(headerMap("_frequency"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
         )
           .flatMap(formatter.formatCellValue)
+
+      val freshnessOpt = Option(
+        row.getCell(headerMap("_freshness"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+
+      val freshness = freshnessOpt
+        .map(
+          _.split(",")
+            .flatMap { pair =>
+              pair.split("=", 2) match {
+                case Array(k, v) => Some(k -> v)
+                case _           => None
+              }
+            }
+            .toMap
+        )
+        .map { pairs =>
+          val warn = pairs.get("warn").filter(_.nonEmpty)
+          val error = pairs.get("error").filter(_.nonEmpty)
+          Freshness(
+            warn = warn,
+            error = error
+          )
+        }
+        .flatMap {
+          case freshness if freshness.warn.isEmpty && freshness.error.isEmpty =>
+            None
+          case freshness if !freshness.checkValidity("test").toOption.getOrElse(false) =>
+            None
+          case other => Some(other)
+        }
+
       nameOpt match {
         case Some(name) =>
           Some(
@@ -71,7 +103,8 @@ class XlsDomainReader(input: Input) extends XlsModel {
                   directory = directoryOpt,
                   ack = ack,
                   dagRef = dagRefOpt,
-                  schedule = scheduleOpt
+                  schedule = scheduleOpt,
+                  freshness = freshness
                 )
               ),
               comment = comment,
@@ -268,6 +301,38 @@ class XlsDomainReader(input: Input) extends XlsModel {
           case sink =>
             sink.toAllSinks()
         }
+
+      val freshnessOpt = Option(
+        row.getCell(headerMap("_freshness"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+
+      val freshness = freshnessOpt
+        .map(
+          _.split(",")
+            .flatMap { pair =>
+              pair.split("=", 2) match {
+                case Array(k, v) => Some(k -> v)
+                case _           => None
+              }
+            }
+            .toMap
+        )
+        .map { pairs =>
+          val warn = pairs.get("warn").filter(_.nonEmpty)
+          val error = pairs.get("error").filter(_.nonEmpty)
+          Freshness(
+            warn = warn,
+            error = error
+          )
+        }
+        .flatMap {
+          case freshness if freshness.warn.isEmpty && freshness.error.isEmpty =>
+            None
+          case freshness if !freshness.checkValidity("test").toOption.getOrElse(false) =>
+            None
+          case other => Some(other)
+        }
+
       (nameOpt, patternOpt) match {
         case (Some(name), Some(pattern)) => {
           val metaData = Metadata(
@@ -283,7 +348,8 @@ class XlsDomainReader(input: Input) extends XlsModel {
             quote = quoteOpt,
             nullValue = nullValueOpt,
             dagRef = dagRefOpt,
-            schedule = scheduleOpt
+            schedule = scheduleOpt,
+            freshness = freshness
           )
 
           val tablePolicies = policiesOpt
