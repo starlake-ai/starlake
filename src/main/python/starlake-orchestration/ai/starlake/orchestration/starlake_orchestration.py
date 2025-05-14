@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, final, Generic, List, Optional, Set, Type, TypeVar, Union
+from typing import Any, Callable, Dict, final, Generic, List, Optional, Set, Type, TypeVar, Union
 
 import os
 import importlib
@@ -422,7 +422,7 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
 
         update_group_dependencies(self)
 
-        def walk_tree(node: AbstractDependencyy, level:int = 0):
+        def walk_tree(node: AbstractDependency, level:int = 0):
             if isinstance(node, AbstractTaskGroup):
                 if len(node.roots) > 0:
                     for root in node.roots:
