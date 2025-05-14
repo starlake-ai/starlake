@@ -49,4 +49,8 @@ case class Freshness(
     else
       Left(errorList.toList)
   }
+
+  def acceptability(): Long = {
+    Math.max(error.map(Duration(_).toSeconds).getOrElse(0L) - 60, 0L)
+  }
 }
