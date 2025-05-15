@@ -329,10 +329,9 @@ object SQLUtils extends StrictLogging {
           }.toList
 
         // When the load and the transform go to the same table and in the same domain we do not take them into account
-        val nameCountMatch =
-          (domainsByFinalName.map(_.name.toLowerCase()) ++ tasksByTable.map(
-            _.name.toLowerCase()
-          )).toSet.size
+        val nameCountMatch = (domainsByFinalName.map(dom =>
+          s"${dom.finalName}.$table".toLowerCase
+        ) ++ tasksByTable.map(task => s"${task.domain}.$table".toLowerCase)).toSet.size
 
         val (database, domain) = if (nameCountMatch > 1) {
           val domainNames = domainsByFinalName.map(_.finalName).mkString(",")
