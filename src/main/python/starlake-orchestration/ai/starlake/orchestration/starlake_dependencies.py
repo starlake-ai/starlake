@@ -6,7 +6,7 @@ from ai.starlake.dataset import StarlakeDataset
 
 from collections import defaultdict
 
-from typing import Dict, List, Optional, Sequence, Set, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Union
 
 from enum import Enum
 
@@ -162,7 +162,7 @@ class TreeNodeMixin:
             return self.node.id + " << " + "[" + ",".join([node.node.id for node in self.parents]) + "]"
 
 class StarlakeDependency(DependencyMixin):
-    def __init__(self, name: str, dependency_type: StarlakeDependencyType, cron: Optional[str]= None, dependencies: List[StarlakeDependency]= [], sink: Optional[str]= None, stream: Optional[str]= None, **kwargs):
+    def __init__(self, name: str, dependency_type: StarlakeDependencyType, cron: Optional[str]= None, dependencies: List[StarlakeDependency]= [], sink: Optional[str]= None, stream: Optional[str]= None, freshness: int = 0, **kwargs):
         """Initializes a new StarlakeDependency instance.
 
         Args:
@@ -172,6 +172,7 @@ class StarlakeDependency(DependencyMixin):
             dependencies (List[StarlakeDependency]): The optional dependencies.
             sink (str): The optional sink.
             stream (str): The optional stream.
+            freshness (int): The freshness in seconds. Defaults to 0.
         """
         super().__init__(name)
         self._name = name
@@ -191,6 +192,7 @@ class StarlakeDependency(DependencyMixin):
         self._cron = cron
         self._dependencies = dependencies
         self._stream = stream
+        self._freshness = freshness
         for dependency in self._dependencies:
             self << dependency
 
@@ -230,8 +232,12 @@ class StarlakeDependency(DependencyMixin):
     def sink(self) -> Optional[str]:
         return f"{self.domain}.{self.table}"
 
+    @property
+    def freshness(self) -> int:
+        return self._freshness
+
     def __repr__(self) -> str:
-        return f"StarlakeDependency(name={self.name}, dependency_type={self.dependency_type}, cron={self.cron}, dependencies={self.dependencies}, sink={self.sink}, stream={self.stream}, upstreams=[{','.join([dep.id for dep in self.upstreams])}], downstreams=[{','.join([dep.id for dep in self.downstreams])}], node={self.node})"
+        return f"StarlakeDependency(name={self.name}, dependency_type={self.dependency_type}, cron={self.cron}, dependencies={self.dependencies}, sink={self.sink}, stream={self.stream}, freshness={self.freshness}, upstreams=[{','.join([dep.id for dep in self.upstreams])}], downstreams=[{','.join([dep.id for dep in self.downstreams])}], node={self.node})"
 
 class StarlakeDependencies():
     def __init__(self, dependencies: Union[str, List[StarlakeDependency]], **kwargs):
@@ -258,13 +264,16 @@ class StarlakeDependencies():
 
             stream: Optional[str] = data.get('stream', None)
 
+            freshness: int = data.get('freshness', 0)
+
             return StarlakeDependency(
                 name=name,
                 dependency_type=dependency_type, 
                 cron=cron, 
                 dependencies=[generate_dependency(dependency) for dependency in task.get('children', [])],
                 sink=sink,
-                stream=stream
+                stream=stream,
+                freshness=freshness,
             )
 
         if isinstance(dependencies, str):
@@ -375,8 +384,10 @@ class StarlakeDependencies():
                         sink = dependency.sink
                         uri = dependency.uri
                         stream = dependency.stream
+                        freshness = dependency.freshness
                         if uri not in uris and uri not in temp_filtered_datasets:
                             kw = dict()
+                            kw['freshness'] = freshness
                             if dependency.cron is not None:
                                 kw['cron'] = dependency.cron
                             if sl_schedule_parameter_name is not None:
