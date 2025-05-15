@@ -328,8 +328,12 @@ object SQLUtils extends StrictLogging {
             domainOK && task.table.equalsIgnoreCase(table)
           }.toList
 
+        // When the load and the transform go to the same table and in the same domain we do not take them into account
         val nameCountMatch =
-          domainsByFinalName.length + tasksByTable.length
+          (domainsByFinalName.map(_.name.toLowerCase()) ++ tasksByTable.map(
+            _.name.toLowerCase()
+          )).toSet.size
+
         val (database, domain) = if (nameCountMatch > 1) {
           val domainNames = domainsByFinalName.map(_.finalName).mkString(",")
           logger.error(s"Table $table is present in domain(s): $domainNames.")
