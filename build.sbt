@@ -4,6 +4,7 @@ import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations.*
 import sbtrelease.Version.Bump.Next
 import xerial.sbt.Sonatype.*
 
+lazy val javacCompilerVersion = "11"
 
 javacOptions ++= Seq(
   "-source", javacCompilerVersion,
