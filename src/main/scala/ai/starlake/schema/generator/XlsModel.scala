@@ -15,7 +15,8 @@ trait XlsModel {
     "_rename"      -> "Rename",
     "_tags"        -> "Tags",
     "_dagRef"      -> "Dag reference",
-    "_frequency"   -> "Job frenquency"
+    "_frequency"   -> "Job frenquency",
+    "_freshness"   -> "Freshness"
   )
   val allPolicyHeaders = List(
     "_name"        -> "Name",
@@ -66,7 +67,8 @@ trait XlsModel {
     "_validator"  -> "Class validator",
     "_null"       -> "Null value",
     "_dagRef"     -> "Dag reference",
-    "_frequency"  -> "Job frenquency"
+    "_frequency"  -> "Job frenquency",
+    "_freshness"  -> "Freshness"
   )
 
   val allAttributeHeaders = List(
@@ -111,7 +113,8 @@ trait XlsModel {
     "_coalesce"          -> "FS Sink Coalesce",
     "_connection"        -> "Run connection type",
     "_connectionRef"     -> "Run connection name",
-    "_dagRef"            -> "Dag reference"
+    "_dagRef"            -> "Dag reference",
+    "_freshness"         -> "Freshness"
   )
 
   val allAttributeJobHeaders = List(

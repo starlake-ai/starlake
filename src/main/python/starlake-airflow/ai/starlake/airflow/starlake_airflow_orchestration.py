@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from ai.starlake.airflow.starlake_airflow_job import StarlakeAirflowJob, AirflowDataset
+from ai.starlake.airflow.starlake_airflow_job import StarlakeAirflowJob, AirflowDataset, supports_inlet_events
 
-from ai.starlake.common import sl_cron_start_end_dates, sl_scheduled_dataset
+from ai.starlake.common import sl_cron_start_end_dates, sl_scheduled_date, sl_scheduled_dataset
 
 from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
@@ -15,6 +15,8 @@ from airflow.models.dag import DagContext
 from airflow.datasets import Dataset
 
 from airflow.models.baseoperator import BaseOperator
+
+from airflow.utils.context import Context
 
 from airflow.utils.task_group import TaskGroup, TaskGroupContext
 
@@ -33,21 +35,45 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
 
         airflow_schedule: Union[str, List[Dataset], None] = None
 
+        events = self.events
+
+        # AssetOrTimeSchedule is not supported yet within SL
         if self.cron is not None:
             airflow_schedule = self.cron
-        elif self.events is not None:
-            airflow_schedule = self.events
+        elif events:
+            if not supports_inlet_events():
+                airflow_schedule = events
+            else:
+                from functools import reduce
+                airflow_schedule = reduce(lambda a, b: a | b, events)
 
-        def ts_as_datetime(ts):
-            # Convert ts to a datetime object
+        def ts_as_datetime(ts, context: Context = None):
             from datetime import datetime
-            return datetime.fromisoformat(ts)
+            if not context:
+                from airflow.operators.python import get_current_context
+                context = get_current_context()
+            ti = context["task_instance"]
+            sl_logical_date = ti.xcom_pull(task_ids="start", key="sl_logical_date")
+            if sl_logical_date:
+                ts = sl_logical_date
+            if isinstance(ts, str):
+                # # Convert ts to a datetime object
+                # if len(ts) == 10:
+                #     from datetime import datetime
+                #     return datetime.fromisoformat(ts)
+                # else:
+                from dateutil import parser
+                import pytz
+                return parser.isoparse(ts).astimezone(pytz.timezone('UTC'))
+            elif isinstance(ts, datetime):
+                return ts
 
         user_defined_macros = kwargs.get('user_defined_macros', job.caller_globals.get('user_defined_macros', dict()))
         kwargs.pop('user_defined_macros', None)
         user_defined_macros["sl_dates"] = sl_cron_start_end_dates
         user_defined_macros["ts_as_datetime"] = ts_as_datetime
         user_defined_macros["sl_scheduled_dataset"] = sl_scheduled_dataset
+        user_defined_macros["sl_scheduled_date"] = sl_scheduled_date
 
         user_defined_filters = kwargs.get('user_defined_filters', job.caller_globals.get('user_defined_filters', None))
         kwargs.pop('user_defined_filters', None)
