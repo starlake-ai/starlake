@@ -1,3 +1,4 @@
+version: 1
 connections:
   h2-sample-db:
     format: "jdbc"

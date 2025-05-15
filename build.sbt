@@ -4,7 +4,6 @@ import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations.*
 import sbtrelease.Version.Bump.Next
 import xerial.sbt.Sonatype.*
 
-lazy val javacCompilerVersion = "11"
 
 javacOptions ++= Seq(
   "-source", javacCompilerVersion,
@@ -63,7 +62,6 @@ resolvers ++= Resolvers.allResolvers
 libraryDependencies ++= {
   val versionSpecificLibs = {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => scala212LibsOnly
       case Some((2, 13)) => scalaCompat ++ scala213LibsOnly
       case _ => throw new Exception(s"Invalid Scala Version")
     }
@@ -370,6 +368,8 @@ packageSetup := {
     to
   )
 }
+
+Compile / mainClass := Some("ai.starlake.job.Main")
 
 Compile / packageBin := ((Compile / packageBin).dependsOn(packageSetup)).value
 

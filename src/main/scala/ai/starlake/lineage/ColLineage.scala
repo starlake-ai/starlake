@@ -1,6 +1,7 @@
 package ai.starlake.lineage
 
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.Connection
 import ai.starlake.lineage.ColLineage.Table
 import ai.starlake.schema.handlers.{SchemaHandler, TableWithNameAndType}
 import ai.starlake.sql.SQLUtils
@@ -10,7 +11,7 @@ import ai.starlake.utils.{JsonSerializer, ParseUtils, Utils}
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 class ColLineage(
   settings: Settings,
@@ -54,23 +55,41 @@ class ColLineage(
     }
   }
 
-  def colLineage(colLineageConfig: ColLineageConfig): Option[ColLineage.Lineage] = {
-    val taskDesc = schemaHandler.taskOnly(colLineageConfig.task, reload = true)
-    taskDesc.toOption.map { task =>
-      val sqlSubst = task.sql
-        .map { sql =>
-          schemaHandler.substituteRefTaskMainSQL(sql, task.getRunConnection()(settings))
+  def colLineage(config: ColLineageConfig): Option[ColLineage.Lineage] = {
+    config.sql match {
+      case Some(sql) =>
+        sqlColLineage(sql, config.task.split('.')(0), config.task.split('.')(1), null)
+      case None =>
+        val taskDesc = schemaHandler.taskOnly(config.task, reload = true)
+        taskDesc.toOption.flatMap { task =>
+          val sqlSubst = task.sql.getOrElse("")
+          sqlColLineage(sqlSubst, task.domain, task.table, task.getRunConnection()(settings))
         }
-        .getOrElse("")
+    }
+  }
+
+  def sqlColLineage(
+    sql: String,
+    domain: String,
+    table: String,
+    connection: Connection
+  ): Option[ColLineage.Lineage] = {
+    val sqlSubst = schemaHandler.substituteRefTaskMainSQL(sql, connection)
+    if (sqlSubst.isEmpty) {
+      logger.warn(s"Task $domain.$table has no SQL")
+      None
+    } else {
       val tableNames = SQLUtils.extractTableNames(sqlSubst)
       val quoteFreeTables = tableNames.map(SQLUtils.quoteFreeTableName)
       val tablesWithColumnNames = schemaHandler.getTablesWithColumnNames(quoteFreeTables)
-      colLineage(
-        colLineageConfig.outputFile,
-        task.domain,
-        task.table,
-        sqlSubst,
-        tablesWithColumnNames
+      Some(
+        colLineage(
+          None,
+          domain,
+          table,
+          sqlSubst,
+          tablesWithColumnNames
+        )
       )
     }
   }
