@@ -141,7 +141,7 @@ object Dependencies {
   )
 
   val esSpark212 = Seq(
-    "org.elasticsearch" %% "elasticsearch-spark-30" % Versions.esSpark212 % "provided" exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
+    "org.elasticsearch" %% "elasticsearch-spark-30" % Versions.esSpark % "provided" exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
     "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )
 
@@ -221,7 +221,7 @@ object Dependencies {
   )
 
   val starlakeStreaming = Seq(
-    "ai.starlake" %% "starlake-streaming" % "1.3.4" % "provided"
+    "ai.starlake" %% "starlake-streaming" % "1.3.5" % "provided"
   )
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
