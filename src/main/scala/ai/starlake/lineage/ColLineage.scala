@@ -62,6 +62,7 @@ class ColLineage(
       case Some(sql) =>
         taskDesc.toOption.flatMap { task =>
           sqlColLineage(
+            config.outputFile,
             sql,
             task.name.split('.')(0),
             task.name.split('.')(1),
@@ -74,6 +75,7 @@ class ColLineage(
   }
 
   def sqlColLineage(
+    outputFile: Option[File],
     sql: String,
     domain: String,
     table: String,
@@ -89,7 +91,7 @@ class ColLineage(
       val tablesWithColumnNames = schemaHandler.getTablesWithColumnNames(quoteFreeTables)
       Some(
         colLineage(
-          None,
+          outputFile,
           domain,
           table,
           sqlSubst,
