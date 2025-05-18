@@ -56,15 +56,20 @@ class ColLineage(
   }
 
   def colLineage(config: ColLineageConfig): Option[ColLineage.Lineage] = {
-    config.sql match {
+    val taskDesc = schemaHandler.taskOnly(config.task, reload = true)
+    val sql = config.sql.orElse(taskDesc.toOption.flatMap(_.sql))
+    sql match {
       case Some(sql) =>
-        sqlColLineage(sql, config.task.split('.')(0), config.task.split('.')(1), null)
-      case None =>
-        val taskDesc = schemaHandler.taskOnly(config.task, reload = true)
         taskDesc.toOption.flatMap { task =>
-          val sqlSubst = task.sql.getOrElse("")
-          sqlColLineage(sqlSubst, task.domain, task.table, task.getRunConnection()(settings))
+          sqlColLineage(
+            sql,
+            task.name.split('.')(0),
+            task.name.split('.')(1),
+            task.getRunConnection()(settings)
+          )
         }
+      case None =>
+        None
     }
   }
 
