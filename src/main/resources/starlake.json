@@ -2346,6 +2346,10 @@
           "type": "boolean",
           "description": "is duckdb mode active"
         },
+        "duckdbExtensions": {
+          "type": "string",
+          "description": "Comma separated list of duckdb extensions to load. Default is spatial, json, httpfs"
+        },
         "duckdbPath": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Where to store duckdb files if not using default"

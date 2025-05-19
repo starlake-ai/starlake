@@ -1457,7 +1457,8 @@ object YamlConfigGenerators {
       maxInteractiveRecords = maxInteractiveRecords,
       duckdbPath = duckdbPath,
       ack = None,
-      duckDbEnableExternalAccess = false
+      duckDbEnableExternalAccess = false,
+      duckdbExtensions = "json,spatial"
     )
   }
 
