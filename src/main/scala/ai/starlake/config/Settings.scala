@@ -796,6 +796,7 @@ object Settings extends StrictLogging {
     timezone: TimeZone,
     hiveInTest: Boolean,
     duckdbMode: Boolean,
+    duckdbExtensions: String,
     testCsvNullString: String,
     maxInteractiveRecords: Int,
     duckdbPath: Option[String],

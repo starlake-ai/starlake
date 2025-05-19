@@ -163,6 +163,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
     // deltalake
     private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("3.3.0");
 
+    // ICEBERG
+    private static final String ICEBERG_SPARK = getEnv("SPARK_ICEBERG").orElse("1.9.0");
+
     private static final String HADOOP_AZURE_VERSION = getEnv("HADOOP_AZURE_VERSION").orElse("3.3.5");
     private static final String AZURE_STORAGE_VERSION = getEnv("AZURE_STORAGE_VERSION").orElse("8.6.6");
     private static final String JETTY_VERSION = getEnv("JETTY_VERSION").orElse("9.4.51.v20230217");
@@ -206,8 +209,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
             "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_" + SCALA_VERSION + "/" +
                     SPARK_BQ_VERSION + "/" +
                     "spark-bigquery-with-dependencies_" + SCALA_VERSION + "-" + SPARK_BQ_VERSION + ".jar");
+
     private static final ResourceDependency DELTA_SPARK_JAR = new ResourceDependency("delta-spark",
             "https://repo1.maven.org/maven2/io/delta/delta-spark_" + SCALA_VERSION + "/" + DELTA_SPARK + "/delta-spark_" + SCALA_VERSION + "-" + DELTA_SPARK + ".jar");
+
+    private static final ResourceDependency ICEBERG_SPARK_JAR = new ResourceDependency("delta-spark",
+            "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-3.5_" + SCALA_VERSION + "/" + ICEBERG_SPARK + "/iceberg-spark-runtime-3.5_" + SCALA_VERSION + "-" + ICEBERG_SPARK + ".jar");
 
     private static final ResourceDependency DELTA_STORAGE_JAR = new ResourceDependency("delta-storage",
             "https://repo1.maven.org/maven2/io/delta/delta-storage" + "/" + DELTA_SPARK + "/delta-storage" +"-" + DELTA_SPARK + ".jar");
@@ -268,9 +275,13 @@ public class Setup extends ProxySelector implements X509TrustManager {
             SPARK_BQ_JAR
     };
 
-    private static final ResourceDependency[] sparkDependencies = {
+    private static final ResourceDependency[] deltaSparkDependencies = {
             DELTA_SPARK_JAR,
             DELTA_STORAGE_JAR
+    };
+
+    private static final ResourceDependency[] icebergSparkDependencies = {
+            ICEBERG_SPARK_JAR
     };
 
     private static final ResourceDependency[] confluentDependencies = {
@@ -543,7 +554,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
             File depsDir = new File(binDir, "deps");
 
-            downloadAndDisplayProgress(sparkDependencies, depsDir, true);
+            downloadAndDisplayProgress(deltaSparkDependencies, depsDir, true);
+            downloadAndDisplayProgress(icebergSparkDependencies, depsDir, true);
             updateSparkLog4j2Properties(sparkDir);
             downloadAndDisplayProgress(duckDbDependencies, depsDir, true);
 

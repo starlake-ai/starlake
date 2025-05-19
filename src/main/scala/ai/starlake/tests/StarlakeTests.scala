@@ -600,8 +600,13 @@ object StarlakeTestData {
               DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
             ) { conn =>
               // TODO logger.info(s"installing extensions")
-              JdbcDbUtils.execute("INSTALL SPATIAL;", conn)
-              JdbcDbUtils.execute("INSTALL JSON;", conn)
+              settings.appConfig.duckdbExtensions.split(",").foreach { extension =>
+                val ext = extension.trim
+                if (ext.nonEmpty) {
+                  JdbcDbUtils.execute(s"INSTALL $ext;", conn)
+                  JdbcDbUtils.execute(s"LOAD $ext;", conn)
+                }
+              }
               createSchema(domainName, conn)
               rootData.foreach(_.load(conn))
               domainData.foreach(_.load(conn))
