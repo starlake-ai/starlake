@@ -4,7 +4,7 @@ from croniter import croniter
 from croniter.croniter import CroniterBadCronError
 
 from datetime import datetime, timedelta
-from typing import Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 def keep_ascii_only(text):
     return re.sub(r'[^\x00-\x7F]+', '_', text)
@@ -61,52 +61,69 @@ def sl_schedule(cron: str, start_time: Optional[Union[str, datetime]] = None, fo
         start_time = parser.isoparse(start_time).astimezone(pytz.timezone('UTC'))
     return croniter(cron, start_time).get_prev(datetime).strftime(format)
 
-def get_cron_frequency(cron_expression, start_time: datetime, period=StarlakeCronPeriod.DAY):
+def get_cron_frequency(cron_expression) -> timedelta:
     """
-    Calculate the frequency of a cron expression within a specific time period.
-
+    Calculate the timedelta between 2 executions of a cron expression.
     :param cron_expression: A string representing the cron expression.
-    :param start_time: The starting datetime to evaluate from.
-    :param period: The time period ('day', 'week', 'month', 'year') over which to calculate frequency.
-    :return: The frequency of runs in the given period.
+    :raise ValueError: If the cron expression is invalid.
+    :return: The timedelta between 2 executions of the cron expression.
     """
     from croniter import croniter
-    iter = croniter(cron_expression, start_time)
-    end_time = start_time
+    if not is_valid_cron(cron_expression):
+        raise ValueError(f"Invalid cron expression: {cron_expression}")
+    iter = croniter(cron_expression)
+    next_run = iter.get_next(datetime)
+    next_run_2 = iter.get_next(datetime)
+    return next_run_2 - next_run
 
-    if period == StarlakeCronPeriod.DAY:
-        end_time += timedelta(days=1)
-    elif period == StarlakeCronPeriod.WEEK:
-        end_time += timedelta(weeks=1)
-    elif period == StarlakeCronPeriod.MONTH:
-        end_time += timedelta(days=30)  # Approximate a month
-    elif period == StarlakeCronPeriod.YEAR:
-        end_time += timedelta(days=365)
-    else:
-        raise ValueError("Unsupported period. Choose from 'day', 'week', 'month', 'year.")
-
-    frequency = 0
-    while True:
-        next_run = iter.get_next(datetime)
-        if next_run < end_time:
-            frequency += 1
-        else:
-            break
-    return frequency
-
-def sort_crons_by_frequency(cron_expressions, period=StarlakeCronPeriod.DAY):
+def sort_crons_by_frequency(cron_expressions, reference_time: Optional[datetime] = None) -> Tuple[Dict[int, List[str]], List[str]]:
     """
     Sort cron expressions by their frequency.
 
     :param cron_expressions: A list of cron expressions.
-    :param period: The period over which to calculate frequency ('day', 'week', 'month', 'year').
-    :return: A sorted list of cron expressions by frequency (most frequent first).
+    :param reference_time: The optional reference date time for calculating next executions. If None, Defaults to today at 00:00:00 UTC.
+    :raise ValueError: If the cron expression is invalid.
+    :return: A tuple of (cron expressions grouped by frequency, list of cron expressions ordered by frequency in ascending order). For each frequency, sort the list of cron expressions based on the next execution date, from the furthest to the soonest
     """
-    start_time = cron_start_time()
-    frequencies = [(expr, get_cron_frequency(expr, start_time, period)) for expr in cron_expressions]
-    # Sort by frequency in descending order
-    sorted_expressions = sorted(frequencies, key=lambda x: x[1], reverse=True)
-    return sorted_expressions
+    if reference_time is None:
+        from datetime import date, time
+        import pytz
+        # Today at midnight UTC
+        today_utc_midnight = datetime.combine(
+            date.today(),
+            time(0, 0, 0)
+        )
+        reference_time = datetime.fromtimestamp(today_utc_midnight.timestamp()).astimezone(pytz.timezone('UTC'))
+
+    pairs = [(expr, int(get_cron_frequency(expr).total_seconds())) for expr in cron_expressions]
+    from collections import defaultdict
+
+    # Create a dictionary to store cron expressions by their frequency
+    grouped_crons = defaultdict(list)
+
+    for expr, freq in pairs:
+        grouped_crons[freq].append(expr)
+
+    sorted_groups = {}
+
+    for freq, cron_list in grouped_crons.items():
+        # For each cron expression, compute its next execution datetime
+        next_times = [
+            (cron_expr, croniter(cron_expr, reference_time).get_next(datetime))
+            for cron_expr in cron_list
+        ]
+        # Sort by datetime descending (furthest first)
+        next_times.sort(key=lambda pair: pair[1], reverse=True)
+        # Rebuild the list of cron expressions in that order
+        sorted_groups[freq] = [cron_expr for cron_expr, _ in next_times]
+
+    flattened: List[str] = []
+
+    # Iterate frequencies from smallest to largest timedelata
+    for freq in sorted(sorted_groups.keys(), reverse=False):
+        for expr in sorted_groups[freq]:
+            flattened.append(expr)
+    return (sorted_groups, flattened)
 
 sl_timestamp_format = '%Y-%m-%d %H:%M:%S%z'
 
