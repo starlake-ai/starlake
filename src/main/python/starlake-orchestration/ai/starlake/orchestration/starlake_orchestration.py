@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, final, Generic, List, Optional, Set, Type, TypeVar, Union
+from typing import Any, Callable, Dict, final, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
 
 import os
 import importlib
@@ -353,14 +353,14 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
             self.__add_dag_dependency = None
 
         uris: Set[str] = set(map(lambda dataset: dataset.uri, datasets or []))
+        sorted_crons_by_frequency: Tuple[Dict[int, List[str]], List[str]] = sort_crons_by_frequency(set(self.scheduled_datasets.values()))
+        crons_by_frequency = sorted_crons_by_frequency[0]
+        self.__crons_by_frequency = crons_by_frequency
+        sorted_crons = sorted_crons_by_frequency[1]
         if cron:
             cron_expr = cron
-        elif len(uris) == len(self.scheduled_datasets) and len(set(self.scheduled_datasets.values())) > 0:
-            sorted_crons = sort_crons_by_frequency(set(
-                self.scheduled_datasets.values()), 
-                period=self.cron_period_frequency
-            )
-            cron_expr = sorted_crons[0][0]
+        elif len(uris) == len(self.scheduled_datasets) and len(crons_by_frequency.keys()) > 0:
+            cron_expr = sorted_crons[0]
         else:
             cron_expr = None
 
@@ -599,26 +599,36 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
 
     @final
     @property
+    def crons_by_frequency(self) -> Dict[int, List[str]]:
+        return self.__crons_by_frequency
+
+    @final
+    @property
     def least_frequent_datasets(self) -> List[StarlakeDataset]:
         least_frequent_datasets: List[StarlakeDataset] = []
-        if set(self.scheduled_datasets.values()).__len__() > 1: # we have at least 2 distinct cron expressions
-            # we sort the cron datasets by frequency (most frequent first)
-            sorted_crons = sort_crons_by_frequency(set(self.scheduled_datasets.values()), period=self.cron_period_frequency)
-            # we exclude the most frequent cron dataset
-            least_frequent_crons = set([expr for expr, _ in sorted_crons[1:sorted_crons.__len__()]])
-            for name, cron in self.scheduled_datasets.items() :
-                # we republish the least frequent scheduled datasets
-                if cron in least_frequent_crons:
-                    dataset = self.find_dataset_by_name(name)
-                    if dataset:
-                        least_frequent_datasets.append(dataset)
+        if len(self.crons_by_frequency.keys()) > 1: # we have at least 2 distinct frequencies
+            most_frequent_datasets: List[str] = list(map(lambda dataset: dataset.name, self.most_frequent_datasets or []))
+            least_frequent_datasets = list(filter(lambda dataset: dataset.name not in most_frequent_datasets, self.datasets or []))
         return least_frequent_datasets
 
     @final
     @property
     def most_frequent_datasets(self) -> List[StarlakeDataset]:
-        least_frequent_datasets: List[str] = list(map(lambda dataset: dataset.name, self.least_frequent_datasets or []))
-        return [dataset for dataset in self.datasets or [] if dataset.cron and dataset.name not in least_frequent_datasets]
+        if self.crons_by_frequency is None or len(self.crons_by_frequency.keys()) == 0:
+            min_interval = None
+        else:
+            min_interval = min(self.crons_by_frequency.keys())
+        if min_interval:
+            most_frequent_crons = set(self.crons_by_frequency[min_interval])
+        else:
+            most_frequent_crons = []
+        most_frequent_datasets: List[StarlakeDataset] = []
+        for name, cron in self.scheduled_datasets.items() :
+            if cron in most_frequent_crons:
+                dataset = self.find_dataset_by_name(name)
+                if dataset:
+                    most_frequent_datasets.append(dataset)
+        return most_frequent_datasets
 
     @final
     @property
