@@ -1,0 +1,14 @@
+---
+version: 1
+dag:
+  comment: "dag for loading all {{domain}} tables"
+  template: "load/snowflake__scheduled_table__sql.py.j2"
+  filename: "snowflake_{{domain}}_{{table}}.py"
+  options:
+    sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
+    pre_load_strategy: "none"
+    tags: "{{domain}}"
+    timezone: "UTC"
+    stage_location: "staging"
+    packages: "croniter,python-dateutil"
+    warehouse: "COMPUTE_WH"
