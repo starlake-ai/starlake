@@ -237,7 +237,8 @@ trait IngestionJob extends SparkJob {
         }
 
       case _ =>
-        if (session.catalog.tableExists(s"$targetTableName"))
+        val exists = SparkUtils.tableExists(session, targetTableName)
+        if (exists)
           session.sql(s"select * from $targetTableName").createOrReplaceTempView("SL_THIS")
         sqls.foreach { sql =>
           val compiledSql = sql.richFormat(schemaHandler.activeEnvVars(), options)

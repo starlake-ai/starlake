@@ -6,14 +6,15 @@ import ai.starlake.job.metrics.{ExpectationJob, SparkExpectationAssertionHandler
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
-import ai.starlake.utils._
+import ai.starlake.utils.*
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.catalyst.analysis.NoSuchTableException
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import org.apache.spark.sql.{DataFrame, SaveMode}
@@ -333,7 +334,8 @@ class SparkAutoTask(
 
   private def runPySpark(pythonFile: Path): Option[DataFrame] = {
     SparkUtils.runPySpark(pythonFile, commandParameters)
-    if (session.catalog.tableExists("SL_THIS"))
+    val exists = SparkUtils.tableExists(session, "SL_THIS")
+    if (exists)
       Some(session.sqlContext.table("SL_THIS"))
     else
       None
@@ -375,7 +377,7 @@ class SparkAutoTask(
       Try {
         sink match {
           case _: FsSink =>
-            val exists = session.catalog.tableExists(taskDesc.domain, taskDesc.table)
+            val exists = SparkUtils.tableExists(session = session, tableName = fullTableName)
             if (!exists && taskDesc._auditTableName.isDefined) {
               createAuditTable()
             } else
