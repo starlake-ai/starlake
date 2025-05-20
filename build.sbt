@@ -45,7 +45,7 @@ ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 lazy val scala213 = "2.13.15"
 lazy val scala3 = "3.3.1"
 
-lazy val supportedScalaVersions = Seq(scala213, scala3)
+lazy val supportedScalaVersions = Seq(scala213)
 
 
 ThisBuild / crossScalaVersions := supportedScalaVersions

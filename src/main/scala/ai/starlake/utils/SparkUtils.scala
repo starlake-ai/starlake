@@ -8,9 +8,10 @@ import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.deploy.PythonRunner
+import org.apache.spark.sql.catalyst.analysis.NoSuchTableException
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions.JDBC_PREFER_TIMESTAMP_NTZ
-import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils.getJdbcType
+import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils.{getJdbcType, tableExists}
 import org.apache.spark.sql.execution.datasources.jdbc.{JdbcOptionsInWrite, JdbcUtils}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
@@ -25,6 +26,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import java.sql.{Connection, SQLException}
 import java.util.regex.Pattern
+import scala.util.{Failure, Success, Try}
 
 object SparkUtils extends StrictLogging {
   def added(incoming: StructType, existing: StructType): StructType = {
@@ -423,5 +425,22 @@ object SparkUtils extends StrictLogging {
         pyFiles.mkString(",")
       ) ++ pythonParams
     )
+  }
+
+  // because tableExists is not supported on all engines (specifically iceberg)
+  // session.catalog.tableExists(taskDesc.domain, taskDesc.table)
+
+  def tableExists(session: SparkSession, tableName: String): Boolean = {
+    Try {
+      session.catalog.getTable(tableName)
+    } match {
+      case Success(_) =>
+        true
+      case Failure(_: NoSuchTableException) =>
+        false
+      case Failure(e) =>
+        throw e
+    }
+
   }
 }

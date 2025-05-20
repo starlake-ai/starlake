@@ -1373,7 +1373,14 @@ object Settings extends StrictLogging {
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
       .foldLeft(initialConf) { case (conf, (key, value)) =>
         logger.debug(s"Setting key: ${key}")
-        conf.set("spark." + key, value)
+        // flatten keys
+        val flatKey = key.replaceAll(""""""", "")
+        val finalKey = if (key.startsWith("_.")) {
+          flatKey.replaceFirst("_\\.", "")
+        } else {
+          "spark." + flatKey
+        }
+        conf.set(finalKey, value)
       }
       .set("spark.scheduler.mode", settings.appConfig.sparkScheduling.mode)
 

@@ -60,7 +60,9 @@ class SparkEnv private (
     import org.apache.spark.sql.SparkSession
     val master = config.get("spark.master", sys.env.get("SPARK_MASTER_URL").getOrElse("local[*]"))
 
-    if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
+    if (Utils.isIcebergAvailable()) {
+      // Handled by configuration
+    } else if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
       config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
       if (config.get("spark.sql.catalog.spark_catalog", "").isEmpty)
         config.set(
