@@ -15,7 +15,7 @@ from snowflake.core.task import Cron, StoredProcedureCall, Task
 from snowflake.core.task.dagv1 import DAG, DAGTask, DAGOperation, DAGRun, _dag_context_stack
 from snowflake.snowpark import Row, Session
 
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from types import ModuleType
 
@@ -217,8 +217,8 @@ class SnowflakeDag(DAG):
             if computed_cron:
                 schedule = computed_cron
             elif changes:
-                sorted_crons = sort_crons_by_frequency(list(changes.values()))
-                most_frequent_cron = sorted_crons[0][0]
+                sorted_crons_by_frequency: Tuple[Dict[int, List[str]], List[str]] = sort_crons_by_frequency(set(self.scheduled_datasets.values()))
+                most_frequent_cron = sorted_crons_by_frequency[1][0]
                 from datetime import datetime
                 from croniter import croniter
                 iter_cron = croniter(most_frequent_cron, start_time=datetime.now())
