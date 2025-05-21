@@ -5,11 +5,12 @@ import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.IngestionJob
 import ai.starlake.job.transform.JdbcAutoTask
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.{IngestionCounters, SparkUtils}
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 
 import java.nio.charset.Charset
@@ -124,24 +125,33 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
 
   }
 
+  private lazy val metadataOptions = CaseInsensitiveMap[String](mergedMetadata.getOptions())
+  private def getOption(option: String): Option[String] = {
+    metadataOptions.get(option).orElse(metadataOptions.get(s"SNOWFLAKE_$option"))
+  }
+
   def copyExtraOptions(commonOptions: List[String]): String = {
     var extraOptions = ""
-    if (mergedMetadata.getOptions().nonEmpty) {
-      mergedMetadata.getOptions().foreach { case (k, v) =>
-        if (!commonOptions.contains(k)) {
-          extraOptions += s"$k = $v\n"
+    val options = mergedMetadata.getOptions()
+
+    if (options.nonEmpty) {
+      options.foreach { case (k, v) =>
+        // ignore any key that does not start with snowflake_
+        if (k.toUpperCase().startsWith("SNOWFLAKE_")) {
+          val newKey = k.substring("SNOWFLAKE_".length)
+          if (!commonOptions.contains(k)) {
+            extraOptions += s"$newKey = $v\n"
+          }
         }
       }
     }
     extraOptions
   }
   private val skipCount = {
-    if (
-      mergedMetadata.getOptions().get("SKIP_HEADER").isEmpty && mergedMetadata.resolveWithHeader()
-    ) {
+    if (getOption("SKIP_HEADER").isEmpty && mergedMetadata.resolveWithHeader()) {
       Some("1")
     } else {
-      mergedMetadata.getOptions().get("SKIP_HEADER")
+      getOption("SKIP_HEADER")
     }
   }
 
@@ -149,7 +159,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
 
   private val (compressionFormat, extension): (String, String) = {
     val compression =
-      mergedMetadata.getOptions().getOrElse("COMPRESSION", "true").equalsIgnoreCase("true")
+      getOption("COMPRESSION").getOrElse("true").equalsIgnoreCase("true")
     if (compression)
       ("COMPRESSION = GZIP", ".gz")
     else
@@ -177,10 +187,9 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       .getOptions()
       .getOrElse("ENCODING", mergedMetadata.resolveEncoding())
 
-  private def buildCopyJson(domainAndTableName: String) = {
-    val stripOuterArray = mergedMetadata
-      .getOptions()
-      .getOrElse("STRIP_OUTER_ARRAY", mergedMetadata.resolveArray().toString.toUpperCase())
+  private def buildCopyJson(domainAndTableName: String): String = {
+    val stripOuterArray =
+      getOption("STRIP_OUTER_ARRAY").getOrElse(mergedMetadata.resolveArray().toString.toUpperCase())
     val commonOptions = List("STRIP_OUTER_ARRAY", "NULL_IF")
     val matchByColumnName =
       if (
@@ -211,6 +220,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
          |""".stripMargin
     sql
   }
+
   private def buildCopyOther(domainAndTableName: String, format: String) = {
     val commonOptions = List("NULL_IF")
     val extraOptions = copyExtraOptions(commonOptions)
@@ -242,13 +252,8 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     val extraOptions = copyExtraOptions(commonOptions)
 
     val fieldOptionallyEnclosedBy =
-      mergedMetadata
-        .getOptions()
-        .getOrElse("FIELD_OPTIONALLY_ENCLOSED_BY", mergedMetadata.resolveQuote())
-    val separator =
-      mergedMetadata
-        .getOptions()
-        .getOrElse("FIELD_DELIMITER", mergedMetadata.resolveSeparator())
+      getOption("FIELD_OPTIONALLY_ENCLOSED_BY").getOrElse(mergedMetadata.resolveQuote())
+    val separator = getOption("FIELD_DELIMITER").getOrElse(mergedMetadata.resolveSeparator())
 
     /*
     	First argument "\\\\": represents a single backslash in regex.
@@ -256,9 +261,8 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
 
      */
     val escapeUnEnclosedField =
-      mergedMetadata
-        .getOptions()
-        .getOrElse("ESCAPE_UNENCLOSED_FIELD", mergedMetadata.resolveEscape())
+      getOption("ESCAPE_UNENCLOSED_FIELD")
+        .getOrElse(mergedMetadata.resolveEscape())
         .replaceAll("\\\\", "\\\\\\\\")
 
     val sql =
@@ -289,7 +293,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     path: List[Path],
     temporary: Boolean,
     conn: java.sql.Connection
-  ) = {
+  ): List[Map[String, String]] = {
     val sinkConnection = mergedMetadata.getSinkConnection()
     val incomingSparkSchema = schema.targetSparkSchemaWithIgnoreAndScript(schemaHandler)
     val domainAndTableName = domain + "." + table

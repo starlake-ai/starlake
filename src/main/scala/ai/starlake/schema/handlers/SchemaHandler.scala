@@ -76,7 +76,7 @@ case class TableWithNameAndType(name: String, attrs: List[(String, String, Optio
 }
 
 case class DomainWithNameOnly(name: String, tables: List[TableWithNameAndType]) {
-  def asSchemaDefinition(jdbcMetadata: JdbcMetaData) = {
+  def asSchemaDefinition(jdbcMetadata: JdbcMetaData): Unit = {
     tables.foreach { table =>
       val jdbcColumns = table.attrs.map { case (attrName, attrType, comment) =>
         new JdbcColumn(attrName)
