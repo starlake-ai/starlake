@@ -113,13 +113,13 @@ object Settings extends StrictLogging {
     path: String,
     discreteMaxCardinality: Int,
     active: Boolean
-  ) // sinked to audit
+  ) // sunk to audit
 
   final case class ExpectationsConfig(
     path: String,
     active: Boolean,
     failOnError: Boolean
-  ) // sinked to expectations
+  ) // sunk to expectations
 
   final case class Audit(
     path: String,
