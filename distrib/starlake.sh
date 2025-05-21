@@ -71,11 +71,13 @@ launch_setup() {
 launch_starlake() {
   if [ -f "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" ]
   then
-    echo
-    echo Launching starlake.
-    echo "- JAVA_HOME=$JAVA_HOME"
-    echo "- SL_ROOT=$SL_ROOT"
-    echo "- SL_ENV=$SL_ENV"
+    if  [ -n "$SL_LOG_LEVEL" ] && [ "$SL_LOG_LEVEL" != "error" ]; then
+      echo "- JAVA_HOME=$JAVA_HOME"
+      echo "- SL_ROOT=$SL_ROOT"
+    fi
+    if [ "$SL_ENV" != "" ]; then
+      echo "- SL_ENV=$SL_ENV"
+    fi
 #    echo "- SL_MAIN=$SL_MAIN"
 #    echo "- SL_VALIDATE_ON_LOAD=$SL_VALIDATE_ON_LOAD"
 #    echo "- SPARK_DRIVER_MEMORY=$SPARK_DRIVER_MEMORY"
