@@ -24,12 +24,12 @@ import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
-import ai.starlake.schema.handlers._
+import ai.starlake.schema.handlers.*
 import ai.starlake.schema.model.ConnectionType.JDBC
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
-import ai.starlake.utils._
+import ai.starlake.utils.*
 import better.files.File
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -43,10 +43,10 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.jdbc.JdbcDialect
 import org.apache.spark.storage.StorageLevel
-import pureconfig.ConvertHelpers._
-import pureconfig._
-import pureconfig.generic.auto._
-import pureconfig.generic.{FieldCoproductHint, ProductHint}
+import pureconfig.ConvertHelpers.*
+import pureconfig.*
+import pureconfig.generic.auto.*
+import pureconfig.generic.ProductHint
 
 import java.io.ObjectStreamException
 import java.net.URI
