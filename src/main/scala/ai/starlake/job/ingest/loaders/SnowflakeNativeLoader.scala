@@ -139,7 +139,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
         // ignore any key that does not start with snowflake_
         if (k.toUpperCase().startsWith("SNOWFLAKE_")) {
           val newKey = k.substring("SNOWFLAKE_".length)
-          if (!commonOptions.contains(k)) {
+          if (!commonOptions.contains(newKey)) {
             extraOptions += s"$newKey = $v\n"
           }
         }
