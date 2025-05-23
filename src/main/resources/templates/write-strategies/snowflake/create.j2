@@ -1,5 +1,7 @@
 {% if materializedView == 'MATERIALIZED_VIEW' %}
 {% set createTable = 'CREATE MATERIALIZED VIEW ' + tableFullName %}
+{% elif materializedView == 'HYBRID' %}
+{% set createTable = 'CREATE HYBRID TABLE ' + tableFullName %}
 {% else %}
 {% set createTable = 'CREATE TABLE ' + tableFullName + ' ' + sinkTableClusteringClause %}
 {% endif %}

@@ -232,7 +232,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency REDSHIFT_JDBC_JAR = new ResourceDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
     private static ResourceDependency SPARK_REDSHIFT_JAR() {
         if (SCALA_VERSION.equals("2.13")) {
-            return new ResourceDependency("redshift", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/spark-redshift_" + SCALA_VERSION +
+            return new ResourceDependency("redshift spark", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/spark-redshift_" + SCALA_VERSION +
                     "/" + SPARK_REDSHIFT_VERSION() + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION() + ".jar");
         }
         else {
