@@ -596,7 +596,8 @@ object AutoTask extends StrictLogging {
     summarizeOnly: Boolean,
     connectionName: String,
     accessToken: Option[String],
-    test: Boolean
+    test: Boolean,
+    parseSQL: Boolean
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -619,7 +620,8 @@ object AutoTask extends StrictLogging {
           JdbcDbUtils.readOnlyConnection(conn),
           accessToken,
           Some(connectionName),
-          test
+          test,
+          parseSQL
         )
       case Failure(e) =>
         Failure(e)
@@ -635,7 +637,8 @@ object AutoTask extends StrictLogging {
     connection: Settings.Connection,
     accessToken: Option[String],
     connectionName: Option[String],
-    test: Boolean
+    test: Boolean,
+    parseSQL: Boolean
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -662,7 +665,8 @@ object AutoTask extends StrictLogging {
       domain = domain,
       table = table,
       database = None,
-      connectionRef = connectionName
+      connectionRef = connectionName,
+      parseSQL = Some(parseSQL)
     )
     val engine =
       connection.`type` match {

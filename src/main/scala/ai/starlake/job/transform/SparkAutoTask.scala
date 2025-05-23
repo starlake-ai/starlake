@@ -8,13 +8,12 @@ import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
-import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.*
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.catalyst.analysis.NoSuchTableException
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 import org.apache.spark.sql.{DataFrame, SaveMode}

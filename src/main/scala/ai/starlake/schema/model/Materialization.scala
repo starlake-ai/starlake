@@ -43,11 +43,14 @@ object Materialization {
 
   def fromString(value: String): Materialization = {
     value.toUpperCase() match {
+      case "HYBRID"            => Materialization.HYBRID
       case "TABLE"             => Materialization.TABLE
       case "VIEW"              => Materialization.VIEW
       case "MATERIALIZED_VIEW" => Materialization.MATERIALIZED_VIEW
     }
   }
+
+  object HYBRID extends Materialization("HYBRID")
 
   object TABLE extends Materialization("TABLE")
 
@@ -55,7 +58,7 @@ object Materialization {
 
   object MATERIALIZED_VIEW extends Materialization("MATERIALIZED_VIEW")
 
-  val mats: Set[Materialization] = Set(TABLE, VIEW, MATERIALIZED_VIEW)
+  val mats: Set[Materialization] = Set(TABLE, VIEW, MATERIALIZED_VIEW, HYBRID)
 }
 
 class MatDeserializer extends JsonDeserializer[Materialization] {

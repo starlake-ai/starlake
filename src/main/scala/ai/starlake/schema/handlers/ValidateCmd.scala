@@ -70,7 +70,8 @@ object ValidateCmd extends Cmd[ValidateConfig] {
           summarizeOnly = false,
           connectionName,
           None,
-          test = false
+          test = false,
+          parseSQL = false
         )(
           settings,
           settings.storageHandler(),
