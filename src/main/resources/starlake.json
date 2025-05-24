@@ -164,6 +164,10 @@
         {
           "const": "MATERIALIZED_VIEW",
           "description": "SQL Materialized View"
+        },
+        {
+          "const": "HYBRID",
+          "description": "Snowflake OLTP tables"
         }
       ]
     },
