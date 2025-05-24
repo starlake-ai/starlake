@@ -213,7 +213,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency DELTA_SPARK_JAR = new ResourceDependency("delta-spark",
             "https://repo1.maven.org/maven2/io/delta/delta-spark_" + SCALA_VERSION + "/" + DELTA_SPARK + "/delta-spark_" + SCALA_VERSION + "-" + DELTA_SPARK + ".jar");
 
-    private static final ResourceDependency ICEBERG_SPARK_JAR = new ResourceDependency("delta-spark",
+    private static final ResourceDependency ICEBERG_SPARK_JAR = new ResourceDependency("iceberg-spark",
             "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-3.5_" + SCALA_VERSION + "/" + ICEBERG_SPARK + "/iceberg-spark-runtime-3.5_" + SCALA_VERSION + "-" + ICEBERG_SPARK + ".jar");
 
     private static final ResourceDependency DELTA_STORAGE_JAR = new ResourceDependency("delta-storage",
