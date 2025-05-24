@@ -470,6 +470,15 @@ public class Setup extends ProxySelector implements X509TrustManager {
         }
     }
 
+    private static void enableAllDependencies() {
+        ENABLE_AZURE = true;
+        ENABLE_BIGQUERY = true;
+        ENABLE_SNOWFLAKE = true;
+        ENABLE_REDSHIFT = true;
+        ENABLE_POSTGRESQL = true;
+        ENABLE_DUCKDB = true;
+        ENABLE_KAFKA = true;
+    }
     private static void askUserWhichConfigToEnable() {
         if (!anyDependencyEnabled()) {
             System.out.println("Please enable at least one of the following configurations:");
@@ -494,13 +503,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                     System.exit(1);
                 }
                 else if (answer.equalsIgnoreCase("a")) {
-                    ENABLE_AZURE = true;
-                    ENABLE_BIGQUERY = true;
-                    ENABLE_SNOWFLAKE = true;
-                    ENABLE_REDSHIFT = true;
-                    ENABLE_POSTGRESQL = true;
-                    ENABLE_DUCKDB = true;
-                    ENABLE_KAFKA = true;
+                    enableAllDependencies();
                 }
                 else {
                     String[] choices = answer.split(",");
@@ -530,7 +533,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
                                 ENABLE_KAFKA = true;
                                 break;
                             default:
-                                System.out.println("Invalid choice: " + choice);
+                                enableAllDependencies();
+                                System.out.println("Installing All dependencies.");
                         }
                     }
                 }
