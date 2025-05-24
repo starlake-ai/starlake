@@ -87,12 +87,19 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
 
         val xmlRegexStart = """<.*""".r
         val xmlRegexEnd = """.*>""".r
-
+        /*
         (filePath.firstLine(encoding), filePath.lastLine(encoding)) match {
           case (jsonRegexStart(), jsonRegexEnd())           => "JSON"
           case (jsonArrayRegexStart(), jsonArrayRegexEnd()) => "JSON_ARRAY"
           case (xmlRegexStart(), xmlRegexEnd())             => "XML"
           case _                                            => "DSV"
+        }
+         */
+        filePath.firstLine(encoding) match {
+          case (jsonRegexStart())      => "JSON"
+          case (jsonArrayRegexStart()) => "JSON_ARRAY"
+          case (xmlRegexStart())       => "XML"
+          case _                       => "DSV"
         }
     }
   }
