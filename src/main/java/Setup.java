@@ -150,7 +150,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.13");
 
     // STARLAKE
-    private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.3.0");
+    private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.4.0");
 
     // SPARK
     private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.3");
@@ -241,7 +241,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
         }
     }
     private static final ResourceDependency STARLAKE_SNAPSHOT_JAR = new ResourceDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core"+ "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
-    private static final ResourceDependency STARLAKE_RELEASE_JAR = new ResourceDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-spark3" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
+    private static final ResourceDependency STARLAKE_RELEASE_JAR = new ResourceDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
     private static final ResourceDependency CONFLUENT_KAFKA_SCHEMA_REGISTRY_CLIENT = new ResourceDependency("kafka-schema-registry-client", "https://packages.confluent.io/maven/io/confluent/kafka-schema-registry-client/" + CONFLUENT_VERSION + "/kafka-schema-registry-client-" + CONFLUENT_VERSION + ".jar");
     private static final ResourceDependency CONFLUENT_KAFKA_AVRO_SERIALIZER = new ResourceDependency("kafka-avro-serializer", "https://packages.confluent.io/maven/io/confluent/kafka-avro-serializer/" + CONFLUENT_VERSION + "/kafka-avro-serializer-" + CONFLUENT_VERSION + ".jar");
 
@@ -472,7 +472,19 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     private static void askUserWhichConfigToEnable() {
         if (!anyDependencyEnabled()) {
-            System.out.print("Do you want to enable all datawarehouse configurations [Y/n] ? ");
+            System.out.println("Please enable at least one of the following configurations:");
+            System.out.println("1) Azure");
+            System.out.println("2) BigQuery");
+            System.out.println("3) Snowflake");
+            System.out.println("4) Redshift ");
+            System.out.println("5) Postgres ");
+            System.out.println("6) DuckDB   ");
+            System.out.println("7) Spark    ");
+            System.out.println("8) Kafka    ");
+            System.out.println("A) All      ");
+            System.out.println("N) None     ");
+            System.out.print("Please enter your choice(s) separated by commas (e.g. 1,2,3): ");
+
             try {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
                 String answer = reader.readLine();
@@ -481,7 +493,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                     System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA");
                     System.exit(1);
                 }
-                else {
+                else if (answer.equalsIgnoreCase("a")) {
                     ENABLE_AZURE = true;
                     ENABLE_BIGQUERY = true;
                     ENABLE_SNOWFLAKE = true;
@@ -489,6 +501,38 @@ public class Setup extends ProxySelector implements X509TrustManager {
                     ENABLE_POSTGRESQL = true;
                     ENABLE_DUCKDB = true;
                     ENABLE_KAFKA = true;
+                }
+                else {
+                    String[] choices = answer.split(",");
+                    for (String choice : choices) {
+                        switch (choice.trim()) {
+                            case "1":
+                                ENABLE_AZURE = true;
+                                break;
+                            case "2":
+                                ENABLE_BIGQUERY = true;
+                                break;
+                            case "3":
+                                ENABLE_SNOWFLAKE = true;
+                                break;
+                            case "4":
+                                ENABLE_REDSHIFT = true;
+                                break;
+                            case "5":
+                                ENABLE_POSTGRESQL = true;
+                                break;
+                            case "6":
+                                ENABLE_DUCKDB = true;
+                                break;
+                            case "7":
+                                break;
+                            case "8":
+                                ENABLE_KAFKA = true;
+                                break;
+                            default:
+                                System.out.println("Invalid choice: " + choice);
+                        }
+                    }
                 }
             } catch (IOException e) {
                 System.out.println("Failed to read user input");
@@ -513,15 +557,6 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
             setHttpClient();
 
-            if (!anyDependencyEnabled()) {
-                ENABLE_AZURE = true;
-                ENABLE_BIGQUERY = true;
-                ENABLE_SNOWFLAKE = true;
-                ENABLE_REDSHIFT = true;
-                ENABLE_POSTGRESQL = true;
-                ENABLE_DUCKDB = true;
-                ENABLE_KAFKA = true;
-            }
             final File binDir = new File(targetDir, "bin");
 
             if (isWindowsOs()) {
@@ -675,7 +710,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 long lengthOfFile = response.headers().firstValueAsLong("Content-Length").orElse(0L);
                 InputStream input = new BufferedInputStream(response.body());
                 OutputStream output = new FileOutputStream(file);
-                byte data[] = new byte[CHUNK_SIZE];
+                byte[] data = new byte[CHUNK_SIZE];
                 long total = 0;
                 int count;
                 int loop = 0;
