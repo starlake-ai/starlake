@@ -33,7 +33,7 @@ object Versions {
   val kafkaClients = "7.7.3-ce"
   val confluentVersion = "7.7.3"
   val testContainers = "0.41.8"
-  val gcpDataCatalog = "1.62.0"
+  val gcpDataCatalog = "1.69.0"
   val gcpCloudLogging = "3.21.4"
   val googleSheets = "v4-rev20250211-2.0.0"
   val jinja = "2.8.0" // forces dependency override on guava
