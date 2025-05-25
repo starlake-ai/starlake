@@ -1,7 +1,7 @@
 package ai.starlake.job.ingest.loaders
 
 import ai.starlake.config.{CometColumns, Settings}
-import ai.starlake.extract.{ExtractUtils, ParUtils}
+import ai.starlake.extract.ParUtils
 import ai.starlake.job.ingest.{BqLoadInfo, IngestionJob}
 import ai.starlake.job.sink.bigquery.{
   BigQueryJobBase,
@@ -10,7 +10,7 @@ import ai.starlake.job.sink.bigquery.{
   BigQueryNativeJob
 }
 import ai.starlake.job.transform.BigQueryAutoTask
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.{IngestionCounters, JobResult, Utils}
 import com.google.cloud.bigquery
@@ -18,15 +18,13 @@ import com.google.cloud.bigquery.{Field, JobInfo, StandardSQLTypeName, TableId}
 import com.typesafe.scalalogging.StrictLogging
 
 import java.time.Duration
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
 class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
   settings: Settings
 ) extends NativeLoader(ingestionJob, accessToken)
     with StrictLogging {
-  lazy val effectiveSchema: Schema = computeEffectiveInputSchema()
-  lazy val schemaWithMergedMetadata: Schema = effectiveSchema.copy(metadata = Some(mergedMetadata))
 
   lazy val targetTableId: TableId =
     BigQueryJobBase.extractProjectDatasetAndTable(

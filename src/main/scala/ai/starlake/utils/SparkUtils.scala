@@ -11,17 +11,11 @@ import org.apache.spark.deploy.PythonRunner
 import org.apache.spark.sql.catalyst.analysis.NoSuchTableException
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions.JDBC_PREFER_TIMESTAMP_NTZ
-import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils.{getJdbcType, tableExists}
+import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils.getJdbcType
 import org.apache.spark.sql.execution.datasources.jdbc.{JdbcOptionsInWrite, JdbcUtils}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
-import org.apache.spark.sql.types.{
-  ArrayType,
-  DecimalType,
-  StructField,
-  StructType,
-  TimestampNTZType
-}
+import org.apache.spark.sql.types.*
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import java.sql.{Connection, SQLException}

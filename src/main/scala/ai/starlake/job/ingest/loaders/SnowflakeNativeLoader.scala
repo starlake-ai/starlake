@@ -8,28 +8,14 @@ import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.{IngestionCounters, SparkUtils}
-import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 
-import java.nio.charset.Charset
-import scala.util.{Try, Using}
+import scala.util.Try
 
 class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Settings)
     extends NativeLoader(ingestionJob, None) {
-
-  override protected def requireTwoSteps(schema: Schema): Boolean = {
-    // renamed attribute can be loaded directly so it's not in the condition
-    schema
-      .hasTransformOrIgnoreOrScriptColumns() ||
-    strategy.isMerge() ||
-    !schema.isVariant() ||
-    schema.filter.nonEmpty ||
-    settings.appConfig.archiveTable
-  }
-  lazy val effectiveSchema: Schema = computeEffectiveInputSchema()
-  lazy val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
 
   def run(): Try[List[IngestionCounters]] = {
     Try {

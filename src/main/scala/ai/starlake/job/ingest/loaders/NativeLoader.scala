@@ -441,4 +441,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     result
   }
 
+  lazy val effectiveSchema: Schema = computeEffectiveInputSchema()
+  lazy val schemaWithMergedMetadata: Schema = effectiveSchema.copy(metadata = Some(mergedMetadata))
+
 }

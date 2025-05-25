@@ -2,7 +2,6 @@ package ai.starlake.integration.transform
 
 import ai.starlake.integration.BigQueryIntegrationSpecBase
 import ai.starlake.job.Main
-import better.files.File
 
 class TransformIntegrationBQSpec extends BigQueryIntegrationSpecBase {
   override def beforeAll(): Unit = {}
