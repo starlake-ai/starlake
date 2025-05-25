@@ -2,7 +2,6 @@ package ai.starlake.integration.load
 
 import ai.starlake.integration.JDBCIntegrationSpecBase
 import ai.starlake.job.Main
-import better.files.File
 
 class LoadPgIntegrationSpec extends JDBCIntegrationSpecBase {
   if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {

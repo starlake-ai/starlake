@@ -209,7 +209,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           outputDir,
           jEnv,
           dagTemplateContent,
-          optionsWithProjectIdAndName(config, context.asMap),
+          optionsWithProjectIdAndName(config, context.asMap()),
           filename
         )
       }
@@ -379,7 +379,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                   outputDir,
                   jEnv,
                   dagTemplateContent,
-                  optionsWithProjectIdAndName(config, context.asMap),
+                  optionsWithProjectIdAndName(config, context.asMap()),
                   filename
                 )
               } else {
@@ -392,7 +392,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                   outputDir,
                   jEnv,
                   dagTemplateContent,
-                  optionsWithProjectIdAndName(config, context.asMap),
+                  optionsWithProjectIdAndName(config, context.asMap()),
                   filename
                 )
               }
@@ -465,7 +465,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 outputDir,
                 jEnv,
                 dagTemplateContent,
-                optionsWithProjectIdAndName(config, context.asMap),
+                optionsWithProjectIdAndName(config, context.asMap()),
                 filename
               )
             }
@@ -489,7 +489,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               outputDir,
               jEnv,
               dagTemplateContent,
-              optionsWithProjectIdAndName(config, context.asMap),
+              optionsWithProjectIdAndName(config, context.asMap()),
               filename
             )
           }
@@ -546,7 +546,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 outputDir,
                 jEnv,
                 dagTemplateContent,
-                optionsWithProjectIdAndName(config, context.asMap),
+                optionsWithProjectIdAndName(config, context.asMap()),
                 filename
               )
             }
@@ -564,7 +564,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               outputDir,
               jEnv,
               dagTemplateContent,
-              optionsWithProjectIdAndName(config, context.asMap),
+              optionsWithProjectIdAndName(config, context.asMap()),
               filename
             )
           }

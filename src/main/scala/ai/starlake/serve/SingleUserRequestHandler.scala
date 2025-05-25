@@ -2,8 +2,6 @@ package ai.starlake.serve
 
 import ai.starlake.utils.Utils
 import better.files.File
-import org.apache.commons.io.IOUtils
-import org.json.{JSONArray, JSONObject}
 
 import java.io.IOException
 import javax.servlet.ServletException
@@ -59,18 +57,16 @@ class SingleUserRequestHandler extends HttpServlet {
   @throws[IOException]
   override protected def doPost(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
     val payload = new StringBuilder
+    val reader = req.getReader
     try {
-      val reader = req.getReader
-      try {
-        var line: String = reader.readLine
-        while (line != null) {
-          payload.append(line)
-          line = reader.readLine
-        }
-      } finally {
-        if (reader != null)
-          reader.close()
+      var line: String = reader.readLine
+      while (line != null) {
+        payload.append(line)
+        line = reader.readLine
       }
+    } finally {
+      if (reader != null)
+        reader.close()
     }
     val map = SingleUserMainServer.mapper
       .readValue[Map[String, String]](payload.toString(), classOf[Map[String, String]])
