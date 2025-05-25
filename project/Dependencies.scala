@@ -49,24 +49,23 @@ object Dependencies {
 
   // Provided
 
-  val jacksonForSpark3 = Seq(
-    "com.fasterxml.jackson.core" % "jackson-core" % Versions.jacksonForSpark3 % "provided",
-    "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jacksonForSpark3 % "provided",
-    "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jacksonForSpark3 % "provided",
-    "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jacksonForSpark3 % "provided",
-    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jacksonForSpark3 % "provided",
-    "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % Versions.jacksonForSpark3 % "provided"
+  val jacksonForSpark4 = Seq(
+    "com.fasterxml.jackson.core" % "jackson-core" % Versions.jacksonForSpark4 % "provided",
+    "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jacksonForSpark4 % "provided",
+    "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jacksonForSpark4 % "provided",
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jacksonForSpark4 % "provided",
+    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jacksonForSpark4 % "provided",
+    "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % Versions.jacksonForSpark4 % "provided"
   )
 
-  val spark3 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark3 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-sql" % Versions.spark3 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-hive" % Versions.spark3 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark3 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "com.databricks" %% "spark-xml" % Versions.sparkXML excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3 excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-avro" % Versions.spark3 excludeAll (jacksonExclusions: _*),
-    "io.delta" %% "delta-spark" % Versions.deltaSpark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*)
+  val spark4 = Seq(
+    "org.apache.spark" %% "spark-core" % Versions.spark4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-sql" % Versions.spark4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-hive" % Versions.spark4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-mllib" % Versions.spark4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark4 excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-avro" % Versions.spark4 excludeAll (jacksonExclusions: _*),
+    "io.delta" %% "delta-spark" % Versions.deltaSpark4d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*)
   )
 
   val hadoop = Seq(
@@ -136,11 +135,10 @@ object Dependencies {
     // Add the jar file to spark dependencies
     "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % Versions.sparkBigqueryWithDependencies % "provided" excludeAll (jacksonExclusions: _*),
     "com.google.cloud" % "google-cloud-datacatalog" % Versions.gcpDataCatalog excludeAll (jacksonExclusions: _*),
-    "com.google.cloud" % "google-cloud-logging" % Versions.gcpCloudLogging,
-    "com.google.apis" % "google-api-services-sheets" % Versions.googleSheets excludeAll (jacksonExclusions: _*)
+    "com.google.cloud" % "google-cloud-logging" % Versions.gcpCloudLogging
   )
 
-  val esSpark212 = Seq(
+  val esSpark213 = Seq(
     "org.elasticsearch" %% "elasticsearch-spark-30" % Versions.esSpark % "provided" exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
     "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )
@@ -220,12 +218,8 @@ object Dependencies {
     "com.github.ben-manes.caffeine" % "caffeine" % "3.2.0"
   )
 
-  val starlakeStreaming = Seq(
-    "ai.starlake" %% "starlake-streaming" % "1.3.5" % "provided"
-  )
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++
-    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler ++ cache ++ swaggerParser ++
-    starlakeStreaming
+    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler ++ cache ++ swaggerParser
 }

@@ -21,7 +21,7 @@ class DuckDBRelationProvider extends JdbcRelationProvider {
     df: DataFrame
   ): BaseRelation = {
     val options = new JdbcOptionsInWrite(parameters)
-    val isCaseSensitive = sqlContext.conf.caseSensitiveAnalysis
+    val isCaseSensitive = sqlContext.sparkSession.sessionState.conf.caseSensitiveAnalysis
     val dialect = JdbcDialects.get(options.url)
     val conn = dialect.createConnectionFactory(options)(-1)
     var saveTableAfterConnectionHasBeenClosed = false

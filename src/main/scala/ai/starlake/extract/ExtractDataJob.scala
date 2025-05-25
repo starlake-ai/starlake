@@ -75,6 +75,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
       ParUtils.createForkSupport(config.parallelism)
     ParUtils
       .makeParallel(jdbcSchemas.jdbcSchemas.getOrElse(Nil))
+      .iterator
       .filter { s =>
         (config.includeSchemas, config.excludeSchemas) match {
           case (Nil, Nil) => true

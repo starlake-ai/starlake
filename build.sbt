@@ -67,8 +67,8 @@ libraryDependencies ++= {
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark3 ++
-    jacksonForSpark3 ++ esSpark212 ++
+  dependencies ++ spark4 ++
+    jacksonForSpark4 ++ esSpark213 ++
     pureConfig ++ scalaReflection(scalaVersion.value) ++
     versionSpecificLibs
 }
@@ -79,7 +79,7 @@ dependencyOverrides := Seq(
   "org.scala-lang"                    % "scala-reflect"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-compiler"            % scalaVersion.value,
   "com.google.guava"                  %  "guava"                    % "31.1-jre", // required by jinjava 2.7.3
-  "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jacksonForSpark3
+  "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jacksonForSpark4
 )
 
 name := {

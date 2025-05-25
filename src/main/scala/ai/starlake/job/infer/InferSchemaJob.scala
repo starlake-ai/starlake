@@ -217,7 +217,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         }
 
         val df = session.read
-          .format("com.databricks.spark.xml")
+          .format("xml")
           .option("encoding", encoding.name())
           .option("charset", encoding.name())
           .option("rowTag", tag)
@@ -227,7 +227,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         (df, Some(tag), formatFile)
       case "DSV" =>
         val df = session.read
-          .format("com.databricks.spark.csv")
+          .format("csv")
           .option("header", value = true)
           .option("inferSchema", value = inferSchema)
           .option("encoding", encoding.name())
