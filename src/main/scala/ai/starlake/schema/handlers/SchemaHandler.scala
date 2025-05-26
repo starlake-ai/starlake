@@ -1261,7 +1261,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         .map(_.path.getName())
         .filter(name =>
           !name.startsWith("_config.") &&
-          (taskNames.isEmpty || taskNamesPrefix.exists(name.startsWith))
+          (taskNames.isEmpty || taskNamesPrefix
+            .exists(t => name.toLowerCase().startsWith(t.toLowerCase())))
         )
         .flatMap { filename =>
           // improve the code below to handle more than one extension
@@ -1414,29 +1415,34 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val taskPartName = components(1)
       val loadedTask =
         if (reload) {
-          val theJob = _jobs.find(_.getName() == domainName)
+          val theJob = _jobs.find(_.getName().equalsIgnoreCase(domainName))
           theJob match {
             case None =>
             case Some(job) =>
-              val tasks = job.tasks.filterNot(_.table == taskPartName)
+              val tasks = job.tasks.filterNot(_.table.equalsIgnoreCase(taskPartName))
               val newJob = job.copy(tasks = tasks)
-              _jobs = _jobs.filterNot(_.getName() == domainName) :+ newJob
+              _jobs = _jobs.filterNot(_.getName().equalsIgnoreCase(domainName)) :+ newJob
           }
           None
         } else {
-          _jobs.flatMap(_.tasks).find(_.name == taskName)
+          _jobs.flatMap(_.tasks).find(_.name.equalsIgnoreCase(taskName))
         }
       loadedTask match {
         case Some(task) =>
           Success(task)
         case None =>
-          val directory = new Path(DatasetArea.transform, domainName)
-          val configPath = new Path(directory, "_config.sl.yml")
           val taskDesc =
             for {
+              directory <- settings
+                .storageHandler()
+                .listDirectories(DatasetArea.transform)
+                .find(_.getName().equalsIgnoreCase(domainName))
+                .map(Success(_)) // convert Option to Try
+                .getOrElse(Failure(new NoSuchElementException(s"Domain not found $domainName")))
+              configPath = new Path(directory, "_config.sl.yml")
               jobDesc <- loadJobTasksFromFile(configPath, List(taskPartName))
               taskDesc = jobDesc.tasks
-                .find(_.name == taskName)
+                .find(_.name.equalsIgnoreCase(taskName))
                 .getOrElse(
                   throw new Exception(s"Task $taskName not found in $directory")
                 )
