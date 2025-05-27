@@ -835,8 +835,10 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             extra_options = ""
                             if metadata_options:
                                 for k, v in metadata_options.items():
-                                    if not k in common_options:
-                                        extra_options += f"{k} = {v}\n"
+                                    if k.upper().startswith("SNOWFLAKE_"):
+                                        newKey = k[len("SNOWFLAKE_"):]
+                                        if not newKey in common_options:
+                                            extra_options += f"{newKey} = {v}\n"
                             return extra_options
 
                         def schema_as_dict(schema_string: str) -> dict:
