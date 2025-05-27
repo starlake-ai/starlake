@@ -296,15 +296,15 @@ class JdbcAutoTask(
         i += 1
       }
       var rowCount = 0
-      while (rs.next && rowCount < settings.appConfig.maxInteractiveRecords) {
+      while (rs.next && rowCount < resultPageSize) {
         val rowAsSeq = new ListBuffer[String]
         var i = 1
         while (i <= rs.getMetaData.getColumnCount) {
           rowAsSeq.append(Option(rs.getObject(i)).map(_.toString).getOrElse("NULL"))
-          i += 1
+          i = i + 1
         }
         result.append(rowAsSeq.toList)
-        rowCount += 1
+        rowCount = rowCount + 1
       }
       JdbcJobResult(headerAsSeq.toList, result.toList)
     } catch {
