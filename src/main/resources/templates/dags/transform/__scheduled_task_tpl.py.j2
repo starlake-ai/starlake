@@ -21,7 +21,7 @@ from ai.starlake.orchestration import StarlakeDependencies, StarlakeDependency, 
 
 from typing import List, Optional, Set, Union
 
-dependencies=StarlakeDependencies(dependencies="""{{ context.dependencies }}""")
+dependencies=StarlakeDependencies(dependencies="""{{ context.dependencies }}""", filtered_datasets=**sys.modules[__name__].__dict__.get('filtered_datasets', set()))
 
 with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
     with orchestration.sl_create_pipeline(dependencies=dependencies) as pipeline:
