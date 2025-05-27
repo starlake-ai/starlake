@@ -264,7 +264,10 @@ class ExpectationJob(
                 truncate = false,
                 engine = engine,
                 logExecution = false,
-                test = false
+                test = false,
+                resultPageSize = 200,
+                resultPageNumber = 1,
+                dryRun = false
               )(settings, storageHandler, schemaHandler)
             val res = task.run()
             Utils.logFailure(res, logger)

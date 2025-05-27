@@ -34,7 +34,8 @@ class SparkAutoTask(
   test: Boolean,
   logExecution: Boolean,
   accessToken: Option[String] = None,
-  resultPageSize: Int = 1,
+  resultPageSize: Int,
+  resultPageNumber: Int,
   schema: Option[Schema] = None
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
@@ -46,6 +47,7 @@ class SparkAutoTask(
       logExecution,
       truncate,
       resultPageSize,
+      resultPageNumber,
       accessToken
     ) {
 
@@ -260,10 +262,17 @@ class SparkAutoTask(
             taskDesc.getRunConnection(),
             allVars
           )
-
+          val pageSize = if (resultPageSize > settings.appConfig.maxInteractiveRecords) {
+            settings.appConfig.maxInteractiveRecords
+          } else {
+            resultPageSize
+          }
           // just run the request and return the dataframe
           val df =
-            SparkUtils.sql(session, sqlNoRefs).limit(settings.appConfig.maxInteractiveRecords)
+            SparkUtils
+              .sql(session, sqlNoRefs)
+              .limit(pageSize)
+              .offset((resultPageNumber - 1) * pageSize)
           SparkJobResult(Some(df), None)
         case None =>
           runSqls(preSql, "Pre")
@@ -385,13 +394,17 @@ class SparkAutoTask(
           case _: BigQuerySink =>
             val bqJob =
               new BigQueryAutoTask(
-                Option(applicationId()),
-                this.taskDesc,
-                Map.empty,
-                None,
+                appId = Option(applicationId()),
+                taskDesc = this.taskDesc,
+                commandParameters = Map.empty,
+                interactive = None,
                 truncate = false,
-                test,
-                logExecution
+                test = test,
+                logExecution = logExecution,
+                accessToken = this.accessToken,
+                resultPageSize = resultPageSize,
+                resultPageNumber = resultPageNumber,
+                dryRun = false
               )(
                 settings,
                 storageHandler,
@@ -401,14 +414,16 @@ class SparkAutoTask(
           case _: JdbcSink =>
             val jdbcJob =
               new JdbcAutoTask(
-                Option(applicationId()),
-                this.taskDesc,
-                Map.empty,
-                None,
+                appId = Option(applicationId()),
+                taskDesc = this.taskDesc,
+                commandParameters = Map.empty,
+                interactive = None,
                 truncate = false,
-                test,
+                test = test,
                 logExecution = logExecution,
-                accessToken = this.accessToken
+                accessToken = this.accessToken,
+                resultPageSize = resultPageSize,
+                resultPageNumber = resultPageNumber
               )(
                 settings,
                 storageHandler,
@@ -618,13 +633,15 @@ class SparkAutoTask(
                 s"SELECT $attributesSelectAsString FROM ${taskDesc.domain}.$tempTablePartName"
               )
             ),
-            commandParameters,
-            interactive,
-            truncate,
-            test,
-            logExecution,
-            accessToken,
-            resultPageSize
+            commandParameters = commandParameters,
+            interactive = interactive,
+            truncate = truncate,
+            test = test,
+            logExecution = logExecution,
+            accessToken = accessToken,
+            resultPageSize = resultPageSize,
+            resultPageNumber = resultPageNumber,
+            dryRun = false
           )
           val secondStepJobResult = secondStepTask.runNative(loadedDF.schema)
           sparkBigQueryJob.dropTable(firstStepTemplateTableId)
@@ -640,15 +657,17 @@ class SparkAutoTask(
       // Update table schema
       val secondStepTask =
         new BigQueryAutoTask(
-          Option(applicationId()),
-          secondStepDesc,
-          commandParameters,
-          interactive,
-          truncate,
-          test,
-          logExecution,
-          accessToken,
-          resultPageSize
+          appId = Option(applicationId()),
+          taskDesc = secondStepDesc,
+          commandParameters = commandParameters,
+          interactive = interactive,
+          truncate = truncate,
+          test = test,
+          logExecution = logExecution,
+          accessToken = accessToken,
+          resultPageSize = resultPageSize,
+          resultPageNumber = resultPageNumber,
+          dryRun = false
         )
 
       val sparkSchema = loadedDF.schema
@@ -795,14 +814,16 @@ class SparkAutoTask(
 
         val secondStepAutoTask =
           new JdbcAutoTask(
-            Option(applicationId()),
-            secondStepTaskDesc,
-            Map.empty,
-            None,
+            appId = Option(applicationId()),
+            taskDesc = secondStepTaskDesc,
+            commandParameters = Map.empty,
+            interactive = None,
             truncate = false,
-            test,
+            test = test,
             logExecution = logExecution,
-            accessToken = this.accessToken
+            accessToken = this.accessToken,
+            resultPageSize = resultPageSize,
+            resultPageNumber = resultPageNumber
           )(
             settings,
             storageHandler,
@@ -828,14 +849,16 @@ class SparkAutoTask(
         )
         val secondAutoStepTask =
           new JdbcAutoTask(
-            Option(applicationId()),
-            secondStepDesc,
-            Map.empty,
-            None,
+            appId = Option(applicationId()),
+            taskDesc = secondStepDesc,
+            commandParameters = Map.empty,
+            interactive = None,
             truncate = false,
-            test,
+            test = test,
             logExecution = logExecution,
-            accessToken = this.accessToken
+            accessToken = this.accessToken,
+            resultPageSize = resultPageSize,
+            resultPageNumber = resultPageNumber
           )
         secondAutoStepTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
         val jobResult = secondAutoStepTask.runJDBC(Some(loadedDF))

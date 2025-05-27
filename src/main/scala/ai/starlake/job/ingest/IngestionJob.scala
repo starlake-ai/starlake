@@ -822,13 +822,15 @@ trait IngestionJob extends SparkJob {
         taskDesc.getSinkConfig() match {
           case fsSink: FsSink if fsSink.isExport() && !strategy.isMerge() =>
             new SparkExportTask(
-              Option(applicationId()),
-              taskDesc,
-              Map.empty,
-              None,
+              appId = Option(applicationId()),
+              taskDesc = taskDesc,
+              commandParameters = Map.empty,
+              interactive = None,
               truncate = false,
               test = test,
-              logExecution = false
+              logExecution = false,
+              resultPageSize = 200,
+              resultPageNumber = 1
             )(
               settings,
               storageHandler,
@@ -836,14 +838,17 @@ trait IngestionJob extends SparkJob {
             )
           case _ =>
             new SparkAutoTask(
-              Option(applicationId()),
-              taskDesc,
-              Map.empty,
-              None,
+              appId = Option(applicationId()),
+              taskDesc = taskDesc,
+              commandParameters = Map.empty,
+              interactive = None,
               truncate = false,
               test = test,
               logExecution = false,
-              schema = Some(schema)
+              schema = Some(schema),
+              accessToken = accessToken,
+              resultPageSize = 200,
+              resultPageNumber = 1
             )(
               settings,
               storageHandler,

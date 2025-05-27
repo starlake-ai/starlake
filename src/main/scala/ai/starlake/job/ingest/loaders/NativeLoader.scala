@@ -120,7 +120,10 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
         test = false,
         engine = engine,
         logExecution = true,
-        accessToken = accessToken
+        accessToken = accessToken,
+        resultPageSize = 200,
+        resultPageNumber = 1,
+        dryRun = false
       )(
         settings,
         storageHandler,
@@ -254,7 +257,10 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           truncate = false,
           test = false,
           engine = engine,
-          logExecution = true
+          logExecution = true,
+          resultPageSize = 200,
+          resultPageNumber = 1,
+          dryRun = false
         )(
           settings,
           storageHandler,

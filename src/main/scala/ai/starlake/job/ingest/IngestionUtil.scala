@@ -83,13 +83,15 @@ object IngestionUtil {
           )
 
         val autoTask = new SparkAutoTask(
-          Option(applicationId),
-          taskDesc,
-          Map.empty,
-          None,
+          appId = Option(applicationId),
+          taskDesc = taskDesc,
+          commandParameters = Map.empty,
+          interactive = None,
           truncate = false,
           test = false,
-          logExecution = false
+          logExecution = false,
+          resultPageSize = 200,
+          resultPageNumber = 1
         )
         val res = autoTask.sink(rejectedDF)
         if (res) {

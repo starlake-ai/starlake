@@ -64,7 +64,7 @@ object TaskViewDependency extends StrictLogging {
     val streamsMap = schemaHandler.streams()
 
     val jobDependencies: List[SimpleEntry] =
-      jobs.mapValues(_.dependencies(streamsMap)).toList.map { case (jobName, dependencies) =>
+      jobs.view.mapValues(_.dependencies(streamsMap)).toList.map { case (jobName, dependencies) =>
         SimpleEntry(jobName, TASK_TYPE, dependencies)
       }
 

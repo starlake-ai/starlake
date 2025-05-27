@@ -27,7 +27,8 @@ class JdbcAutoTask(
   test: Boolean,
   logExecution: Boolean,
   accessToken: Option[String] = None,
-  resultPageSize: Int = 1
+  resultPageSize: Int,
+  resultPageNumber: Int
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,
@@ -38,6 +39,7 @@ class JdbcAutoTask(
       logExecution,
       truncate,
       resultPageSize,
+      resultPageNumber,
       accessToken
     ) {
 
@@ -282,6 +284,7 @@ class JdbcAutoTask(
   }
 
   private def runInteractive(conn: Connection, mainSql: String): JdbcJobResult = {
+    val limitSQL = limitQuery(mainSql, resultPageSize, resultPageNumber)
     val stmt = conn.createStatement()
     try {
       val rs = stmt.executeQuery(mainSql)

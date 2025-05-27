@@ -71,14 +71,16 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
 
               val job =
                 new JdbcAutoTask(
-                  Option(ingestionJob.applicationId()),
-                  taskDesc,
-                  Map.empty,
-                  None,
+                  appId = Option(ingestionJob.applicationId()),
+                  taskDesc = taskDesc,
+                  commandParameters = Map.empty,
+                  interactive = None,
                   truncate = false,
                   test = false,
                   logExecution = true,
-                  accessToken = ingestionJob.accessToken
+                  accessToken = ingestionJob.accessToken,
+                  resultPageSize = 200,
+                  resultPageNumber = 1
                 )(
                   settings,
                   storageHandler,
@@ -155,7 +157,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
   private val nullIf: String = mergedMetadata.getOptions().get("NULL_IF") match {
     case Some(value) if value.nonEmpty =>
       s"NULL_IF = $value"
-    case None =>
+    case _ =>
       if (mergedMetadata.resolveEmptyIsNull())
         "NULL_IF = ('')"
       else
@@ -338,27 +340,27 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
           val ps = StorageHandler.localFile(p).pathAsString
           "file://" + ps
         }
-    var res = JdbcDbUtils.executeQueryAsTable(s"USE SCHEMA $domain", conn)
+    var res = JdbcDbUtils.executeQueryAsMap(s"USE SCHEMA $domain", conn)
     logger.info(res.toString())
-    res = JdbcDbUtils.executeQueryAsTable(s"CREATE OR REPLACE TEMPORARY STAGE $tempStage", conn)
+    res = JdbcDbUtils.executeQueryAsMap(s"CREATE OR REPLACE TEMPORARY STAGE $tempStage", conn)
     logger.info(res.toString())
     val putSqls = pathsAsString.map(path => s"PUT $path @$tempStage/$domain")
     putSqls.map { putSql =>
-      res = JdbcDbUtils.executeQueryAsTable(putSql, conn)
+      res = JdbcDbUtils.executeQueryAsMap(putSql, conn)
       logger.info(res.toString())
       res
     }
     mergedMetadata.resolveFormat() match {
       case Format.DSV =>
         val sql = buildCopyCsv(domainAndTableName)
-        JdbcDbUtils.executeQueryAsTable(sql, conn)
+        JdbcDbUtils.executeQueryAsMap(sql, conn)
 
       case Format.JSON_FLAT | Format.JSON =>
         val sql = buildCopyJson(domainAndTableName)
-        JdbcDbUtils.executeQueryAsTable(sql, conn)
+        JdbcDbUtils.executeQueryAsMap(sql, conn)
       case format =>
         val sql = buildCopyOther(domainAndTableName, format.toString.toUpperCase())
-        JdbcDbUtils.executeQueryAsTable(sql, conn)
+        JdbcDbUtils.executeQueryAsMap(sql, conn)
     }
 
   }

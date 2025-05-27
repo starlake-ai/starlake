@@ -93,14 +93,16 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
         val job =
           new JdbcAutoTask(
-            Option(ingestionJob.applicationId()),
-            taskDesc,
-            Map.empty,
-            None,
+            appId = Option(ingestionJob.applicationId()),
+            taskDesc = taskDesc,
+            commandParameters = Map.empty,
+            interactive = None,
             truncate = false,
             test = false,
             logExecution = true,
-            accessToken = ingestionJob.accessToken
+            accessToken = ingestionJob.accessToken,
+            resultPageSize = 200,
+            resultPageNumber = 1
           )(
             settings,
             storageHandler,
