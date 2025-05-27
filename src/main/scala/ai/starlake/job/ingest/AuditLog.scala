@@ -279,7 +279,10 @@ object AuditLog extends StrictLogging {
               test = false,
               engine = engine,
               logExecution = false, // We do not log the job that write the logs :)
-              accessToken = accessToken
+              accessToken = accessToken,
+              resultPageSize = 200,
+              resultPageNumber = 1,
+              dryRun = false
             )
           Some(task)
       }

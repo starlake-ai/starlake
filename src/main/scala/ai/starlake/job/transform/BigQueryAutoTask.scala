@@ -41,8 +41,9 @@ class BigQueryAutoTask(
   test: Boolean,
   logExecution: Boolean,
   accessToken: Option[String] = None,
-  resultPageSize: Int = 1,
-  dryRun: Boolean = false
+  resultPageSize: Int,
+  resultPageNumber: Int,
+  dryRun: Boolean
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,
@@ -53,6 +54,7 @@ class BigQueryAutoTask(
       logExecution,
       truncate,
       resultPageSize,
+      resultPageNumber,
       accessToken
     ) {
 
@@ -392,7 +394,7 @@ class BigQueryAutoTask(
 
         case Some(_) =>
           // interactive query, we limit the number of rows to maxInteractiveRecords
-          val limitSql = limitQuery(mainSql())
+          val limitSql = limitQuery(mainSql(), resultPageSize, resultPageNumber)
           val res = bqNativeJob(
             config,
             limitSql
@@ -484,22 +486,6 @@ class BigQueryAutoTask(
     }
   }
 
-  private def limitQuery(sql: String): String = {
-    val limit = settings.appConfig.maxInteractiveRecords
-    val trimmedSql = SQLUtils.stripComments(sql)
-    val upperCaseSQL = trimmedSql.toUpperCase().replace("\n", " ")
-    if (
-      upperCaseSQL.indexOf(" LIMIT ") == -1 &&
-      (upperCaseSQL.startsWith("SELECT ") || upperCaseSQL.startsWith("WITH "))
-    ) {
-      if (trimmedSql.endsWith(";")) {
-        val noDelimiterSql = trimmedSql.dropRight(1)
-        s"$noDelimiterSql LIMIT $limit"
-      } else
-        s"$sql LIMIT $limit"
-    } else
-      sql
-  }
   override def run(): Try[JobResult] = {
     runNative()
   }

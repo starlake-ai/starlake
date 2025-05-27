@@ -62,7 +62,8 @@ abstract class AutoTask(
   val test: Boolean,
   val logExecution: Boolean,
   val truncate: Boolean = false,
-  val resultPageSize: Int = 1,
+  val resultPageSize: Int,
+  val resultPageNumber: Int,
   val accessToken: Option[String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
@@ -434,6 +435,27 @@ abstract class AutoTask(
       taskDesc.getSinkConnectionType()
     )
   }
+
+  protected def limitQuery(sql: String, pageSize: Int, pageNumber: Int): String = {
+    val limit =
+      if (pageSize > settings.appConfig.maxInteractiveRecords)
+        settings.appConfig.maxInteractiveRecords
+      else
+        pageSize
+    val trimmedSql = SQLUtils.stripComments(sql)
+    val upperCaseSQL = trimmedSql.toUpperCase().replace("\n", " ")
+    if (
+      upperCaseSQL.indexOf(" LIMIT ") == -1 &&
+      (upperCaseSQL.startsWith("SELECT ") || upperCaseSQL.startsWith("WITH "))
+    ) {
+      if (trimmedSql.endsWith(";")) {
+        val noDelimiterSql = trimmedSql.dropRight(1)
+        s"$noDelimiterSql LIMIT $limit OFFSET ${pageSize * (pageNumber - 1)}"
+      } else
+        s"$sql LIMIT $limit OFFSET ${pageSize * (pageNumber - 1)}"
+    } else
+      sql
+  }
 }
 
 object AutoTask extends StrictLogging {
@@ -467,9 +489,15 @@ object AutoTask extends StrictLogging {
         test = false,
         truncate = false,
         logExecution = false,
-        engine = settings.appConfig.getConnection(connectionRef).getEngine()
+        engine = settings.appConfig.getConnection(connectionRef).getEngine(),
+        resultPageSize = 1000,
+        resultPageNumber = 1,
+        dryRun = false
       )(settings, settings.storageHandler(), settings.schemaHandler())
   }
+
+  /** Used for linegae only
+    */
   def unauthenticatedTasks(reload: Boolean)(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -486,7 +514,10 @@ object AutoTask extends StrictLogging {
           engine = Engine.SPARK,
           truncate = false,
           test = false,
-          logExecution = true
+          logExecution = true,
+          resultPageSize = 200,
+          resultPageNumber = 1,
+          dryRun = false
         )
       )
   }
@@ -520,8 +551,9 @@ object AutoTask extends StrictLogging {
     engine: Engine,
     logExecution: Boolean,
     accessToken: Option[String] = None,
-    resultPageSize: Int = 1000,
-    dryRun: Boolean = false
+    resultPageSize: Int,
+    resultPageNumber: Int,
+    dryRun: Boolean
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -541,6 +573,7 @@ object AutoTask extends StrictLogging {
           logExecution = logExecution,
           accessToken = accessToken,
           resultPageSize = resultPageSize,
+          resultPageNumber = resultPageNumber,
           dryRun = dryRun
         )
       case Engine.JDBC
@@ -556,40 +589,43 @@ object AutoTask extends StrictLogging {
           test = test,
           logExecution = logExecution,
           accessToken = accessToken,
-          resultPageSize = resultPageSize
+          resultPageSize = resultPageSize,
+          resultPageNumber = resultPageNumber
         )
       case _ =>
         sinkConfig match {
           case fs: FsSink if fs.isExport() && interactive.isEmpty =>
             logger.info("Exporting to the filesystem")
             new SparkExportTask(
-              appId,
-              taskDesc,
-              configOptions,
-              interactive,
+              appId = appId,
+              taskDesc = taskDesc,
+              commandParameters = configOptions,
+              interactive = interactive,
               truncate = truncate,
               test = test,
               accessToken = accessToken,
               resultPageSize = resultPageSize,
-              logExecution = logExecution
+              logExecution = logExecution,
+              resultPageNumber = resultPageNumber
             )
 
           case _ =>
             new SparkAutoTask(
-              appId,
-              taskDesc,
-              configOptions,
-              interactive,
+              appId = appId,
+              taskDesc = taskDesc,
+              commandParameters = configOptions,
+              interactive = interactive,
               truncate = truncate,
               test = test,
               accessToken = accessToken,
               resultPageSize = resultPageSize,
+              resultPageNumber = resultPageNumber,
               logExecution = logExecution
             )
         }
     }
   }
-  def executeQuery(
+  def executeSelect(
     domain: String,
     table: String,
     sql: String,
@@ -597,7 +633,9 @@ object AutoTask extends StrictLogging {
     connectionName: String,
     accessToken: Option[String],
     test: Boolean,
-    parseSQL: Boolean
+    parseSQL: Boolean,
+    pageSize: Int,
+    pageNumber: Int
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -612,7 +650,7 @@ object AutoTask extends StrictLogging {
       )
     connection match {
       case Success(conn) =>
-        executeQuery(
+        executeSelect(
           domain,
           table,
           sql,
@@ -621,7 +659,9 @@ object AutoTask extends StrictLogging {
           accessToken,
           Some(connectionName),
           test,
-          parseSQL
+          parseSQL,
+          pageSize,
+          pageNumber
         )
       case Failure(e) =>
         Failure(e)
@@ -629,7 +669,7 @@ object AutoTask extends StrictLogging {
 
   }
 
-  def executeQuery(
+  def executeSelect(
     domain: String,
     table: String,
     sql: String,
@@ -638,7 +678,9 @@ object AutoTask extends StrictLogging {
     accessToken: Option[String],
     connectionName: Option[String],
     test: Boolean,
-    parseSQL: Boolean
+    parseSQL: Boolean,
+    pageSize: Int,
+    pageNumber: Int
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -688,7 +730,10 @@ object AutoTask extends StrictLogging {
       test = test,
       engine = engine,
       logExecution = false,
-      accessToken = accessToken
+      accessToken = accessToken,
+      resultPageSize = pageSize,
+      resultPageNumber = pageNumber,
+      dryRun = false
     )
     t.run() match {
       case Success(jobResult) =>
@@ -697,4 +742,5 @@ object AutoTask extends StrictLogging {
         throw e
     }
   }
+
 }

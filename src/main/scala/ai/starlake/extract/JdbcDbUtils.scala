@@ -308,7 +308,7 @@ object JdbcDbUtils extends LazyLogging {
     result
   }
 
-  def executeQueryAsTable(
+  def executeQueryAsMap(
     query: String,
     connection: SQLConnection
   ): List[Map[String, String]] = {

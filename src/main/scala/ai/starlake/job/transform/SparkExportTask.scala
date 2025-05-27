@@ -29,18 +29,20 @@ class SparkExportTask(
   test: Boolean,
   logExecution: Boolean,
   accessToken: Option[String] = None,
-  resultPageSize: Int = 1
+  resultPageSize: Int,
+  resultPageNumber: Int
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkAutoTask(
-      appId,
-      taskDesc,
-      commandParameters,
-      interactive,
-      truncate,
-      test,
-      logExecution,
-      accessToken,
-      resultPageSize
+      appId = appId,
+      taskDesc = taskDesc,
+      commandParameters = commandParameters,
+      interactive = interactive,
+      truncate = truncate,
+      test = test,
+      logExecution = logExecution,
+      accessToken = accessToken,
+      resultPageSize = resultPageSize,
+      resultPageNumber = resultPageNumber
     ) {
 
   override protected def effectiveSinkToFile(dataset: DataFrame): Try[JobResult] = {

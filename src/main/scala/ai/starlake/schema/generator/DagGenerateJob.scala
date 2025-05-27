@@ -181,6 +181,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 logExecution = false,
                 accessToken = None,
                 resultPageSize = 1,
+                resultPageNumber = 1,
                 dryRun = false
               )(settings, settings.storageHandler(), schemaHandler)
               Try {

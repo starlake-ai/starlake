@@ -63,7 +63,7 @@ object ValidateCmd extends Cmd[ValidateConfig] {
   ) = {
     settings.appConfig.connections.keys.foreach { connectionName =>
       AutoTask
-        .executeQuery(
+        .executeSelect(
           "__ignore__",
           "__ignore__",
           "SELECT 1",
@@ -71,7 +71,9 @@ object ValidateCmd extends Cmd[ValidateConfig] {
           connectionName,
           None,
           test = false,
-          parseSQL = false
+          parseSQL = false,
+          pageSize = 200,
+          pageNumber = 1
         )(
           settings,
           settings.storageHandler(),
