@@ -283,7 +283,7 @@ class StarlakeDependencies():
             self.dependencies = dependencies
 
         first_level_tasks: Set[str] = set()
-        filtered_datasets: Set[str] = set()
+        filtered_datasets: Set[str] = kwargs.get('filtered_datasets', set())
         all_dependencies: Dict[str, StarlakeDependency] = defaultdict()
         all_nodes: Dict[str, TreeNodeMixin] = defaultdict()
 
