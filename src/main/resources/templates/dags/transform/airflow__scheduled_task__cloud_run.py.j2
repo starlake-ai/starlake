@@ -19,6 +19,10 @@
 # - retries(1): the number of retries to attempt before failing the task [OPTIONAL]
 # - retry_delay(300): the delay between retries in seconds [OPTIONAL]
 # - default_dag_args: the default dag arguments specified as a map in json format [OPTIONAL]
+# - data_cycle_enabled(False): whether the data cycle feature is enabled or not [OPTIONAL]
+# - data_cycle: the data cycle to be used for the dag [OPTIONAL]
+# - beyond_data_cycle_enabled(True): whether the beyond data cycle feature is enabled or not [OPTIONAL]
+# - optional_dataset_enabled(False): whether a dataset can be treated as optional [OPTIONAL]
 {% include 'templates/dags/__starlake_airflow_orchestrator.py' %}
 {% include 'templates/dags/__starlake_cloud_run_execution.py' %}
 {% include 'templates/dags/transform/__scheduled_task_tpl.py.j2' %}

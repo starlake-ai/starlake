@@ -86,6 +86,7 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
 
                 # Push the return code to XCom
                 echo $return_code
+
                 '
                 """
             else:
