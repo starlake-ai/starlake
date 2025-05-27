@@ -55,18 +55,38 @@ object DatasetArea extends StrictLogging {
   }
 
   def duckdbPath()(implicit settings: Settings): Path = {
+    duckdbPath("duckdb.db")
+  }
+  def duckdbPath(name: String)(implicit settings: Settings): Path = {
     settings.appConfig.duckdbPath match {
       case Some(path) =>
         new Path(path)
       case None =>
-        val duckdb = path("duckdb.db")
+        val duckdb = path(name)
         if (duckdb.toString.startsWith("file:")) {
           duckdb
         } else {
           val datasets = new Path(metadata.getParent, "datasets")
-          new Path(datasets, "duckdb.db")
+          new Path(datasets, name)
         }
     }
+  }
+  def secureDuckdbPath(dbName: String)(implicit settings: Settings): Path = {
+    val result =
+      settings.appConfig.duckdbPath match {
+        case Some(path) =>
+          new Path(path)
+        case None =>
+          val duckdb = path(dbName)
+          if (duckdb.toString.startsWith("file:")) {
+            duckdb
+          } else {
+            val datasets = new Path(metadata.getParent, "datasets")
+            new Path(datasets, dbName)
+          }
+      }
+    assert(result.toString.indexOf("..") < 0, s"DuckDB path should not contain '..': $result")
+    result
   }
 
   def path(domain: String)(implicit settings: Settings): Path =

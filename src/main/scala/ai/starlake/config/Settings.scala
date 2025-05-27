@@ -20,6 +20,7 @@
 
 package ai.starlake.config
 
+import ai.starlake.config.DatasetArea.metadata
 import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.job.load.LoadStrategy
@@ -30,7 +31,6 @@ import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.*
-import better.files.File
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
@@ -47,7 +47,7 @@ import pureconfig.ConvertHelpers.*
 import pureconfig.*
 import pureconfig.generic.auto.*
 import pureconfig.generic.ProductHint
-
+import better.files.File
 import java.io.ObjectStreamException
 import java.net.URI
 import java.nio.charset.{Charset, StandardCharsets}
@@ -1410,6 +1410,40 @@ object Settings extends StrictLogging {
             connection.copy(sparkFormat = None) // spark mode not supported in duckdb
           else connection
         name -> updatedConnection
+      }
+    val updatedAppConfig = settings.appConfig.copy(connections = updatedConnections)
+    settings.copy(appConfig = updatedAppConfig)
+  }
+
+  /** Secure DuckDB path to avoid security issues with DuckDB database names
+    *
+    * This method ensures that the DuckDB database name does not start with "duckdb." or contain
+    * invalid characters like "/" or "\\" and its name is always equal to the env name
+    */
+  def secureDuckDbPath(settings: Settings): Settings = {
+    val updatedConnections = settings.appConfig.connections
+      .map { case (k, v) =>
+        val connectionWithTranspileInfo = SQLUtils.transpilerDialect(v) match {
+          case JSQLTranspiler.Dialect.DUCK_DB =>
+            val urlParts = v.jdbcUrl.split(":")
+            assert(urlParts.length == 3, "DuckDB JDBC URL should be in the form jdbc:duckdb:dbname")
+            val dbName = urlParts(2)
+            assert(!dbName.contains(".."), "DuckDB database name should not contain '..'")
+            val validPath = new Path(settings.appConfig.datasets, s"$k.db")
+            val duckDbPath = new Path(settings.appConfig.datasets, s"duckdb.db").toString
+            assert(
+              (k == "sl_duckdb" && urlParts(2) == duckDbPath) ||
+              dbName == validPath.toString ||
+              dbName == s"$k.db",
+              s"Invalid DuckDB database URL: $k:$dbName. It should match the connection name or be 'duckdb.db' for 'sl_duckdb'."
+            )
+            val pathAsString =
+              DatasetArea.secureDuckdbPath(dbName.split('/').last)(settings).toUri.getPath
+            v.copy(options = v.options.updated("url", s"jdbc:duckdb:$pathAsString"))
+          case _ =>
+            v
+        }
+        k -> connectionWithTranspileInfo
       }
     val updatedAppConfig = settings.appConfig.copy(connections = updatedConnections)
     settings.copy(appConfig = updatedAppConfig)
