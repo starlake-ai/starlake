@@ -8,6 +8,7 @@ import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.{IngestionCounters, SparkUtils}
+import com.google.gson.Gson
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
@@ -29,7 +30,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                 path.map { p =>
                   logger.info(s"Loading $p to temporary table")
                   val tempTable = SQLUtils.temporaryTableName(effectiveSchema.finalName)
-                  singleStepLoad(
+                  val loadResult = singleStepLoad(
                     domain.finalName,
                     tempTable,
                     schemaWithMergedMetadata,
@@ -41,12 +42,15 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                     s"ALTER TABLE ${domain.finalName}.$tempTable ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '$p';"
 
                   JdbcDbUtils.execute(filenameSQL, conn)
-
+                  val json = new Gson().toJson(loadResult)
+                  logger.info(s"Load result: $json")
                   tempTable
                 }
 
               val unionTempTables =
-                tempTables.map("SELECT * FROM " + _).mkString("(", " UNION ALL ", ")")
+                tempTables
+                  .map(s"SELECT * FROM ${domain.finalName}." + _)
+                  .mkString("(", " UNION ALL ", ")")
               val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
               val sqlWithTransformedFields = starlakeSchema.buildSqlSelectOnLoad(unionTempTables)
 
@@ -80,7 +84,8 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                   logExecution = true,
                   accessToken = ingestionJob.accessToken,
                   resultPageSize = 200,
-                  resultPageNumber = 1
+                  resultPageNumber = 1,
+                  Some(conn)
                 )(
                   settings,
                   storageHandler,
@@ -108,7 +113,15 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
             }
         }
     }.map { - =>
-      List(IngestionCounters(-1, -1, -1, path.map(_.toString)))
+      List(
+        IngestionCounters(
+          inputCount = -1,
+          acceptedCount = -1,
+          rejectedCount = -1,
+          paths = path.map(_.toString),
+          jobid = ingestionJob.applicationId()
+        )
+      )
     }
 
   }

@@ -195,10 +195,11 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
         }
         bqLoadInfoOutput.map { bli =>
           IngestionCounters(
-            bli.totalRows,
-            bli.totalAcceptedRows,
-            bli.totalRejectedRows,
-            bli.paths
+            inputCount = bli.totalRows,
+            acceptedCount = bli.totalAcceptedRows,
+            rejectedCount = bli.totalRejectedRows,
+            paths = bli.paths,
+            jobid = ingestionJob.applicationId()
           )
         }
       case Failure(exception) =>

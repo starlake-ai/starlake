@@ -539,17 +539,18 @@ class IngestionWorkflow(
       successLoads
         .flatMap {
           case Success(result: SparkJobResult) =>
-            Some(result.counters.getOrElse(IngestionCounters(0, 0, 0, Nil)))
+            Some(result.counters.getOrElse(IngestionCounters(0, 0, 0, Nil, "")))
           case Success(_) => None
         }
 
     val counters =
-      successAsJobResult.fold(IngestionCounters(0, 0, 0, Nil)) { (acc, c) =>
+      successAsJobResult.fold(IngestionCounters(0, 0, 0, Nil, "")) { (acc, c) =>
         IngestionCounters(
           acc.inputCount + c.inputCount,
           acc.acceptedCount + c.acceptedCount,
           acc.rejectedCount + c.rejectedCount,
-          acc.paths ++ c.paths
+          acc.paths ++ c.paths,
+          acc.jobid + "," + c.jobid
         )
       }
     if (exceptionsAsString.nonEmpty) {

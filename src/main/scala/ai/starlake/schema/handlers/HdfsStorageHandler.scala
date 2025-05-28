@@ -155,7 +155,6 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   override def loadExtraConf(): Map[String, String] = {
-
     val options = settings.appConfig.connections
       .get(settings.appConfig.connectionRef)
       .map(_.options)

@@ -473,7 +473,13 @@ trait IngestionJob extends SparkJob {
           validCounterResults.foldLeft[Option[IngestionCounters]](None) {
             case (
                   cumulatedCounters,
-                  counters @ IngestionCounters(inputCount, acceptedCount, rejectedCount, paths)
+                  counters @ IngestionCounters(
+                    inputCount,
+                    acceptedCount,
+                    rejectedCount,
+                    paths,
+                    jobid
+                  )
                 ) =>
               cumulatedCounters
                 .map { cc =>
@@ -481,14 +487,25 @@ trait IngestionJob extends SparkJob {
                     inputCount = cc.inputCount + inputCount,
                     acceptedCount = cc.acceptedCount + acceptedCount,
                     rejectedCount = cc.rejectedCount + rejectedCount,
-                    paths = cc.paths ++ paths
+                    paths = cc.paths ++ paths,
+                    jobid = this.applicationId() + "," + jobid
                   )
                 }
                 .orElse(Some(counters))
           }
         SparkJobResult(
           None,
-          globalCounters.orElse(Some(IngestionCounters(-1, -1, -1, path.map(_.toString))))
+          globalCounters.orElse(
+            Some(
+              IngestionCounters(
+                inputCount = -1,
+                acceptedCount = -1,
+                rejectedCount = -1,
+                paths = path.map(_.toString),
+                jobid = applicationId()
+              )
+            )
+          )
         )
       }
   }
@@ -542,10 +559,11 @@ trait IngestionJob extends SparkJob {
               val totalRejectedCount = rejectedDS.count()
               List(
                 IngestionCounters(
-                  totalAcceptedCount + totalRejectedCount,
-                  totalAcceptedCount,
-                  totalRejectedCount,
-                  path.map(_.toString)
+                  inputCount = totalAcceptedCount + totalRejectedCount,
+                  acceptedCount = totalAcceptedCount,
+                  rejectedCount = totalRejectedCount,
+                  paths = path.map(_.toString),
+                  jobid = applicationId()
                 )
               )
             }

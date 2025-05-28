@@ -48,7 +48,8 @@ class SparkAutoTask(
       truncate,
       resultPageSize,
       resultPageNumber,
-      accessToken
+      accessToken,
+      None
     ) {
 
   override def run(): Try[JobResult] = {
@@ -423,7 +424,8 @@ class SparkAutoTask(
                 logExecution = logExecution,
                 accessToken = this.accessToken,
                 resultPageSize = resultPageSize,
-                resultPageNumber = resultPageNumber
+                resultPageNumber = resultPageNumber,
+                None
               )(
                 settings,
                 storageHandler,
@@ -823,7 +825,8 @@ class SparkAutoTask(
             logExecution = logExecution,
             accessToken = this.accessToken,
             resultPageSize = resultPageSize,
-            resultPageNumber = resultPageNumber
+            resultPageNumber = resultPageNumber,
+            conn = None
           )(
             settings,
             storageHandler,
@@ -858,7 +861,8 @@ class SparkAutoTask(
             logExecution = logExecution,
             accessToken = this.accessToken,
             resultPageSize = resultPageSize,
-            resultPageNumber = resultPageNumber
+            resultPageNumber = resultPageNumber,
+            conn = None
           )
         secondAutoStepTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
         val jobResult = secondAutoStepTask.runJDBC(Some(loadedDF))
