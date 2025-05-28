@@ -598,6 +598,16 @@ public class Setup extends ProxySelector implements X509TrustManager {
             updateSparkLog4j2Properties(sparkDir);
             downloadAndDisplayProgress(duckDbDependencies, depsDir, true);
 
+            if (ENABLE_KAFKA) {
+                downloadAndDisplayProgress(confluentDependencies, depsDir, true);
+            } else {
+                deleteDependencies(confluentDependencies, depsDir);
+            }
+            if (ENABLE_REDSHIFT) {
+                downloadAndDisplayProgress(redshiftDependencies, depsDir, true);
+            } else {
+                deleteDependencies(redshiftDependencies, depsDir);
+            }
             if (ENABLE_BIGQUERY) {
                 downloadAndDisplayProgress(bigqueryDependencies, depsDir, true);
             } else {
@@ -613,20 +623,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
             } else {
                 deleteDependencies(snowflakeDependencies, depsDir);
             }
-            if (ENABLE_REDSHIFT) {
-                downloadAndDisplayProgress(redshiftDependencies, depsDir, true);
-            } else {
-                deleteDependencies(redshiftDependencies, depsDir);
-            }
             if (ENABLE_POSTGRESQL) {
                 downloadAndDisplayProgress(postgresqlDependencies, depsDir, true);
             } else {
                 deleteDependencies(postgresqlDependencies, depsDir);
-            }
-            if (ENABLE_KAFKA) {
-                downloadAndDisplayProgress(confluentDependencies, depsDir, true);
-            } else {
-                deleteDependencies(confluentDependencies, depsDir);
             }
 
             boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
