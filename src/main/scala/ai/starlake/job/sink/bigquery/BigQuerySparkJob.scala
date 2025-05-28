@@ -241,7 +241,20 @@ class BigQuerySparkJob(
         updateColumnsDescription(BigQueryJobBase.dictToBQSchema(attributesDescMap))
       // TODO verify if there is a difference between maybeTableDescription, schema.comment , task.desc
       updateTableDescription(table, maybeTableDescription.getOrElse(""))
-      output.map(rejected => SparkJobResult(None, Some(IngestionCounters(0, 0, rejected, Nil))))
+      output.map(rejected =>
+        SparkJobResult(
+          None,
+          Some(
+            IngestionCounters(
+              inputCount = 0,
+              acceptedCount = 0,
+              rejectedCount = rejected,
+              paths = Nil,
+              jobid = applicationId()
+            )
+          )
+        )
+      )
     }
   }
 

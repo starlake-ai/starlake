@@ -15,7 +15,8 @@ case class IngestionCounters(
   inputCount: Long,
   acceptedCount: Long,
   rejectedCount: Long,
-  paths: List[String]
+  paths: List[String],
+  jobid: String
 ) {
   def ignore: Boolean = inputCount == -1 && rejectedCount == -1 && acceptedCount == -1
   override def toString() = {

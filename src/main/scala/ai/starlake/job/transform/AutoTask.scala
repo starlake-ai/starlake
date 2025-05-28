@@ -64,7 +64,8 @@ abstract class AutoTask(
   val truncate: Boolean = false,
   val resultPageSize: Int,
   val resultPageNumber: Int,
-  val accessToken: Option[String]
+  val accessToken: Option[String],
+  conn: Option[java.sql.Connection]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
@@ -590,7 +591,8 @@ object AutoTask extends StrictLogging {
           logExecution = logExecution,
           accessToken = accessToken,
           resultPageSize = resultPageSize,
-          resultPageNumber = resultPageNumber
+          resultPageNumber = resultPageNumber,
+          conn = None
         )
       case _ =>
         sinkConfig match {

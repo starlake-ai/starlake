@@ -28,7 +28,8 @@ class JdbcAutoTask(
   logExecution: Boolean,
   accessToken: Option[String] = None,
   resultPageSize: Int,
-  resultPageNumber: Int
+  resultPageNumber: Int,
+  conn: Option[java.sql.Connection]
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,
@@ -40,7 +41,8 @@ class JdbcAutoTask(
       truncate,
       resultPageSize,
       resultPageNumber,
-      accessToken
+      accessToken,
+      conn
     ) {
 
   def applyJdbcAcl(connection: Connection, forceApply: Boolean): Try[Unit] =
@@ -50,7 +52,7 @@ class JdbcAutoTask(
     AccessControlEntry.applyJdbcAcl(jdbcConnection, aclSQL(), forceApply)
 
   override def run(): Try[JobResult] = {
-    runJDBC(None)
+    runJDBC(None, this.conn)
   }
 
   override def tableExists: Boolean = {
@@ -121,7 +123,7 @@ class JdbcAutoTask(
 
   def runJDBC(
     df: Option[DataFrame],
-    sqlConnection: Option[Connection] = None
+    sqlConnection: Option[java.sql.Connection] = None
   ): Try[JdbcJobResult] = {
     val start = Timestamp.from(Instant.now())
 

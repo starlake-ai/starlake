@@ -102,7 +102,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             logExecution = true,
             accessToken = ingestionJob.accessToken,
             resultPageSize = 200,
-            resultPageNumber = 1
+            resultPageNumber = 1,
+            conn = None
           )(
             settings,
             storageHandler,
@@ -124,7 +125,15 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
         singleStepLoad(domain.finalName, schema.finalName, schemaWithMergedMetadata, path)
       }
     }.map { - =>
-      List(IngestionCounters(-1, -1, -1, path.map(_.toString)))
+      List(
+        IngestionCounters(
+          inputCount = -1,
+          acceptedCount = -1,
+          rejectedCount = -1,
+          paths = path.map(_.toString),
+          jobid = ingestionJob.applicationId()
+        )
+      )
     }
   }
 
