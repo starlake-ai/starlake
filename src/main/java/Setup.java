@@ -60,6 +60,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static String noProxy = getEnv("no_proxy").orElse("").replaceAll(",", "|");
 
     private static Proxy proxy = Proxy.NO_PROXY;
+    private static HttpClient.Builder clientBuilder = HttpClient.newBuilder();
     private static HttpClient client = null;
 
     private static boolean isWindowsOs() {
@@ -409,7 +410,6 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     private static void setHttpClient() throws NoSuchAlgorithmException, KeyManagementException {
         setProxy();
-        HttpClient.Builder clientBuilder = HttpClient.newBuilder();
         clientBuilder.proxy(proxySelector);
         if (username != null && password != null) {
             Authenticator authenticator = new UserPwdAuth();
@@ -425,7 +425,6 @@ public class Setup extends ProxySelector implements X509TrustManager {
             sc.init(null, trustAllCerts, new java.security.SecureRandom());
             clientBuilder.sslContext(sc);
         }
-        client = clientBuilder.build();
     }
 
     private static void updateSparkLog4j2Properties(File sparkDir) {
@@ -683,73 +682,82 @@ public class Setup extends ProxySelector implements X509TrustManager {
     }
 
     private static void downloadAndDisplayProgress(ResourceDependency resource, BiFunction<ResourceDependency, String, File> fileProducer) throws IOException, InterruptedException {
-        boolean succesfullyDownloaded = false;
-        List<String> triedUrlList = new ArrayList<>();
-        System.out.println("Downloading " + resource.artefactName + "...");
-        for (String urlStr : resource.urls) {
-            System.out.println("from " + urlStr);
-            File file = fileProducer.apply(resource, urlStr);
-            final int CHUNK_SIZE = 1024;
-            int filePartIndex = urlStr.lastIndexOf("/") + 1;
-            String name = urlStr.substring(filePartIndex);
-            String urlFolder = urlStr.substring(0, filePartIndex);
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(urlStr))
-                    .build();
-            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            if (response.statusCode() == 200) {
-                long lengthOfFile = response.headers().firstValueAsLong("Content-Length").orElse(0L);
-                InputStream input = new BufferedInputStream(response.body());
-                OutputStream output = new FileOutputStream(file);
-                byte[] data = new byte[CHUNK_SIZE];
-                long total = 0;
-                int count;
-                int loop = 0;
-                int sbLen = 0;
-                long lastTime = System.currentTimeMillis();
-                while ((count = input.read(data)) != -1) {
-                    total += count;
-                    output.write(data, 0, count);
-                    loop++;
-                    if (loop % 1000 == 0) {
-                        StringBuilder sb = new StringBuilder(" " + (total / 1024 / 1024) + "/" + (lengthOfFile / 1024 / 1024) + " MB");
-                        if (lengthOfFile > 0) {
-                            sb.append(" (");
-                            sb.append(total * 100 / lengthOfFile);
-                            sb.append("%)");
+        try {
+            client = clientBuilder.build();
+            boolean succesfullyDownloaded = false;
+            List<String> triedUrlList = new ArrayList<>();
+            System.out.println("Downloading " + resource.artefactName + "...");
+            for (String urlStr : resource.urls) {
+                System.out.println("from " + urlStr);
+                File file = fileProducer.apply(resource, urlStr);
+                final int CHUNK_SIZE = 1024;
+                int filePartIndex = urlStr.lastIndexOf("/") + 1;
+                String name = urlStr.substring(filePartIndex);
+                String urlFolder = urlStr.substring(0, filePartIndex);
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(urlStr))
+                        .build();
+                HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+                if (response.statusCode() == 200) {
+                    long lengthOfFile = response.headers().firstValueAsLong("Content-Length").orElse(0L);
+                    InputStream input = new BufferedInputStream(response.body());
+                    OutputStream output = new FileOutputStream(file);
+                    byte[] data = new byte[CHUNK_SIZE];
+                    long total = 0;
+                    int count;
+                    int loop = 0;
+                    int sbLen = 0;
+                    long lastTime = System.currentTimeMillis();
+                    while ((count = input.read(data)) != -1) {
+                        total += count;
+                        output.write(data, 0, count);
+                        loop++;
+                        if (loop % 1000 == 0) {
+                            StringBuilder sb = new StringBuilder(" " + (total / 1024 / 1024) + "/" + (lengthOfFile / 1024 / 1024) + " MB");
+                            if (lengthOfFile > 0) {
+                                sb.append(" (");
+                                sb.append(total * 100 / lengthOfFile);
+                                sb.append("%)");
+                            }
+                            long currentTime = System.currentTimeMillis();
+                            long timeDiff = currentTime - lastTime;
+                            double bytesPerMilliSec = (CHUNK_SIZE * 1000.0 / timeDiff);
+                            double bytesPerSec = bytesPerMilliSec * 1000;
+                            double mbPerSec = bytesPerSec / 1024 / 1024;
+                            sb.append(" ");
+                            sb.append(String.format("[%.2f MB/sec]", mbPerSec));
+                            lastTime = currentTime;
+                            sbLen = sb.length();
+                            for (int cnt = 0; cnt < sbLen; cnt++) {
+                                System.out.print("\b");
+                            }
+                            System.out.print(sb);
                         }
-                        long currentTime = System.currentTimeMillis();
-                        long timeDiff = currentTime - lastTime;
-                        double bytesPerMilliSec = (CHUNK_SIZE * 1000.0 / timeDiff);
-                        double bytesPerSec = bytesPerMilliSec * 1000;
-                        double mbPerSec = bytesPerSec / 1024 / 1024;
-                        sb.append(" ");
-                        sb.append(String.format("[%.2f MB/sec]", mbPerSec));
-                        lastTime = currentTime;
-                        sbLen = sb.length();
-                        for (int cnt = 0; cnt < sbLen; cnt++) {
-                            System.out.print("\b");
-                        }
-                        System.out.print(sb);
                     }
+                    for (int cnt = 0; cnt < sbLen; cnt++) {
+                        System.out.print("\b");
+                    }
+                    System.out.print(file.getAbsolutePath() + " succesfully downloaded from " + urlFolder);
+                    System.out.println();
+                    output.flush();
+                    output.close();
+                    input.close();
+                    succesfullyDownloaded = true;
+                    break;
+                } else {
+                    triedUrlList.add(urlStr + " (" + response.statusCode() + ")");
                 }
-                for (int cnt = 0; cnt < sbLen; cnt++) {
-                    System.out.print("\b");
-                }
-                System.out.print(file.getAbsolutePath() + " succesfully downloaded from " + urlFolder);
-                System.out.println();
-                output.flush();
-                output.close();
-                input.close();
-                succesfullyDownloaded = true;
-                break;
-            } else {
-                triedUrlList.add(urlStr + " (" + response.statusCode() + ")");
             }
+            if (!succesfullyDownloaded) {
+                String triedUrls = String.join(" and ", triedUrlList);
+                throw new RuntimeException("Failed to fetch " + resource.artefactName + " from " + triedUrls);
+            }
+        }  catch (IOException | InterruptedException e) {
+            System.out.println("Failed to download " + resource.artefactName + " from " + resource.urls);
+            throw e;
         }
-        if (!succesfullyDownloaded) {
-            String triedUrls = String.join(" and ", triedUrlList);
-            throw new RuntimeException("Failed to fetch " + resource.artefactName + " from " + triedUrls);
+        finally {
+            client = null; // Close the client to release resources
         }
     }
 }

@@ -3,8 +3,8 @@ package ai.starlake.serve
 import ai.starlake.utils.Utils
 import buildinfo.BuildInfo
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.eclipse.jetty.server.Server
-import org.eclipse.jetty.servlet.ServletHandler
+import org.sparkproject.jetty.server.Server
+import org.sparkproject.jetty.servlet.ServletHandler
 
 import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
