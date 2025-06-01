@@ -153,7 +153,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.4.0");
 
     // SPARK
-    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.5");
+    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.6");
     private static final String HADOOP_VERSION = getEnv("HADOOP_VERSION").orElse("3");
 
 
@@ -161,7 +161,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.42.3");
 
     // deltalake
-    private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("3.3.1");
+    private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("3.3.2");
 
     // ICEBERG
     private static final String ICEBERG_SPARK = getEnv("SPARK_ICEBERG").orElse("1.9.0");
@@ -177,11 +177,11 @@ public class Setup extends ProxySelector implements X509TrustManager {
     };
 
     // SNOWFLAKE
-    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.24.1");
+    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.24.2");
     private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.1.1");
 
     // POSTGRESQL
-    private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.5.4");
+    private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.7.6");
 
     // DUCKDB
     private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.3.0.0");
