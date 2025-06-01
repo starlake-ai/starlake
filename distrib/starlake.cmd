@@ -7,7 +7,7 @@ if "%SL_ROOT%"=="" (
     SET "SL_ROOT=%cd%"
 )
 
-if "%~1"=="upgrade" (
+if "%~1"=="reinstall" (
     if exist "%SCRIPT_DIR%bin\spark" rmdir /s /q "%SCRIPT_DIR%bin\spark"
 ) else (
  IF EXIST "%SCRIPT_DIR%versions.cmd" (
@@ -60,20 +60,26 @@ if "%~1"=="--version" (
 	  echo Redshift JDBC driver %REDSHIFT_JDBC_VERSION%
 	  echo Redshift Spark connector %SPARK_REDSHIFT_VERSION%
    ) else (
-    if "%~1"=="install" (
+    if "%~1"=="reinstall" (
         call :launch_setup %*
         echo Installation done. You're ready to enjoy Starlake!
         echo If any errors happen during installation. Please try to install again or open an issue.
     ) else (
-        if "%~1"=="serve" (
-            call :launch_starlake %*
+        if "%~1"=="install" (
+            call :launch_setup %*
+            echo Installation done. You're ready to enjoy Starlake!
+            echo If any errors happen during installation. Please try to install again or open an issue.
         ) else (
-            if "%SL_HTTP_PORT%"=="" (
+            if "%~1"=="serve" (
                 call :launch_starlake %*
             ) else (
-                FOR %%x IN (validation run transform compile) DO DEL /F /Q %SL_ROOT\%out\%%x.log 2>NUL
-                curl.exe  "%SL_SERVE_URI%?ROOT=%SL_ROOT%&PARAMS=%*"
-                FOR %%x IN (validation run transform compile) DO TYPE  %SL_ROOT%\out\%%x.log 2>NUL
+                if "%SL_HTTP_PORT%"=="" (
+                    call :launch_starlake %*
+                ) else (
+                    FOR %%x IN (validation run transform compile) DO DEL /F /Q %SL_ROOT\%out\%%x.log 2>NUL
+                    curl.exe  "%SL_SERVE_URI%?ROOT=%SL_ROOT%&PARAMS=%*"
+                    FOR %%x IN (validation run transform compile) DO TYPE  %SL_ROOT%\out\%%x.log 2>NUL
+                )
             )
         )
     )

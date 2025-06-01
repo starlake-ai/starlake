@@ -6,7 +6,7 @@ SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
 SL_ROOT="${SL_ROOT:-`pwd`}"
 
 case "$1" in
-  upgrade)
+  reinstall)
     rm "$SCRIPT_DIR/versions.sh"
     rm -rf "$SCRIPT_DIR/bin/spark"
     ;;
@@ -185,7 +185,7 @@ case "$1" in
 	  echo Redshift JDBC driver ${REDSHIFT_JDBC_VERSION}
 	  echo Redshift Spark connector ${SPARK_REDSHIFT_VERSION}
     ;;
-  install|upgrade)
+  install|reinstall)
     launch_setup
     echo
     echo "Installation done. You're ready to enjoy Starlake!"
