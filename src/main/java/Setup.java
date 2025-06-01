@@ -58,7 +58,6 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static String httpsProxy = getEnv("https_proxy").orElse("");
     private static String httpProxy = getEnv("http_proxy").orElse("");
     private static String noProxy = getEnv("no_proxy").orElse("").replaceAll(",", "|");
-
     private static Proxy proxy = Proxy.NO_PROXY;
     private static HttpClient.Builder clientBuilder = HttpClient.newBuilder();
     private static HttpClient client = null;
