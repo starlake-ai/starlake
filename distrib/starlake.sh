@@ -4,10 +4,19 @@ set -e
 
 SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
 SL_ROOT="${SL_ROOT:-`pwd`}"
-if [ -f "$SCRIPT_DIR/versions.sh" ]
-then
-  source "$SCRIPT_DIR/versions.sh"
-fi
+
+case "$1" in
+  reinstall)
+    rm "$SCRIPT_DIR/versions.sh"
+    rm -rf "$SCRIPT_DIR/bin/spark"
+    ;;
+  *)
+    if [ -f "$SCRIPT_DIR/versions.sh" ]
+    then
+      source "$SCRIPT_DIR/versions.sh"
+    fi
+    ;;
+esac
 
 SL_ARTIFACT_NAME=starlake-core_$SCALA_VERSION
 SPARK_DIR_NAME=spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION
@@ -17,12 +26,9 @@ DEPS_EXTRA_LIB_FOLDER=$SPARK_EXTRA_LIB_FOLDER/deps
 STARLAKE_EXTRA_LIB_FOLDER=$SPARK_EXTRA_LIB_FOLDER/sl
 SL_SQL_WH="${SL_DATASETS:-$SL_ROOT/datasets}"
 
-#SPARK_EXTRA_PACKAGES="--packages io.delta:delta-core_2.12:2.4.0"
 export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4g}"
 export SL_MAIN=ai.starlake.job.Main
 export SPARK_MASTER_URL="${SPARK_MASTER_URL:-local[*]}"
-
-#export SL_VALIDATE_ON_LOAD=false
 
 if [ -n "$SL_VERSION" ]
 then
@@ -179,7 +185,7 @@ case "$1" in
 	  echo Redshift JDBC driver ${REDSHIFT_JDBC_VERSION}
 	  echo Redshift Spark connector ${SPARK_REDSHIFT_VERSION}
     ;;
-  install)
+  install|reinstall)
     launch_setup
     echo
     echo "Installation done. You're ready to enjoy Starlake!"
