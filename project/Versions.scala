@@ -1,7 +1,7 @@
 object Versions {
   val curator = "2.6.0"
   val spark3 = "3.5.6"
-  val deltaSpark3d0 = "3.3.1"
+  val deltaSpark3d0 = "3.3.2"
   val scalatest = "3.2.19"
   val scalacheckForScalatest = "3.2.18.0"
   val sparkXML2d0 = "0.13.0"
@@ -37,13 +37,13 @@ object Versions {
   val gcpCloudLogging = "3.21.4"
   val googleSheets = "v4-rev20250211-2.0.0"
   val jinja = "2.7.4" // forces dependency override on guava
-  val snowflakeJDBC = "3.23.2"
+  val snowflakeJDBC = "3.24.2"
   val snowflakeSpark: String = "3.1.1"
   val jSqlParser = "5.4-SNAPSHOT"
   val duckdb = "1.3.0.0"
   val jSqlTranspiler = "0.7-SNAPSHOT"
   val bigQueue = "0.7.0"
-  val redshiftJDBC = "2.1.0.32"
+  val redshiftJDBC = "2.1.0.33"
   val scalaCompat = "2.12.0"
   val scalaParallelCollections = "1.0.4"
   val derbyVersion =
