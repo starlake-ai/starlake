@@ -43,7 +43,7 @@ object Versions {
   val duckdb = "1.3.0.0"
   val jSqlTranspiler = "0.7-SNAPSHOT"
   val bigQueue = "0.7.0"
-  val redshiftJDBC = "2.1.0.32"
+  val redshiftJDBC = "2.1.0.33"
   val scalaCompat = "2.12.0"
   val scalaParallelCollections = "1.0.4"
   val derbyVersion =
