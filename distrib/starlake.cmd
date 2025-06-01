@@ -7,9 +7,14 @@ if "%SL_ROOT%"=="" (
     SET "SL_ROOT=%cd%"
 )
 
-IF EXIST "%SCRIPT_DIR%versions.cmd" (
-    call "%SCRIPT_DIR%versions.cmd"
+if "%~1"=="upgrade" (
+    if exist "%SCRIPT_DIR%bin\spark" rmdir /s /q "%SCRIPT_DIR%bin\spark"
+) else (
+ IF EXIST "%SCRIPT_DIR%versions.cmd" (
+     call "%SCRIPT_DIR%versions.cmd"
+ )
 )
+
 
 
 :: Internal variables
