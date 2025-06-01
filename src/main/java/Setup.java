@@ -178,28 +178,26 @@ public class Setup extends ProxySelector implements X509TrustManager {
     };
 
     // SNOWFLAKE
-    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.23.2");
+    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.24.1");
     private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.1.1");
 
     // POSTGRESQL
     private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.5.4");
 
     // DUCKDB
-    private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.1.3");
+    private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.3.0.0");
 
     // REDSHIFT
     private static final String AWS_JAVA_SDK_VERSION = getEnv("AWS_JAVA_SDK_VERSION").orElse("1.12.780");
     private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.3.4");
-    private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.32");
+    private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.33");
     private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("6.3.0-spark_3.5-SNAPSHOT");
 
     private static final String CONFLUENT_VERSION = getEnv("CONFLUENT_VERSION").orElse("7.7.2");
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // DUCKDB
-    private static final ResourceDependency SPARK_JAR = new ResourceDependency("core-libs", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + ".tgz");
-    private static final ResourceDependency SPARK_JAR_213 = new ResourceDependency("core-libs", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + "-scala2.13.tgz");
+    private static final ResourceDependency SPARK_JAR = new ResourceDependency("dist/spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + "-scala2.13.tgz");
     private static final ResourceDependency SPARK_BQ_JAR = new ResourceDependency("bigquery-with-dependencies",
             "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_" + SCALA_VERSION + "/" +
                     SPARK_BQ_VERSION + "/" +
@@ -225,7 +223,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency AWS_JAVA_SDK_JAR = new ResourceDependency("aws-java-sdk-bundle", "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/" + AWS_JAVA_SDK_VERSION + "/aws-java-sdk-bundle-" + AWS_JAVA_SDK_VERSION + ".jar");
     private static final ResourceDependency HADOOP_AWS_JAR = new ResourceDependency("hadoop-aws", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/" + HADOOP_AWS_VERSION + "/hadoop-aws-" + HADOOP_AWS_VERSION + ".jar");
     private static final ResourceDependency REDSHIFT_JDBC_JAR = new ResourceDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
-    private static ResourceDependency SPARK_REDSHIFT_JAR = new ResourceDependency("redshift spark", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/spark-redshift_" + SCALA_VERSION + "/" + SPARK_REDSHIFT_VERSION + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION + ".jar");
+    private static ResourceDependency SPARK_REDSHIFT_JAR = new ResourceDependency("spark-redshift", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/spark-redshift_" + SCALA_VERSION + "/" + SPARK_REDSHIFT_VERSION + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION + ".jar");
 
     private static final ResourceDependency STARLAKE_SNAPSHOT_JAR = new ResourceDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core"+ "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
     private static final ResourceDependency STARLAKE_RELEASE_JAR = new ResourceDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
@@ -465,69 +463,68 @@ public class Setup extends ProxySelector implements X509TrustManager {
         ENABLE_KAFKA = true;
     }
     private static void askUserWhichConfigToEnable() {
-        if (!anyDependencyEnabled()) {
-            System.out.println("Please enable at least one of the following configurations:");
-            System.out.println("1) Azure");
-            System.out.println("2) BigQuery");
-            System.out.println("3) Snowflake");
-            System.out.println("4) Redshift ");
-            System.out.println("5) Postgres ");
-            System.out.println("6) DuckDB   ");
-            System.out.println("7) Spark    ");
-            System.out.println("8) Kafka    ");
-            System.out.println("A) All      ");
-            System.out.println("N) None     ");
-            System.out.print("Please enter your choice(s) separated by commas (e.g. 1,2,3): ");
+        System.out.println("Please enable at least one of the following configurations:");
+        System.out.println("1) Azure");
+        System.out.println("2) BigQuery");
+        System.out.println("3) Snowflake");
+        System.out.println("4) Redshift ");
+        System.out.println("5) Postgres ");
+        System.out.println("6) DuckDB   ");
+        System.out.println("7) Spark    ");
+        System.out.println("8) Kafka    ");
+        System.out.println("A) All      ");
+        System.out.println("N) None     ");
+        System.out.print("Please enter your choice(s) separated by commas (e.g. 1,2,3): ");
 
-            try {
-                BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-                String answer = reader.readLine();
-                if (answer.equalsIgnoreCase("n")) {
-                    System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
-                    System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA");
-                    System.exit(1);
-                }
-                else if (answer.equalsIgnoreCase("a")) {
-                    enableAllDependencies();
-                }
-                else {
-                    String[] choices = answer.split(",");
-                    for (String choice : choices) {
-                        switch (choice.trim()) {
-                            case "1":
-                                ENABLE_AZURE = true;
-                                break;
-                            case "2":
-                                ENABLE_BIGQUERY = true;
-                                break;
-                            case "3":
-                                ENABLE_SNOWFLAKE = true;
-                                break;
-                            case "4":
-                                ENABLE_REDSHIFT = true;
-                                break;
-                            case "5":
-                                ENABLE_POSTGRESQL = true;
-                                break;
-                            case "6":
-                                ENABLE_DUCKDB = true;
-                                break;
-                            case "7":
-                                break;
-                            case "8":
-                                ENABLE_KAFKA = true;
-                                break;
-                            default:
-                                enableAllDependencies();
-                                System.out.println("Installing All dependencies.");
-                        }
+        try {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+            String answer = reader.readLine();
+            if (answer.equalsIgnoreCase("n")) {
+                System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
+                System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA");
+                System.exit(1);
+            }
+            else if (answer.equalsIgnoreCase("a")) {
+                enableAllDependencies();
+            }
+            else {
+                String[] choices = answer.split(",");
+                for (String choice : choices) {
+                    switch (choice.trim()) {
+                        case "1":
+                            ENABLE_AZURE = true;
+                            break;
+                        case "2":
+                            ENABLE_BIGQUERY = true;
+                            break;
+                        case "3":
+                            ENABLE_SNOWFLAKE = true;
+                            break;
+                        case "4":
+                            ENABLE_REDSHIFT = true;
+                            break;
+                        case "5":
+                            ENABLE_POSTGRESQL = true;
+                            break;
+                        case "6":
+                            ENABLE_DUCKDB = true;
+                            break;
+                        case "7":
+                            break;
+                        case "8":
+                            ENABLE_KAFKA = true;
+                            break;
+                        default:
+                            enableAllDependencies();
+                            System.out.println("Installing All dependencies.");
                     }
                 }
-            } catch (IOException e) {
-                System.out.println("Failed to read user input");
-                e.printStackTrace();
             }
+        } catch (IOException e) {
+            System.out.println("Failed to read user input");
+            e.printStackTrace();
         }
+
     }
     public static void main(String[] args) throws IOException {
         try {
@@ -536,7 +533,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 System.exit(1);
             }
 
-            askUserWhichConfigToEnable();
+            if (!anyDependencyEnabled()) {
+                askUserWhichConfigToEnable();
+            }
 
             final File targetDir = new File(args[0]);
             if (!targetDir.exists()) {
@@ -551,67 +550,68 @@ public class Setup extends ProxySelector implements X509TrustManager {
             if (isWindowsOs()) {
                 final File hadoopDir = new File(binDir, "hadoop");
                 final File hadoopBinDir = new File(hadoopDir, "bin");
-                if (!hadoopBinDir.exists()) {
-                    hadoopBinDir.mkdirs();
-                }
+                deleteRecursively(hadoopDir);
+                hadoopBinDir.mkdirs();
                 for (ResourceDependency lib : HADOOP_LIBS) {
                     downloadAndDisplayProgress(lib, (resource, url) -> new File(hadoopBinDir, resource.getUrlName(url)));
                 }
 
-            } else {
-                System.out.println("Unix OS detected");
             }
 
             File slDir = new File(binDir, "sl");
+            deleteRecursively(slDir);
             if (SL_VERSION.endsWith("SNAPSHOT")) {
-                STARLAKE_SNAPSHOT_JAR.getUrlNames().forEach(urlName -> deleteFile(new File(slDir, urlName)));
                 downloadAndDisplayProgress(new ResourceDependency[]{STARLAKE_SNAPSHOT_JAR}, slDir, false);
             } else {
-                STARLAKE_RELEASE_JAR.getUrlNames().forEach(urlName -> deleteFile(new File(slDir, urlName)));
                 downloadAndDisplayProgress(new ResourceDependency[]{STARLAKE_RELEASE_JAR}, slDir, false);
             }
 
             File sparkDir = new File(binDir, "spark");
+            // deleteRecursively(sparkDir);
             if (!sparkDir.exists()) {
                 downloadSpark(binDir);
             }
 
             File depsDir = new File(binDir, "deps");
 
+            deleteDependencies(deltaSparkDependencies, depsDir);
             downloadAndDisplayProgress(deltaSparkDependencies, depsDir, true);
+
+            deleteDependencies(icebergSparkDependencies, depsDir);
             downloadAndDisplayProgress(icebergSparkDependencies, depsDir, true);
             updateSparkLog4j2Properties(sparkDir);
+
+            deleteDependencies(duckDbDependencies, depsDir);
             downloadAndDisplayProgress(duckDbDependencies, depsDir, true);
 
+            deleteDependencies(confluentDependencies, depsDir);
             if (ENABLE_KAFKA) {
                 downloadAndDisplayProgress(confluentDependencies, depsDir, true);
-            } else {
-                deleteDependencies(confluentDependencies, depsDir);
             }
+
+            deleteDependencies(redshiftDependencies, depsDir);
             if (ENABLE_REDSHIFT) {
                 downloadAndDisplayProgress(redshiftDependencies, depsDir, true);
-            } else {
-                deleteDependencies(redshiftDependencies, depsDir);
             }
+
+            deleteDependencies(bigqueryDependencies, depsDir);
             if (ENABLE_BIGQUERY) {
                 downloadAndDisplayProgress(bigqueryDependencies, depsDir, true);
-            } else {
-                deleteDependencies(bigqueryDependencies, depsDir);
             }
+
+            deleteDependencies(azureDependencies, depsDir);
             if (ENABLE_AZURE) {
                 downloadAndDisplayProgress(azureDependencies, depsDir, true);
-            } else {
-                deleteDependencies(azureDependencies, depsDir);
             }
+
+            deleteDependencies(snowflakeDependencies, depsDir);
             if (ENABLE_SNOWFLAKE) {
                 downloadAndDisplayProgress(snowflakeDependencies, depsDir, true);
-            } else {
-                deleteDependencies(snowflakeDependencies, depsDir);
             }
+
+            deleteDependencies(postgresqlDependencies, depsDir);
             if (ENABLE_POSTGRESQL) {
                 downloadAndDisplayProgress(postgresqlDependencies, depsDir, true);
-            } else {
-                deleteDependencies(postgresqlDependencies, depsDir);
             }
 
             boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
@@ -625,9 +625,6 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     public static void downloadSpark(File binDir) throws IOException, InterruptedException {
         ResourceDependency sparkJar = SPARK_JAR;
-        if (!SCALA_VERSION.equals("2.12")) {
-            sparkJar = SPARK_JAR_213;
-        }
         downloadAndDisplayProgress(new ResourceDependency[]{sparkJar}, binDir, false);
         sparkJar.getUrlNames().stream().map(tgzName -> new File(binDir, tgzName)).filter(File::exists).forEach(sparkFile -> {
             String tgzName = sparkFile.getName();
@@ -663,7 +660,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static void deleteDependencies(ResourceDependency[] dependencies, File targetDir) {
         if (targetDir.exists()) {
             for (ResourceDependency dependency : dependencies) {
-                File[] files = targetDir.listFiles(f -> f.getName().startsWith(dependency.artefactName));
+                File[] files = targetDir.listFiles(f -> f.getPath().contains(dependency.artefactName));
                 if (files != null) {
                     for (File file : files) {
                         deleteFile(file);
@@ -671,6 +668,16 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 }
             }
         }
+    }
+
+    private static void deleteRecursively(File directoryToBeDeleted) {
+        File[] allContents = directoryToBeDeleted.listFiles();
+        if (allContents != null) {
+            for (File file : allContents) {
+                deleteRecursively(file);
+            }
+        }
+        directoryToBeDeleted.delete();
     }
 
     private static void deleteFile(File file) {
