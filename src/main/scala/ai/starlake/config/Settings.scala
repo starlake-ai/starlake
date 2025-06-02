@@ -20,17 +20,17 @@
 
 package ai.starlake.config
 
-import ai.starlake.config.DatasetArea.metadata
 import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
 import ai.starlake.schema.handlers.*
-import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.schema.model.*
+import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.*
+import better.files.File
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
@@ -43,18 +43,18 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.jdbc.JdbcDialect
 import org.apache.spark.storage.StorageLevel
-import pureconfig.ConvertHelpers.*
 import pureconfig.*
-import pureconfig.generic.auto.*
+import pureconfig.ConvertHelpers.*
 import pureconfig.generic.ProductHint
-import better.files.File
+import pureconfig.generic.auto.*
+
 import java.io.ObjectStreamException
 import java.net.URI
 import java.nio.charset.{Charset, StandardCharsets}
 import java.sql.DriverManager
 import java.util.{Locale, Properties, TimeZone, UUID}
 import scala.annotation.nowarn
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
 object Settings extends StrictLogging {
@@ -1393,7 +1393,7 @@ object Settings extends StrictLogging {
   }
 
   private def schedulingPath(settings: Settings): Option[Path] = {
-    import settings.appConfig.sparkScheduling._
+    import settings.appConfig.sparkScheduling.*
     if (file.isEmpty) {
       val schedulingPath = new Path(DatasetArea.metadata(settings), "fairscheduler.xml")
       Some(schedulingPath).filter(settings.storageHandler().exists)
