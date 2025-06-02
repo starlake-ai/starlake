@@ -351,6 +351,9 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     val options =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, targetTableName, sinkConnection.options)
 
+    val connectionPreActions =
+      sinkConnection.options.get("preActions").map(_.split(';')).getOrElse(Array.empty).toList
+
     val stepMap =
       if (twoSteps) {
         val (tempCreateSchemaSql, tempCreateTableSql, _) = SparkUtils.buildCreateTableSQL(
@@ -389,7 +392,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           "domain"              -> domain.finalName,
           "table"               -> starlakeSchema.finalName,
           "writeStrategy"       -> writeDisposition,
-          "schemaString"        -> schemaString
+          "schemaString"        -> schemaString,
+          "preActions"          -> connectionPreActions.asJava
         )
 
         workflowStatements
@@ -419,7 +423,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
             "targetTableName" -> targetTableName,
             "domain"          -> domain.finalName,
             "table"           -> starlakeSchema.finalName,
-            "writeStrategy"   -> writeDisposition
+            "writeStrategy"   -> writeDisposition,
+            "preActions"      -> connectionPreActions.asJava
           )
         workflowStatements
           .asMap()

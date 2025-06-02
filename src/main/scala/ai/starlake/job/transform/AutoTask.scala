@@ -409,6 +409,9 @@ abstract class AutoTask(
     val mainSqlIfExists = buildAllSQLQueries(None, Some(true)).splitSql()
     val mainSqlIfNotExists = buildAllSQLQueries(None, Some(false)).splitSql()
 
+    val connectionPreActions =
+      sinkOptions.get("preActions").map(_.split(';')).getOrElse(Array.empty).toList
+
     val parsedPreActions =
       Utils
         .parseJinja(
@@ -427,7 +430,7 @@ abstract class AutoTask(
       taskDesc.domain,
       taskDesc.table,
       createSchemaAndTableSql.map(_.pyFormat()),
-      parsedPreActions.map(_.pyFormat()),
+      (connectionPreActions ++ parsedPreActions).map(_.pyFormat()),
       preSqls.map(_.pyFormat()),
       mainSqlIfExists.map(_.pyFormat()),
       mainSqlIfNotExists.map(_.pyFormat()),
