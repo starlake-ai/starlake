@@ -146,7 +146,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
             ENABLE_KAFKA
     };
 
-    // SCALA 2.12 by default until spark redshift is available for 2.13
+    private static final boolean ENABLE_API = envIsTrueWithDefaultTrue("ENABLE_API");
+
+    private static final String SL_API_VERSION = getEnv("SL_API_VERSION").orElse("0.1.0-SNAPSHOT");
+
     private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.13");
 
     // STARLAKE
@@ -196,6 +199,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    // API
+    private static final ResourceDependency SL_API_ZIP = new ResourceDependency("starlake-api", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-api" + "_" + SCALA_VERSION + "/" + SL_API_VERSION + "/starlake-api"+ "_" + SCALA_VERSION + "-" + SL_API_VERSION + ".zip");
+
+    // SPARK
     private static final ResourceDependency SPARK_JAR = new ResourceDependency("dist/spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + "-scala2.13.tgz");
     private static final ResourceDependency SPARK_BQ_JAR = new ResourceDependency("bigquery-with-dependencies",
             "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_" + SCALA_VERSION + "/" +
@@ -284,6 +291,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     }
 
+    private static boolean envIsTrueWithDefaultTrue(String env) {
+        String value = getEnv(env).orElse("true");
+        return !value.equals("false") && !value.equals("0");
+
+    }
+
     private static void generateUnixVersions(File targetDir) throws IOException {
         generateVersions(targetDir, "versions.sh", "#!/bin/bash\nset -e\n\n",
                 (writer) -> (variableName, value) -> {
@@ -322,6 +335,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             variableWriter.apply(writer).accept("ENABLE_POSTGRESQL", String.valueOf(ENABLE_POSTGRESQL));
             variableWriter.apply(writer).accept("ENABLE_REDSHIFT", String.valueOf(ENABLE_REDSHIFT));
             variableWriter.apply(writer).accept("ENABLE_KAFKA", String.valueOf(ENABLE_KAFKA));
+            variableWriter.apply(writer).accept("ENABLE_DUCKDB", String.valueOf(ENABLE_DUCKDB));
             variableWriter.apply(writer).accept("SL_VERSION", SL_VERSION);
             variableWriter.apply(writer).accept("SCALA_VERSION", SCALA_VERSION);
             variableWriter.apply(writer).accept("SPARK_VERSION", SPARK_VERSION);
@@ -351,6 +365,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
             }
             if (ENABLE_KAFKA || !anyDependencyEnabled()) {
                 variableWriter.apply(writer).accept("CONFLUENT_VERSION", CONFLUENT_VERSION);
+            }
+            if (ENABLE_DUCKDB || !anyDependencyEnabled()) {
+                variableWriter.apply(writer).accept("DUCKDB_VERSION", DUCKDB_VERSION);
             }
         } finally {
             writer.close();
@@ -480,7 +497,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             String answer = reader.readLine();
             if (answer.equalsIgnoreCase("n")) {
                 System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
-                System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA");
+                System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_DUCKDB, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA");
                 System.exit(1);
             }
             else if (answer.equalsIgnoreCase("a")) {
@@ -565,11 +582,18 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 downloadAndDisplayProgress(new ResourceDependency[]{STARLAKE_RELEASE_JAR}, slDir, false);
             }
 
+            if (ENABLE_API) {
+                File apiDir = new File(binDir, "api");
+                deleteRecursively(apiDir);
+                downloadApi(binDir);
+            }
+
             File sparkDir = new File(binDir, "spark");
             // deleteRecursively(sparkDir);
             if (!sparkDir.exists()) {
                 downloadSpark(binDir);
             }
+
 
             File depsDir = new File(binDir, "deps");
 
@@ -620,6 +644,25 @@ public class Setup extends ProxySelector implements X509TrustManager {
             e.printStackTrace();
             System.exit(1);
         }
+    }
+    public static void downloadApi(File binDir) throws IOException, InterruptedException {
+        ResourceDependency apiZip = SL_API_ZIP;
+        downloadAndDisplayProgress(new ResourceDependency[]{apiZip}, binDir, false);
+        apiZip.getUrlNames().stream().map(zipName -> new File(binDir, zipName)).filter(File::exists).forEach(zipFile -> {
+            String zipName = zipFile.getName();
+            ProcessBuilder builder = new ProcessBuilder("unzip", zipFile.getAbsolutePath(), "-d", binDir.getAbsolutePath());
+            try {
+                Process process = builder.start();
+                process.waitFor();
+            } catch (InterruptedException | IOException e) {
+                System.out.println("Failed to extract api");
+                e.printStackTrace();
+            }
+            zipFile.delete();
+            File zipDir = new File(binDir, apiZip.artefactName +"-"+ SL_API_VERSION);
+            System.out.println("Renaming " + zipDir.getAbsolutePath() + " to " + new File(binDir, "api").getAbsolutePath());
+            zipDir.renameTo(new File(binDir, "api"));
+        });
     }
 
     public static void downloadSpark(File binDir) throws IOException, InterruptedException {
