@@ -7,13 +7,14 @@ __Improvement__:
 - add `partitionPruningKey` and `quotedPartitionPruningKey` variables in write strategy templates. They are only set when target table's partition column is one of the merge keys and feature is enabled.
 - chunk log entries for gcp logs in order to avoid `INVALID_ARGUMENT: Request payload size exceeds the limit: 10485760 bytes`
 - retry on `TimeoutException` wrapped into `VerifyException`
+- It is now possible to run starlake in server mode without installing the API separately.
 
 __Bug fix__:
 - fix index out of bound exception when extracting table name from file name
 - add rate limit exception retry during table deletion
 - fix premature shutdown of parallel executions
-- fix incoming data kept for current partition day only when table is partitionned with bq native and requires temporary tables. Now, it follows target expiration. Affected jobs met the criteria below and is recommended to upgrade to this version:
-  - target table is partitionned
+- fix incoming data kept for current partition day only when table is partitioned with bq native and requires temporary tables. Now, it follows target expiration. Affected jobs met the criteria below and is recommended to upgrade to this version:
+  - target table is partitioned
   - incoming data partitions are older than yesterday 
   - and one of:
     - any load job with scripted fields or ignored fields

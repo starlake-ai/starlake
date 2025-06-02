@@ -3,6 +3,9 @@
 set -e
 
 SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
+
+API_BIN_DIR="$SCRIPT_DIR/bin/api/bin"
+
 SL_ROOT="${SL_ROOT:-`pwd`}"
 
 case "$1" in
@@ -72,6 +75,15 @@ launch_setup() {
     fi
   fi
   $RUNNER -cp "$SCRIPT_DIR/setup.jar" Setup "$SCRIPT_DIR" unix
+
+  # if API_BIN_DIR exists set all files starting with local- as executable
+  if [ -d "$API_BIN_DIR" ]; then
+    for file in "$API_BIN_DIR"/local-*; do
+      if [ -f "$file" ]; then
+        chmod +x "$file"
+      fi
+    done
+  fi
 }
 
 launch_starlake() {
@@ -193,6 +205,7 @@ case "$1" in
     ;;
   serve)
     launch_starlake "$@"
+
     ;;
   *)
     if [[ -z "$SL_HTTP_PORT" ]]
