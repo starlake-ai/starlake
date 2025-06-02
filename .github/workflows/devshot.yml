@@ -26,11 +26,11 @@ jobs:
           names: |
             ai.starlake.starlake-core_2.13
       - uses: actions/checkout@v4
-      - name: Set up Zulu 11
+      - name: Set up Zulu 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin' # See 'Supported distributions' for available options
-          java-version: '11'
+          java-version: '17'
       - name: Setup sbt launcher
         uses: sbt/setup-sbt@v1
       - name: Publish Snapshot on Sonatype Spark 3 for scala 2.13

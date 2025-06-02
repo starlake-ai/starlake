@@ -18,11 +18,11 @@ jobs:
           
       - name: Install graphviz
         run: sudo apt-get install -y graphviz
-      - name: Set up Zulu 11
+      - name: Set up Zulu 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin' # See 'Supported distributions' for available options
-          java-version: '11'
+          java-version: '17'
       - uses: actions/checkout@v4
         if: ${{ !github.event.repository.fork }}
       - name: Setup sbt launcher
