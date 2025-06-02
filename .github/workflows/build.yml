@@ -44,11 +44,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install graphviz
         run: sudo apt-get install -y graphviz
-      - name: Set up Temurin 11
+      - name: Set up Temurin 17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu' # See 'Supported distributions' for available options
-          java-version: '11'
+          java-version: '17'
       #      - uses: vemonet/setup-spark@v1
       #        with:
       #          spark-version: '3.3.2'
@@ -79,11 +79,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Zulu 11
+      - name: Set up Zulu 17
         uses: actions/setup-java@v2
         with:
           distribution: 'zulu' # See 'Supported distributions' for available options
-          java-version: '11' # See 'Java versions' for available options
+          java-version: '17' # See 'Java versions' for available options
       - name: Setup sbt launcher
         uses: sbt/setup-sbt@v1
       - name: Formatting
