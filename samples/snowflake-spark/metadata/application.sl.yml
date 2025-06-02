@@ -14,7 +14,7 @@ application:
         db: {{SNOWFLAKE_DB}}
         schema: "${SNOWFLAKE_SCHEMA}"
         keep_column_case: "off"
-        preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+        preActions: "ALTER SESSION SET QUERY_TAG = 'starlake';ALTER SESSION SET TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
     spark-snowflake:
       type: jdbc
       sparkFormat: snowflake
@@ -29,4 +29,4 @@ application:
         sfschema: "${SNOWFLAKE_SCHEMA}"
         keep_column_case: "off"
         autopushdown: on
-        preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+        preActions: "ALTER SESSION SET QUERY_TAG = 'starlake';ALTER SESSION SET TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"

@@ -13,7 +13,7 @@ connections:
             schema: ${SNOWFLAKE_SCHEMA}
             keep_column_case: "off"
             sftimezone: "TIMESTAMP_LTZ"
-            preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+            preActions: "ALTER SESSION SET QUERY_TAG = 'starlake';ALTER SESSION SET TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
 
     snowflake:
     format: "jdbc"
@@ -28,4 +28,4 @@ connections:
         schema: ${SNOWFLAKE_SCHEMA}
         keep_column_case: "off"
         sftimezone: "TIMESTAMP_LTZ"
-        preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+        preActions: "ALTER SESSION SET QUERY_TAG = 'starlake';ALTER SESSION SET TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
