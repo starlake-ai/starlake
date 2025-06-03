@@ -585,9 +585,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             }
 
             if (ENABLE_API) {
-                File apiDir = new File(binDir, "api");
-                deleteRecursively(apiDir);
-                downloadApi(binDir);
+                downloadApi(targetDir);
             }
 
             File sparkDir = new File(binDir, "spark");
@@ -649,7 +647,19 @@ public class Setup extends ProxySelector implements X509TrustManager {
             System.exit(1);
         }
     }
-    public static void downloadApi(File binDir) throws IOException, InterruptedException {
+    public static void downloadApi(File targetDir) throws IOException, InterruptedException {
+        final File projectsDir = new File(targetDir, "projects");
+        final File demoDir = new File(projectsDir, "demo");
+        final File binDir = new File(targetDir, "bin");
+        File apiDir = new File(binDir, "api");
+        File starbakeZip = new File(apiDir, "starbake.zip");
+        final File demoZip = new File(demoDir, "starbake.zip");
+        if (starbakeZip.exists() && !starbakeZip.renameTo(demoZip)) {
+            System.out.println("Failed to rename " + starbakeZip.getAbsolutePath() + " to " + demoZip.getAbsolutePath());
+        }
+        deleteRecursively(apiDir);
+
+
         ResourceDependency apiZip = SL_API_ZIP;
         downloadAndDisplayProgress(new ResourceDependency[]{apiZip}, binDir, false);
         apiZip.getUrlNames().stream().map(zipName -> new File(binDir, zipName)).filter(File::exists).forEach(zipFile -> {
