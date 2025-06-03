@@ -654,6 +654,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
         File apiDir = new File(binDir, "api");
         File starbakeZip = new File(apiDir, "starbake.zip");
         final File demoZip = new File(demoDir, "starbake.zip");
+        demoDir.mkdirs();
         if (starbakeZip.exists() && !starbakeZip.renameTo(demoZip)) {
             System.out.println("Failed to rename " + starbakeZip.getAbsolutePath() + " to " + demoZip.getAbsolutePath());
         }
