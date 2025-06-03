@@ -205,6 +205,7 @@ case "$1" in
     ;;
   serve)
     chmod +x $SCRIPT_DIR/bin/api/git/*.sh
+    chmod +x $SCRIPT_DIR/bin/api/bin/*
     $SCRIPT_DIR/bin/api/bin/local-run-api $SCRIPT_DIR dummy
 
     ;;
