@@ -607,7 +607,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
             updateSparkLog4j2Properties(sparkDir);
 
             deleteDependencies(duckDbDependencies, depsDir);
-            downloadAndDisplayProgress(duckDbDependencies, depsDir, true);
+            if (ENABLE_DUCKDB) {
+                downloadAndDisplayProgress(duckDbDependencies, depsDir, true);
+            }
 
             deleteDependencies(confluentDependencies, depsDir);
             if (ENABLE_KAFKA) {
