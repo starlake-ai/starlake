@@ -204,8 +204,8 @@ case "$1" in
     echo If any errors happen during installation. Please try to install again or open an issue.
     ;;
   serve)
-    chmod +x bin/api/git/*.sh
-    bin/api/bin/local-run-api $SCRIPT_DIR dummy
+    chmod +x $SCRIPT_DIR/bin/api/git/*.sh
+    $SCRIPT_DIR/bin/api/bin/local-run-api $SCRIPT_DIR dummy
 
     ;;
   *)
