@@ -364,7 +364,7 @@ packageSetup := {
 
 Compile / mainClass := Some("ai.starlake.job.Main")
 
-Compile / packageBin := ((Compile / packageBin).dependsOn(packageSetup)).value
+// Compile / packageBin := ((Compile / packageBin).dependsOn(packageSetup)).value
 
 
 Test / parallelExecution := false
