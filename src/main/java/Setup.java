@@ -652,12 +652,6 @@ public class Setup extends ProxySelector implements X509TrustManager {
         final File demoDir = new File(projectsDir, "demo");
         final File binDir = new File(targetDir, "bin");
         File apiDir = new File(binDir, "api");
-        File starbakeZip = new File(apiDir, "starbake.zip");
-        final File demoZip = new File(demoDir, "starbake.zip");
-        demoDir.mkdirs();
-        if (starbakeZip.exists() && !starbakeZip.renameTo(demoZip)) {
-            System.out.println("Failed to rename " + starbakeZip.getAbsolutePath() + " to " + demoZip.getAbsolutePath());
-        }
         deleteRecursively(apiDir);
 
 
@@ -681,6 +675,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 extractedDir.renameTo(renamedDir);
             }
         });
+        File starbakeZip = new File(apiDir, "starbake.zip");
+        final File demoZip = new File(demoDir, "starbake.zip");
+        demoDir.mkdirs();
+        if (starbakeZip.exists() && !starbakeZip.renameTo(demoZip)) {
+            System.out.println("Failed to rename " + starbakeZip.getAbsolutePath() + " to " + demoZip.getAbsolutePath());
+        }
     }
 
     public static void downloadSpark(File binDir) throws IOException, InterruptedException {
