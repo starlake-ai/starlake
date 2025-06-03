@@ -19,6 +19,8 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 public class Setup extends ProxySelector implements X509TrustManager {
 
@@ -649,19 +651,22 @@ public class Setup extends ProxySelector implements X509TrustManager {
         ResourceDependency apiZip = SL_API_ZIP;
         downloadAndDisplayProgress(new ResourceDependency[]{apiZip}, binDir, false);
         apiZip.getUrlNames().stream().map(zipName -> new File(binDir, zipName)).filter(File::exists).forEach(zipFile -> {
-            String zipName = zipFile.getName();
-            ProcessBuilder builder = new ProcessBuilder("unzip", zipFile.getAbsolutePath(), "-d", binDir.getAbsolutePath());
             try {
-                Process process = builder.start();
-                process.waitFor();
-            } catch (InterruptedException | IOException e) {
-                System.out.println("Failed to extract api");
+                unzip(zipFile, binDir);
+            } catch (IOException e) {
+                System.out.println("Failed to extract API: " + e.getMessage());
                 e.printStackTrace();
             }
             zipFile.delete();
-            File zipDir = new File(binDir, apiZip.artefactName +"-"+ SL_API_VERSION);
-            System.out.println("Renaming " + zipDir.getAbsolutePath() + " to " + new File(binDir, "api").getAbsolutePath());
-            zipDir.renameTo(new File(binDir, "api"));
+
+            // Rename extracted directory
+            File extractedDir = new File(binDir, apiZip.artefactName + "-" + SL_API_VERSION);
+            File renamedDir = new File(binDir, "api");
+
+            if (extractedDir.exists()) {
+                System.out.println("Renaming " + extractedDir.getAbsolutePath() + " to " + renamedDir.getAbsolutePath());
+                extractedDir.renameTo(renamedDir);
+            }
         });
     }
 
@@ -807,6 +812,31 @@ public class Setup extends ProxySelector implements X509TrustManager {
         }
         finally {
             client = null; // Close the client to release resources
+        }
+    }
+
+    // Utility method to unzip using Java
+    private static void unzip(File zipFile, File destDir) throws IOException {
+        try (ZipInputStream zipIn = new ZipInputStream(new FileInputStream(zipFile))) {
+            ZipEntry entry = zipIn.getNextEntry();
+            while (entry != null) {
+                File filePath = new File(destDir, entry.getName());
+                if (entry.isDirectory()) {
+                    filePath.mkdirs();
+                } else {
+                    // Create parent dirs if they don't exist
+                    filePath.getParentFile().mkdirs();
+                    try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(filePath))) {
+                        byte[] buffer = new byte[4096];
+                        int bytesRead;
+                        while ((bytesRead = zipIn.read(buffer)) != -1) {
+                            bos.write(buffer, 0, bytesRead);
+                        }
+                    }
+                }
+                zipIn.closeEntry();
+                entry = zipIn.getNextEntry();
+            }
         }
     }
 }
