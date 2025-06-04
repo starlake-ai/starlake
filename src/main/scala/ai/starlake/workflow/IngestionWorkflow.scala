@@ -401,6 +401,16 @@ class IngestionWorkflow(
             val includedDomains = domainsToWatch(config)
             includedDomains.flatMap { domain =>
               logger.info(s"Watch Domain: ${domain.name}")
+              val stagePath = DatasetArea.stage(domain.name)
+              config.files.getOrElse(Nil).foreach { path =>
+                logger.info(s"copying file $path in domain ${domain.name}")
+                val incomingPath = new Path(path)
+                if (incomingPath.getParent.toUri.getPath != stagePath.toUri.getPath) {
+                  logger.info(s"Copying $incomingPath to $stagePath")
+                  storageHandler.mkdirs(stagePath)
+                  storageHandler.copy(incomingPath, new Path(stagePath, incomingPath.getName))
+                }
+              }
               val (resolved, unresolved) = pending(domain.name, config.tables.toList)
               unresolved.foreach { case (_, fileInfo) =>
                 val targetPath =
