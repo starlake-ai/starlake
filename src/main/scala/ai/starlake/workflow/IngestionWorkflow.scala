@@ -1012,8 +1012,8 @@ class IngestionWorkflow(
         ok
     }
     forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
-    val allIsSuccess = res.forall(_.isSuccess)
-    if (res.isEmpty) {
+    val allIsSuccess = res.iterator.forall(_.isSuccess)
+    if (res.iterator.isEmpty) {
       Success("")
     } else if (allIsSuccess) {
       res.iterator.next()
