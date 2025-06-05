@@ -512,9 +512,9 @@ class IngestionWorkflow(
                       }
                     }
                     val moveDuration = System.currentTimeMillis() - startTime
-                    println("Grouped pending paths number = " + groupedPendingSize)
-                    println("Moved files number = " + pendingPaths.size)
-                    println("duration " + ExtractUtils.toHumanElapsedTime(moveDuration))
+                    Utils.printOut("Grouped pending paths number = " + groupedPendingSize)
+                    Utils.printOut("Moved files number = " + pendingPaths.size)
+                    Utils.printOut("duration " + ExtractUtils.toHumanElapsedTime(moveDuration))
                     val res =
                       ParUtils.runInParallel(settings.appConfig.sparkScheduling.maxJobs, jobs) {
                         jobContext =>
@@ -848,7 +848,7 @@ class IngestionWorkflow(
             logger.info(s"Backing up file $ingestingPath to $archivePath")
             val _ = storageHandler.move(ingestingPath, archivePath)
           }
-          println("Archive duration takes " + ExtractUtils.toHumanElapsedTimeFrom(now))
+          Utils.printOut("Archive duration takes " + ExtractUtils.toHumanElapsedTimeFrom(now))
         } else {
           logger.info(s"Deleting file $ingestingPaths")
           ParUtils.runInParallel(settings.appConfig.maxParCopy, ingestingPaths) { ingestingPath =>
