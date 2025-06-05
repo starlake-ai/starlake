@@ -910,20 +910,31 @@ class IngestionWorkflow(
     config: TransformConfig
   ): AutoTask = {
     val taskDesc =
-      schemaHandler
-        .taskOnly(config.name, reload = true)
-        .getOrElse(throw new Exception(s"Invalid task name ${config.name}"))
-    logger.debug(taskDesc.toString)
-    val updatedTaskDesc =
-      config.query match {
-        case Some(_) =>
-          taskDesc.copy(sql = config.query)
-        case None =>
-          taskDesc
+      if (config.name == "__ignore__.__ignore__") {
+        AutoTaskDesc(
+          name = "__ignore__.__ignore__",
+          sql = config.query,
+          domain = "__ignore__",
+          table = "__ignore__",
+          database = None,
+          connectionRef = None,
+          parseSQL = Some(false)
+        )
+      } else {
+        val taskDesc = schemaHandler
+          .taskOnly(config.name, reload = true)
+          .getOrElse(throw new Exception(s"Invalid task name ${config.name}"))
+        config.query match {
+          case Some(_) =>
+            taskDesc.copy(sql = config.query)
+          case None =>
+            taskDesc
+        }
       }
+    logger.debug(taskDesc.toString)
     AutoTask.task(
       None,
-      updatedTaskDesc,
+      taskDesc,
       config.options,
       config.interactive,
       config.truncate,
