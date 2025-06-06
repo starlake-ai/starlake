@@ -66,6 +66,20 @@ trait TransformCmd extends Cmd[TransformConfig] {
           s"Force table to be truncated before insert. Default value is false"
         ),
       builder
+        .opt[Int]("pageSize")
+        .action((x, c) => c.copy(pageSize = x))
+        .optional()
+        .text(
+          s"Force table to be truncated before insert. Default value is false"
+        ),
+      builder
+        .opt[Int]("pageNumber")
+        .action((x, c) => c.copy(pageNumber = x))
+        .optional()
+        .text(
+          s"Force table to be truncated before insert. Default value is false"
+        ),
+      builder
         .opt[Unit]("recursive")
         .action((_, c) => c.copy(recursive = true))
         .optional()

@@ -13,7 +13,9 @@ case class TransformConfig(
   test: Boolean = false,
   accessToken: Option[String] = None,
   dryRun: Boolean = false,
-  query: Option[String] = None
+  query: Option[String] = None,
+  pageSize: Int = 1000,
+  pageNumber: Int = 1
 ) {
   def optionsAsString: String = options.map { case (k, v) => s"$k=$v" }.mkString(",")
   override def toString: String = {
@@ -31,6 +33,8 @@ case class TransformConfig(
        |accessToken=$accessToken
        |dryRun=$dryRun
        |query=$query
+       |pageSize=$pageSize
+       |pageNumber=$pageNumber
        |""".stripMargin
   }
 }
