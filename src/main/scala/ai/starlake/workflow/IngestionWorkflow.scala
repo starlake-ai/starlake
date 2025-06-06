@@ -512,9 +512,9 @@ class IngestionWorkflow(
                       }
                     }
                     val moveDuration = System.currentTimeMillis() - startTime
-                    Utils.printOut("Grouped pending paths number = " + groupedPendingSize)
-                    Utils.printOut("Moved files number = " + pendingPaths.size)
-                    Utils.printOut("duration " + ExtractUtils.toHumanElapsedTime(moveDuration))
+                    // Utils.printOut("Grouped pending paths number = " + groupedPendingSize)
+                    // Utils.printOut("Moved files number = " + pendingPaths.size)
+                    // Utils.printOut("duration " + ExtractUtils.toHumanElapsedTime(moveDuration))
                     val res =
                       ParUtils.runInParallel(settings.appConfig.sparkScheduling.maxJobs, jobs) {
                         jobContext =>
@@ -1156,7 +1156,6 @@ class IngestionWorkflow(
     logger.info(s"Transforming with config $transformConfig")
     logger.info(s"Entering ${action.taskDesc.getRunEngine()} engine")
     val runEngine = action.taskDesc.getRunEngine()
-    Utils.printOut(s"Using engine $runEngine")
     runEngine match {
       case BQ =>
         val result = action.run()

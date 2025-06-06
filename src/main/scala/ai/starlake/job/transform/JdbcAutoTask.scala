@@ -277,10 +277,11 @@ class JdbcAutoTask(
     val end = Timestamp.from(Instant.now())
     res match {
       case Success(_) =>
-        if (logExecution)
+        if (logExecution && interactive.isEmpty)
           logAuditSuccess(start, end, -1, test)
       case Failure(e) =>
-        logAuditFailure(start, end, e, test)
+        if (interactive.isEmpty)
+          logAuditFailure(start, end, e, test)
     }
     res
   }

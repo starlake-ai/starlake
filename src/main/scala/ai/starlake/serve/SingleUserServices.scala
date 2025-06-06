@@ -40,7 +40,6 @@ object SingleUserServices {
   }
 
   def core(args: Array[String], reload: Boolean)(implicit settings: Settings): Try[Any] = {
-    Main.cliMode = false
     core.run(args, getSchemaHandler(reload))(settings)
   }
 
