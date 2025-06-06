@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 1.5.1:
+__Bug fix__:
+- schema and data extraction runs in parallel again
+
 # 1.5.0:
 __Improvement__:
 - add `SL_PRUNE_PARTITION_ON_MERGE` settings to prune partition on merge. Currently for bigquery only. Recommended to be set to true for load scenarios with merge.

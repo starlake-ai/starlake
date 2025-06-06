@@ -3,7 +3,6 @@ import ai.starlake.config.Settings
 import ai.starlake.config.Settings.{Connection, JdbcEngine}
 import ai.starlake.extract.JdbcDbUtils.{
   formatRemarksSQL,
-  withJDBCConnection,
   ColumnName,
   Columns,
   PrimaryKeys,
@@ -137,7 +136,7 @@ sealed trait JdbcColumnMetadata extends StrictLogging {
     */
   protected def extractColumnRemarks(
     jdbcSchema: JDBCSchema,
-    connectionSettings: Connection,
+    connection: java.sql.Connection,
     table: String,
     jdbcEngine: Option[JdbcEngine]
   )(implicit
@@ -147,15 +146,13 @@ sealed trait JdbcColumnMetadata extends StrictLogging {
     columnRemarks.map { remarks =>
       val sql = formatRemarksSQL(jdbcSchema, table, remarks)
       logger.debug(s"Extracting column remarks using $sql")
-      withJDBCConnection(connectionSettings.options) { connection =>
-        val statement = connection.createStatement()
-        val rs = statement.executeQuery(sql)
-        val res = mutable.Map.empty[String, String]
-        while (rs.next()) {
-          res.put(rs.getString(1), rs.getString(2))
-        }
-        res.toMap
+      val statement = connection.createStatement()
+      val rs = statement.executeQuery(sql)
+      val res = mutable.Map.empty[String, String]
+      while (rs.next()) {
+        res.put(rs.getString(1), rs.getString(2))
       }
+      res.toMap
     }
   }
 
@@ -195,7 +192,7 @@ final class JdbcColumnDatabaseMetadata(
 )(implicit settings: Settings)
     extends JdbcColumnMetadata {
 
-  override def primaryKeys: PrimaryKeys = {
+  override lazy val primaryKeys: PrimaryKeys = {
     Try {
       Using
         .resource(
@@ -237,7 +234,7 @@ final class JdbcColumnDatabaseMetadata(
   /** @return
     *   a map of foreign key name and its pk composite name
     */
-  override def foreignKeys: Map[String, String] = {
+  override lazy val foreignKeys: Map[String, String] = {
     Try {
       Using.resource(connectionSettings match {
         case d if d.isMySQLOrMariaDb() =>
@@ -281,7 +278,7 @@ final class JdbcColumnDatabaseMetadata(
     }
   }
 
-  override def columns: List[Attribute] = {
+  override lazy val columns: List[Attribute] = {
     Using.resource(
       connectionSettings match {
         case d if d.isMySQLOrMariaDb() =>
@@ -303,46 +300,47 @@ final class JdbcColumnDatabaseMetadata(
       val remarks: Map[String, String] = (
         if (skipRemarks) None
         else
-          extractColumnRemarks(jdbcSchema, connectionSettings, tableName, jdbcEngine)
+          extractColumnRemarks(jdbcSchema, databaseMetaData.getConnection, tableName, jdbcEngine)
       ).getOrElse(Map.empty)
 
-      val attrs = new Iterator[Attribute] {
-        def hasNext: Boolean = columnsResultSet.next()
+      val attrs =
+        new Iterator[Attribute] {
+          def hasNext: Boolean = columnsResultSet.next()
 
-        def next(): Attribute = {
-          val colName = columnsResultSet.getString("COLUMN_NAME")
-          val finalColName =
-            jdbcSchema.tables
-              .find(_.name.equalsIgnoreCase(tableName))
-              .map(_.columns)
-              .flatMap(_.find(_.name.equalsIgnoreCase(colName)))
-              .flatMap(_.rename)
-              .getOrElse(colName)
-          logger.debug(
-            s"COLUMN_NAME=$tableName.$colName and its extracted name is $finalColName"
-          )
-          val colType = columnsResultSet.getInt("DATA_TYPE")
-          val colTypename = columnsResultSet.getString("TYPE_NAME")
-          val colRemarks =
-            remarks.getOrElse(colName, columnsResultSet.getString("REMARKS"))
-          val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
-          val foreignKey = foreignKeys.get(colName.toUpperCase)
-          // val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
-          Attribute(
-            name = if (keepOriginalName) colName else finalColName,
-            rename = if (keepOriginalName) Some(finalColName) else None,
-            `type` = sparkType(
-              colType,
-              tableName,
-              colName,
-              colTypename
-            ),
-            required = Some(colRequired),
-            comment = Option(colRemarks),
-            foreignKey = foreignKey
-          )
-        }
-      }.toList
+          def next(): Attribute = {
+            val colName = columnsResultSet.getString("COLUMN_NAME")
+            val finalColName =
+              jdbcSchema.tables
+                .find(_.name.equalsIgnoreCase(tableName))
+                .map(_.columns)
+                .flatMap(_.find(_.name.equalsIgnoreCase(colName)))
+                .flatMap(_.rename)
+                .getOrElse(colName)
+            logger.debug(
+              s"COLUMN_NAME=$tableName.$colName and its extracted name is $finalColName"
+            )
+            val colType = columnsResultSet.getInt("DATA_TYPE")
+            val colTypename = columnsResultSet.getString("TYPE_NAME")
+            val colRemarks =
+              remarks.getOrElse(colName, columnsResultSet.getString("REMARKS"))
+            val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
+            val foreignKey = foreignKeys.get(colName.toUpperCase)
+            // val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
+            Attribute(
+              name = if (keepOriginalName) colName else finalColName,
+              rename = if (keepOriginalName) Some(finalColName) else None,
+              `type` = sparkType(
+                colType,
+                tableName,
+                colName,
+                colTypename
+              ),
+              required = Some(colRequired),
+              comment = Option(colRemarks),
+              foreignKey = foreignKey
+            )
+          }
+        }.toList
       removeDuplicatesColumns(attrs)
     }
   }
@@ -357,17 +355,17 @@ class ResultSetColumnMetadata(
   val jdbcEngine: Option[JdbcEngine]
 ) extends JdbcColumnMetadata {
 
-  override def primaryKeys: List[String] = Nil
+  override val primaryKeys: List[String] = Nil
 
   /** @return
     *   a map of foreign key name and its pk composite name
     */
-  override def foreignKeys: Map[String, String] = Map.empty
+  override val foreignKeys: Map[String, String] = Map.empty
 
   /** @return
     *   a list of attributes representing resource's columns
     */
-  override def columns: List[Attribute] = {
+  override lazy val columns: List[Attribute] = {
     (1 to queryMetadata.getColumnCount).map { i =>
       val colName = queryMetadata.getColumnName(i)
       val finalColName =

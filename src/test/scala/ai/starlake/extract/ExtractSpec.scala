@@ -10,7 +10,6 @@ import better.files.File
 import org.apache.hadoop.fs.Path
 
 import java.sql.DriverManager
-import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success}
 
 class ExtractSpec extends TestHelper {
@@ -84,15 +83,18 @@ class ExtractSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
       val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
-      implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
-      new ExtractSchema(settings.schemaHandler()).extractSchema(
-        jdbcSchema,
-        connectionSettings,
-        new Path(outputDir.pathAsString),
-        None,
-        None,
-        false
-      )
+      ParUtils.withExecutor() { implicit ec =>
+        implicit val extractExecutionContext =
+          new ExtractExecutionContext(ec)
+        new ExtractSchema(settings.schemaHandler()).extractSchema(
+          jdbcSchema,
+          connectionSettings,
+          new Path(outputDir.pathAsString),
+          None,
+          None,
+          false
+        )
+      }
       val publicOutputDir = outputDir / "PUBLIC"
       val tableFile = publicOutputDir / "test_table1.sl.yml"
       val table =
@@ -147,15 +149,18 @@ class ExtractSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
       val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
-      implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
-      new ExtractSchema(settings.schemaHandler()).extractSchema(
-        jdbcSchema,
-        connectionSettings,
-        new Path(outputDir.pathAsString),
-        None,
-        None,
-        false
-      )
+      ParUtils.withExecutor() { implicit ec =>
+        implicit val extractExecutionContext =
+          new ExtractExecutionContext(ec)
+        new ExtractSchema(settings.schemaHandler()).extractSchema(
+          jdbcSchema,
+          connectionSettings,
+          new Path(outputDir.pathAsString),
+          None,
+          None,
+          false
+        )
+      }
       val publicOutputDir = outputDir / "PUBLIC"
       val tableFile = publicOutputDir / "test_table1.sl.yml"
       val table =
@@ -206,15 +211,18 @@ class ExtractSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
       val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
-      implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
-      new ExtractSchema(settings.schemaHandler()).extractSchema(
-        jdbcSchema,
-        connectionSettings,
-        new Path(outputDir.pathAsString),
-        None,
-        None,
-        false
-      )
+      ParUtils.withExecutor() { implicit ec =>
+        implicit val extractExecutionContext =
+          new ExtractExecutionContext(ec)
+        new ExtractSchema(settings.schemaHandler()).extractSchema(
+          jdbcSchema,
+          connectionSettings,
+          new Path(outputDir.pathAsString),
+          None,
+          None,
+          false
+        )
+      }
       val publicOutputDir = outputDir / "PUBLIC"
       val tableFile = publicOutputDir / "test_table1.sl.yml"
       val table =
@@ -256,15 +264,18 @@ class ExtractSpec extends TestHelper {
     val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
     assert(row1InsertionCheck, "Data not inserted")
     val outputDir: File = File(s"$starlakeTestRoot/extract-without-template")
-    implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
-    new ExtractSchema(settings.schemaHandler()).extractSchema(
-      jdbcSchema,
-      connectionSettings,
-      new Path(outputDir.pathAsString),
-      domainTemplate,
-      None,
-      false
-    )
+    ParUtils.withExecutor() { implicit ec =>
+      implicit val extractExecutionContext =
+        new ExtractExecutionContext(ec)
+      new ExtractSchema(settings.schemaHandler()).extractSchema(
+        jdbcSchema,
+        connectionSettings,
+        new Path(outputDir.pathAsString),
+        domainTemplate,
+        None,
+        false
+      )
+    }
     val publicOutputDir = outputDir / "PUBLIC"
     val publicPath = publicOutputDir / "_config.sl.yml"
     val domain =
@@ -561,33 +572,36 @@ class ExtractSpec extends TestHelper {
       rs.next
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
-      implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
       val tmpDir = File.newTemporaryDirectory()
-      new ExtractSchema(settings.schemaHandler()).extractSchema(
-        JDBCSchema(
-          None,
-          "PUBLIC",
-          None,
-          None,
-          List(
-            JDBCTable(
-              "TEST_TABLE1",
-              None,
-              List(TableColumn("ID", None)),
-              None,
-              None,
-              Map.empty,
-              None,
-              None
+      ParUtils.withExecutor() { implicit ec =>
+        implicit val extractExecutionContext =
+          new ExtractExecutionContext(ec)
+        new ExtractSchema(settings.schemaHandler()).extractSchema(
+          JDBCSchema(
+            None,
+            "PUBLIC",
+            None,
+            None,
+            List(
+              JDBCTable(
+                "TEST_TABLE1",
+                None,
+                List(TableColumn("ID", None)),
+                None,
+                None,
+                Map.empty,
+                None,
+                None
+              )
             )
-          )
-        ).fillWithDefaultValues(),
-        settings.appConfig.connections("test-pg"),
-        new Path(tmpDir.pathAsString),
-        None,
-        None,
-        false
-      )
+          ).fillWithDefaultValues(),
+          settings.appConfig.connections("test-pg"),
+          new Path(tmpDir.pathAsString),
+          None,
+          None,
+          false
+        )
+      }
       val publicPath = tmpDir / "PUBLIC/_config.sl.yml"
       val domain =
         YamlSerde.deserializeYamlLoadConfig(
@@ -636,22 +650,25 @@ class ExtractSpec extends TestHelper {
       rs.next
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
-      implicit val fjp: Option[ForkJoinTaskSupport] = ParUtils.createForkSupport()
       val tmpDir = File.newTemporaryDirectory()
-      new ExtractSchema(settings.schemaHandler()).extractSchema(
-        JDBCSchema(
+      ParUtils.withExecutor() { implicit ec =>
+        implicit val extractExecutionContext =
+          new ExtractExecutionContext(ec)
+        new ExtractSchema(settings.schemaHandler()).extractSchema(
+          JDBCSchema(
+            None,
+            "PUBLIC",
+            None,
+            None,
+            List(JDBCTable("TEST_TABLE2", None, Nil, None, None, Map.empty, None, None))
+          ).fillWithDefaultValues(),
+          settings.appConfig.connections("test-pg"),
+          new Path(tmpDir.pathAsString),
           None,
-          "PUBLIC",
           None,
-          None,
-          List(JDBCTable("TEST_TABLE2", None, Nil, None, None, Map.empty, None, None))
-        ).fillWithDefaultValues(),
-        settings.appConfig.connections("test-pg"),
-        new Path(tmpDir.pathAsString),
-        None,
-        None,
-        false
-      )
+          false
+        )
+      }
       val publicPath = tmpDir / "PUBLIC" / "_config.sl.yml"
       val domain =
         YamlSerde.deserializeYamlLoadConfig(

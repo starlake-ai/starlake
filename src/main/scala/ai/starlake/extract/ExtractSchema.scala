@@ -5,8 +5,8 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.extract.spi.SchemaExtractorWorkflow
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
-import ai.starlake.utils.Formatter._
+import ai.starlake.schema.model.*
+import ai.starlake.utils.Formatter.*
 import ai.starlake.utils.YamlSerde
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
@@ -14,7 +14,6 @@ import org.apache.hadoop.fs.Path
 import java.io.FileNotFoundException
 import java.util.regex.Pattern
 import scala.annotation.nowarn
-import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -37,87 +36,97 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     * @param settings
     *   : Application configuration file
     */
-  def run(config: ExtractSchemaConfig, jdbcSchemas: ExtractSchemas)(implicit settings: Settings) = {
+  def run(userConfig: ExtractSchemaConfig, jdbcSchemas: ExtractSchemas)(implicit
+    settings: Settings
+  ) = {
     val connectionSettings: Connection = jdbcSchemas.connectionRef match {
       case Some(connectionRef) =>
-        settings.appConfig.getConnection(connectionRef).withAccessToken(config.accessToken)
+        settings.appConfig.getConnection(connectionRef).withAccessToken(userConfig.accessToken)
       case None =>
-        config.connectionRef
+        userConfig.connectionRef
           .map(settings.appConfig.getConnection)
           .getOrElse(settings.appConfig.getDefaultConnection())
-          .withAccessToken(config.accessToken)
+          .withAccessToken(userConfig.accessToken)
     }
     jdbcSchemas.openAPI match {
       case Some(openAPIConfig) =>
         // TODO: temporarily doing switch case but plans to remove it once all others extractions implement Schema Extractor
         // TODO: implement templates as in jdbcSchema
-        SchemaExtractorWorkflow.run(config, jdbcSchemas)
+        SchemaExtractorWorkflow.run(userConfig, jdbcSchemas)
       case None =>
-        val extractArea = if (config.external) DatasetArea.external else DatasetArea.extract
+        val extractArea = if (userConfig.external) DatasetArea.external else DatasetArea.extract
         if (connectionSettings.isBigQuery()) {
           for (jdbcSchema <- jdbcSchemas.jdbcSchemas.getOrElse(Nil)) {
             val bigQueryConfig =
-              ExtractBigQuerySchemaCmd.fromExtractSchemaConfig(config, jdbcSchema)
+              ExtractBigQuerySchemaCmd.fromExtractSchemaConfig(userConfig, jdbcSchema)
             ExtractBigQuerySchemaCmd.run(bigQueryConfig, schemaHandler)
           }
         } else { // JDBC
-          implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
-            ParUtils.createForkSupport(config.parallelism)
-          ParUtils.makeParallel(jdbcSchemas.jdbcSchemas.getOrElse(Nil)).iterator.foreach {
-            jdbcSchema =>
-              val domainTemplate = jdbcSchema.template
-                .orElse {
-                  val defaultDomainFile = "_domain_" + config.extractConfig
-                  if (
-                    settings.storageHandler().exists(mappingPath(extractArea, defaultDomainFile))
-                  ) {
-                    Some(defaultDomainFile)
-                  } else {
-                    None
+          val config = if (connectionSettings.isDuckDb()) {
+            logger.info(
+              "Forcing parallelism to 1 since we don't support parallel extraction at the moment when duckdb is used."
+            )
+            userConfig.copy(parallelism = Some(1))
+          } else userConfig
+          ParUtils.withExecutor(config.parallelism) { implicit extractEC =>
+            implicit val extractExecutionContext =
+              new ExtractExecutionContext(extractEC)
+            ParUtils.runInParallel(jdbcSchemas.jdbcSchemas.getOrElse(Nil), config.parallelism) {
+              jdbcSchema =>
+                val domainTemplate = jdbcSchema.template
+                  .orElse {
+                    val defaultDomainFile = "_domain_" + config.extractConfig
+                    if (
+                      settings.storageHandler().exists(mappingPath(extractArea, defaultDomainFile))
+                    ) {
+                      Some(defaultDomainFile)
+                    } else {
+                      None
+                    }
                   }
-                }
-                .map { ymlTemplate =>
-                  val domainTemplatePath = mappingPath(extractArea, ymlTemplate)
-                  logger.info(s"Loading domain template from $domainTemplatePath")
-                  val content = settings
-                    .storageHandler()
-                    .read(domainTemplatePath)
-                  YamlSerde
-                    .deserializeYamlLoadConfig(content, ymlTemplate, isForExtract = true) match {
-                    case Success(domain) =>
-                      val tableTemplatePath = mappingPath(
-                        extractArea,
-                        jdbcSchema.template
-                          .map(t => "_table_" + t)
-                          .getOrElse("_table_" + config.extractConfig)
-                      )
-                      if (settings.storageHandler().exists(tableTemplatePath)) {
-                        logger.info(s"Loading table template from $tableTemplatePath")
-                        val tableContent = settings
-                          .storageHandler()
-                          .read(tableTemplatePath)
-                        val tableDesc: List[TableDesc] =
-                          YamlSerde.deserializeYamlTables(tableContent, tableTemplatePath.toString)
-                        domain.copy(tables = tableDesc.map(_.table))
-                      } else {
-                        domain
-                      }
-                    case Failure(e) => throw e
+                  .map { ymlTemplate =>
+                    val domainTemplatePath = mappingPath(extractArea, ymlTemplate)
+                    logger.info(s"Loading domain template from $domainTemplatePath")
+                    val content = settings
+                      .storageHandler()
+                      .read(domainTemplatePath)
+                    YamlSerde
+                      .deserializeYamlLoadConfig(content, ymlTemplate, isForExtract = true) match {
+                      case Success(domain) =>
+                        val tableTemplatePath = mappingPath(
+                          extractArea,
+                          jdbcSchema.template
+                            .map(t => "_table_" + t)
+                            .getOrElse("_table_" + config.extractConfig)
+                        )
+                        if (settings.storageHandler().exists(tableTemplatePath)) {
+                          logger.info(s"Loading table template from $tableTemplatePath")
+                          val tableContent = settings
+                            .storageHandler()
+                            .read(tableTemplatePath)
+                          val tableDesc: List[TableDesc] =
+                            YamlSerde
+                              .deserializeYamlTables(tableContent, tableTemplatePath.toString)
+                          domain.copy(tables = tableDesc.map(_.table))
+                        } else {
+                          domain
+                        }
+                      case Failure(e) => throw e
+                    }
                   }
+                val currentDomain = schemaHandler.getDomain(jdbcSchema.schema, raw = true)
+                ExtractUtils.timeIt(s"Schema extraction of ${jdbcSchema.schema}") {
+                  extractSchema(
+                    jdbcSchema,
+                    connectionSettings,
+                    schemaOutputDir(config),
+                    domainTemplate,
+                    currentDomain,
+                    config.external
+                  )
                 }
-              val currentDomain = schemaHandler.getDomain(jdbcSchema.schema, raw = true)
-              ExtractUtils.timeIt(s"Schema extraction of ${jdbcSchema.schema}") {
-                extractSchema(
-                  jdbcSchema,
-                  connectionSettings,
-                  schemaOutputDir(config),
-                  domainTemplate,
-                  currentDomain,
-                  config.external
-                )
-              }
+            }
           }
-          forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
         }
     }
   }
@@ -157,7 +166,10 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
           .flatMap(_.connectionRef)
           .orElse(config.connectionRef)
           .getOrElse(settings.appConfig.connectionRef)
-      val schemaNames = SchemaExtractor.extractSchemaNames(connectionRef, config.accessToken)
+      val schemaNames = ParUtils.withExecutor() { ec =>
+        implicit val extractEC = new ExtractExecutionContext(ec)
+        SchemaExtractor.extractSchemaNames(connectionRef, config.accessToken)
+      }
       val result =
         schemaNames match {
           case Failure(e) =>
@@ -224,7 +236,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     external: Boolean
   )(implicit
     settings: Settings,
-    fjp: Option[ForkJoinTaskSupport]
+    dbExtractEC: ExtractExecutionContext
   ): Unit = {
     implicit val storageHandler: StorageHandler = settings.storageHandler()
     val domainName = jdbcSchema.sanitizeName match {
@@ -307,7 +319,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     domainTemplate: Option[Domain]
   )(implicit
     settings: Settings,
-    fjp: Option[ForkJoinTaskSupport]
+    dbExtractEC: ExtractExecutionContext
   ): Domain = {
     val selectedTablesAndColumns =
       JdbcDbUtils.extractJDBCTables(
