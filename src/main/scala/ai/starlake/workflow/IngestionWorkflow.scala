@@ -478,7 +478,7 @@ class IngestionWorkflow(
                   groupedPendingPathsIterator.flatMap { pendingPaths =>
                     // Move files concurrently using Future
                     val ingestingPaths =
-                      ParUtils.runInParallel(settings.appConfig.maxParCopy, pendingPaths) {
+                      ParUtils.runInParallel(pendingPaths, Some(settings.appConfig.maxParCopy)) {
                         pendingPath =>
                           val ingestingPath =
                             new Path(
@@ -516,16 +516,18 @@ class IngestionWorkflow(
                     // Utils.printOut("Moved files number = " + pendingPaths.size)
                     // Utils.printOut("duration " + ExtractUtils.toHumanElapsedTime(moveDuration))
                     val res =
-                      ParUtils.runInParallel(settings.appConfig.sparkScheduling.maxJobs, jobs) {
-                        jobContext =>
-                          ingest(
-                            jobContext.domain,
-                            jobContext.schema,
-                            jobContext.paths,
-                            jobContext.options,
-                            jobContext.accessToken,
-                            config.test
-                          )
+                      ParUtils.runInParallel(
+                        jobs,
+                        Some(settings.appConfig.sparkScheduling.maxJobs)
+                      ) { jobContext =>
+                        ingest(
+                          jobContext.domain,
+                          jobContext.schema,
+                          jobContext.paths,
+                          jobContext.options,
+                          jobContext.accessToken,
+                          config.test
+                        )
                       }
                     res
                   }
@@ -842,17 +844,19 @@ class IngestionWorkflow(
           logger.info(s"Test mode enabled, no file will be deleted")
         } else if (settings.appConfig.archive) {
           val now = System.currentTimeMillis()
-          ParUtils.runInParallel(settings.appConfig.maxParCopy, ingestingPaths) { ingestingPath =>
-            val archivePath =
-              new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
-            logger.info(s"Backing up file $ingestingPath to $archivePath")
-            val _ = storageHandler.move(ingestingPath, archivePath)
+          ParUtils.runInParallel(ingestingPaths, Some(settings.appConfig.maxParCopy)) {
+            ingestingPath =>
+              val archivePath =
+                new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
+              logger.info(s"Backing up file $ingestingPath to $archivePath")
+              val _ = storageHandler.move(ingestingPath, archivePath)
           }
           Utils.printOut("Archive duration takes " + ExtractUtils.toHumanElapsedTimeFrom(now))
         } else {
           logger.info(s"Deleting file $ingestingPaths")
-          ParUtils.runInParallel(settings.appConfig.maxParCopy, ingestingPaths) { ingestingPath =>
-            storageHandler.delete(ingestingPath)
+          ParUtils.runInParallel(ingestingPaths, Some(settings.appConfig.maxParCopy)) {
+            ingestingPath =>
+              storageHandler.delete(ingestingPath)
           }
         }
         Success(jobResult)
