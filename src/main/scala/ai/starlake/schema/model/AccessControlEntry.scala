@@ -13,7 +13,7 @@ case class AccessControlEntry(role: String, grants: Set[String] = Set.empty, nam
     s"AccessControlEntry(role=$role, grants=$grants)"
   }
 
-  def asMap() = Map(
+  def asMap(): Map[String, String] = Map(
     "aceRole"   -> role,
     "aceGrants" -> grants.mkString(",")
   )
@@ -42,6 +42,12 @@ case class AccessControlEntry(role: String, grants: Set[String] = Set.empty, nam
     }
   }
 
+  def asSnowflakeSql(tableName: String): Set[String] = {
+    this.grants.map { principal =>
+      s"GRANT ${this.role} ON TABLE $tableName TO DATABASE ROLE $principal"
+    }
+  }
+
   def asBigQuerySql(tableName: String): Set[String] = {
     this.grants.map { grant =>
       val principal =
@@ -60,7 +66,11 @@ case class AccessControlEntry(role: String, grants: Set[String] = Set.empty, nam
       else
         asHiveSql(tableName)
     case Engine.BQ => asBigQuerySql(tableName)
-    case _         => asJdbcSql(tableName)
+    case e =>
+      if (e.toString() == "snowflake")
+        asSnowflakeSql(tableName)
+      else
+        asJdbcSql(tableName)
   }
 
   def asJdbcSql(tableName: String): Set[String] = {
