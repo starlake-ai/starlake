@@ -831,6 +831,7 @@ trait IngestionJob extends SparkJob {
         table = schema.finalName,
         sink = mergedMetadata.sink,
         acl = schema.acl,
+        rls = schema.rls,
         comment = schema.comment,
         tags = schema.tags,
         writeStrategy = Some(strategy),
