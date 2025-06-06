@@ -942,8 +942,8 @@ class IngestionWorkflow(
       taskDesc.getRunEngine(),
       logExecution = true,
       config.accessToken,
-      resultPageSize = 1,
-      resultPageNumber = 1,
+      resultPageSize = config.pageSize,
+      resultPageNumber = config.pageNumber,
       dryRun = config.dryRun
     )(
       settings,
