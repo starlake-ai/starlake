@@ -23,7 +23,6 @@ import ai.starlake.migration.MigrateCmd
 import ai.starlake.schema.ProjectCompareCmd
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateCmd}
-import ai.starlake.serve.MainServerCmd
 import ai.starlake.sql.StarlakeJdbcDialects
 import ai.starlake.tests.StarlakeTestCmd
 import ai.starlake.utils._
@@ -109,7 +108,6 @@ object Main extends StrictLogging {
     ExtractBigQuerySchemaCmd,
     BigQueryFreshnessInfoCmd,
     ProjectCompareCmd,
-    MainServerCmd,
     DagGenerateCmd,
     ConsoleCmd,
     StarlakeTestCmd,

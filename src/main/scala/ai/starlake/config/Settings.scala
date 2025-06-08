@@ -25,8 +25,8 @@ import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
 import ai.starlake.schema.handlers.*
-import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.schema.model.*
+import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.*
@@ -43,10 +43,10 @@ import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.jdbc.JdbcDialect
 import org.apache.spark.storage.StorageLevel
-import pureconfig.ConvertHelpers.*
 import pureconfig.*
-import pureconfig.generic.auto.*
+import pureconfig.ConvertHelpers.*
 import pureconfig.generic.ProductHint
+import pureconfig.generic.auto.*
 
 import java.io.ObjectStreamException
 import java.net.URI
@@ -54,7 +54,7 @@ import java.nio.charset.{Charset, StandardCharsets}
 import java.sql.DriverManager
 import java.util.{Locale, Properties, TimeZone, UUID}
 import scala.annotation.nowarn
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
 object Settings extends StrictLogging {
@@ -542,7 +542,9 @@ object Settings extends StrictLogging {
       `type` match {
         case `connectionType` => action
         case _ =>
-          throw new RuntimeException(s"Can only be used for ${`type`} connection type")
+          throw new RuntimeException(
+            s"${`type`} found but can only be used for ${connectionType} connection type."
+          )
       }
     }
   }
@@ -1393,7 +1395,7 @@ object Settings extends StrictLogging {
   }
 
   private def schedulingPath(settings: Settings): Option[Path] = {
-    import settings.appConfig.sparkScheduling._
+    import settings.appConfig.sparkScheduling.*
     if (file.isEmpty) {
       val schedulingPath = new Path(DatasetArea.metadata(settings), "fairscheduler.xml")
       Some(schedulingPath).filter(settings.storageHandler().exists)
@@ -1415,6 +1417,41 @@ object Settings extends StrictLogging {
     settings.copy(appConfig = updatedAppConfig)
   }
 
+  /** Secure DuckDB path to avoid security issues with DuckDB database names
+    *
+    * This method ensures that the DuckDB database name does not start with "duckdb." or contain
+    * invalid characters like "/" or "\\" and its name is always equal to the env name
+    */
+  /*
+  def secureDuckDbPath(settings: Settings): Settings = {
+    val updatedConnections = settings.appConfig.connections
+      .map { case (k, v) =>
+        val connectionWithTranspileInfo = SQLUtils.transpilerDialect(v) match {
+          case JSQLTranspiler.Dialect.DUCK_DB =>
+            val urlParts = v.jdbcUrl.split(":")
+            assert(urlParts.length == 3, "DuckDB JDBC URL should be in the form jdbc:duckdb:dbname")
+            val dbName = urlParts(2)
+            assert(!dbName.contains(".."), "DuckDB database name should not contain '..'")
+            val validPath = new Path(settings.appConfig.datasets, s"$k.db")
+            val duckDbPath = new Path(settings.appConfig.datasets, s"duckdb.db").toString
+            assert(
+              (k == "sl_duckdb" && urlParts(2) == duckDbPath) ||
+              dbName == validPath.toString ||
+              dbName == s"$k.db",
+              s"Invalid DuckDB database URL: $k:$dbName. It should match the connection name or be 'duckdb.db' for 'sl_duckdb'."
+            )
+            val pathAsString =
+              DatasetArea.secureDuckdbPath(dbName.split('/').last)(settings).toUri.getPath
+            v.copy(options = v.options.updated("url", s"jdbc:duckdb:$pathAsString"))
+          case _ =>
+            v
+        }
+        k -> connectionWithTranspileInfo
+      }
+    val updatedAppConfig = settings.appConfig.copy(connections = updatedConnections)
+    settings.copy(appConfig = updatedAppConfig)
+  }
+   */
   def duckDBMode(settings: Settings): Settings = {
     val duckdbPath = DatasetArea.duckdbPath()(settings)
     val pathAsString = duckdbPath.toUri.getPath

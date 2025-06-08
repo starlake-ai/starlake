@@ -3,24 +3,12 @@ package ai.starlake.serve
 import ai.starlake.utils.Utils
 import buildinfo.BuildInfo
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.sparkproject.jetty.server.Server
-import org.sparkproject.jetty.servlet.ServletHandler
 
 import java.io.ByteArrayOutputStream
-import java.net.InetSocketAddress
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object SingleUserMainServer {
   val mapper: ObjectMapper = Utils.newJsonMapper()
-  def serve(host: String, port: Int): Try[Unit] = Try {
-    val server = new Server(new InetSocketAddress(host, port))
-    val handler = new ServletHandler()
-    server.setHandler(handler)
-    handler.addServletWithMapping(classOf[SingleUserRequestHandler], "/api/v1/cli")
-    server.start()
-    println(s"Server started at $host:$port")
-    server.join()
-  }
 
   private var autoReload = true
   def run(

@@ -2,8 +2,6 @@ package ai.starlake.serve
 
 import ai.starlake.utils.Utils
 import better.files.File
-import org.apache.commons.io.IOUtils
-import org.json.{JSONArray, JSONObject}
 
 import java.io.IOException
 import javax.servlet.ServletException
