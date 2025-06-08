@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets
 import java.sql.{DriverManager, ResultSet}
 import java.time.{LocalDateTime, OffsetDateTime, ZoneId}
 import scala.collection.mutable.ListBuffer
-import scala.collection.parallel.ForkJoinTaskSupport
+import scala.concurrent.ExecutionContext
 import scala.util.Success
 
 class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
@@ -117,20 +117,24 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         .exists(_.equalsIgnoreCase(s"audit.$lastExportTableName")) shouldBe false
 
       // audit table should create it and return columns
-      val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
-      conn.getMetaData
-        .getTables(
-          None.orNull,
-          "%",
-          "%",
-          List("TABLE").toArray
-        )
-        .asIteratorOf(tableNames)
-        .exists(_.equalsIgnoreCase(s"audit.$lastExportTableName")) shouldBe true
-      checkColumns(columns)
+      ParUtils.withExecutor() { implicit ec =>
+        implicit val extractExecutionContext =
+          new ExtractExecutionContext(ec)
+        val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
+        conn.getMetaData
+          .getTables(
+            None.orNull,
+            "%",
+            "%",
+            List("TABLE").toArray
+          )
+          .asIteratorOf(tableNames)
+          .exists(_.equalsIgnoreCase(s"audit.$lastExportTableName")) shouldBe true
+        checkColumns(columns)
 
-      // trying to create table again should not fail and still return audit column names
-      checkColumns(extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg")))
+        // trying to create table again should not fail and still return audit column names
+        checkColumns(extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg")))
+      }
     }
   }
 
@@ -626,6 +630,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val unpartitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -661,7 +667,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           None,
           None
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
@@ -719,6 +724,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val unpartitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -756,7 +763,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           None,
           None
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
@@ -814,6 +820,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val unpartitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -849,7 +857,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           Some("c_date IS NOT NULL"),
           None
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
@@ -906,6 +913,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val unpartitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -929,7 +938,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           None,
           None
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
@@ -987,6 +995,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val unpartitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -1022,7 +1032,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           None,
           None
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
           JDBCSchema().copy(schema = "public"),
@@ -1080,6 +1089,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val partitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -1122,7 +1133,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -1183,6 +1193,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val partitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -1227,7 +1239,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -1288,6 +1299,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val partitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -1330,7 +1343,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -1390,6 +1402,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val partitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -1420,7 +1434,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -1481,6 +1494,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val partitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -1527,7 +1542,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allHeaders = ListBuffer[String]()
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
@@ -1595,6 +1609,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val partitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -1637,7 +1653,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -1698,6 +1713,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val partitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -1740,7 +1757,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -1801,6 +1817,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val partitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -1843,7 +1861,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -1904,6 +1921,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val partitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -1946,7 +1965,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -2007,6 +2025,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val partitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -2049,7 +2069,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -2110,6 +2129,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val partitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -2152,7 +2173,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -2213,6 +2233,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       private val partitionnedConfig: TableExtractDataConfig =
         TableExtractDataConfig(
@@ -2255,7 +2277,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -2316,6 +2337,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_long", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
@@ -2366,7 +2389,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -2430,6 +2452,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_decimal", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
@@ -2480,7 +2504,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -2544,6 +2567,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_ts", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
@@ -2594,7 +2619,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -2658,6 +2682,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_date", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
@@ -2708,7 +2734,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -2772,6 +2797,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_long", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
@@ -2822,7 +2849,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -2885,6 +2911,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_decimal", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
@@ -2935,7 +2963,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -2998,6 +3025,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_ts", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
@@ -3048,7 +3077,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -3111,6 +3139,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_date", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
@@ -3161,7 +3191,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -3224,6 +3253,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_long", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
@@ -3274,7 +3305,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -3338,6 +3368,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_decimal", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
@@ -3388,7 +3420,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -3452,6 +3483,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_ts", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
@@ -3502,7 +3535,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -3566,6 +3598,8 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       st.execute(initSQL)
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
+      implicit val extractExecutionContext: ExtractExecutionContext =
+        new ExtractExecutionContext(None)
       val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_date", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
@@ -3616,7 +3650,6 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             )
           )
         )
-      implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] = None
       val allRows = ListBuffer[String]()
       val sinkResult = extractDataJob.extractTableData(
         ExtractJdbcDataConfig(
@@ -3762,7 +3795,11 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
       val st = conn.createStatement()
       private val outputFolder: File = better.files.File(starlakeTestRoot + "/data")
       outputFolder.createDirectory()
-      val columns = extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
+      val columns = ParUtils.withExecutor() { implicit ec =>
+        implicit val extractExecutionContext =
+          new ExtractExecutionContext(ec)
+        extractDataJob.initExportAuditTable(settings.appConfig.connections("test-pg"))
+      }
       st.execute(
         """insert into audit.sl_last_export ("domain", "schema", "last_date", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step")
           |values
@@ -3839,60 +3876,63 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
         .toInstant
         .toEpochMilli
       // stale case: extracted before but not fresh enough
-      extractDataJob.isExtractionNeeded(
-        extractDataConfig.copy(extractionPredicate =
-          Some(
-            _ < localDateTime
-          )
-        ),
-        partitionnedConfig.copy(table = "stale_table"),
-        columns
-      ) shouldBe true
-      // refreshed case : retry all tables on failure. Some tables may have already been extracted
-      extractDataJob.isExtractionNeeded(
-        extractDataConfig.copy(extractionPredicate =
-          Some(
-            _ < localDateTime
-          )
-        ),
-        partitionnedConfig.copy(table = "refreshed_table"),
-        columns
-      ) shouldBe false
+      ParUtils.withExecutor() { ec =>
+        implicit val extractEC = new ExtractExecutionContext(ec)
+        extractDataJob.isExtractionNeeded(
+          extractDataConfig.copy(extractionPredicate =
+            Some(
+              _ < localDateTime
+            )
+          ),
+          partitionnedConfig.copy(table = "stale_table"),
+          columns
+        ) shouldBe true
+        // refreshed case : retry all tables on failure. Some tables may have already been extracted
+        extractDataJob.isExtractionNeeded(
+          extractDataConfig.copy(extractionPredicate =
+            Some(
+              _ < localDateTime
+            )
+          ),
+          partitionnedConfig.copy(table = "refreshed_table"),
+          columns
+        ) shouldBe false
 
-      // no predicate case: must be extracted by default
-      extractDataJob.isExtractionNeeded(
-        extractDataConfig,
-        partitionnedConfig.copy(table = "refreshed_table"),
-        columns
-      ) shouldBe true
+        // no predicate case: must be extracted by default
+        extractDataJob.isExtractionNeeded(
+          extractDataConfig,
+          partitionnedConfig.copy(table = "refreshed_table"),
+          columns
+        ) shouldBe true
 
-      // table with only unsuccessful extract
-      extractDataJob.isExtractionNeeded(
-        extractDataConfig.copy(extractionPredicate =
-          Some(
-            _ < LocalDateTime
-              .of(2023, 4, 8, 0, 0)
-              .toInstant(OffsetDateTime.now(ZoneId.systemDefault()).getOffset)
-              .toEpochMilli
-          )
-        ),
-        partitionnedConfig.copy(table = "unsucessful_table"),
-        columns
-      ) shouldBe true
+        // table with only unsuccessful extract
+        extractDataJob.isExtractionNeeded(
+          extractDataConfig.copy(extractionPredicate =
+            Some(
+              _ < LocalDateTime
+                .of(2023, 4, 8, 0, 0)
+                .toInstant(OffsetDateTime.now(ZoneId.systemDefault()).getOffset)
+                .toEpochMilli
+            )
+          ),
+          partitionnedConfig.copy(table = "unsucessful_table"),
+          columns
+        ) shouldBe true
 
-      // non-existent table: first time it is extracted
-      extractDataJob.isExtractionNeeded(
-        extractDataConfig.copy(extractionPredicate =
-          Some(
-            _ < LocalDateTime
-              .of(2023, 4, 8, 0, 0)
-              .toInstant(OffsetDateTime.now(ZoneId.systemDefault()).getOffset)
-              .toEpochMilli
-          )
-        ),
-        partitionnedConfig.copy(table = "non_existant_table"),
-        columns
-      ) shouldBe true
+        // non-existent table: first time it is extracted
+        extractDataJob.isExtractionNeeded(
+          extractDataConfig.copy(extractionPredicate =
+            Some(
+              _ < LocalDateTime
+                .of(2023, 4, 8, 0, 0)
+                .toInstant(OffsetDateTime.now(ZoneId.systemDefault()).getOffset)
+                .toEpochMilli
+            )
+          ),
+          partitionnedConfig.copy(table = "non_existant_table"),
+          columns
+        ) shouldBe true
+      }
     }
   }
 

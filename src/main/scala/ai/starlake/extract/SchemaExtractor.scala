@@ -54,7 +54,10 @@ object SchemaExtractor {
     connectionName: String,
     accessToken: Option[String],
     tables: Map[String, List[String]] = Map.empty
-  )(implicit settings: Settings): Try[List[(String, List[String])]] = {
+  )(implicit
+    settings: Settings,
+    dbExtractEC: ExtractExecutionContext
+  ): Try[List[(String, List[String])]] = {
     val connection = settings.appConfig.connections(connectionName).withAccessToken(accessToken)
     val connType = connection.`type`
     connType match {

@@ -40,14 +40,62 @@ object ParUtils extends StrictLogging {
     }
   }
 
-  def runInParallel[T, U](parallelism: Int, collection: Iterable[T])(
+  def runInParallel[T, U](collection: Iterable[T], parallelism: Option[Int] = None)(
     action: T => U,
-    executor: ExecutorService = Executors.newFixedThreadPool(parallelism)
+    executor: Option[ExecutorService] = None,
+    shutdownExecutor: Boolean = true
   ): Iterable[U] = {
-    // Create a thread pool with the given parallelism level
-    implicit val ec: ExecutionContext = fromExecutor(executor)
+    val output = withExecutor(parallelism)(
+      runInExecutionContext(collection)(action)(_),
+      executor = executor,
+      shutdownExecutor = shutdownExecutor
+    )
+    output
+  }
 
+  /** If executor is provided, doesn't check minForPar and maxParOpt
+    */
+  def withExecutor[T](
+    parallelism: Option[Int] = None
+  )(
+    action: Option[ExecutionContext] => T,
+    executor: Option[ExecutorService] = None,
+    shutdownExecutor: Boolean = true,
+    minForPar: Int = 2
+  ): T = {
+    val (executionContext, executorService) =
+      executor.map(es => Some(fromExecutor(es)) -> Some(es)).getOrElse {
+        // available processor is given when None is provided as parallism
+        parallelism match {
+          case None =>
+            val executorService1 =
+              Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors())
+            Some(fromExecutor(executorService1)) -> Some(executorService1)
+          case Some(value) if value >= minForPar =>
+            val executorService1 = Executors.newFixedThreadPool(value)
+            Some(fromExecutor(executorService1)) -> Some(executorService1)
+          case _ =>
+            // don't treat as parallel if famine can occurs or user explicitly set parallism to None
+            logger.info(
+              s"Not enough in pool to parallelize (minimum: $minForPar). Falling back to sequential"
+            )
+            None -> None
+        }
+      }
     try {
+      action(executionContext)
+    } finally {
+      // Shutdown the thread pool
+      if (shutdownExecutor) {
+        executorService.foreach(_.shutdown())
+      }
+    }
+  }
+
+  def runInExecutionContext[T, U](collection: Iterable[T])(
+    action: T => U
+  )(implicit ec: Option[ExecutionContext]): Iterable[U] = {
+    ec.map { implicit executionContext =>
       val futures: Iterable[Future[U]] = collection.map(item => Future(action(item)))
 
       def lift[T](futures: Iterable[Future[T]]): Iterable[Future[Try[T]]] =
@@ -65,9 +113,15 @@ object ParUtils extends StrictLogging {
         case Success(e)         => e
         case Failure(exception) => throw exception
       }
-    } finally {
-      // Shutdown the thread pool
-      executor.shutdown()
+    }.getOrElse(collection.map(action))
+  }
+
+  def runOneInExecutionContext[T](
+    action: T
+  )(implicit ec: Option[ExecutionContext]): T = {
+    runInExecutionContext(List(1))(_ => action) match {
+      case el :: Nil => el
+      case _         => throw new RuntimeException("Didn't expect to have more than one element")
     }
   }
 }

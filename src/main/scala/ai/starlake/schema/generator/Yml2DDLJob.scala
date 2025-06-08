@@ -21,7 +21,13 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
-import ai.starlake.extract.{ExtractTableAttributes, JDBCSchema, JdbcDbUtils, ParUtils}
+import ai.starlake.extract.{
+  ExtractExecutionContext,
+  ExtractTableAttributes,
+  JDBCSchema,
+  JdbcDbUtils,
+  ParUtils
+}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils.Utils
@@ -30,7 +36,6 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.{Path => StoragePath}
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 
-import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.Try
 
 /** * Infers the schema of a given data path, domain name, schema name.
@@ -104,24 +109,26 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
         val existingTables = config.connectionRef match {
           case Some(connection) =>
             val connectionSettings = settings.appConfig.getConnection(connection)
-            implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
-              ParUtils.createForkSupport(config.parallelism)
-            JdbcDbUtils.extractJDBCTables(
-              JDBCSchema(
-                config.catalog,
-                domain.finalName,
-                None,
-                None,
-                Nil,
-                Nil,
-                List("TABLE"),
-                None
-              ),
-              connectionSettings,
-              skipRemarks = true,
-              keepOriginalName = true,
-              includeColumns = true
-            )
+            ParUtils.withExecutor(config.parallelism) { implicit extractEC =>
+              implicit val extractExecutionContext =
+                new ExtractExecutionContext(extractEC)
+              JdbcDbUtils.extractJDBCTables(
+                JDBCSchema(
+                  config.catalog,
+                  domain.finalName,
+                  None,
+                  None,
+                  Nil,
+                  Nil,
+                  List("TABLE"),
+                  None
+                ),
+                connectionSettings,
+                skipRemarks = true,
+                keepOriginalName = true,
+                includeColumns = true
+              )
+            }
           case None => Map.empty[String, ExtractTableAttributes]
         }
         val toDeleteTables = existingTables.keys.filterNot(table =>

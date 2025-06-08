@@ -60,7 +60,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
       if (twoSteps) {
         val (loadResults, tempTableIds, tableInfos) =
           ParUtils
-            .runInParallel(settings.appConfig.maxParTask, path.map(_.toString).zipWithIndex) {
+            .runInParallel(path.map(_.toString).zipWithIndex, Some(settings.appConfig.maxParTask)) {
               case (sourceUri, index) =>
                 val firstStepTempTable =
                   BigQueryJobBase.extractProjectDatasetAndTable(
@@ -151,7 +151,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           val table = Option(id.getTable()).getOrElse("")
           archiveTableTask(database, schema, table, info).foreach(_.run())
         }
-        Try(ParUtils.runInParallel(settings.appConfig.maxParTask, tempTableIds) { tableId =>
+        Try(ParUtils.runInParallel(tempTableIds, Some(settings.appConfig.maxParTask)) { tableId =>
           BigQueryJobBase.recoverBigqueryException {
             new BigQueryNativeJob(targetConfig, "").dropTable(tableId)
           }
