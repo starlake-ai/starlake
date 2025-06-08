@@ -4,11 +4,11 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.config.Settings.Connection
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.exceptions.DataExtractionException
-import ai.starlake.extract.JdbcDbUtils._
-import ai.starlake.extract.LastExportUtils._
+import ai.starlake.extract.JdbcDbUtils.*
+import ai.starlake.extract.LastExportUtils.*
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.PrimitiveType
-import ai.starlake.utils.Formatter._
+import ai.starlake.utils.Formatter.*
 import ai.starlake.utils.{Utils, YamlSerde}
 import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.conversions.Conversions
@@ -20,7 +20,6 @@ import java.nio.charset.StandardCharsets
 import java.sql.{Connection => SQLConnection, Date, PreparedStatement, ResultSet, Timestamp}
 import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.nowarn
-import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try, Using}
 
 case class InsertLastExportParams(deltaRow: DeltaRow, partitionColumnType: PrimitiveType)
@@ -43,13 +42,13 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     *   : Application configuration file
     */
   def run(
-    config: UserExtractDataConfig
+    userConfig: UserExtractDataConfig
   )(implicit settings: Settings): Unit = {
-    val extractConfigPath = mappingPath(DatasetArea.extract, config.extractConfig)
+    val extractConfigPath = mappingPath(DatasetArea.extract, userConfig.extractConfig)
     Try(settings.storageHandler().exists(extractConfigPath)) match {
       case Failure(_) | Success(false) =>
         throw new FileNotFoundException(
-          s"Could not found extract config ${config.extractConfig}. Please check its existence."
+          s"Could not found extract config ${userConfig.extractConfig}. Please check its existence."
         )
       case _ => // do nothing
     }
@@ -58,7 +57,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
       .read(extractConfigPath)
       .richFormat(schemaHandler.activeEnvVars(), Map.empty)
     val jdbcSchemas =
-      YamlSerde.deserializeYamlExtractConfig(content, config.extractConfig)
+      YamlSerde.deserializeYamlExtractConfig(content, userConfig.extractConfig)
     val dataConnectionSettings = jdbcSchemas.connectionRef match {
       case Some(connectionRef) => settings.appConfig.getConnection(connectionRef)
       case None                => throw new Exception(s"No connectionRef defined for jdbc schemas.")
@@ -67,48 +66,60 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
       jdbcSchemas.auditConnectionRef.getOrElse(settings.appConfig.audit.getConnectionRef())
 
     val auditConnectionSettings = settings.appConfig.getConnection(auditConnectionRef)
+    val config = if (auditConnectionSettings.isDuckDb() || dataConnectionSettings.isDuckDb()) {
+      logger.info(
+        "Forcing parallelism to 1 since we don't support parallel extraction at the moment when duckdb is used."
+      )
+      userConfig.copy(parallelism = Some(1))
+    } else userConfig
     val fileFormat = jdbcSchemas.output.getOrElse(FileFormat()).fillWithDefault()
     logger.info(s"Extraction will be formatted following $fileFormat")
 
     implicit val implicitSchemaHandler: SchemaHandler = schemaHandler
-    implicit val forkJoinTaskSupport: Option[ForkJoinTaskSupport] =
-      ParUtils.createForkSupport(config.parallelism)
-    ParUtils
-      .makeParallel(jdbcSchemas.jdbcSchemas.getOrElse(Nil))
-      .filter { s =>
-        (config.includeSchemas, config.excludeSchemas) match {
-          case (Nil, Nil) => true
-          case (inc, Nil) => inc.map(_.toLowerCase).contains(s.schema.toLowerCase)
-          case (Nil, exc) => !exc.map(_.toLowerCase).contains(s.schema.toLowerCase)
-          case (_, _) =>
-            throw new RuntimeException(
-              "You can't specify includeShemas and excludeSchemas at the same time"
-            )
-        }
-      }
-      .foreach { jdbcSchema =>
-        assert(config.numPartitions > 0)
-        extractData(
-          ExtractJdbcDataConfig(
-            jdbcSchema,
-            dataOutputDir(config.outputDir),
-            config.limit,
-            config.numPartitions,
-            config.parallelism,
-            config.fullExport,
-            config.ifExtractedBefore
-              .map(userTimestamp => lastTimestamp => lastTimestamp < userTimestamp),
-            config.ignoreExtractionFailure,
-            config.cleanOnExtract,
-            config.includeTables,
-            config.excludeTables ++ jdbcSchema.exclude,
-            fileFormat,
-            dataConnectionSettings.mergeOptionsWith(jdbcSchema.connectionOptions),
-            auditConnectionSettings
+    ParUtils.withExecutor(config.parallelism) { implicit extractEC =>
+      implicit val extractExecutionContext =
+        new ExtractExecutionContext(extractEC)
+      val auditColumns = initExportAuditTable(auditConnectionSettings)
+      ParUtils
+        .runInParallel(
+          jdbcSchemas.jdbcSchemas
+            .getOrElse(Nil)
+            .filter { s =>
+              (config.includeSchemas, config.excludeSchemas) match {
+                case (Nil, Nil) => true
+                case (inc, Nil) => inc.map(_.toLowerCase).contains(s.schema.toLowerCase)
+                case (Nil, exc) => !exc.map(_.toLowerCase).contains(s.schema.toLowerCase)
+                case (_, _) =>
+                  throw new RuntimeException(
+                    "You can't specify includeShemas and excludeSchemas at the same time"
+                  )
+              }
+            },
+          config.parallelism
+        ) { jdbcSchema =>
+          assert(config.numPartitions > 0)
+          extractData(
+            ExtractJdbcDataConfig(
+              jdbcSchema,
+              dataOutputDir(config.outputDir),
+              config.limit,
+              config.numPartitions,
+              config.parallelism,
+              config.fullExport,
+              config.ifExtractedBefore
+                .map(userTimestamp => lastTimestamp => lastTimestamp < userTimestamp),
+              config.ignoreExtractionFailure,
+              config.cleanOnExtract,
+              config.includeTables,
+              config.excludeTables ++ jdbcSchema.exclude,
+              fileFormat,
+              dataConnectionSettings.mergeOptionsWith(jdbcSchema.connectionOptions),
+              auditConnectionSettings
+            ),
+            auditColumns
           )
-        )
-      }
-    forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
+        }
+    }
   }
 
   /** Extract data and save to output directory
@@ -134,14 +145,14 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     * @param settings
     */
   private def extractData(
-    extractConfig: ExtractJdbcDataConfig
+    extractConfig: ExtractJdbcDataConfig,
+    auditColumns: Columns
   )(implicit
     settings: Settings,
     schemaHandler: SchemaHandler,
-    forkJoinTaskSupport: Option[ForkJoinTaskSupport]
+    dbExtractEC: ExtractExecutionContext
   ): Unit = {
     implicit val storageHandler = settings.storageHandler()
-    val auditColumns = initExportAuditTable(extractConfig.audit)
 
     // Some database accept strange chars (aka DB2). We get rid of them
     val domainName = extractConfig.jdbcSchema.sanitizeName match {
@@ -173,71 +184,71 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
       val globalStart = System.currentTimeMillis()
       val extractionResults: List[Try[Unit]] =
         ParUtils
-          .makeParallel(selectedTablesAndColumns.toList)
-          .map { case (tableName, tableAttrs) =>
-            Try {
-              val context = s"[${extractConfig.jdbcSchema.schema}.$tableName]"
+          .runInParallel(selectedTablesAndColumns.toList, extractConfig.parallelism) {
+            case (tableName, tableAttrs) =>
+              Try {
+                val context = s"[${extractConfig.jdbcSchema.schema}.$tableName]"
 
-              // Get the current table partition column and  connection options if any
-              val currentTableDefinition =
-                resolveTableDefinition(extractConfig.jdbcSchema, tableName)
-              val currentTableConnectionOptions =
-                currentTableDefinition.map(_.connectionOptions).getOrElse(Map.empty)
-              // get cols to extract and frame colums names with quotes to handle cols that are keywords in the target database
-              val fullExport = isTableFullExport(extractConfig, currentTableDefinition)
-              val fetchSize =
-                computeTableFetchSize(extractConfig, currentTableDefinition)
-              val partitionConfig =
-                computePartitionConfig(
-                  extractConfig,
+                // Get the current table partition column and  connection options if any
+                val currentTableDefinition =
+                  resolveTableDefinition(extractConfig.jdbcSchema, tableName)
+                val currentTableConnectionOptions =
+                  currentTableDefinition.map(_.connectionOptions).getOrElse(Map.empty)
+                // get cols to extract and frame colums names with quotes to handle cols that are keywords in the target database
+                val fullExport = isTableFullExport(extractConfig, currentTableDefinition)
+                val fetchSize =
+                  computeTableFetchSize(extractConfig, currentTableDefinition)
+                val partitionConfig =
+                  computePartitionConfig(
+                    extractConfig,
+                    domainName,
+                    tableName,
+                    currentTableDefinition,
+                    tableAttrs
+                  )
+                val tableExtractDataConfig = TableExtractDataConfig(
                   domainName,
                   tableName,
-                  currentTableDefinition,
-                  tableAttrs
+                  currentTableDefinition.flatMap(_.sql),
+                  tableAttrs.columNames,
+                  fullExport,
+                  fetchSize,
+                  tableOutputDir,
+                  tableAttrs.filterOpt,
+                  partitionConfig
                 )
-              val tableExtractDataConfig = TableExtractDataConfig(
-                domainName,
-                tableName,
-                currentTableDefinition.flatMap(_.sql),
-                tableAttrs.columNames,
-                fullExport,
-                fetchSize,
-                tableOutputDir,
-                tableAttrs.filterOpt,
-                partitionConfig
-              )
 
-              if (
-                isExtractionNeeded(
-                  extractConfig,
-                  tableExtractDataConfig,
-                  auditColumns
-                )
-              ) {
-                if (extractConfig.cleanOnExtract) {
-                  cleanTableFiles(storageHandler, tableOutputDir, tableName)
-                }
-
-                extractTableData(
-                  extractConfig.copy(data =
-                    extractConfig.data.mergeOptionsWith(currentTableConnectionOptions)
-                  ),
-                  tableExtractDataConfig,
-                  context,
-                  auditColumns,
-                  sinkPartitionToFile(
-                    extractConfig.outputFormat,
+                if (
+                  isExtractionNeeded(
+                    extractConfig,
                     tableExtractDataConfig,
-                    _,
-                    _,
-                    _
+                    auditColumns
                   )
-                )
-              } else {
-                logger.info(s"Extraction skipped. $domainName.$tableName data is fresh enough.")
-                Success(())
-              }
-            }.flatten
+                ) {
+                  if (extractConfig.cleanOnExtract) {
+                    cleanTableFiles(storageHandler, tableOutputDir, tableName)
+                  }
+
+                  extractTableData(
+                    extractConfig.copy(data =
+                      extractConfig.data.mergeOptionsWith(currentTableConnectionOptions)
+                    ),
+                    tableExtractDataConfig,
+                    context,
+                    auditColumns,
+                    sinkPartitionToFile(
+                      extractConfig.outputFormat,
+                      tableExtractDataConfig,
+                      _,
+                      _,
+                      _
+                    )
+                  )
+                } else {
+                  logger.info(s"Extraction skipped. $domainName.$tableName data is fresh enough.")
+                  Success(())
+                }
+              }.flatten
           }
           .toList
       val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(globalStart)
@@ -400,18 +411,22 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     extractDataConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     auditColumns: Columns
-  )(implicit settings: Settings): Boolean = {
+  )(implicit settings: Settings, dbExtractEC: ExtractExecutionContext): Boolean = {
     extractDataConfig.extractionPredicate
       .flatMap { predicate =>
-        withJDBCConnection(extractDataConfig.audit.options) { connection =>
-          LastExportUtils.getMaxTimestampFromSuccessfulExport(
-            connection,
-            extractDataConfig,
-            tableExtractDataConfig,
-            "start_ts",
-            auditColumns
-          )
-        }.map(t => predicate(t.getTime))
+        ParUtils
+          .runOneInExecutionContext {
+            withJDBCConnection(extractDataConfig.audit.options) { connection =>
+              LastExportUtils.getMaxTimestampFromSuccessfulExport(
+                connection,
+                extractDataConfig,
+                tableExtractDataConfig,
+                "start_ts",
+                auditColumns
+              )
+            }
+          }(dbExtractEC.executionContext)
+          .map(t => predicate(t.getTime))
       }
       .getOrElse(true)
   }
@@ -447,7 +462,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     extractedDataConsumer: (String, ResultSet, Option[Int]) => Try[Long]
   )(implicit
     settings: Settings,
-    forkJoinTaskSupport: Option[ForkJoinTaskSupport]
+    dbExtractEC: ExtractExecutionContext
   ): Try[Unit] = {
     // Get the boundaries of each partition that will be handled by a specific thread.
     val (boundaries, boundDef) =
@@ -456,112 +471,114 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     val tableStart = System.currentTimeMillis()
     // Export in parallel mode
     val tableCount = new AtomicLong()
-    val extractionResults: List[Try[Any]] =
-      boundaries.map { case (bounds, index) =>
-        Try {
-          val boundaryContext = bounds match {
-            case _: Boundary => s"$context[$index]"
-            case Unbounded   => context
-          }
-          logger.info(s"$boundaryContext bounds = $bounds")
+    val extractionResults: List[Try[Unit]] =
+      ParUtils
+        .runInExecutionContext(boundaries) { case (bounds, index) =>
+          Try {
+            val boundaryContext = bounds match {
+              case _: Boundary => s"$context[$index]"
+              case Unbounded   => context
+            }
+            logger.info(s"$boundaryContext bounds = $bounds")
 
-          withJDBCConnection(extractConfig.data.options) { connection =>
-            Using.resource(
-              computePrepareStatement(
-                extractConfig,
-                tableExtractDataConfig,
-                bounds,
-                boundaryContext,
-                connection
-              )
-            ) { statement =>
-              val partitionStart = System.currentTimeMillis()
-              val count = {
-                Using.resource(statement.executeQuery()) { rs =>
-                  extractedDataConsumer(
-                    boundaryContext,
-                    rs,
-                    bounds match {
-                      case _: Boundary => Some(index)
-                      case Unbounded   => None
+            withJDBCConnection(extractConfig.data.options) { connection =>
+              Using.resource(
+                computePrepareStatement(
+                  extractConfig,
+                  tableExtractDataConfig,
+                  bounds,
+                  boundaryContext,
+                  connection
+                )
+              ) { statement =>
+                val partitionStart = System.currentTimeMillis()
+                val count = {
+                  Using.resource(statement.executeQuery()) { rs =>
+                    extractedDataConsumer(
+                      boundaryContext,
+                      rs,
+                      bounds match {
+                        case _: Boundary => Some(index)
+                        case Unbounded   => None
+                      }
+                    )
+                  } match {
+                    case Failure(exception) =>
+                      logger.error(f"$boundaryContext Encountered an error during extraction.")
+                      Utils.logException(logger, exception)
+                      throw exception
+                    case Success(value) =>
+                      value
+                  }
+                }
+                val currentTableCount = tableCount.addAndGet(count)
+
+                boundDef match {
+                  case b: Bounds =>
+                    val lineLength = 100
+                    val progressPercent =
+                      if (b.count == 0) lineLength
+                      else (currentTableCount * lineLength / b.count).toInt
+                    val progressPercentFilled = (0 until progressPercent).map(_ => "#").mkString
+                    val progressPercentUnfilled =
+                      (progressPercent until lineLength).map(_ => " ").mkString
+                    val progressBar =
+                      s"[$progressPercentFilled$progressPercentUnfilled] $progressPercent %"
+                    val partitionEnd = System.currentTimeMillis()
+                    val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(tableStart)
+                    logger.info(
+                      s"$context $progressBar. Elapsed time: $elapsedTime"
+                    )
+                    tableExtractDataConfig.partitionConfig match {
+                      case Some(p: PartitionConfig) =>
+                        val deltaRow = DeltaRow(
+                          domain = extractConfig.jdbcSchema.schema,
+                          schema = tableExtractDataConfig.table,
+                          lastExport = b.max,
+                          start = new Timestamp(partitionStart),
+                          end = new Timestamp(partitionEnd),
+                          duration = (partitionEnd - partitionStart).toInt,
+                          count = count,
+                          success = true,
+                          message = p.partitionColumn,
+                          step = index.toString
+                        )
+                        Some(InsertLastExportParams(deltaRow, p.partitionColumnType))
+                      case None =>
+                        throw new RuntimeException(
+                          "Should never happen since we are fetching an interval"
+                        )
                     }
-                  )
-                } match {
-                  case Failure(exception) =>
-                    logger.error(f"$boundaryContext Encountered an error during extraction.")
-                    Utils.logException(logger, exception)
-                    throw exception
-                  case Success(value) =>
-                    value
+                  case NoBound =>
+                    None
+                  // do nothing
                 }
               }
-              val currentTableCount = tableCount.addAndGet(count)
-
-              boundDef match {
-                case b: Bounds =>
-                  val lineLength = 100
-                  val progressPercent =
-                    if (b.count == 0) lineLength
-                    else (currentTableCount * lineLength / b.count).toInt
-                  val progressPercentFilled = (0 until progressPercent).map(_ => "#").mkString
-                  val progressPercentUnfilled =
-                    (progressPercent until lineLength).map(_ => " ").mkString
-                  val progressBar =
-                    s"[$progressPercentFilled$progressPercentUnfilled] $progressPercent %"
-                  val partitionEnd = System.currentTimeMillis()
-                  val elapsedTime = ExtractUtils.toHumanElapsedTimeFrom(tableStart)
-                  logger.info(
-                    s"$context $progressBar. Elapsed time: $elapsedTime"
-                  )
-                  tableExtractDataConfig.partitionConfig match {
-                    case Some(p: PartitionConfig) =>
-                      val deltaRow = DeltaRow(
-                        domain = extractConfig.jdbcSchema.schema,
-                        schema = tableExtractDataConfig.table,
-                        lastExport = b.max,
-                        start = new Timestamp(partitionStart),
-                        end = new Timestamp(partitionEnd),
-                        duration = (partitionEnd - partitionStart).toInt,
-                        count = count,
-                        success = true,
-                        message = p.partitionColumn,
-                        step = index.toString
-                      )
-                      Some(InsertLastExportParams(deltaRow, p.partitionColumnType))
-                    case None =>
-                      throw new RuntimeException(
-                        "Should never happen since we are fetching an interval"
-                      )
-                  }
-                case NoBound =>
-                  None
-                // do nothing
+            }
+          }.recoverWith { case err: Exception =>
+            logger.error(err.getMessage, err)
+            Failure(
+              new DataExtractionException(
+                extractConfig.jdbcSchema.schema,
+                tableExtractDataConfig.table
+              )
+            )
+          }.map { insertLastExportParams =>
+            // We insert here right after the connection has been closed (duckdb does not support multiple connections)
+            insertLastExportParams.foreach { insertLastExportParams =>
+              withJDBCConnection(extractConfig.audit.options) { connection =>
+                LastExportUtils.insertNewLastExport(
+                  connection,
+                  insertLastExportParams.deltaRow,
+                  Some(insertLastExportParams.partitionColumnType),
+                  extractConfig.audit,
+                  auditColumns
+                )
               }
             }
           }
-        }.recoverWith { case err: Exception =>
-          logger.error(err.getMessage, err)
-          Failure(
-            new DataExtractionException(
-              extractConfig.jdbcSchema.schema,
-              tableExtractDataConfig.table
-            )
-          )
-        }.map { insertLastExportParams =>
-          // We insert here right after the connection has been closed (duckdb does not support multiple connections)
-          insertLastExportParams.foreach { insertLastExportParams =>
-            withJDBCConnection(extractConfig.audit.options) { connection =>
-              LastExportUtils.insertNewLastExport(
-                connection,
-                insertLastExportParams.deltaRow,
-                Some(insertLastExportParams.partitionColumnType),
-                extractConfig.audit,
-                auditColumns
-              )
-            }
-          }
-        }
-      }
+        }(dbExtractEC.executionContext)
+        .toList
 
     val success = if (extractionResults.exists(_.isFailure)) {
       logger.error(s"$context An error occured during extraction.")
@@ -581,59 +598,61 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
       logger.info(s"$context Extracted all lines in $elapsedTime")
     else
       logger.info(s"$context Extraction took $elapsedTime")
-    boundDef match {
-      case b: Bounds =>
-        tableExtractDataConfig.partitionConfig match {
-          case Some(p: PartitionConfig) =>
-            val deltaRow = DeltaRow(
-              domain = extractConfig.jdbcSchema.schema,
-              schema = tableExtractDataConfig.table,
-              lastExport = b.max,
-              start = new Timestamp(tableStart),
-              end = new Timestamp(tableEnd),
-              duration = duration,
-              count = b.count,
-              success = success,
-              message = p.partitionColumn,
-              step = "ALL"
-            )
-            // Audit for partition
-            withJDBCConnection(extractConfig.audit.options) { connection =>
-              LastExportUtils.insertNewLastExport(
-                connection,
-                deltaRow,
-                Some(p.partitionColumnType),
-                extractConfig.audit,
-                auditColumns
+    ParUtils.runOneInExecutionContext {
+      boundDef match {
+        case b: Bounds =>
+          tableExtractDataConfig.partitionConfig match {
+            case Some(p: PartitionConfig) =>
+              val deltaRow = DeltaRow(
+                domain = extractConfig.jdbcSchema.schema,
+                schema = tableExtractDataConfig.table,
+                lastExport = b.max,
+                start = new Timestamp(tableStart),
+                end = new Timestamp(tableEnd),
+                duration = duration,
+                count = b.count,
+                success = success,
+                message = p.partitionColumn,
+                step = "ALL"
               )
-            }
-          case _ =>
-            throw new RuntimeException("Should never happen since we are fetching an interval")
-        }
-      case NoBound =>
-        val deltaRow = DeltaRow(
-          domain = extractConfig.jdbcSchema.schema,
-          schema = tableExtractDataConfig.table,
-          lastExport = tableStart,
-          start = new Timestamp(tableStart),
-          end = new Timestamp(tableEnd),
-          duration = (tableEnd - tableStart).toInt,
-          count = tableCount.get(),
-          success = tableCount.get() >= 0,
-          message = "FULL",
-          step = "ALL"
-        )
-        // Full audit
-        withJDBCConnection(extractConfig.audit.options) { connection =>
-          LastExportUtils.insertNewLastExport(
-            connection,
-            deltaRow,
-            None,
-            extractConfig.audit,
-            auditColumns
+              // Audit for partition
+              withJDBCConnection(extractConfig.audit.options) { connection =>
+                LastExportUtils.insertNewLastExport(
+                  connection,
+                  deltaRow,
+                  Some(p.partitionColumnType),
+                  extractConfig.audit,
+                  auditColumns
+                )
+              }
+            case _ =>
+              throw new RuntimeException("Should never happen since we are fetching an interval")
+          }
+        case NoBound =>
+          val deltaRow = DeltaRow(
+            domain = extractConfig.jdbcSchema.schema,
+            schema = tableExtractDataConfig.table,
+            lastExport = tableStart,
+            start = new Timestamp(tableStart),
+            end = new Timestamp(tableEnd),
+            duration = (tableEnd - tableStart).toInt,
+            count = tableCount.get(),
+            success = tableCount.get() >= 0,
+            message = "FULL",
+            step = "ALL"
           )
-        }
-    }
+          // Full audit
+          withJDBCConnection(extractConfig.audit.options) { connection =>
+            LastExportUtils.insertNewLastExport(
+              connection,
+              deltaRow,
+              None,
+              extractConfig.audit,
+              auditColumns
+            )
+          }
+      }
+    }(dbExtractEC.executionContext)
     if (success)
       Success(())
     else
@@ -773,34 +792,36 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     auditColumns: Columns
   )(implicit
     settings: Settings,
-    fjp: Option[ForkJoinTaskSupport]
+    dbExtractEC: ExtractExecutionContext
   ): (List[(BoundaryDef, Int)], BoundariesDef) = {
     tableExtractDataConfig.partitionConfig match {
       case None =>
         List(Unbounded -> 0) -> NoBound
       case Some(_: PartitionConfig) =>
-        withJDBCConnection(extractConfig.data.options) { connection =>
-          def getBoundariesWith(auditConnection: SQLConnection): Bounds = {
-            auditConnection.setAutoCommit(false)
-            LastExportUtils.getBoundaries(
-              connection,
-              auditConnection,
-              extractConfig,
-              tableExtractDataConfig,
-              auditColumns
-            )
-          }
-
-          val boundaries = if (extractConfig.data.options == extractConfig.audit.options) {
-            getBoundariesWith(connection)
-          } else {
-            withJDBCConnection(extractConfig.audit.options) { auditConnection =>
-              getBoundariesWith(auditConnection)
+        ParUtils.runOneInExecutionContext {
+          withJDBCConnection(extractConfig.data.options) { connection =>
+            def getBoundariesWith(auditConnection: SQLConnection): Bounds = {
+              auditConnection.setAutoCommit(false)
+              LastExportUtils.getBoundaries(
+                connection,
+                auditConnection,
+                extractConfig,
+                tableExtractDataConfig,
+                auditColumns
+              )
             }
+
+            val boundaries = if (extractConfig.data.options == extractConfig.audit.options) {
+              getBoundariesWith(connection)
+            } else {
+              withJDBCConnection(extractConfig.audit.options) { auditConnection =>
+                getBoundariesWith(auditConnection)
+              }
+            }
+            logger.info(s"$context Boundaries : $boundaries")
+            boundaries.partitions.zipWithIndex -> boundaries
           }
-          logger.info(s"$context Boundaries : $boundaries")
-          ParUtils.makeParallel(boundaries.partitions.zipWithIndex).toList -> boundaries
-        }
+        }(dbExtractEC.executionContext)
     }
   }
 
@@ -857,29 +878,35 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     */
   private[extract] def initExportAuditTable(
     connectionSettings: Connection
-  )(implicit settings: Settings): Columns = {
+  )(implicit settings: Settings, dbExtractEC: ExtractExecutionContext): Columns = {
     val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
-    withJDBCConnection(connectionSettings.options) { connection =>
-      val existLastExportTable =
-        tableExists(connection, connectionSettings.jdbcUrl, s"${auditSchema}.$lastExportTableName")
-      if (!existLastExportTable && settings.appConfig.createSchemaIfNotExists) {
-        createSchema(connection, auditSchema)
-        val jdbcEngineName = connectionSettings.getJdbcEngineName()
-        settings.appConfig.jdbcEngines.get(jdbcEngineName.toString).foreach { jdbcEngine =>
-          val createTableSql = jdbcEngine
-            .tables("extract")
-            .createSql
-            .richFormat(
-              Map(
-                "table"       -> s"$auditSchema.$lastExportTableName",
-                "writeFormat" -> settings.appConfig.defaultWriteFormat
-              ),
-              Map.empty
-            )
-          execute(createTableSql, connection)
+    ParUtils.runOneInExecutionContext {
+      withJDBCConnection(connectionSettings.options) { connection =>
+        val existLastExportTable =
+          tableExists(
+            connection,
+            connectionSettings.jdbcUrl,
+            s"${auditSchema}.$lastExportTableName"
+          )
+        if (!existLastExportTable && settings.appConfig.createSchemaIfNotExists) {
+          createSchema(connection, auditSchema)
+          val jdbcEngineName = connectionSettings.getJdbcEngineName()
+          settings.appConfig.jdbcEngines.get(jdbcEngineName.toString).foreach { jdbcEngine =>
+            val createTableSql = jdbcEngine
+              .tables("extract")
+              .createSql
+              .richFormat(
+                Map(
+                  "table"       -> s"$auditSchema.$lastExportTableName",
+                  "writeFormat" -> settings.appConfig.defaultWriteFormat
+                ),
+                Map.empty
+              )
+            execute(createTableSql, connection)
+          }
         }
       }
-    }
+    }(dbExtractEC.executionContext)
     JdbcDbUtils
       .extractJDBCTables(
         JDBCSchema(
@@ -893,7 +920,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
         skipRemarks = true,
         keepOriginalName = true,
         includeColumns = true
-      )(settings, None)
+      )
       .find { case (tableName, _) =>
         tableName.equalsIgnoreCase(lastExportTableName)
       }
