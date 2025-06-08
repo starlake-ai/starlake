@@ -542,7 +542,9 @@ object Settings extends StrictLogging {
       `type` match {
         case `connectionType` => action
         case _ =>
-          throw new RuntimeException(s"Can only be used for ${`type`} connection type")
+          throw new RuntimeException(
+            s"${`type`} found but can only be used for ${connectionType} connection type."
+          )
       }
     }
   }
