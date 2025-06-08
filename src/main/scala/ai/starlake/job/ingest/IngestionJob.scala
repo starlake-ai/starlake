@@ -3,26 +3,24 @@ package ai.starlake.job.ingest
 import ai.starlake.config.{CometColumns, DatasetArea, Settings}
 import ai.starlake.exceptions.DisallowRejectRecordException
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.validator.SimpleRejectedRecord
 import ai.starlake.job.ingest.loaders.{
   BigQueryNativeLoader,
   DuckDbNativeLoader,
-  NativeLoader,
   SnowflakeNativeLoader
 }
-import ai.starlake.job.metrics._
-import ai.starlake.job.sink.bigquery._
+import ai.starlake.job.metrics.*
+import ai.starlake.job.sink.bigquery.*
 import ai.starlake.job.transform.{SparkAutoTask, SparkExportTask}
-import ai.starlake.job.validator.{CheckValidityResult, GenericRowValidator}
+import ai.starlake.job.validator.{CheckValidityResult, GenericRowValidator, SimpleRejectedRecord}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
-import ai.starlake.utils.Formatter._
-import ai.starlake.utils._
+import ai.starlake.schema.model.*
+import ai.starlake.utils.*
+import ai.starlake.utils.Formatter.*
 import com.google.cloud.bigquery.TableId
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
-import org.apache.spark.sql._
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.*
+import org.apache.spark.sql.functions.*
 import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.sql.Timestamp
@@ -408,13 +406,14 @@ trait IngestionJob extends SparkJob {
     val result =
       orchestrator match {
         case "bigquery" =>
-          ???
+          val statementsMap = new BigQueryNativeLoader(this, None).buildSQLStatements()
+          statementsMap
         case "duckdb" =>
           ???
         case "spark" =>
           ???
         case "snowflake" =>
-          val statementsMap = new NativeLoader(this, None).buildSQLStatements()
+          val statementsMap = new SnowflakeNativeLoader(this).buildSQLStatements()
           statementsMap
         case other =>
           throw new Exception(s"Unsupported engine $other")
@@ -532,7 +531,7 @@ trait IngestionJob extends SparkJob {
           Try {
             val (rejectedDS, acceptedDS) = ingest(dataset)
             if (settings.appConfig.audit.detailedLoadAudit && path.size > 1) {
-              import session.implicits._
+              import session.implicits.*
               rejectedDS
                 .groupBy("path")
                 .count()
