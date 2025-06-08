@@ -13,13 +13,15 @@ import ai.starlake.job.transform.BigQueryAutoTask
 import ai.starlake.schema.model.*
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.{IngestionCounters, JobResult, Utils}
+import com.google.api.services.bigquery.model.TableSchema
 import com.google.cloud.bigquery
 import com.google.cloud.bigquery.{Field, JobInfo, StandardSQLTypeName, TableId}
+import com.google.cloud.spark.bigquery.repackaged.com.google.api.client.json.gson.GsonFactory
 import com.typesafe.scalalogging.StrictLogging
 
 import java.time.Duration
 import scala.jdk.CollectionConverters.*
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Random, Success, Try}
 
 class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
   settings: Settings
@@ -244,6 +246,98 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
     bqTask.updateBigQueryTableSchema(incomingSparkSchema)
     val jobResult = bqTask.run()
     jobResult
+  }
+  override def buildSQLStatements(): Map[String, Object] = {
+    val twoSteps = this.twoSteps
+    val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
+    val tempTableName = s"${domain.finalName}.${this.tempTableName}"
+    val incomingDir = domain.resolveDirectory()
+    val pattern = starlakeSchema.pattern.toString
+    val format = mergedMetadata.resolveFormat()
+
+    val incomingSparkSchema = starlakeSchema.targetSparkSchemaWithIgnoreAndScript(schemaHandler)
+    val bqIncomingSchema = BigQueryUtils.bqSchema(incomingSparkSchema)
+
+    val schemaString =
+      Utils.newJsonMapper().writerWithDefaultPrettyPrinter().writeValueAsString(bqIncomingSchema)
+
+    val ddlMap: Map[String, Map[String, String]] = schemaHandler.getDdlMapping(starlakeSchema)
+
+    val connectionPreActions =
+      sinkConnection.options.get("preActions").map(_.split(';')).getOrElse(Array.empty).toList
+
+    val stepMap =
+      if (twoSteps) {
+
+        val extraFileNameColumn =
+          s"ALTER TABLE $tempTableName ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '{{sl_input_file_name}}';"
+        val workflowStatements = this.secondStepSQL(List(tempTableName))
+
+        val dropFirstStepTableSql = s"DROP TABLE IF EXISTS $tempTableName;"
+        val loadTaskSQL = Map(
+          "steps"               -> "2",
+          "incomingDir"         -> incomingDir,
+          "pattern"             -> pattern,
+          "format"              -> format,
+          "firstStep"           -> "see schemastring",
+          "extraFileNameColumn" -> List(extraFileNameColumn).asJava,
+          "secondStep"          -> workflowStatements.task.asMap().asJava,
+          "dropFirstStep"       -> dropFirstStepTableSql,
+          "tempTableName"       -> tempTableName,
+          "targetTableName"     -> targetTableName,
+          "domain"              -> domain.finalName,
+          "table"               -> starlakeSchema.finalName,
+          "writeStrategy"       -> writeDisposition,
+          "schemaString"        -> schemaString,
+          "preActions"          -> connectionPreActions.asJava
+        )
+
+        workflowStatements
+          .asMap()
+          .updated(
+            "statements",
+            loadTaskSQL.asJava
+          )
+      } else {
+        val workflowStatements = this.secondStepSQL(List(targetTableName))
+        val loadTaskSQL =
+          Map(
+            "steps"           -> "1",
+            "incomingDir"     -> incomingDir,
+            "pattern"         -> pattern,
+            "format"          -> format.toString,
+            "createTable"     -> "see schemastring",
+            "targetTableName" -> targetTableName,
+            "domain"          -> domain.finalName,
+            "table"           -> starlakeSchema.finalName,
+            "writeStrategy"   -> writeDisposition,
+            "schemaString"    -> schemaString,
+            "preActions"      -> connectionPreActions.asJava
+          )
+        workflowStatements
+          .asMap()
+          .updated(
+            "statements",
+            loadTaskSQL.asJava
+          )
+      }
+    val engine = settings.appConfig.jdbcEngines(engineName.toString)
+
+    val tempStage = s"starlake_load_stage_${Random.alphanumeric.take(10).mkString("")}"
+    val commonOptionsMap = Map(
+      "schema"     -> starlakeSchema.asMap().asJava,
+      "sink"       -> sink.asMap(engine).asJava,
+      "fileSystem" -> settings.appConfig.fileSystem,
+      "tempStage"  -> tempStage,
+      "connection" -> sinkConnection.asMap(),
+      "variant" -> starlakeSchema.attributes
+        .exists(
+          _.primitiveType(schemaHandler).getOrElse(PrimitiveType.string) == PrimitiveType.variant
+        )
+        .toString
+    )
+    val result = stepMap ++ commonOptionsMap
+    result
   }
 
 }
