@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+if [ "$EUID" -eq 0 ]
+  then echo "Please do not run this script as root or with sudo."
+  exit
+fi
+
 print_starlake_ascii_art() {
     cat <<EOF
    _____ _______       _____  _               _  ________
