@@ -222,6 +222,26 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     sql
   }
 
+  private def buildCopyXML(domainAndTableName: String): String = {
+    val stripOuterArray =
+      getOption("STRIP_OUTER_ARRAY").getOrElse(mergedMetadata.resolveArray().toString.toUpperCase())
+    val commonOptions = List("STRIP_OUTER_ARRAY", "NULL_IF")
+    val extraOptions = copyExtraOptions(commonOptions)
+    val sql =
+      s"""
+         |COPY INTO $domainAndTableName
+         |FROM @$tempStage/${domain.finalName}/
+         |PATTERN = '$pattern'
+         |PURGE = ${purge}
+         |FILE_FORMAT = (
+         |  TYPE = XML
+         |  $extraOptions
+         |  $compressionFormat
+         |)
+         |""".stripMargin
+    sql
+  }
+
   private def buildCopyOther(domainAndTableName: String, format: String) = {
     val commonOptions = List("NULL_IF")
     val extraOptions = copyExtraOptions(commonOptions)
@@ -370,6 +390,9 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
 
       case Format.JSON_FLAT | Format.JSON =>
         val sql = buildCopyJson(domainAndTableName)
+        JdbcDbUtils.executeQueryAsMap(sql, conn)
+      case Format.XML =>
+        val sql = buildCopyXML(domainAndTableName)
         JdbcDbUtils.executeQueryAsMap(sql, conn)
       case format =>
         val sql = buildCopyOther(domainAndTableName, format.toString.toUpperCase())

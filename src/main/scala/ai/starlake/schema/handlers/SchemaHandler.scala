@@ -1992,4 +1992,56 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     CaseInsensitiveMap(tableStreams ++ taskStreams)
   }
+
+  private def orderSchedules(orderBy: Option[String], schedules: List[ObjectSchedule]) = {
+    orderBy match {
+      case Some("name") =>
+        schedules.sortBy(s => s"${s.domain}.${s.table}")
+      case Some("cron") =>
+        schedules.sortBy(_.cron)
+      case _ =>
+        schedules
+    }
+  }
+
+  def taskSchedules(orderBy: Option[String]): List[ObjectSchedule] = {
+    val schedules = jobs().flatMap { job =>
+      job.tasks.flatMap { task =>
+        task.schedule.map { schedule =>
+          ObjectSchedule(
+            domain = job.getName(),
+            table = task.getName(),
+            cron = schedule,
+            comment = task.comment
+          )
+        }
+      }
+    }
+    orderSchedules(orderBy, schedules)
+  }
+
+  def tableSchedules(orderBy: Option[String]): List[ObjectSchedule] = {
+    val schedules = domains().flatMap { domain =>
+      domain.tables.flatMap { table =>
+        table.metadata.flatMap { metadata =>
+          metadata.schedule.map { schedule =>
+            ObjectSchedule(
+              domain = domain.finalName,
+              table = table.finalName,
+              cron = schedule,
+              comment = table.comment
+            )
+          }
+        }
+      }
+    }
+    orderSchedules(orderBy, schedules)
+  }
+
+  def allSchedules(orderBy: Option[String]): List[ObjectSchedule] = {
+    val taskSchedulesList = taskSchedules(orderBy)
+    val tableSchedulesList = tableSchedules(orderBy)
+    val schedules = taskSchedulesList ++ tableSchedulesList
+    orderSchedules(orderBy, schedules)
+  }
 }

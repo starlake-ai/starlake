@@ -249,6 +249,9 @@ object DatasetArea extends StrictLogging {
   def extract(implicit settings: Settings): Path =
     new Path(metadata, "extract")
 
+  def worksheets(implicit settings: Settings): Path =
+    new Path(metadata, "worksheets")
+
   def transform(implicit settings: Settings): Path =
     new Path(metadata, "transform")
 
@@ -266,7 +269,8 @@ object DatasetArea extends StrictLogging {
       expectations,
       mapping,
       incoming,
-      build
+      build,
+      worksheets
     )
 
   /** @param storage
