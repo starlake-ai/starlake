@@ -331,7 +331,7 @@ object InferSchemaHandler extends StrictLogging {
                     lit(DataTypesToInt.STRING.id)
                   )
                   .when(
-                    strColumn.cast(LongType).isNotNull,
+                    strColumn.try_cast(LongType).isNotNull,
                     when(strColumn.contains("."), DataTypesToInt.DOUBLE.id)
                       .otherwise(DataTypesToInt.LONG.id)
                   )
@@ -351,7 +351,7 @@ object InferSchemaHandler extends StrictLogging {
           List(
             (
               ((currentColumn: Column) => {
-                val strColumn = currentColumn.cast(StringType)
+                val strColumn = currentColumn.try_cast(StringType)
                 when(strColumn.isNull, lit(DataTypesToInt.NULL.id))
                   .when(
                     DataTypesToInt.guessTemporalType(strColumn).isNotNull,
@@ -369,7 +369,7 @@ object InferSchemaHandler extends StrictLogging {
           List(
             (
               ((currentColumn: Column) => {
-                val strColumn = currentColumn.cast(StringType)
+                val strColumn = currentColumn.try_cast(StringType)
                 when(strColumn.isNull, lit(DataTypesToInt.NULL.id))
                   .when(
                     isNumberStringLike(strColumn),
