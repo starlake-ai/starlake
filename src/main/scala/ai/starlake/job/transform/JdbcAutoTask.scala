@@ -288,6 +288,7 @@ class JdbcAutoTask(
 
   private def runInteractive(conn: Connection, mainSql: String): JdbcJobResult = {
     val limitSQL = limitQuery(mainSql, resultPageSize, resultPageNumber)
+    logger.info(s"Running interactive SQL query: \n$limitSQL\n")
     val stmt = conn.createStatement()
     try {
       val rs = stmt.executeQuery(mainSql)

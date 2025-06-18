@@ -78,7 +78,6 @@ object Main extends StrictLogging {
   }
   val commands: List[Cmd[_]] = List(
     BootstrapCmd,
-    ImportCmd, // TODO: deprecate it in favor of StageCmd
     StageCmd,
     LoadCmd,
     TransformCmd,
