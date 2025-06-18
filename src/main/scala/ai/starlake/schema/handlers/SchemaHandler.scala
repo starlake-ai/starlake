@@ -1396,7 +1396,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def task(taskName: String): Try[AutoTaskDesc] = Try {
     val allTasks = tasks()
     allTasks
-      .find(t => t.name == taskName)
+      .find(t => t.name.equalsIgnoreCase(taskName))
       .getOrElse(throw new Exception(s"Task $taskName not found"))
   }
 
