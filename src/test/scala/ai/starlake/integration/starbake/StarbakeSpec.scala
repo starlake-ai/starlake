@@ -52,7 +52,7 @@ class StarbakeSpec extends IntegrationTestBase {
       "SL_ENV"              -> "DUCKDB",
       "SL_VALIDATE_ON_LOAD" -> "true"
     ) {
-      assert(new Main().run(Array("import")))
+      assert(new Main().run(Array("stage")))
     }
   }
 

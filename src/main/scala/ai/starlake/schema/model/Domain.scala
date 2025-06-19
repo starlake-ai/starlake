@@ -138,7 +138,7 @@ case class LoadDesc(version: Int, load: Domain)
       case Some(directory) => directory
       case None =>
         throw new Exception(
-          """directory attribute is mandatory for the "import" command. Make sure this attribute is defined in the domain metadata (_config.sl.yml file)"""
+          """directory attribute is mandatory for the "stage" command. Make sure this attribute is defined in the domain metadata (_config.sl.yml file)"""
         )
     }
   }

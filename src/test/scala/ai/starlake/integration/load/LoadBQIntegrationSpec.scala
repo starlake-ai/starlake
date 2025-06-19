@@ -15,7 +15,7 @@ class LoadBQIntegrationSpec extends BigQueryIntegrationSpecBase {
         copyFilesToIncomingDir(sampleDataDir)
         assert(
           new Main().run(
-            Array("import")
+            Array("stage")
           )
         )
         assert(new Main().run(Array("load")))
@@ -31,7 +31,7 @@ class LoadBQIntegrationSpec extends BigQueryIntegrationSpecBase {
 
         assert(
           new Main().run(
-            Array("import")
+            Array("stage")
           )
         )
         assert(new Main().run(Array("load")))
