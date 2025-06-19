@@ -268,11 +268,11 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
             raise ValueError("Either a schedule or dependencies must be provided")
         pipeline_id = job.caller_filename.replace(".py", "").replace(".pyc", "").lower()
         if schedule and schedule.name:
-            schedule_name = sanitize_id(schedule.name).lower()
+            schedule_name = sanitize_id(schedule.name)
         else:
             schedule_name = None
         if schedule_name:
-            pipeline_id = f"{pipeline_id}_{schedule_name}"
+            pipeline_id = f"{pipeline_id}-{schedule_name}"
         super().__init__(group_id=pipeline_id, orchestration_cls=orchestration_cls, group=dag, **kwargs)
         self.__orchestration = orchestration
         self.__job = job
@@ -502,7 +502,7 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         elif isinstance(dependency, StarlakeDependency):
             task_name = dependency.name
             task_type = dependency.dependency_type
-            task_id = f"{dependency.uri}_{task_type}"
+            task_id = f"{sanitize_id(dependency.name)}_{task_type}"
             task_sink = dependency.sink
             return self.__create_task(task_id, task_name, task_type, task_sink)
         else:
@@ -711,7 +711,7 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         kwargs.pop('task_id', None)
         return self.orchestration.sl_create_task(
             task_id, 
-            self.job.pre_tasks(task_id=task_id, **kwargs),
+            self.job.pre_tasks(**kwargs),
             self
         )
 
@@ -848,7 +848,7 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         kwargs.pop('task_id', None)
         return self.orchestration.sl_create_task(
             task_id, 
-            self.job.post_tasks(),
+            self.job.post_tasks(**kwargs),
             self
         )
 

@@ -83,6 +83,8 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
 
         self.options = {} if not options else options
 
+        self.clusters = {}
+
         self.cluster_config = StarlakeAirflowDataprocClusterConfig(
             cluster_id=None,
             dataproc_name=None,
@@ -108,32 +110,41 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
         This operator will be flagged a success if the cluster by this name already exists.
         """
         cluster_id = self.cluster_config.cluster_id if not cluster_id else cluster_id
-        cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}"[0:51] if not cluster_name else cluster_name[0:51]
+        nb_clusters = len(self.clusters) + 1
+        cluster_name = f"{cluster_id.replace('_', '-')}-{nb_clusters}-{TODAY}"[0:51] if not cluster_name else cluster_name[0:51]
         if cluster_name[-1] == '-':
             cluster_name = cluster_name[0:-1] + 'Z'
-        task_id = f"create_{cluster_id.replace('-', '_')}_cluster" if not task_id else task_id
 
-        kwargs.update({
-            'pool': kwargs.get('pool', self.pool),
-            'trigger_rule': kwargs.get('trigger_rule', TriggerRule.ALL_SUCCESS)
-        })
+        cluster = self.clusters.get(cluster_name, None)
 
-        spark_events_bucket = f'dataproc-{self.cluster_config.project_id}'
+        if not cluster:
+            task_id = f"create_{cluster_id.replace('-', '_')}_cluster" if not task_id else task_id
 
-        from airflow.providers.google.cloud.operators.dataproc import     DataprocCreateClusterOperator
+            kwargs.update({
+                'pool': kwargs.get('pool', self.pool),
+                'trigger_rule': kwargs.get('trigger_rule', TriggerRule.ALL_SUCCESS)
+            })
 
-        return DataprocCreateClusterOperator(
-            task_id=task_id,
-            project_id=self.cluster_config.project_id,
-            cluster_name=cluster_name,
-            cluster_config=self.cluster_config.__config__(**{
-                "dataproc:job.history.to-gcs.enabled": "true",
-                "spark:spark.history.fs.logDirectory": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
-                "spark:spark.eventLog.dir": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
-            }),
-            region=self.cluster_config.region,
-            **kwargs
-        )
+            spark_events_bucket = f'dataproc-{self.cluster_config.project_id}'
+
+            from airflow.providers.google.cloud.operators.dataproc import     DataprocCreateClusterOperator
+
+            cluster = DataprocCreateClusterOperator(
+                task_id=task_id,
+                project_id=self.cluster_config.project_id,
+                cluster_name=cluster_name,
+                cluster_config=self.cluster_config.__config__(**{
+                    "dataproc:job.history.to-gcs.enabled": "true",
+                    "spark:spark.history.fs.logDirectory": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
+                    "spark:spark.eventLog.dir": f"gs://{spark_events_bucket}/tmp/spark-events/{{{{ds}}}}",
+                }),
+                region=self.cluster_config.region,
+                **kwargs
+            )
+            # Store the cluster in the clusters dictionary
+            self.clusters[cluster_name] = cluster
+
+        return cluster
 
     def delete_dataproc_cluster(
             self,
@@ -143,24 +154,33 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
             **kwargs) -> BaseOperator:
         """Tears down the cluster even if there are failures in upstream tasks."""
         cluster_id = self.cluster_config.cluster_id if not cluster_id else cluster_id
-        cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}"[0:51] if not cluster_name else cluster_name[0:51]
+        nb_clusters = len(self.clusters)
+        cluster_name = f"{cluster_id.replace('_', '-')}-{nb_clusters}-{TODAY}"[0:51] if not cluster_name else cluster_name[0:51]
         if cluster_name[-1] == '-':
             cluster_name = cluster_name[0:-1] + 'Z'
         task_id = f"delete_{cluster_id.replace('-', '_')}_cluster" if not task_id else task_id
         kwargs.update({
             'pool': kwargs.get('pool', self.pool),
-            'trigger_rule': kwargs.get('trigger_rule', TriggerRule.NONE_SKIPPED)
+            'trigger_rule': kwargs.get('trigger_rule', TriggerRule.ALL_DONE)
         })
 
         from airflow.providers.google.cloud.operators.dataproc import DataprocDeleteClusterOperator
 
-        return DataprocDeleteClusterOperator(
+        delete_cluster = DataprocDeleteClusterOperator(
             task_id=task_id,
             project_id=self.cluster_config.project_id,
             cluster_name=cluster_name,
             region=self.cluster_config.region,
             **kwargs
         )
+
+        cluster = self.clusters.get(cluster_name, None)
+
+        if cluster:
+            # setup/teardown as of Apache Airflow 2.7.0
+            delete_cluster = delete_cluster.as_teardown(setups = cluster)
+
+        return delete_cluster
 
     def submit_starlake_job(
         self,
@@ -176,7 +196,8 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
         **kwargs) -> BaseOperator:
         """Create a dataproc job on the specified cluster"""
         cluster_id = self.cluster_config.cluster_id if not cluster_id else cluster_id
-        cluster_name = f"{self.cluster_config.dataproc_name}-{cluster_id.replace('_', '-')}-{TODAY}"[0:51] if not cluster_name else cluster_name[0:51]
+        nb_clusters = len(self.clusters)
+        cluster_name = f"{cluster_id.replace('_', '-')}-{nb_clusters}-{TODAY}"[0:51] if not cluster_name else cluster_name[0:51]
         if cluster_name[-1] == '-':
             cluster_name = cluster_name[0:-1] + 'Z'
         task_id = f"{cluster_id}_submit" if not task_id else task_id

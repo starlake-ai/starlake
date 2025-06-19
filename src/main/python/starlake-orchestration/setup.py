@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='starlake-orchestration',
-      version='0.3.2.3',
+      version='0.3.2.4',
       description='Starlake Python Distribution For orchestration',
       long_description=long_description,
       long_description_content_type="text/markdown",

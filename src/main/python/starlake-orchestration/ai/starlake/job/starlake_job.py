@@ -197,6 +197,24 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         self.events = events
         return event
 
+    def sl_dataset(self, uri: str, **kwargs) -> str:
+        """Returns the dataset from the specified uri.
+
+        Args:
+            uri (str): The uri of the dataset.
+
+        Returns:
+            str: The dataset.
+        """
+
+        from ai.starlake.common import sanitize_id, asQueryParameters, sl_schedule
+        cron = kwargs.get('cron', kwargs.get('params', dict()).get('cron', None))
+        parameters: dict = dict()
+        if cron is not None :
+            parameters[self.sl_schedule_parameter_name] = sl_schedule(cron, format=self.sl_schedule_format)
+
+        return sanitize_id(uri).lower() + asQueryParameters(parameters)
+
     def sl_dataset_url(self, dataset: StarlakeDataset, **kwargs) -> str:
         return dataset.url
 
@@ -231,10 +249,13 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         else:
             from ai.starlake.common import sanitize_id
 
-            params = kwargs.get("params", {})
-            schedule = params.get('schedule', None)
-            if schedule is not None:
-                domain = f'{domain}_{schedule}'
+            orchestrator = cls.sl_orchestrator()
+
+            if orchestrator == StarlakeOrchestrator.DAGSTER:
+                params = kwargs.get("params", {})
+                schedule = params.get('schedule', None)
+                if schedule is not None:
+                    domain = f'{domain}_{schedule}'
 
             if pre_load_strategy == StarlakePreLoadStrategy.IMPORTED:
                 return sanitize_id(f'check_{domain}_incoming_files')

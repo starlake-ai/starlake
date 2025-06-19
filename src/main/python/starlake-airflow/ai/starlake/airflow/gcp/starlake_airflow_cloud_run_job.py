@@ -214,12 +214,13 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                     fi
                     '
                     """
+                kwargs.pop('do_xcom_push', None)
                 return StarlakeBashOperator(
                     task_id=task_id,
                     dataset=dataset,
                     source=self.source,
                     bash_command=bash_command,
-                    **kwargs
+                    do_xcom_push=True,
                 )
             else:
                 container_overrides: Dict[str, Any] = {
