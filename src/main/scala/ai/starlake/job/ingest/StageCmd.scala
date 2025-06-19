@@ -64,16 +64,3 @@ object StageCmd extends Cmd[StageConfig] {
     workflow(schemaHandler).stage(config).map(_ => JobResult.empty)
 }
 
-object ImportCmd extends Cmd[StageConfig] {
-
-  override def run(config: StageConfig, schemaHandler: SchemaHandler)(implicit
-    settings: Settings
-  ): Try[JobResult] =
-    StageCmd.run(config, schemaHandler)
-
-  override def parser: OParser[Unit, StageConfig] = StageCmd.parser
-
-  override def parse(args: Seq[String]): Option[StageConfig] = StageCmd.parse(args)
-
-  override def command: String = "import"
-}
