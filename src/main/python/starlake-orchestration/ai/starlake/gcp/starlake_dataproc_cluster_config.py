@@ -111,8 +111,19 @@ class StarlakeDataprocClusterConfig(StarlakeOptions):
         self.cluster_id = str(uuid.uuid4())[:8] if not cluster_id else cluster_id
         self.dataproc_name = __class__.get_context_var("dataproc_name", "dataproc-cluster", options) if not dataproc_name else dataproc_name
         try:
-            import json
-            self.metadata = json.loads(__class__.get_context_var("dataproc_cluster_metadata", options))
+            dataproc_cluster_metadata = __class__.get_context_var("dataproc_cluster_metadata", "{}", options)
+            if isinstance(dataproc_cluster_metadata, str):
+                # If the metadata is a string, parse it as JSON
+                import json
+                try:
+                    self.metadata = json.loads(dataproc_cluster_metadata)
+                except json.JSONDecodeError:
+                    raise ValueError(f"Invalid JSON format for 'dataproc_cluster_metadata': {dataproc_cluster_metadata}")
+            elif isinstance(dataproc_cluster_metadata, dict):
+                # If it's already a dictionary, use it directly
+                self.metadata = dataproc_cluster_metadata
+            else:
+                raise TypeError(f"Expected 'dataproc_cluster_metadata' to be a string or dictionary, got {type(dataproc_cluster_metadata)}")
         except MissingEnvironmentVariable:
             self.metadata = {}
 
