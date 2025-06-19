@@ -63,4 +63,3 @@ object StageCmd extends Cmd[StageConfig] {
   ): Try[JobResult] =
     workflow(schemaHandler).stage(config).map(_ => JobResult.empty)
 }
-
