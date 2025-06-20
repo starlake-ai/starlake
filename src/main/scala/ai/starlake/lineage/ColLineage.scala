@@ -48,10 +48,14 @@ class ColLineage(
       }
       .toList
       .distinct
-    val alltaskNames = schemaHandler.taskNames().map(_.toLowerCase)
+    val allTaskNames = schemaHandler.taskNames().map(_.toLowerCase)
     allTables.map { table =>
-      val isTask = alltaskNames.contains(table.fullName.toLowerCase)
-      table.copy(isTask = isTask)
+      val isTask = allTaskNames.contains(table.fullName.toLowerCase)
+      table.copy(
+        isTask = isTask,
+        table = ColLineage.toLowerCase(table.table),
+        domain = ColLineage.toLowerCase(table.domain)
+      )
     }
   }
 
@@ -134,12 +138,12 @@ class ColLineage(
     val allTables = ColLineage.tablesInRelations(relations) ++ tables
 
     val finalTables = allTables
-      .groupBy(t => (t.domain, t.table))
+      .groupBy(t => (ColLineage.toLowerCase(t.domain), ColLineage.toLowerCase(t.table)))
       .map { case ((domainName, tableName), table) =>
         Table(
           domainName,
           tableName,
-          table.flatMap(_.columns).distinct,
+          table.flatMap(_.columns.map(_.toLowerCase())).distinct,
           isTask = table.exists(_.isTask)
         )
       }
@@ -273,6 +277,14 @@ object ColLineage {
     }
   }
 
+  def toLowerCase(str: String): String = {
+    if (Option(str).isEmpty) {
+      null
+    } else {
+      str.toLowerCase()
+    }
+  }
+
   def extractRelations(
     domainName: String,
     tableName: String,
@@ -281,7 +293,8 @@ object ColLineage {
     column: JdbcColumn
   ): List[Relation] = {
     val colName = Option(columnName).getOrElse(column.columnName)
-    val currentColumn = Column(domainName, tableName, colName)
+    val currentColumn =
+      Column(toLowerCase(domainName), toLowerCase(tableName), toLowerCase(colName))
     val relations =
       if (
         Option(column.tableName).isDefined &&
@@ -289,10 +302,19 @@ object ColLineage {
         Option(column.columnName).isDefined &&
         column.columnName.nonEmpty
       ) { // this is a not a function
-        val parentColumn = Column(column.tableSchema, column.tableName, column.columnName)
+        val parentColumn =
+          Column(
+            toLowerCase(column.tableSchema),
+            toLowerCase(column.tableName),
+            toLowerCase(column.columnName)
+          )
         val immediateRelations =
           if (Option(column.scopeTable).isDefined && column.scopeTable.nonEmpty) {
-            val scopeColumn = Column(column.scopeSchema, column.scopeTable, column.columnName)
+            val scopeColumn = Column(
+              toLowerCase(column.scopeSchema),
+              toLowerCase(column.scopeTable),
+              toLowerCase(column.columnName)
+            )
             if (scopeColumn == parentColumn) {
               List(Relation(parentColumn, currentColumn, expression))
             } else {
@@ -386,13 +408,18 @@ object ColLineage {
       relations.flatMap { relation =>
         val table1 =
           Table(
-            relation.from.domain,
-            relation.from.table,
-            List(relation.from.column),
+            ColLineage.toLowerCase(relation.from.domain),
+            ColLineage.toLowerCase(relation.from.table),
+            List(ColLineage.toLowerCase(relation.from.column)),
             isTask = false
           )
         val table2 =
-          Table(relation.to.domain, relation.to.table, List(relation.to.column), isTask = false)
+          Table(
+            ColLineage.toLowerCase(relation.to.domain),
+            ColLineage.toLowerCase(relation.to.table),
+            List(ColLineage.toLowerCase(relation.to.column)),
+            isTask = false
+          )
         List(table1, table2)
       }
     tables
