@@ -221,6 +221,7 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                     source=self.source,
                     bash_command=bash_command,
                     do_xcom_push=True,
+                    **kwargs
                 )
             else:
                 container_overrides: Dict[str, Any] = {

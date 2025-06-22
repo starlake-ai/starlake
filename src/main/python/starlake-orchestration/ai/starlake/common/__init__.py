@@ -125,7 +125,7 @@ def sort_crons_by_frequency(cron_expressions, reference_time: Optional[datetime]
             flattened.append(expr)
     return (sorted_groups, flattened)
 
-sl_timestamp_format = '%Y-%m-%d %H:%M:%S%z'
+sl_timestamp_format = '%Y-%m-%dT%H:%M:%S%z'
 
 def sl_cron_start_end_dates(cron_expr: str, start_time: datetime = cron_start_time(), format: str = sl_timestamp_format) -> str:
     """
