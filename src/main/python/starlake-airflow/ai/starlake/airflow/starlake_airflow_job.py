@@ -322,11 +322,11 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                     # we take the first dag run before the scheduled date
                     dag_run = dag_runs[0]
                     previous_dag_checked = dag_run.data_interval_end
-                    print(f"Found previous non skipped dag run {dag_run.dag_id} with scheduled date {previous_dag_checked}")
+                    print(f"Found previous succeeded dag run {dag_run.dag_id} with scheduled date {previous_dag_checked}")
                     print(f"Previous dag checked event found: {previous_dag_checked}")
 
                 if not previous_dag_checked:
-                    # if the dag was never checked, we set the previous dag checked to the start date of the dag
+                    # if the dag never run successfuly, we set the previous dag checked to the start date of the dag
                     previous_dag_checked = context["dag"].start_date
                     print(f"No previous dag checked event found, we set the previous dag checked to the start date of the dag {previous_dag_checked}")
 
@@ -415,7 +415,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                                 missing_datasets.append(dataset)
                     else:
                         # we check if one dataset event at least has been published since the previous dag checked and around the scheduled date +- freshness in seconds - it should be the closest one
-                        scheduled_date_to_check_min = scheduled_date - timedelta(seconds=freshness)
+                        scheduled_date_to_check_min = previous_dag_checked - timedelta(seconds=freshness)
                         scheduled_date_to_check_max = scheduled_date + timedelta(seconds=freshness)
                         events = find_dataset_events(dataset=dataset, scheduled_date_to_check_min=scheduled_date_to_check_min, scheduled_date_to_check_max=scheduled_date_to_check_max, session=session)
                         if events:
@@ -477,7 +477,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                     # we first retrieve the scheduled datetime of all the triggering datasets
                     triggering_scheduled = {dataset.uri: get_scheduled_datetime(dataset) for dataset in triggering_datasets}
                     # then we retrieve the triggering dataset with the greatest scheduled datetime
-                    greatest_triggering_dataset: tuple = max(triggering_scheduled.items(), key=lambda x: x[1], default=(None, None))
+                    greatest_triggering_dataset: tuple = max(triggering_scheduled.items(), key=lambda x: x[1] or datetime.min, default=(None, None))
                     greatest_triggering_dataset_uri = greatest_triggering_dataset[0]
                     greatest_triggering_dataset_datetime = greatest_triggering_dataset[1]
                     # we then check the other datasets

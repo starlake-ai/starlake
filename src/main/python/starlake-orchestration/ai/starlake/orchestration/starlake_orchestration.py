@@ -480,6 +480,7 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
             task = self.sl_transform(
                 task_id=task_id, 
                 transform_name=task_name,
+                sink=task_sink,
                 params={'sink': task_sink},
             )
             self.__inner_tasks[task_id] = task
@@ -804,6 +805,12 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         kwargs['params'] = params
         kwargs.pop('spark_config', None)
         kwargs.pop('dataset', None)
+        asset = StarlakeDataset(
+            name=name, 
+            sink=f"{domain}.{table}", 
+            cron = self.cron, 
+            **kwargs
+        )
         return self.orchestration.sl_create_task(
             task_id, 
             self.job.sl_load(
@@ -811,14 +818,14 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
                 domain=domain, 
                 table=table, 
                 spark_config=self.sl_spark_config(name.lower()), 
-                dataset=StarlakeDataset(name, **kwargs),
+                dataset=asset,
                 **kwargs
             ),
             self
         )
 
     @final
-    def sl_transform(self, task_id: str, transform_name: str, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
+    def sl_transform(self, task_id: str, transform_name: str, sink: Optional[str] = None, **kwargs) -> Optional[Union[AbstractTask[T], AbstractTaskGroup[GT]]]:
         params: dict = kwargs.get('params', dict())
         params.update({
             'cron': self.cron,
@@ -830,13 +837,20 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         kwargs.pop('transform_options', None)
         kwargs.pop('spark_config', None)
         kwargs.pop('dataset', None)
+        asset = StarlakeDataset(
+            name = transform_name, 
+            cron = self.cron,
+            sink = sink,
+            **kwargs
+        )
         return self.orchestration.sl_create_task(
             task_id, 
                 self.job.sl_transform(
                 task_id=task_id, 
                 transform_name=transform_name, 
                 transform_options=self.sl_transform_options(self.computed_cron_expr), 
-                spark_config=self.sl_spark_config(transform_name.lower()),                 dataset=StarlakeDataset(transform_name, **kwargs),
+                spark_config=self.sl_spark_config(transform_name.lower()),           
+                dataset=asset,
                 **kwargs
             ),
             self
