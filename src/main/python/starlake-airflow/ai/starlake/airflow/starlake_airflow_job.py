@@ -8,7 +8,7 @@ from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSpark
 
 from ai.starlake.airflow.starlake_airflow_options import StarlakeAirflowOptions
 
-from ai.starlake.common import MissingEnvironmentVariable, get_cron_frequency, is_valid_cron, StarlakeParameters
+from ai.starlake.common import MissingEnvironmentVariable, get_cron_frequency, is_valid_cron, StarlakeParameters, sl_timestamp_format
 
 from ai.starlake.job.starlake_job import StarlakeOrchestrator
 
@@ -317,7 +317,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 return dag_runs
 
             @provide_session
-            def find_dataset_events(dataset: Dataset, scheduled_date_to_check_min: datetime, scheduled_date_to_check_max: datetime, session=None) -> List[DatasetEvent]:
+            def find_dataset_events(uri: str, scheduled_date_to_check_min: datetime, scheduled_date_to_check_max: datetime, ts: datetime, session=None) -> List[DatasetEvent]:
                 from sqlalchemy import and_, asc
                 from sqlalchemy.orm import joinedload
                 events: List[DatasetEvent] = (
@@ -325,13 +325,14 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                     .options(joinedload(DatasetEvent.dataset))
                     .join(DagRun, and_(
                         DatasetEvent.source_dag_id == DagRun.dag_id,
-                        DatasetEvent.source_run_id == DagRun.run_id
+                        DatasetEvent.source_run_id == DagRun.run_id,
+                        DatasetEvent.timestamp <= ts
                     ))
                     .join(DatasetModel, DatasetEvent.dataset_id == DatasetModel.id)
                     .filter(
                         DagRun.data_interval_end > scheduled_date_to_check_min,
                         DagRun.data_interval_end <= scheduled_date_to_check_max,
-                        DatasetModel.uri == dataset.uri
+                        DatasetModel.uri == uri
                     )
                     .order_by(asc(DagRun.data_interval_end))
                     .all()
@@ -339,7 +340,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 return events
 
             @provide_session
-            def check_datasets(scheduled_date: datetime, datasets: List[Dataset], context: Context, session=None) -> bool:
+            def check_datasets(scheduled_date: datetime, datasets: List[Dataset], ts: datetime, context: Context, session=None) -> bool:
                 from croniter import croniter
                 missing_datasets = []
                 max_scheduled_date = scheduled_date
@@ -365,6 +366,8 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 if self.data_cycle:
                     # the freshness of the data cycle is the time delta between 2 iterations of its schedule
                     data_cycle_freshness = get_cron_frequency(self.data_cycle)
+
+                print(f"Start date is {ts.strftime(sl_timestamp_format)} and scheduled date is {scheduled_date.strftime(sl_timestamp_format)}")
 
                 # we check the datasets
                 for dataset in datasets:
@@ -416,7 +419,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                                 if scheduled_datetime > max_scheduled_date:
                                     max_scheduled_date = scheduled_datetime
                         if not found:
-                            events = find_dataset_events(dataset=dataset, scheduled_date_to_check_min=scheduled_date_to_check_min, scheduled_date_to_check_max=scheduled_date_to_check_max, session=session)
+                            events = find_dataset_events(uri=dataset.uri, scheduled_date_to_check_min=scheduled_date_to_check_min, scheduled_date_to_check_max=scheduled_date_to_check_max, ts=ts, session=session)
                             if events:
                                 dataset_events = events
                                 nb_events = len(events)
@@ -447,7 +450,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                         # we check if one dataset event at least has been published since the previous dag checked and around the scheduled date +- freshness in seconds - it should be the closest one
                         scheduled_date_to_check_min = previous_dag_checked - timedelta(seconds=freshness)
                         scheduled_date_to_check_max = scheduled_date + timedelta(seconds=freshness)
-                        events = find_dataset_events(dataset=dataset, scheduled_date_to_check_min=scheduled_date_to_check_min, scheduled_date_to_check_max=scheduled_date_to_check_max, session=session)
+                        events = find_dataset_events(uri=dataset.uri, scheduled_date_to_check_min=scheduled_date_to_check_min, scheduled_date_to_check_max=scheduled_date_to_check_max, ts=ts, session=session)
                         if events:
                             dataset_events = events
                             nb_events = len(events)
@@ -496,12 +499,15 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                     context['task_instance'].xcom_push(key=StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value, value=max_scheduled_date)
                 return checked
 
-            def should_continue(**context) -> bool:
+            def should_continue(start_date: str = None, **context) -> bool:
                 triggering_datasets = get_triggering_datasets(context)
                 if not triggering_datasets:
                     print("No triggering datasets found. Manually triggered.")
                     return True
                 else:
+                    from dateutil import parser
+                    import pytz
+                    ts = parser.isoparse(start_date).astimezone(pytz.timezone('UTC'))
                     triggering_uris = {dataset.uri: dataset for dataset in triggering_datasets}
                     datasets_uris = {dataset.uri: dataset for dataset in datasets}
                     # we first retrieve the scheduled datetime of all the triggering datasets
@@ -515,7 +521,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                     checking_triggering_datasets = [dataset for dataset in triggering_datasets if dataset.uri in checking_uris]
                     checking_missing_datasets = [dataset for dataset in datasets if dataset.uri in list(set(checking_uris) - set(triggering_uris.keys()))]
                     checking_datasets = checking_triggering_datasets + checking_missing_datasets
-                    return check_datasets(greatest_triggering_dataset_datetime, checking_datasets, context)
+                    return check_datasets(greatest_triggering_dataset_datetime, checking_datasets, ts, context)
 
             inlets: list = kwargs.get("inlets", [])
             inlets += datasets
@@ -528,7 +534,9 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 return ShortCircuitOperator(
                         task_id = "start",
                         python_callable = should_continue,
-                        op_args=[],
+                        op_args=[
+                            "{{ dag_run.start_date }}"
+                        ],
                         op_kwargs=kwargs,
                         trigger_rule = 'all_done',
                         **kwargs
@@ -704,7 +712,6 @@ class StarlakeDatasetMixin:
         outlets: list = kwargs.get("outlets", [])
         extra = dict()
         extra.update({"source": source})
-        self.ts = "{{ data_interval_end | ts }}"
         if dataset:
             if isinstance(dataset, StarlakeDataset):
                 params.update({
@@ -741,7 +748,7 @@ class StarlakeDatasetMixin:
                 self.scheduled_date = "{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts), params.previous)}}"
             outlets.append(Dataset(uri=uri, extra=extra))
             kwargs["outlets"] = outlets
-            self.template_fields = getattr(self, "template_fields", tuple()) + ("scheduled_dataset", "scheduled_date", "ts",)
+            self.template_fields = getattr(self, "template_fields", tuple()) + ("scheduled_dataset", "scheduled_date",)
         else:
             self.scheduled_dataset = None
             self.scheduled_date = None
@@ -749,8 +756,16 @@ class StarlakeDatasetMixin:
         super().__init__(task_id=task_id, **kwargs)  # Appelle l'init de l'opérateur principal
 
     @prepare_lineage
-    def pre_execute(self, context):
-        self.extra.update({"ts": self.ts})
+    def pre_execute(self, context: Context):
+        if not context:
+            from airflow.operators.python import get_current_context
+            context = get_current_context()
+
+        from airflow.models.taskinstance import TaskInstance
+        ti: TaskInstance = context.get('ti')
+        ts: datetime = ti.start_date
+
+        self.extra.update({"ts": ts.strftime(sl_timestamp_format)})
         if self.scheduled_date:
             self.extra.update({StarlakeParameters.SCHEDULED_DATE_PARAMETER.value: self.scheduled_date})
         if self.scheduled_dataset:
