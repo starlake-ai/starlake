@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple, Union
 
-from ai.starlake.common import MissingEnvironmentVariable
+from ai.starlake.common import MissingEnvironmentVariable, StarlakeParameters
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions, StarlakeOrchestrator, StarlakeExecutionEnvironment, TaskType
 
@@ -622,8 +622,8 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                         if dry_run:
                             print(f"-- Executing transform for {sink} in dry run mode")
 
-                        sl_start_date = None
-                        sl_end_date = None
+                        sl_data_interval_start = None
+                        sl_data_interval_end = None
                         # check if the task is a backfill
                         backfill: bool = False
                         if allow_overlapping_execution and not dry_run:
@@ -633,22 +633,22 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             if partition_start:
                                 if isinstance(partition_start, str):
                                     from dateutil import parser
-                                    sl_start_date = parser.parse(partition_start)
+                                    sl_data_interval_start = parser.parse(partition_start)
                                 else:
-                                    sl_start_date = partition_start
+                                    sl_data_interval_start = partition_start
                             elif not dry_run:
                                 raise ValueError("Error getting the partition start date and time of the initial graph run")
                             partition_end = session.call("system$task_runtime_info", "PARTITION_END")
                             if partition_end:
                                 if isinstance(partition_end, str):
                                     from dateutil import parser
-                                    sl_end_date = parser.parse(partition_end)
+                                    sl_data_interval_end = parser.parse(partition_end)
                                 else:
-                                    sl_end_date = partition_end
+                                    sl_data_interval_end = partition_end
                             elif not dry_run:
                                 raise ValueError("Error getting the partition end date and time of the initial graph run")
 
-                        if cron_expr and (not sl_start_date or not sl_end_date):
+                        if cron_expr and (not sl_data_interval_start or not sl_data_interval_end):
                             from croniter import croniter
                             from croniter.croniter import CroniterBadCronError
                             # get the original scheduled timestamp of the initial graph run in the current group
@@ -687,15 +687,15 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                 previous = iter.get_prev(datetime)
                                 next = croniter(cron_expr, previous).get_next(datetime)
                                 if curr == next :
-                                    sl_end_date = curr
+                                    sl_data_interval_end = curr
                                 else:
-                                    sl_end_date = previous
-                                sl_start_date = croniter(cron_expr, sl_end_date).get_prev(datetime)
+                                    sl_data_interval_end = previous
+                                sl_data_interval_start = croniter(cron_expr, sl_data_interval_end).get_prev(datetime)
                             except CroniterBadCronError:
                                 raise ValueError(f"Invalid cron expression: {cron_expr}")
 
-                        if sl_start_date and sl_end_date:
-                            safe_params.update({'sl_start_date': sl_start_date.strftime(format), 'sl_end_date': sl_end_date.strftime(format)})
+                        if sl_data_interval_start and sl_data_interval_end:
+                            safe_params.update({StarlakeParameters.DATA_INTERVAL_START_PARAMETER.value: sl_data_interval_start.strftime(format), StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value: sl_data_interval_end.strftime(format)})
 
                         if dry_run:
                             jobid = sink

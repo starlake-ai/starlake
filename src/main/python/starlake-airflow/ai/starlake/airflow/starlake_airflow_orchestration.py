@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ai.starlake.airflow.starlake_airflow_job import StarlakeAirflowJob, AirflowDataset, supports_inlet_events
 
-from ai.starlake.common import sl_cron_start_end_dates, sl_scheduled_date, sl_scheduled_dataset, sl_timestamp_format
+from ai.starlake.common import sl_cron_start_end_dates, sl_scheduled_date, sl_scheduled_dataset, sl_timestamp_format, StarlakeParameters
 
 from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
@@ -56,7 +56,7 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
                 from airflow.operators.python import get_current_context
                 context = get_current_context()
             ti = context["task_instance"]
-            sl_logical_date = ti.xcom_pull(task_ids="start", key="sl_logical_date")
+            sl_logical_date = ti.xcom_pull(task_ids="start", key=StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value)
             if sl_logical_date:
                 ts = sl_logical_date
             if isinstance(ts, str):
@@ -72,10 +72,10 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
                 from airflow.operators.python import get_current_context
                 context = get_current_context()
             ti = context["task_instance"]
-            sl_start_date = ti.xcom_pull(task_ids="start", key="sl_previous_logical_date")
-            sl_end_date = ti.xcom_pull(task_ids="start", key="sl_logical_date")
-            if sl_start_date and sl_end_date:
-                return f"sl_start_date='{sl_start_date.strftime(sl_timestamp_format)}',sl_end_date='{sl_end_date.strftime(sl_timestamp_format)}'"
+            sl_data_interval_start = ti.xcom_pull(task_ids="start", key=StarlakeParameters.DATA_INTERVAL_START_PARAMETER.value)
+            sl_data_interval_end = ti.xcom_pull(task_ids="start", key=StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value)
+            if sl_data_interval_start and sl_data_interval_end:
+                return f"{StarlakeParameters.DATA_INTERVAL_START_PARAMETER.value}='{sl_data_interval_start.strftime(sl_timestamp_format)}',{StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value}='{sl_data_interval_end.strftime(sl_timestamp_format)}'"
             return sl_cron_start_end_dates(cron_expr, start_time, sl_timestamp_format)
 
         user_defined_macros = kwargs.get('user_defined_macros', job.caller_globals.get('user_defined_macros', dict()))
@@ -91,18 +91,22 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
         access_control = kwargs.get('access_control', job.caller_globals.get('access_control', None))
         kwargs.pop('access_control', None)
 
+        j: StarlakeAirflowJob = job
+        max_active_runs: int = j.max_active_runs
+
         self.dag = DAG(
             dag_id=self.pipeline_id, 
             schedule=airflow_schedule,
             catchup=self.catchup,
             tags=list(set([tag.upper() for tag in self.tags])), 
-            default_args=job.caller_globals.get('default_dag_args', job.default_dag_args()),
+            default_args={**job.default_dag_args(), **job.caller_globals.get('default_dag_args', {})},
             description=job.caller_globals.get('description', ""),
             start_date=job.start_date,
             end_date=job.end_date,
             user_defined_macros=user_defined_macros,
             user_defined_filters=user_defined_filters,
             access_control=access_control,
+            max_active_runs=max_active_runs,
             **kwargs
         )
 

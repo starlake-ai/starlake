@@ -346,6 +346,8 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
 
         self.__datasets = datasets
 
+        self.__assets: List[StarlakeDataset] = []
+
         if add_dag_dependency:
             TaskLinker = Callable[[Union[T, GT], Union[T, GT]], Any]
             self.__add_dag_dependency: TaskLinker = add_dag_dependency
@@ -586,6 +588,11 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         return self.__datasets
 
     @final
+    @property
+    def assets(self) -> List[StarlakeDataset]:
+        return self.__assets
+
+    @final
     def find_dataset_by_name(self, name: str) -> Optional[StarlakeDataset]:
         return next((dataset for dataset in self.datasets or [] if dataset.name == name), None)
 
@@ -811,6 +818,8 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
             cron = self.cron, 
             **kwargs
         )
+        if asset not in self.assets:
+            self.__assets.append(asset)
         return self.orchestration.sl_create_task(
             task_id, 
             self.job.sl_load(
@@ -843,13 +852,15 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
             sink = sink,
             **kwargs
         )
+        if asset not in self.assets:
+            self.__assets.append(asset)
         return self.orchestration.sl_create_task(
             task_id, 
                 self.job.sl_transform(
                 task_id=task_id, 
                 transform_name=transform_name, 
                 transform_options=self.sl_transform_options(self.computed_cron_expr), 
-                spark_config=self.sl_spark_config(transform_name.lower()),           
+                spark_config=self.sl_spark_config(transform_name.lower()),
                 dataset=asset,
                 **kwargs
             ),

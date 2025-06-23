@@ -127,7 +127,7 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
 
             spark_events_bucket = f'dataproc-{self.cluster_config.project_id}'
 
-            from airflow.providers.google.cloud.operators.dataproc import     DataprocCreateClusterOperator
+            from airflow.providers.google.cloud.operators.dataproc import DataprocCreateClusterOperator
 
             cluster = DataprocCreateClusterOperator(
                 task_id=task_id,
@@ -141,8 +141,8 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
                 region=self.cluster_config.region,
                 **kwargs
             )
-            # Store the cluster in the clusters dictionary
-            self.clusters[cluster_name] = cluster
+
+            self.clusters.update({cluster_name: cluster})
 
         return cluster
 
@@ -177,7 +177,7 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
         cluster = self.clusters.get(cluster_name, None)
 
         if cluster:
-            # setup/teardown as of Apache Airflow 2.7.0
+            # setup/teardown as of Apache Airflow v2.7.0
             delete_cluster = delete_cluster.as_teardown(setups = cluster)
 
         return delete_cluster

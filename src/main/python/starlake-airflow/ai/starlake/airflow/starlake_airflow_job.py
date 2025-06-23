@@ -8,7 +8,7 @@ from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSpark
 
 from ai.starlake.airflow.starlake_airflow_options import StarlakeAirflowOptions
 
-from ai.starlake.common import MissingEnvironmentVariable, get_cron_frequency, is_valid_cron
+from ai.starlake.common import MissingEnvironmentVariable, get_cron_frequency, is_valid_cron, StarlakeParameters
 
 from ai.starlake.job.starlake_job import StarlakeOrchestrator
 
@@ -33,6 +33,8 @@ from airflow.utils.session import provide_session
 from airflow.utils.task_group import TaskGroup
 
 import logging
+
+import pytz
 
 DEFAULT_POOL:str ="default_pool"
 
@@ -73,9 +75,9 @@ class AirflowDataset(AbstractEvent[Dataset]):
     @classmethod
     def to_event(cls, dataset: StarlakeDataset, source: Optional[str] = None) -> Dataset:
         extra = {
-            "uri": dataset.uri,
-            "cron": dataset.cron,
-            "freshness": dataset.freshness,
+            StarlakeParameters.URI_PARAMETER.value: dataset.uri,
+            StarlakeParameters.CRON_PARAMETER.value: dataset.cron,
+            StarlakeParameters.FRESHNESS_PARAMETER.value: dataset.freshness,
         }
         if source:
             extra["source"] = source
@@ -93,7 +95,16 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         super().__init__(filename, module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
         self.outlets: List[Dataset] = kwargs.get('outlets', [])
-        sd = __class__.get_context_var(var_name='start_date', default_value="2024-11-1", options=self.options)
+        import sys
+        module = sys.modules.get(module_name)
+        if module and hasattr(module, '__file__'):
+            import os
+            file_path = module.__file__
+            stat = os.stat(file_path)
+            default_start_date = datetime.fromtimestamp(stat.st_mtime, tz=pytz.timezone('UTC')).strftime('%Y-%m-%d')
+        else:
+            default_start_date = datetime.now().strftime('%Y-%m-%d')
+        sd = __class__.get_context_var(var_name='start_date', default_value=default_start_date, options=self.options)
         import re
         pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
         if pattern.fullmatch(sd):
@@ -115,6 +126,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         self.__data_cycle_enabled = str(__class__.get_context_var(var_name='data_cycle_enabled', default_value="false", options=self.options)).strip().lower() == "true"
         self.data_cycle = str(__class__.get_context_var(var_name='data_cycle', default_value="none", options=self.options))
         self.__beyond_data_cycle_enabled = str(__class__.get_context_var(var_name='beyond_data_cycle_enabled', default_value="true", options=self.options)).strip().lower() == "true"
+        self.__max_active_runs = int(__class__.get_context_var(var_name='max_active_runs', default_value="3", options=self.options))
 
     @property
     def start_date(self) -> datetime:
@@ -169,6 +181,11 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
     def beyond_data_cycle_enabled(self) -> bool:
         """whether the beyond data cycle feature is enabled or not."""
         return self.__beyond_data_cycle_enabled
+
+    @property
+    def max_active_runs(self) -> int:
+        """Get maximum active DAG execution runs"""
+        return self.__max_active_runs
 
     @classmethod
     def sl_orchestrator(cls) -> Union[StarlakeOrchestrator, str]:
@@ -225,13 +242,27 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
 
             def get_scheduled_datetime(dataset: Dataset) -> Optional[datetime]:
                 extra = dataset.extra or {}
-                scheduled_date = extra.get("scheduled_date", None)
+                scheduled_date = extra.get(StarlakeParameters.SCHEDULED_DATE_PARAMETER.value, extra.get('scheduled_date', None))
+                if not scheduled_date:
+                    # for backward compatibility
+                    from urllib.parse import urlparse, parse_qs
+                    parsed_url = urlparse(dataset.uri)
+                    query_string = parsed_url.query
+                    params = parse_qs(query_string)
+                    scheduled_dates = params.get(StarlakeParameters.SCHEDULED_DATE_PARAMETER.value, params.get('sl_schedule', None))
+                    if scheduled_dates:
+                        try:
+                            from ai.starlake.common import sl_schedule_format
+                            scheduled_date = scheduled_dates[-1]
+                            return datetime.strptime(scheduled_date, sl_schedule_format).replace(tzinfo=pytz.timezone('UTC'))
+                        except Exception:
+                            scheduled_date = None
                 if scheduled_date:
                     from dateutil import parser
-                    import pytz
                     return parser.isoparse(scheduled_date).astimezone(pytz.timezone('UTC'))
                 else:
-                    raise ValueError(f"Dataset {dataset.uri} has no scheduled date in its extra data. Please ensure that the dataset has a 'scheduled_date' key in its extra data.")
+                    print(f"Dataset {dataset.uri} has no scheduled date in its extra data. Please ensure that the dataset has a '{StarlakeParameters.SCHEDULED_DATE_PARAMETER.value}' key in its extra data.")
+                    return None
 
             def get_triggering_datasets(context: Context = None) -> List[Dataset]:
 
@@ -328,7 +359,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 if not previous_dag_checked:
                     # if the dag never run successfuly, we set the previous dag checked to the start date of the dag
                     previous_dag_checked = context["dag"].start_date
-                    print(f"No previous dag checked event found, we set the previous dag checked to the start date of the dag {previous_dag_checked}")
+                    print(f"No previous succeeded dag run found, we set the previous dag checked to the start date of the dag {previous_dag_checked}")
 
                 data_cycle_freshness = None
                 if self.data_cycle:
@@ -338,10 +369,10 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 # we check the datasets
                 for dataset in datasets:
                     extra = dataset.extra or {}
-                    original_cron = extra.get("cron", None)
+                    original_cron = extra.get(StarlakeParameters.CRON_PARAMETER.value, None)
                     cron = original_cron or self.data_cycle
                     scheduled = cron and is_valid_cron(cron)
-                    freshness = int(extra.get("freshness", 0))
+                    freshness = int(extra.get(StarlakeParameters.FRESHNESS_PARAMETER.value, 0))
                     optional = False
                     beyond_data_cycle_allowed = False
                     if data_cycle_freshness:
@@ -408,7 +439,6 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                                             if scheduled_datetime > max_scheduled_date:
                                                 max_scheduled_date = scheduled_datetime
                                             break
-
                                     else:
                                         i += 1
                             if not found:
@@ -461,9 +491,9 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 if checked:
                     print(f"All datasets checked: {', '.join([dataset.uri for dataset in datasets])}")
                     print(f"Starlake start date will be set to {previous_dag_checked}")
-                    context['task_instance'].xcom_push(key='sl_logical_date', value=max_scheduled_date)
+                    context['task_instance'].xcom_push(key=StarlakeParameters.DATA_INTERVAL_START_PARAMETER.value, value=previous_dag_checked)
                     print(f"Starlake end date will be set to {max_scheduled_date}")
-                    context['task_instance'].xcom_push(key='sl_previous_logical_date', value=previous_dag_checked)
+                    context['task_instance'].xcom_push(key=StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value, value=max_scheduled_date)
                 return checked
 
             def should_continue(**context) -> bool:
@@ -671,7 +701,7 @@ class StarlakeDatasetMixin:
                  ) -> None:
         self.task_id = task_id
         params: dict = kwargs.get("params", dict())
-        outlets = kwargs.get("outlets", [])
+        outlets: list = kwargs.get("outlets", [])
         extra = dict()
         extra.update({"source": source})
         self.ts = "{{ data_interval_end | ts }}"
@@ -686,10 +716,10 @@ class StarlakeDatasetMixin:
                 })
                 kwargs['params'] = params
                 extra.update({
-                    'uri': dataset.uri,
-                    'cron': dataset.cron,
-                    'sink': dataset.sink,
-                    'freshness': dataset.freshness,
+                    StarlakeParameters.URI_PARAMETER.value: dataset.uri,
+                    StarlakeParameters.SINK_PARAMETER.value: dataset.sink,
+                    StarlakeParameters.CRON_PARAMETER.value: dataset.cron,
+                    StarlakeParameters.FRESHNESS_PARAMETER.value: dataset.freshness,
                 })
                 if dataset.cron: # if the dataset is scheduled
                     self.scheduled_dataset = "{{sl_scheduled_dataset(params.uri, params.cron, ts_as_datetime(data_interval_end | ts), params.sl_schedule_parameter_name, params.sl_schedule_format, params.previous)}}"
@@ -701,7 +731,7 @@ class StarlakeDatasetMixin:
                 self.scheduled_dataset = None
                 uri = dataset
                 params.update({
-                    'uri': dataset,
+                    'uri': uri,
                     'cron': None,
                     'sl_schedule_parameter_name': None,
                     'sl_schedule_format': None,
@@ -722,7 +752,7 @@ class StarlakeDatasetMixin:
     def pre_execute(self, context):
         self.extra.update({"ts": self.ts})
         if self.scheduled_date:
-            self.extra.update({"scheduled_date": self.scheduled_date})
+            self.extra.update({StarlakeParameters.SCHEDULED_DATE_PARAMETER.value: self.scheduled_date})
         if self.scheduled_dataset:
             dataset = Dataset(uri=self.scheduled_dataset, extra=self.extra)
             self.outlets.append(dataset)
