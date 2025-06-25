@@ -28,6 +28,8 @@ application:
       options:
         url: "jdbc:duckdb:{{SL_ROOT}}/datasets/duckdb.db" # Location of the DuckDB database
         driver: "org.duckdb.DuckDBDriver"
+        # to use ducklake, install the ducklake extension as follows:
+        # preActions: "INSTALL ducklake;LOAD ducklake;ATTACH 'ducklake:metadata.ducklake' AS my_ducklake (DATA_PATH '/Users/me/datasets/ducklake/');USE my_ducklake;"
     bigquery:
       # When accessing from your desktop, do not forget to set GOOGLE_APPLICATION_CREDENTIALS to your application credentials file
       # example on MacOS: export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default.json"
