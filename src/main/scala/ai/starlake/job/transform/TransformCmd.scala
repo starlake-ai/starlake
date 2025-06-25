@@ -52,7 +52,9 @@ trait TransformCmd extends Cmd[TransformConfig] {
         .opt[String]("interactive")
         .action((x, c) => c.copy(interactive = Some(x)))
         .optional()
-        .text("Run query without sinking the result"),
+        .text(
+          "Run query without sinking the result. Valid parameters are: `csv`, `json`, `table`, `json-array`"
+        ),
       builder
         .opt[Unit]("reload")
         .action((_, c) => c.copy(reload = true))
