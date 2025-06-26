@@ -99,6 +99,8 @@ Common.enableStarlakeAliases
 
 enablePlugins(Common.starlakePlugins: _*)
 
+buildInfoPackage := "ai.starlake.buildinfo"
+
 
 scalacOptions ++= {
   val extractOptions = {

@@ -1,0 +1,11 @@
+---
+version: 1
+dag:
+    comment: "dag for transforming all {{domain}} tasks"
+    template: "transform/airflow__scheduled_task__shell.py.j2"
+    filename: "airflow_{{domain}}_tasks.py"
+    options:
+        sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
+        SL_STARLAKE_PATH: "starlake"
+        tags: "{{domain}}"
+        load_dependencies: "False"
