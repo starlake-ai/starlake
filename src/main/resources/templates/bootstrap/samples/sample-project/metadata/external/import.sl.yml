@@ -4,7 +4,7 @@ extract:
   jdbcSchemas:
     - schema: "starbake"
       tables:
-        - name: "*"               # table names or  "*" to extract all tables
+        - name: "*"               # table names or  "*" to extract all table schemas
       tableTypes:                 # (optional)  table types to extract
         - "TABLE"
         #- "VIEW"
