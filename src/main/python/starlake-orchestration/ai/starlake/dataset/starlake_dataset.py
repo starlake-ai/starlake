@@ -135,3 +135,22 @@ class AbstractEvent(Generic[E]):
     @abstractmethod
     def to_event(cls, dataset: StarlakeDataset, source: Optional[str] = None) -> E:
         pass
+
+from enum import Enum
+
+class DatasetTriggeringStrategy(str, Enum):
+    ALL = "all"
+    ANY = "any"
+
+    @classmethod
+    def is_valid(cls, strategy: str) -> bool:
+        """Validate a dataset triggering strategy."""
+        return strategy in cls.all_strategies()
+
+    @classmethod
+    def all_strategies(cls) -> set[str]:
+        """Return all dataset triggering strategies."""
+        return set(cls.__members__.values())
+
+    def __str__(self):
+        return self.value
