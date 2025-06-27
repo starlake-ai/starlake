@@ -2,7 +2,7 @@ from ai.starlake.dagster.starlake_dagster_job import StarlakeDagsterJob, Dagster
 
 from ai.starlake.common import sl_timestamp_format, sl_scheduled_date, is_valid_cron, get_cron_frequency, StarlakeParameters
 
-from ai.starlake.dataset import StarlakeDataset
+from ai.starlake.dataset import StarlakeDataset, DatasetTriggeringStrategy
 
 from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
@@ -48,8 +48,12 @@ class DagsterOrchestration(AbstractOrchestration[JobDefinition, OpDefinition, Gr
 
             def multi_asset_sensor_with_skip_reason(context: MultiAssetSensorEvaluationContext):
                 asset_events = context.latest_materialization_records_by_key()
+                if self.job.dataset_triggering_strategy == DatasetTriggeringStrategy.ANY:
+                    events_checked = any(asset_events.values())
+                else:
+                    events_checked = all(asset_events.values())
                 # If there are no asset events, we skip the run
-                if any(asset_events.values()):
+                if events_checked:
                     # we first retrieve the materialized events
                     materialized_events = {key.to_user_string(): event for key, event in asset_events.items() if event}
 
