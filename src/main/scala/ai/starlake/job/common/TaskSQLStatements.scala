@@ -28,7 +28,7 @@ case class TaskSQLStatements(
       "preSqls"            -> preSqls.asJava,
       "mainSqlIfExists"    -> mainSqlIfExists.asJava,
       "mainSqlIfNotExists" -> mainSqlIfNotExists.asJava,
-      "postSqls"           -> postSqls.asJava,
+      "postsql"           -> postSqls.asJava,
       "addSCD2ColumnsSqls" -> addSCD2ColumnsSqls.asJava,
       "connectionType"     -> List(connectionType.toString).asJava
     )

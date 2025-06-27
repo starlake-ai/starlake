@@ -398,6 +398,5 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
         val sql = buildCopyOther(domainAndTableName, format.toString.toUpperCase())
         JdbcDbUtils.executeQueryAsMap(sql, conn)
     }
-
   }
 }
