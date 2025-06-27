@@ -4,6 +4,8 @@ from ai.starlake.airflow.starlake_airflow_job import StarlakeAirflowJob, Airflow
 
 from ai.starlake.common import sl_cron_start_end_dates, sl_scheduled_date, sl_scheduled_dataset, sl_timestamp_format, StarlakeParameters
 
+from ai.starlake.dataset import DatasetTriggeringStrategy
+
 from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
 from ai.starlake.orchestration import AbstractOrchestration, StarlakeSchedule, StarlakeDependencies, AbstractPipeline, AbstractTaskGroup, AbstractTask
@@ -37,6 +39,14 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
 
         events = self.events
 
+        j: StarlakeAirflowJob = job
+        max_active_runs: int = j.max_active_runs
+
+        default_args = {
+            **job.default_dag_args(), 
+            **job.caller_globals.get('default_dag_args', {})
+        }
+
         # AssetOrTimeSchedule is not supported yet within SL
         if self.cron is not None:
             airflow_schedule = self.cron
@@ -44,8 +54,13 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
             if not supports_inlet_events():
                 airflow_schedule = events
             else:
+                max_active_runs = 1
+                default_args.update({'max_active_runs': 1})
                 from functools import reduce
-                airflow_schedule = reduce(lambda a, b: a | b, events)
+                if job.dataset_triggering_strategy == DatasetTriggeringStrategy.ANY:
+                    airflow_schedule = reduce(lambda a, b: a | b, events)
+                else:
+                    airflow_schedule = reduce(lambda a, b: a & b, events)
                 if self.job.data_cycle_enabled and not self.job.data_cycle:
                     self.job.data_cycle = self.computed_cron_expr
                     
@@ -91,15 +106,12 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
         access_control = kwargs.get('access_control', job.caller_globals.get('access_control', None))
         kwargs.pop('access_control', None)
 
-        j: StarlakeAirflowJob = job
-        max_active_runs: int = j.max_active_runs
-
         self.dag = DAG(
             dag_id=self.pipeline_id, 
             schedule=airflow_schedule,
             catchup=self.catchup,
             tags=list(set([tag.upper() for tag in self.tags])), 
-            default_args={**job.default_dag_args(), **job.caller_globals.get('default_dag_args', {})},
+            default_args=default_args,
             description=job.caller_globals.get('description', ""),
             start_date=job.start_date,
             end_date=job.end_date,
