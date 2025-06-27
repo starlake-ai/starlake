@@ -32,6 +32,8 @@ from airflow.utils.session import provide_session
 
 from airflow.utils.task_group import TaskGroup
 
+from sqlalchemy.orm.session import Session
+
 import logging
 
 import pytz
@@ -127,6 +129,8 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         self.data_cycle = str(__class__.get_context_var(var_name='data_cycle', default_value="none", options=self.options))
         self.__beyond_data_cycle_enabled = str(__class__.get_context_var(var_name='beyond_data_cycle_enabled', default_value="true", options=self.options)).strip().lower() == "true"
         self.__max_active_runs = int(__class__.get_context_var(var_name='max_active_runs', default_value="3", options=self.options))
+        min_timedelta_between_runs = int(__class__.get_context_var(var_name='min_timedelta_between_runs', default_value=15*60, options=self.options))
+        self.__min_timedelta_between_runs = min_timedelta_between_runs
 
     @property
     def start_date(self) -> datetime:
@@ -186,6 +190,11 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
     def max_active_runs(self) -> int:
         """Get maximum active DAG execution runs"""
         return self.__max_active_runs
+
+    @property
+    def min_timedelta_between_runs(self) -> int:
+        """Get minimum time delta in seconds between two consecutive runs"""
+        return self.__min_timedelta_between_runs
 
     @classmethod
     def sl_orchestrator(cls) -> Union[StarlakeOrchestrator, str]:
@@ -300,24 +309,24 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 return list(dataset_uris.values())
 
             @provide_session
-            def find_previous_dag_runs(scheduled_date: datetime, session=None) -> List[DagRun]:
+            def find_previous_dag_runs(scheduled_date: datetime, session: Session=None) -> List[DagRun]:
                 # we look for the first non skipped dag run before the scheduled date 
                 from airflow.utils.state import State
-                dag_runs = (
+                dag_runs: List[DagRun] = (
                     session.query(DagRun)
                     .filter(
                         DagRun.dag_id == dag_id,
                         DagRun.state == State.SUCCESS,
                         DagRun.data_interval_end < scheduled_date
                     )
-                    .order_by(DagRun.data_interval_end.desc())
+                    .order_by(DagRun.data_interval_end.desc(), DagRun.start_date.desc())
                     .limit(1)
                     .all()
                 )
                 return dag_runs
 
             @provide_session
-            def find_dataset_events(uri: str, scheduled_date_to_check_min: datetime, scheduled_date_to_check_max: datetime, ts: datetime, session=None) -> List[DatasetEvent]:
+            def find_dataset_events(uri: str, scheduled_date_to_check_min: datetime, scheduled_date_to_check_max: datetime, ts: datetime, session: Session=None) -> List[DatasetEvent]:
                 from sqlalchemy import and_, asc
                 from sqlalchemy.orm import joinedload
                 events: List[DatasetEvent] = (
@@ -340,27 +349,37 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 return events
 
             @provide_session
-            def check_datasets(scheduled_date: datetime, datasets: List[Dataset], ts: datetime, context: Context, session=None) -> bool:
+            def check_datasets(scheduled_date: datetime, datasets: List[Dataset], ts: datetime, context: Context, session: Session=None) -> bool:
                 from croniter import croniter
                 missing_datasets = []
                 max_scheduled_date = scheduled_date
 
                 previous_dag_checked: Optional[datetime] = None
+                previous_dag_ts: Optional[datetime] = None
 
-                # we look for the first non skipped dag run before the scheduled date 
+                # we look for the first succeeded dag run before the scheduled date 
                 dag_runs = find_previous_dag_runs(scheduled_date=scheduled_date, session=session)
 
                 if dag_runs and len(dag_runs) > 0:
                     # we take the first dag run before the scheduled date
                     dag_run = dag_runs[0]
                     previous_dag_checked = dag_run.data_interval_end
-                    print(f"Found previous succeeded dag run {dag_run.dag_id} with scheduled date {previous_dag_checked}")
+                    previous_dag_ts = dag_run.start_date
+                    print(f"Found previous succeeded dag run {dag_run.dag_id} with scheduled date {previous_dag_checked} and start date {previous_dag_ts}")
                     print(f"Previous dag checked event found: {previous_dag_checked}")
 
                 if not previous_dag_checked:
-                    # if the dag never run successfuly, we set the previous dag checked to the start date of the dag
+                    # if the dag never run successfuly, 
+                    # we set the previous dag checked to the start date of the dag
                     previous_dag_checked = context["dag"].start_date
                     print(f"No previous succeeded dag run found, we set the previous dag checked to the start date of the dag {previous_dag_checked}")
+
+                if previous_dag_ts:
+                    diff: timedelta = ts - previous_dag_ts
+                    if diff.seconds <= self.min_timedelta_between_runs:
+                        # we just run successfuly this dag, we should skip the current execution
+                        print(f"A previous succeeded dag run was found and started less than {self.min_timedelta_between_runs} seconds ago ({diff.seconds} seconds)... The current DAG execution will be skipped")
+                        return False
 
                 data_cycle_freshness = None
                 if self.data_cycle:
@@ -539,6 +558,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                         ],
                         op_kwargs=kwargs,
                         trigger_rule = 'all_done',
+                        max_active_tis_per_dag = 1,
                         **kwargs
                     )
             else:
