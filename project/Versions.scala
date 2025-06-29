@@ -30,7 +30,7 @@ object Versions {
   val h2 = "2.3.232" // Test only
   val poi = "4.1.2"
   val scalate = "1.9.8"
-  val kafkaClients = "7.7.3-ce"
+  val kafkaClients = "7.7.4-ce"
   val confluentVersion = "7.7.3"
   val testContainers = "0.41.8"
   val gcpDataCatalog = "1.73.0"
