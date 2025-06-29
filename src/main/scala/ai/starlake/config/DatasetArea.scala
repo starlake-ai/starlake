@@ -216,6 +216,9 @@ object DatasetArea extends StrictLogging {
   def build(implicit settings: Settings): Path =
     new Path(metadata, ".build")
 
+  def keys(implicit settings: Settings): Path =
+    new Path(metadata, ".keys")
+
   def writeStrategies(implicit settings: Settings): Path =
     new Path(settings.appConfig.writeStrategies)
 

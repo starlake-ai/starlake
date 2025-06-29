@@ -1,26 +1,26 @@
 package ai.starlake.job.sink.bigquery
-import ai.starlake.config.Settings
-import ai.starlake.job.sink.bigquery.BigQueryJobBase.projectId
+import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model
-import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
+import ai.starlake.schema.model.{Schema as _, TableInfo as _, *}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{GcpCredentials, Utils}
 import better.files.File
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.gax.core.FixedCredentialsProvider
-import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
-import com.google.cloud.datacatalog.v1._
+import com.google.cloud.bigquery.{Schema as BQSchema, TableInfo as BQTableInfo, *}
+import com.google.cloud.datacatalog.v1.*
 import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.{
-  GoogleCredentials => GcsGoogleCredentials,
-  ServiceAccountCredentials => GcsServiceAccountCredentials,
-  UserCredentials => GcsUserCredentials
+  GoogleCredentials as GcsGoogleCredentials,
+  ServiceAccountCredentials as GcsServiceAccountCredentials,
+  UserCredentials as GcsUserCredentials
 }
-import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.{Credentials => GcsCredentials}
+import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.Credentials as GcsCredentials
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.storage.{Storage, StorageOptions}
 import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
 import com.google.common.base.VerifyException
-import com.google.iam.v1.{Binding, Policy => IAMPolicy, SetIamPolicyRequest}
+import com.google.iam.v1.{Binding, Policy as IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.DataFrame
@@ -31,7 +31,7 @@ import java.util
 import java.util.concurrent.TimeoutException
 import scala.annotation.nowarn
 import scala.collection.mutable
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
 /** Base class for BigQuery jobs
@@ -52,7 +52,7 @@ trait BigQueryJobBase extends StrictLogging {
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
 
-  private def policyClient(): PolicyTagManagerClient = {
+  private def policyClient()(implicit settings: Settings): PolicyTagManagerClient = {
     val credentials = GcpCredentials.credentials(connectionOptions)
     val policySettings =
       credentials match {
@@ -100,12 +100,13 @@ trait BigQueryJobBase extends StrictLogging {
     _gcsStorage match {
       case None =>
         logger.info(s"Getting GCS credentials for connection $connectionName")
-        val project = projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase)
+        val project =
+          BigQueryJobBase.projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase)
         StorageOptions.newBuilder.setProjectId(project).build.getService
         val gcsOptionsBuilder = StorageOptions.newBuilder()
         val credentials = BigQueryJobBase.gcsCredentials(connectionOptions)
         val gcsOptions = gcsOptionsBuilder.setProjectId(
-          projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase)
+          BigQueryJobBase.projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase)
         )
         val gcsService = gcsOptions
           .setCredentials(credentials)
@@ -222,7 +223,7 @@ trait BigQueryJobBase extends StrictLogging {
   )(implicit settings: Settings): (String, String, String, String) = {
     val taxonomyProjectId =
       if (settings.appConfig.accessPolicies.database == "invalid_project") {
-        projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase)
+        BigQueryJobBase.projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase)
       } else
         settings.appConfig.accessPolicies.database
 
@@ -442,7 +443,7 @@ trait BigQueryJobBase extends StrictLogging {
       val datasetId = datasetName match {
         case Some(name) =>
           DatasetId.of(
-            projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase),
+            BigQueryJobBase.projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase),
             name
           )
         case None => this.datasetId
@@ -626,7 +627,8 @@ trait BigQueryJobBase extends StrictLogging {
           case datasetName :: tableName :: Nil =>
             Some(
               TableId.of(
-                projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase),
+                BigQueryJobBase
+                  .projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase),
                 datasetName,
                 tableName
               )
@@ -840,7 +842,8 @@ trait BigQueryJobBase extends StrictLogging {
             val tableIdPk =
               TableId.of(
                 cliConfig.outputDatabase.getOrElse(
-                  projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase)
+                  BigQueryJobBase
+                    .projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase)
                 ),
                 domain,
                 table
@@ -1024,7 +1027,9 @@ object BigQueryJobBase extends StrictLogging {
     scala.Option(System.getProperty(envVar, System.getenv(envVar)))
 
   @nowarn
-  private def gcsCredentials(connectionOptions: Map[String, String]): GcsCredentials = {
+  private def gcsCredentials(
+    connectionOptions: Map[String, String]
+  )(implicit settings: Settings): GcsCredentials = {
     logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
     connectionOptions("authType") match {
       case "APPLICATION_DEFAULT" =>
@@ -1038,6 +1043,9 @@ object BigQueryJobBase extends StrictLogging {
         cred
       case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
         val credentialsStream = getJsonKeyStream(connectionOptions)
+        GcsServiceAccountCredentials.fromStream(credentialsStream)
+      case "SERVICE_ACCOUNT_JSON_KEY_BASE64" =>
+        val credentialsStream = BigQueryJobBase.getJsonKeyStreamFromBase64(connectionOptions)
         GcsServiceAccountCredentials.fromStream(credentialsStream)
       case "USER_CREDENTIALS" =>
         val clientId = connectionOptions("clientId")
@@ -1060,19 +1068,39 @@ object BigQueryJobBase extends StrictLogging {
     }
   }
 
-  def getJsonKeyStream(connectionOptions: Map[String, String]): ByteArrayInputStream = {
+  def getJsonKeyStream(
+    connectionOptions: Map[String, String]
+  )(implicit settings: Settings): ByteArrayInputStream = {
     val gcpSAJsonKeyAsString: String = BigQueryJobBase.getJsonKeyContent(connectionOptions)
     val credentialsStream = new ByteArrayInputStream(
       gcpSAJsonKeyAsString.getBytes(java.nio.charset.StandardCharsets.UTF_8.name)
     )
     credentialsStream
-
   }
 
-  def getJsonKeyContent(connectionOptions: Map[String, String]): String = {
+  def getJsonKeyStreamFromBase64(connectionOptions: Map[String, String]): ByteArrayInputStream = {
+    val gcpSAJsonKey = connectionOptions("jsonKeyBase64")
+    val decoded = com.google.common.io.BaseEncoding.base64.decode(gcpSAJsonKey)
+    val credentialsStream = new ByteArrayInputStream(decoded)
+    credentialsStream
+  }
+
+  def getJsonKeyContent(
+    connectionOptions: Map[String, String]
+  )(implicit settings: Settings): String = {
     val gcpSAJsonKey = connectionOptions("jsonKeyfile")
-    val path = File(gcpSAJsonKey)
+    val path: File = getJsonKeyAbsoluteFile(gcpSAJsonKey)
+
     getJsonKeyContent(path)
+  }
+
+  def getJsonKeyAbsoluteFile(gcpSAJsonKey: String)(implicit settings: Settings): File = {
+    val path =
+      if (gcpSAJsonKey.contains("/") || gcpSAJsonKey.contains("\\"))
+        File(gcpSAJsonKey)
+      else
+        File(StorageHandler.localFile(DatasetArea.keys), gcpSAJsonKey)
+    path
   }
 
   def getJsonKeyContent(path: File): String = {

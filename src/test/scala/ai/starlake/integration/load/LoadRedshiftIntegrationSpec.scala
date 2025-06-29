@@ -15,7 +15,7 @@ class LoadRedshiftIntegrationSpec extends JDBCIntegrationSpecBase {
 
         assert(
           new Main().run(
-            Array("import")
+            Array("stage")
           )
         )
         assert(

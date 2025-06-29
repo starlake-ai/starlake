@@ -4,7 +4,8 @@ import ai.starlake.utils.CliConfig
 import scopt.OParser
 
 case class BootstrapConfig(
-  template: Option[String] = None
+  template: Option[String] = None,
+  noExit: Option[Boolean] = None
 )
 
 object BootstrapConfig extends CliConfig[BootstrapConfig] {

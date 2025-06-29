@@ -174,6 +174,7 @@ object Bootstrap extends StrictLogging {
         }
       }
   }
+
   def main(args: Array[String]): Unit = {
     // askTemplate(None)
     val template = "bigquery"

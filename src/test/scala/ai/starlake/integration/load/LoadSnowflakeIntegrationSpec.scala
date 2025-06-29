@@ -18,7 +18,7 @@ class LoadSnowflakeIntegrationSpec extends JDBCIntegrationSpecBase {
 
           assert(
             new Main().run(
-              Array("import")
+              Array("stage")
             )
           )
           assert(
@@ -37,7 +37,7 @@ class LoadSnowflakeIntegrationSpec extends JDBCIntegrationSpecBase {
           copyFilesToIncomingDir(sampleDataDir2)
           assert(
             new Main().run(
-              Array("import")
+              Array("stage")
             )
           )
           assert(

@@ -15,7 +15,7 @@ class LoadPgIntegrationSpec extends JDBCIntegrationSpecBase {
         copyFilesToIncomingDir(sampleDataDir)
         assert(
           new Main().run(
-            Array("import")
+            Array("stage")
           )
         )
         assert(
@@ -35,7 +35,7 @@ class LoadPgIntegrationSpec extends JDBCIntegrationSpecBase {
         copyFilesToIncomingDir(sampleDataDir2)
         assert(
           new Main().run(
-            Array("import")
+            Array("stage")
           )
         )
         assert(

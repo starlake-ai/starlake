@@ -13,7 +13,7 @@ class LoadVariantBQNativeIntegrationSpec extends BigQueryIntegrationSpecBase {
         copyFilesToIncomingDir(sampleDataDir)
         assert(
           new Main().run(
-            Array("import")
+            Array("stage")
           )
         )
         assert(

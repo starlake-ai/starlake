@@ -188,6 +188,7 @@ class JdbcAutoTask(
                 settings.storageHandler().delete(tablePath)
               }
               if (sinkConnection.isDuckDb()) {
+                val colNames = loadedDF.schema.fields.map(_.name)
                 loadedDF.write
                   .format("parquet")
                   .mode(SaveMode.Overwrite) // truncate done above if requested
@@ -197,7 +198,7 @@ class JdbcAutoTask(
                   sqlConnection
                 ) { conn =>
                   val sql =
-                    s"INSERT INTO $fullTableName SELECT * FROM '$tablePath/*.parquet'"
+                    s"INSERT INTO $fullTableName SELECT ${colNames.mkString(",")}  FROM '$tablePath/*.parquet'"
                   JdbcDbUtils.executeUpdate(sql, conn)
                 }
                 settings.storageHandler().delete(tablePath)
@@ -288,6 +289,7 @@ class JdbcAutoTask(
 
   private def runInteractive(conn: Connection, mainSql: String): JdbcJobResult = {
     val limitSQL = limitQuery(mainSql, resultPageSize, resultPageNumber)
+    logger.info(s"Running interactive SQL query: \n$limitSQL\n")
     val stmt = conn.createStatement()
     try {
       val rs = stmt.executeQuery(mainSql)
