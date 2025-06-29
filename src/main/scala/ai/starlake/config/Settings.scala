@@ -383,6 +383,14 @@ object Settings extends StrictLogging {
                   s"Connection '${name}' requires a jsonKeyfile"
                 )
               }
+            case "SERVICE_ACCOUNT_JSON_KEY_BASE64" =>
+              if (!options.contains("jsonKeyBase64")) {
+                errors = errors :+ ValidationMessage(
+                  Severity.Error,
+                  "Connection",
+                  s"Connection '${name}' requires a jsonKeyBase64"
+                )
+              }
             case "USER_CREDENTIALS" =>
               val clientId = options.get("clientId")
               val clientSecret = options.get("clientSecret")
