@@ -90,7 +90,7 @@ object Dependencies {
   val redshift = Seq(
     "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % "provided" excludeAll (jacksonExclusions: _*),
     "org.apache.hadoop" % "hadoop-aws" % "3.3.6" % "provided" excludeAll (jacksonExclusions: _*),
-    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.785" % "provided" excludeAll (jacksonExclusions: _*)
+    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.787" % "provided" excludeAll (jacksonExclusions: _*)
   )
 
   val scalaTest = Seq(
@@ -171,7 +171,7 @@ object Dependencies {
   val pgGcp = Seq(
     "com.google.cloud.sql" % "postgres-socket-factory" % "1.25.1" % Test,
     "com.dimafeng" %% "testcontainers-scala-postgresql" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
-    "org.postgresql" % "postgresql" % "42.7.6" % "provided"
+    "org.postgresql" % "postgresql" % "42.7.7" % "provided"
   )
 
   val mariadb = Seq(
@@ -216,7 +216,7 @@ object Dependencies {
   )
 
   val cache = Seq(
-    "com.github.ben-manes.caffeine" % "caffeine" % "3.2.0"
+    "com.github.ben-manes.caffeine" % "caffeine" % "3.2.1"
   )
 
   val starlakeStreaming = Seq(
