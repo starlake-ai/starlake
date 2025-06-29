@@ -1,19 +1,27 @@
-from ai.starlake.dagster.starlake_dagster_job import StarlakeDagsterJob, DagsterDataset
+from ai.starlake.dagster.starlake_dagster_job import StarlakeDagsterJob, DagsterDataset, StarlakeDagsterUtils
+
+from ai.starlake.common import sl_timestamp_format, sl_scheduled_date, is_valid_cron, get_cron_frequency, StarlakeParameters
+
+from ai.starlake.dataset import StarlakeDataset, DatasetTriggeringStrategy
 
 from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies
 
-from dagster import AssetKey, ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping,OutputMapping, DefaultScheduleStatus, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, ScheduleDefinition, OpDefinition, TimeWindowPartitionsDefinition, Partition, PartitionedConfig
+from dagster import AssetKey, ScheduleDefinition, GraphDefinition, Definitions, DependencyDefinition, JobDefinition, In, InputMapping,OutputMapping, DefaultScheduleStatus, MultiAssetSensorDefinition, MultiAssetSensorEvaluationContext, RunRequest, SkipReason, ScheduleDefinition, OpDefinition, TimeWindowPartitionsDefinition, Partition, PartitionedConfig, EventLogRecord, AssetMaterialization, DagsterInstance, EventRecordsResult, AssetSpec
 
 from dagster._core.definitions.output import OutputDefinition
 
 from dagster._core.definitions import NodeDefinition
 
+from dagster._core.definitions.metadata import TimestampMetadataValue, IntMetadataValue
+
+from dagster._core.definitions.partition import PARTITION_NAME_TAG
+
 from datetime import datetime
 import pytz
 
-from typing import Any, List, Optional, TypeVar, Union
+from typing import Any, List, Optional, Sequence, Tuple, TypeVar, Union
 
 J = TypeVar("J", bound=StarlakeDagsterJob)
 
@@ -24,24 +32,6 @@ class DagsterOrchestration(AbstractOrchestration[JobDefinition, OpDefinition, Gr
         super().__init__(job, **kwargs)
 
     def __exit__(self, exc_type, exc_value, traceback):
-        def multi_asset_sensor_with_skip_reason(context: MultiAssetSensorEvaluationContext):
-            asset_events = context.latest_materialization_records_by_key()
-            if all(asset_events.values()):
-                context.advance_all_cursors()
-                return RunRequest()
-            elif any(asset_events.values()):
-                materialized_asset_key_strs = [
-                    key.to_user_string() for key, value in asset_events.items() if value
-                ]
-                not_materialized_asset_key_strs = [
-                    key.to_user_string() for key, value in asset_events.items() if not value
-                ]
-                return SkipReason(
-                    f"Observed materializations for {materialized_asset_key_strs}, "
-                    f"but not for {not_materialized_asset_key_strs}"
-                )
-            else:
-                return SkipReason("No materializations observed")
 
         sensors = []
         crons = []
@@ -54,9 +44,97 @@ class DagsterOrchestration(AbstractOrchestration[JobDefinition, OpDefinition, Gr
 
             cron = pipeline.cron
 
+            dg_pipeline: DagsterPipeline = pipeline
+
+            def multi_asset_sensor_with_skip_reason(context: MultiAssetSensorEvaluationContext):
+                asset_events = context.latest_materialization_records_by_key()
+                if self.job.dataset_triggering_strategy == DatasetTriggeringStrategy.ANY:
+                    events_checked = any(asset_events.values())
+                else:
+                    events_checked = all(asset_events.values())
+                # If there are no asset events, we skip the run
+                if events_checked:
+                    # we first retrieve the materialized events
+                    materialized_events = {key.to_user_string(): event for key, event in asset_events.items() if event}
+
+                    # and convert them to datasets
+                    materialized_datasets = {key: dg_pipeline.get_dataset_and_partition(event) for key, event in materialized_events.items()}
+
+                    # we then retrieve the asset keys of the datasets that were materialized
+                    materialized_asset_key_strs = materialized_datasets.keys()
+
+                    # we also retrieve the asset keys of the datasets that were not materialized
+                    not_materialized_asset_key_strs = [
+                        key.to_user_string() for key, value in asset_events.items() if not value
+                    ]
+
+                    # then we retrieve the schedules of all the materialized datasets
+                    materialized_schedules = {key: tuple[1] for key, tuple in materialized_datasets.items() if tuple[1] is not None}
+
+                    if len(materialized_schedules.keys()) == 0:
+                        if len(not_materialized_asset_key_strs) > 0:
+                            # If some datasets not materialized, we skip the run
+                            return SkipReason(
+                                f"Observed materializations for {materialized_asset_key_strs}, "
+                                f"but not for {not_materialized_asset_key_strs}"
+                            )
+                        else:
+                            # If all datasets were materialized, we run the pipeline
+                            return RunRequest()
+
+                    # then we retrieve the materialized dataset with the most recent scheduled datetime
+                    freshest_materialized_dataset: tuple = max(materialized_schedules.items(), key=lambda x: x[1], default=(None, None))
+                    freshest_materialized_dataset_uri = freshest_materialized_dataset[0]
+                    freshest_materialized_dataset_datetime: datetime = freshest_materialized_dataset[1]
+
+                    # we then check the other datasets
+                    missing_datasets = [
+                        dataset for dataset in datasets if dataset.uri in not_materialized_asset_key_strs
+                    ]
+                    oldest_materialized_datasets = [
+                        tuple[0] for tuple in materialized_datasets.values() if tuple[0].uri != freshest_materialized_dataset_uri
+                    ]
+
+                    datasets_to_check = missing_datasets + oldest_materialized_datasets
+
+                    # if there are no datasets to check, we run the pipeline
+                    if len(datasets_to_check) == 0:
+                        return RunRequest()
+
+                    # we check if all datasets are consistent with the most recent materialized dataset
+                    t = dg_pipeline.check_datasets_freshness(freshest_materialized_dataset_datetime, datasets_to_check, materialized_schedules, context.instance)
+                    checked: bool = t[0]
+                    previous_partition: Optional[datetime] = t[1]
+                    max_scheduled_date: Optional[datetime] = t[2]
+                    if checked and previous_partition and max_scheduled_date:
+                        # If all datasets are consistent with the most recent materialized dataset, we run the pipeline
+                        print(f"All datasets are consistent with the most recent materialized dataset {freshest_materialized_dataset_datetime.strftime(sl_timestamp_format)}, we run the pipeline {pipeline_id}")
+                        logical_datetime = max_scheduled_date.strftime(sl_timestamp_format)
+                        previous_logical_datetime=previous_partition.strftime(sl_timestamp_format)
+                        context.advance_cursor(asset_events)
+                        return RunRequest(
+                            run_config=dg_pipeline._ops_config(logical_datetime=logical_datetime, previous_logical_datetime=previous_logical_datetime),
+                            partition_key=logical_datetime,
+                            tags={
+                                PARTITION_NAME_TAG: logical_datetime,
+                                StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value: logical_datetime,
+                                StarlakeParameters.DATA_INTERVAL_START_PARAMETER.value: previous_logical_datetime,
+                            },
+                        )
+                    else:
+                        all_materialized_assets = ",".join(materialized_asset_key_strs)
+                        all_uris = ",".join([f"{dataset.uri}" for dataset in datasets_to_check])
+                        # If any dataset is not consistent with the most recent materialized dataset, we skip the run
+                        return SkipReason(
+                            f"Observed materializations for {all_materialized_assets}, "
+                            f"but some datasets {all_uris} are not consistent with {freshest_materialized_dataset_datetime.strftime(sl_timestamp_format)}"
+                        )
+                else:
+                    return SkipReason("No materializations observed")
+
             if datasets and len(datasets) > 0:
                 def get_monitored_assets():
-                    return [pipeline.to_event(dataset) for dataset in datasets]
+                    return [dg_pipeline.to_event(dataset) for dataset in datasets]
 
                 sensors.append(
                     MultiAssetSensorDefinition(
@@ -72,6 +150,7 @@ class DagsterOrchestration(AbstractOrchestration[JobDefinition, OpDefinition, Gr
                 crons.append(ScheduleDefinition(job_name = pipeline_id, cron_schedule = cron, default_status=DefaultScheduleStatus.RUNNING))
 
         defs = Definitions(
+            assets=[AssetSpec(asset.uri) for pipeline in self.pipelines for asset in pipeline.assets],
             jobs=[pipeline.dag for pipeline in self.pipelines],
             sensors=sensors,
             schedules=crons,
@@ -375,17 +454,17 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
             def fun(partition: Partition):
                 value = partition.value
                 if isinstance(value, datetime):
-                    logical_datetime = value.strftime('%Y-%m-%d %H:%M:%S%z')
+                    logical_datetime = value.strftime(sl_timestamp_format)
                 else:
                     logical_datetime = str(value)
 
-                return self.__ops_config(logical_datetime)
+                return self._ops_config(logical_datetime)
 
             partition_config = PartitionedConfig(
                 partitions_def=TimeWindowPartitionsDefinition(
                     cron_schedule = cron,
                     start=self.start_date,
-                    fmt='%Y-%m-%d %H:%M:%S%z',
+                    fmt=sl_timestamp_format,
                     timezone='UTC',
                 ),
                 run_config_for_partition_fn=fun,
@@ -398,10 +477,10 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
             config=partition_config,
         )
 
-    def __ops_config(self, logical_datetime: str, dry_run: bool = False) -> dict:
+    def _ops_config(self, logical_datetime: str, dry_run: bool = False, previous_logical_datetime: Optional[str] = None) -> dict:
         def walk(node: NodeDefinition, config: dict = dict()) -> dict:
             if isinstance(node, OpDefinition):
-                config[node.name] = {'config': {'logical_datetime': logical_datetime, 'dry_run': dry_run}}
+                config[node.name] = {'config': {'logical_datetime': logical_datetime, 'dry_run': dry_run, 'previous_logical_datetime': previous_logical_datetime}}
                 return config
             elif isinstance(node, GraphDefinition):
                 sub_config = dict()
@@ -421,6 +500,306 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
     def sl_transform_options(self, cron_expr: Optional[str] = None) -> Optional[str]:
         return None # should be implemented within dagster jobs sl_job method
 
+    def get_previous_partition(self, instance: DagsterInstance, scheduled_date: datetime) -> Optional[datetime]:
+        """Retrieves the most recent partition of a successful run for the pipeline before the specified scheduled date."""
+        from dagster import RunsFilter, DagsterRunStatus
+
+        runs = instance.get_runs(
+            filters=RunsFilter(
+                job_name=self.pipeline_id,
+                statuses=[DagsterRunStatus.SUCCESS],
+            ),
+        )
+
+        previous_partition = None
+
+        if len(runs) > 0:
+            matching_runs = []
+            for run in runs:
+                partition_key = run.tags.get(PARTITION_NAME_TAG, None) or run.tags.get(StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value, None) 
+                if partition_key:
+                    try:
+                        from dateutil import parser
+                        partition = partition_key.replace('T', ' ').replace('.', ':').replace('_', '+')
+                        partition_date = parser.isoparse(partition).astimezone(pytz.timezone('UTC'))
+                        print(f"Checking partition date: {partition_date} against scheduled date: {scheduled_date}")
+                        if partition_date < scheduled_date:
+                            matching_runs.append(partition_date)
+                    except ValueError:
+                        # La clé de partition n'est pas une date au format attendu
+                        continue
+
+            previous_partition = max(matching_runs, default=None)
+
+        return previous_partition
+
+    def get_materialization_partition(self, mat: AssetMaterialization) -> Optional[datetime]:
+        """Extracts the partition from an asset materialization."""
+        tags = mat.tags or {}
+        partition_date = mat.partition or tags.get(PARTITION_NAME_TAG, None) or tags.get(StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value, None) or mat.metadata.get(StarlakeParameters.SCHEDULED_DATE_PARAMETER.value, None)
+        if partition_date:
+            if isinstance(partition_date, TimestampMetadataValue):
+                return datetime.fromtimestamp(partition_date.value, pytz.timezone('UTC'))
+            else:
+                from dateutil import parser
+                try:
+                    partition = StarlakeDagsterUtils.unquote_datetime(partition_date)
+                    return parser.isoparse(partition).astimezone(pytz.timezone('UTC'))
+                except ValueError:
+                    print(f"Invalid partition date {partition_date} for event {mat.asset_key.to_user_string()}")
+                    return None
+        else:
+            print(f"No partition found for materialization {mat.asset_key.to_user_string()}")
+            return None
+
+    def get_event_partition(self, event: EventLogRecord) -> Optional[datetime]:
+        """Extracts the partition from an event log record."""
+        partition = event.partition_key
+        if partition:
+            from dateutil import parser
+            try:
+                partition = StarlakeDagsterUtils.unquote_datetime(partition)
+                print(f"Partition {partition} found for event {event.asset_key.to_user_string()} with id {event.storage_id}")
+                # Attempt to parse the partition key as a datetime
+                return parser.isoparse(partition).astimezone(pytz.timezone('UTC'))
+            except ValueError:
+                print(f"Invalid partition key: {partition} for event {event.asset_key.to_user_string()} with id {event.storage_id}")
+                partition = None
+        if not partition:
+            mat = event.asset_materialization
+            if mat:
+                return self.get_materialization_partition(mat)
+        print(f"No partition found for event {event.asset_key.to_user_string()} with id {event.storage_id}")
+        return None
+
+    def get_cron(self, mat: AssetMaterialization) -> Optional[str]:
+        """Extracts the cron from an asset materialization."""
+        metadata = mat.metadata
+        cron = metadata.get(StarlakeParameters.CRON_PARAMETER.value, None)
+        if cron:
+            cron_expr = str(cron.value)
+            if is_valid_cron(cron_expr):
+                return cron_expr
+            else:
+                print(f"Invalid cron expression: {cron_expr} in materialization {mat}")
+        return None
+
+    def get_freshness(self, mat: AssetMaterialization) -> Optional[int]:
+        """Extracts the freshness from an asset materialization."""
+        metadata = mat.metadata
+        freshness = metadata.get(StarlakeParameters.FRESHNESS_PARAMETER.value, None)
+        if freshness and isinstance(freshness, IntMetadataValue):
+            return freshness.value
+        return None
+
+    def find_dataset_events(self, instance: DagsterInstance, asset_key: AssetKey, partitions: Optional[Sequence[str]] = None, limit: int = 100) -> Sequence[EventLogRecord]:
+        """Retrieves the events for the specified dataset and optional partitions."""
+        from dagster import AssetRecordsFilter
+
+        materializations: EventRecordsResult = instance.fetch_materializations(
+            records_filter=AssetRecordsFilter(
+                asset_key=asset_key,
+                asset_partitions=partitions,
+            ),
+            limit=limit,
+        )
+
+        return materializations.records
+
+    def get_dataset_and_partition(self, event: EventLogRecord) -> Tuple[StarlakeDataset, Optional[datetime]]:
+        """Extracts the dataset from an asset materialization."""
+        uri = event.asset_key.to_user_string()
+        dataset = next((dataset for dataset in self.datasets or [] if dataset.uri == uri), None)
+        mat = event.asset_materialization
+        if mat:
+            parameters={key: value.value for key, value in mat.metadata.items()} if mat.metadata else {}
+            if dataset and dataset.parameters:
+                parameters.update(dataset.parameters)
+            cron = parameters.get(StarlakeParameters.CRON_PARAMETER.value, None) or self.get_cron(mat) or (dataset.cron if dataset else None)
+            freshness = parameters.get(StarlakeParameters.FRESHNESS_PARAMETER.value, None) or self.get_freshness(mat) or (dataset.freshness if dataset else 0)
+            # If materialization, return a dataset with the name and start_time from the materialization
+        else:
+            if dataset:
+                parameters = dataset.parameters
+                cron = dataset.cron
+                freshness = dataset.freshness
+            else:
+                parameters = None
+                cron = None
+                freshness = 0
+        print(f"Dataset {uri} with parameters {parameters}, cron {cron}, freshness {freshness} for event {event.asset_key.to_user_string()} with id {event.storage_id}")
+        return (
+            StarlakeDataset(
+                name=uri,
+                sink=uri,
+                parameters=parameters,
+                cron=cron,
+                freshness=freshness,
+            ),
+            self.get_event_partition(event)
+        )
+
+    def check_datasets_freshness(self, scheduled_date: datetime, datasets: List[StarlakeDataset], schedules: dict[str, datetime], instance: DagsterInstance, limit: int = 100) -> tuple:
+        """Checks the freshness of the datasets and returns True if all datasets have been materialized arround the most recent one."""
+        job: StarlakeDagsterJob = self.job
+        missing_datasets: List[StarlakeDataset] = []
+        max_scheduled_date = scheduled_date
+
+        # Retrieves the most recent partition of a successful run for the pipeline before the scheduled date.
+        previous_partition = self.get_previous_partition(instance, scheduled_date)
+
+        if not previous_partition:
+            start_date = job.start_date
+            if start_date < scheduled_date:
+                print(f"No previous successful runs found for {self.pipeline_id} around {scheduled_date}, using the start date {start_date.strftime(sl_timestamp_format)} defined for the pipeline")
+                previous_partition = start_date
+            else:
+                print(f"No previous successful runs found for {self.pipeline_id} around {scheduled_date} and no start date set for the pipeline")
+                return False
+
+        print(f"Previous successful run for {self.pipeline_id} around {scheduled_date} is {previous_partition.strftime(sl_timestamp_format)}")
+
+        data_cycle_freshness = None
+        if job.data_cycle:
+            # the freshness of the data cycle is the time delta between 2 iterations of its schedule
+            data_cycle_freshness = get_cron_frequency(job.data_cycle)
+
+        # Check each dataset for freshness
+        from croniter import croniter
+        from datetime import timedelta
+        for dataset in datasets:
+            original_cron = dataset.cron
+            cron = original_cron or job.data_cycle
+            scheduled = cron and is_valid_cron(cron)
+            freshness = dataset.freshness
+            optional = False
+            beyond_data_cycle_allowed = False
+            if data_cycle_freshness:
+                original_scheduled = original_cron and is_valid_cron(original_cron)
+                if job.optional_dataset_enabled:
+                    # we check if the dataset is optional by comparing its freshness with that of the data cycle
+                    # the freshness of a scheduled dataset is the time delta between 2 iterations of its schedule
+                    # the freshness of a non scheduled dataset is defined by its freshness parameter
+                    optional = (original_scheduled and abs(data_cycle_freshness.total_seconds()) < abs(get_cron_frequency(original_cron).total_seconds())) or (not original_scheduled and abs(data_cycle_freshness.total_seconds()) < freshness)
+                if job.beyond_data_cycle_enabled:
+                    # we check if the dataset scheduled date is allowed to be beyond the data cycle by comparing its freshness with that of the data cycle
+                    beyond_data_cycle_allowed = (original_scheduled and abs(data_cycle_freshness.total_seconds()) < abs(get_cron_frequency(original_cron).total_seconds() + freshness)) or (not original_scheduled and abs(data_cycle_freshness.total_seconds()) < freshness)
+            found = False
+            if optional:
+                print(f"Dataset {dataset.uri} is optional, we skip it")
+                continue
+            elif scheduled:
+                iter = croniter(cron, scheduled_date)
+                curr: datetime = iter.get_current(datetime)
+                previous: datetime = iter.get_prev(datetime)
+                next: datetime = croniter(cron, previous).get_next(datetime)
+                if curr == next :
+                    scheduled_date_to_check_max = curr
+                else:
+                    scheduled_date_to_check_max = previous
+                scheduled_date_to_check_min: datetime = croniter(cron, scheduled_date_to_check_max).get_prev(datetime)
+                if original_cron:
+                    partitions = [
+                        scheduled_date_to_check_min.strftime(sl_timestamp_format),
+                        scheduled_date_to_check_max.strftime(sl_timestamp_format),
+                    ]
+                else:
+                    partitions = None
+                if not original_cron and previous_partition > scheduled_date_to_check_min:
+                    scheduled_date_to_check_min = previous_partition
+                if beyond_data_cycle_allowed:
+                    scheduled_date_to_check_min = scheduled_date_to_check_min - timedelta(seconds=freshness)
+                    scheduled_date_to_check_max = scheduled_date_to_check_max + timedelta(seconds=freshness)
+                scheduled_datetime = schedules.get(dataset.uri, None)
+                if scheduled_datetime:
+                    # we check if the scheduled datetime is between the scheduled date to check min and max
+                    if scheduled_date_to_check_min >= scheduled_datetime or scheduled_datetime > scheduled_date_to_check_max:
+                        # we will check within the event logs
+                        print(f"Triggering dataset {dataset.uri} with scheduled datetime {scheduled_datetime} not between {scheduled_date_to_check_min} and {scheduled_date_to_check_max}")
+                    else:
+                        found = True
+                        print(f"Found trigerring dataset {dataset.uri} with scheduled datetime {scheduled_datetime} between {scheduled_date_to_check_min} and {scheduled_date_to_check_max}")
+                        if scheduled_datetime > max_scheduled_date:
+                            max_scheduled_date = scheduled_datetime
+                if not found:
+                    events = self.find_dataset_events(instance, AssetKey(dataset.uri), partitions, limit)
+                    if not events:
+                        print(f"No dataset events for {dataset.uri} found between {scheduled_date_to_check_min} and {scheduled_date_to_check_max}")
+                    else:
+                        dataset_events = events
+                        nb_events = len(events)
+                        print(f"Found {nb_events} dataset event(s) for {dataset.uri} between {scheduled_date_to_check_min} and {scheduled_date_to_check_max}")
+                        i = 1
+                        # we check the dataset events in reverse order
+                        while i <= nb_events and not found:
+                            event = dataset_events[nb_events - i]
+                            mat = event.asset_materialization
+                            scheduled_datetime = self.get_event_partition(event)
+                            if scheduled_date_to_check_min >= scheduled_datetime or scheduled_datetime > scheduled_date_to_check_max:
+                                print(f"Dataset {event.partition_key or event.storage_id} for {dataset.uri} with scheduled datetime {scheduled_datetime} not between {scheduled_date_to_check_min} and {scheduled_date_to_check_max}")
+                                i += 1
+                            else:
+                                found = True
+                                print(f"Found dataset {dataset.uri} with materialization at {scheduled_datetime} between {scheduled_date_to_check_min} and {scheduled_date_to_check_max}")
+                                if scheduled_datetime > max_scheduled_date:
+                                    max_scheduled_date = scheduled_datetime
+                                break
+                    if not found:
+                        missing_datasets.append(dataset)
+            else:
+                # we check if one dataset event at least has been published since the previous dag checked and around the scheduled date +- freshness in seconds - it should be the closest one
+                scheduled_date_to_check_min = scheduled_date - timedelta(seconds=freshness)
+                scheduled_date_to_check_max = scheduled_date + timedelta(seconds=freshness)
+                events = self.find_dataset_events(instance, AssetKey(dataset.uri), limit=limit)
+                if not events:
+                    print(f"No dataset events for {dataset.uri} found between {scheduled_date_to_check_min} and {scheduled_date_to_check_max}")
+                else:
+                    dataset_events = events
+                    nb_events = len(events)
+                    print(f"Found {nb_events} dataset event(s) for {dataset.uri} between {scheduled_date_to_check_min} and {scheduled_date_to_check_max}")
+                    i = 1
+                    # we check the dataset events in reverse order
+                    while i <= nb_events and not found:
+                        event = dataset_events[nb_events - i]
+                        scheduled_datetime = self.get_event_partition(event)
+                        if not scheduled_datetime:
+                            i +=1
+                        elif scheduled_datetime > previous_partition:
+                            if scheduled_date_to_check_min > scheduled_datetime:
+                                # TODO we should stop if all previous dataset events would be also before the scheduled date to check
+                                # break;
+                                i += 1
+                            elif scheduled_datetime > scheduled_date_to_check_max:
+                                i += 1
+                            else:
+                                found = True
+                                print(f"Found dataset {dataset.uri} with materialization at {scheduled_datetime} between {scheduled_date_to_check_min} and {scheduled_date_to_check_max}")
+                                if scheduled_datetime <= scheduled_date:
+                                    # we stop because all previous dataset events would be also before the scheduled date but not closer than the current one
+                                    break;
+                        else:
+                            #TODO we should stop if all previous dataset events would be also before the previous dag checked
+                            #break;
+                            i += 1
+                if not found or not scheduled_datetime:
+                    missing_datasets.append(dataset)
+                    print(f"No dataset {dataset.uri} found since the previous partition {previous_partition} and around the scheduled date {scheduled_date} +- {freshness} in seconds")
+                else:
+                    print(f"Found dataset {dataset.uri} after the previous partition {previous_partition}  and  around the scheduled date {scheduled_date} +- {freshness} in seconds")
+                    if scheduled_datetime > max_scheduled_date:
+                        max_scheduled_date = scheduled_datetime
+
+        # if all the required datasets have been found, we can run the dag
+        checked = not missing_datasets
+        if checked:
+            print(f"All datasets checked: {', '.join([dataset.uri for dataset in datasets])}")
+            print(f"Starlake start date will be set to {previous_partition}")
+            print(f"Starlake end date will be set to {max_scheduled_date}")
+            return (True, previous_partition, max_scheduled_date, [])
+        else:
+            print(f"Some datasets are missing: {', '.join([dataset.uri for dataset in missing_datasets])}")
+            return (False, None, None, missing_datasets)
+
     def run(self, logical_date: Optional[str] = None, timeout: str = '120', mode: StarlakeExecutionMode = StarlakeExecutionMode.RUN, **kwargs) -> None:
         """Run the pipeline.
         Args:
@@ -428,12 +807,18 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
             timeout (str): the timeout in seconds.
             mode (StarlakeExecutionMode): the execution mode.
         """
-        from dagster import DagsterInstance, execute_job
+        from dagster import DagsterInstance
         if not logical_date:
-            logical_date = datetime.now(pytz.utc).strftime('%Y-%m-%d %H:%M:%S%z')
+            #if a cron has been defined for the pipeline, use it to compute the logical date
+            # otherwise use the current date
+            cron_expr = self.computed_cron_expr
+            if cron_expr and is_valid_cron(cron_expr):
+                logical_date = sl_scheduled_date(cron_expr, datetime.now(pytz.utc), previous=False).strftime(sl_timestamp_format)
+            else:
+                print(f"No logical date provided and no cron defined for {self.pipeline_id}, using current date.")
+                logical_date = datetime.now(pytz.utc).strftime(sl_timestamp_format)
         dry_run = mode == StarlakeExecutionMode.DRY_RUN
-        run_config = self.__ops_config(logical_date, dry_run)
-        import sys
+        run_config = self._ops_config(logical_date, dry_run)
         with DagsterInstance.ephemeral() as instance:
             # Run the job with the provided configuration
             print(f"Running {self.pipeline_id}...")
@@ -442,7 +827,50 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
             result = job.execute_in_process(
                 run_config=run_config,
                 instance=instance,
+                tags={
+                    PARTITION_NAME_TAG: logical_date,
+                    StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value: logical_date,
+                },
             )
+
+            for key, value in result.dagster_run.tags.items():
+                print(f"Tag: {key} = {value}")
+
+            for event in result.get_asset_materialization_events():
+                mat = event.step_materialization_data.materialization
+                if mat:
+                    partition = self.get_materialization_partition(mat)
+                    if partition:
+                        partition = partition.strftime(sl_timestamp_format)
+                        print(f"Found partition {partition} for event {event.asset_key.to_user_string()}")
+                else:
+                    partition = None
+
+                if dry_run:
+                    events = self.find_dataset_events(instance, event.asset_key, partitions=[partition] if partition else None, limit=1)
+                    if events:
+                        print(f"Found {len(events)} events for dataset {event.asset_key.to_user_string()} with partition {partition}")
+                    else:
+                        print(f"No events found for dataset {event.asset_key.to_user_string()} with partition {partition}")
+
+            if dry_run:
+                previous_partition = self.get_previous_partition(instance, datetime.strptime(logical_date, sl_timestamp_format).astimezone(pytz.timezone('UTC')))
+                if previous_partition:
+                    print(f"Previous partition: {previous_partition.strftime(sl_timestamp_format)}")
+                else:
+                    print("No previous partition found.")
+
+            if dry_run and self.datasets:
+                from dateutil import parser
+                scheduled_date = parser.isoparse(logical_date).astimezone(pytz.timezone('UTC'))
+                t = self.check_datasets_freshness(
+                    scheduled_date,
+                    self.datasets,
+                    {key: scheduled_date for key in [dataset.uri for dataset in self.datasets]},
+                    instance,
+                    limit=1,
+                )
+                print(f"Datasets freshness check: {t[0]}")
 
             # Check execution success
             if result.success:

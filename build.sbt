@@ -74,7 +74,8 @@ libraryDependencies ++= {
 }
 
 dependencyOverrides := Seq(
- "com.google.protobuf"                % "protobuf-java"             % "3.25.5",
+  "com.google.protobuf"                % "protobuf-java"             % "3.25.8",
+  "com.google.protobuf"                % "protobuf-java"             % "3.25.8",
   "org.scala-lang"                    % "scala-library"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-reflect"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-compiler"            % scalaVersion.value,
@@ -98,6 +99,8 @@ assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${vers
 Common.enableStarlakeAliases
 
 enablePlugins(Common.starlakePlugins: _*)
+
+buildInfoPackage := "ai.starlake.buildinfo"
 
 
 scalacOptions ++= {
@@ -206,8 +209,8 @@ assembly / assemblyShadeRules := Seq(
 //  ShadeRule.rename("shapeless.**" -> "shade.@0").inAll,
   //shade it or else writing to bigquery wont work because spark comes with an older version of google common.
   ShadeRule.rename("com.google.common.**" -> "shade.@0").inAll,
-  ShadeRule.rename("com.google.gson.**" -> "shade.@0").inAll,
-  ShadeRule.rename("com.google.protobuf.**" -> "shade.@0").inAll
+  ShadeRule.rename("com.google.gson.**" -> "shade.@0").inAll//,
+  //ShadeRule.rename("com.google.protobuf.**" -> "shade.@0").inAll
 )
 
 // Publish

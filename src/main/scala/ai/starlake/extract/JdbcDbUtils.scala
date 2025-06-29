@@ -151,7 +151,11 @@ object JdbcDbUtils extends LazyLogging {
     count = count + 1
     val conn =
       Try {
-        existingConnection.getOrElse(StarlakeConnectionPool.getConnection(connectionOptions))
+        existingConnection.getOrElse(
+          StarlakeConnectionPool.getConnection(
+            connectionOptions.removedAll(List("preActions", "postActions"))
+          )
+        )
       }
     conn match {
       case Failure(exception) =>
@@ -183,6 +187,21 @@ object JdbcDbUtils extends LazyLogging {
             logger.error(s"Error running sql", exception)
             Failure(exception)
           case Success(value) =>
+            val postActions = connectionOptions.get("postActions")
+            postActions.foreach { actions =>
+              actions.split(";").foreach { action =>
+                Try {
+                  val statement = connection.createStatement()
+                  statement.execute(action)
+                  statement.close()
+                } match {
+                  case Failure(exception) =>
+                    logger.error(s"Error running postAction $action", exception)
+                    throw exception
+                  case Success(value) =>
+                }
+              }
+            }
             Success(value)
         }
 

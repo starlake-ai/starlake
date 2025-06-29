@@ -6,6 +6,10 @@
 # - tags: a list of tags to be applied to the dag [OPTIONAL]
 # - retries(1): the number of retries to attempt before failing the task [OPTIONAL]
 # - retry_delay(300): the delay between retries in seconds [OPTIONAL]
+# - data_cycle_enabled(False): whether the data cycle feature is enabled or not [OPTIONAL]
+# - data_cycle: the data cycle to be used for the dag [OPTIONAL]
+# - beyond_data_cycle_enabled(True): whether the beyond data cycle feature is enabled or not [OPTIONAL]
+# - optional_dataset_enabled(False): whether a dataset can be treated as optional [OPTIONAL]
 #
 {% include 'templates/dags/__starlake_dagster_orchestrator.py' %}
 {% include 'templates/dags/__starlake_shell_execution.py' %}

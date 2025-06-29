@@ -8,7 +8,7 @@ from ai.starlake.job.starlake_pre_load_strategy import StarlakePreLoadStrategy
 from ai.starlake.job.starlake_options import StarlakeOptions
 from ai.starlake.job.spark_config import StarlakeSparkConfig
 
-from ai.starlake.dataset import AbstractEvent, StarlakeDataset
+from ai.starlake.dataset import AbstractEvent, StarlakeDataset, DatasetTriggeringStrategy
 
 import importlib
 
@@ -150,6 +150,23 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         self._events: List[E] = []
 
         self._cron_period_frequency = StarlakeCronPeriod.from_str(__class__.get_context_var('cron_period_frequency', default_value='week', options=self.options))
+
+        default_dataset_triggering_strategy = DatasetTriggeringStrategy.ANY
+        dataset_triggering_strategy = __class__.get_context_var(
+            var_name="dataset_triggering_strategy",
+            default_value=default_dataset_triggering_strategy,
+            options=self.options
+        )
+        if isinstance(dataset_triggering_strategy, str):
+            dataset_triggering_strategy = \
+                DatasetTriggeringStrategy(dataset_triggering_strategy) if DatasetTriggeringStrategy.is_valid(dataset_triggering_strategy) \
+                    else default_dataset_triggering_strategy
+
+        self.__dataset_triggering_strategy: DatasetTriggeringStrategy = dataset_triggering_strategy
+
+    @property
+    def dataset_triggering_strategy(self) -> DatasetTriggeringStrategy:
+        return self.__dataset_triggering_strategy
 
     @classmethod
     def sl_orchestrator(cls) -> Union[StarlakeOrchestrator, str, None]:

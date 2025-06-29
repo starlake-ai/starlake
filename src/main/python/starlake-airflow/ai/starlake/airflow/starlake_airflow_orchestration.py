@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from ai.starlake.airflow.starlake_airflow_job import StarlakeAirflowJob, AirflowDataset, supports_inlet_events
 
-from ai.starlake.common import sl_cron_start_end_dates, sl_scheduled_date, sl_scheduled_dataset, sl_timestamp_format
+from ai.starlake.common import sl_cron_start_end_dates, sl_scheduled_date, sl_scheduled_dataset, sl_timestamp_format, StarlakeParameters
+
+from ai.starlake.dataset import DatasetTriggeringStrategy
 
 from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
@@ -37,6 +39,14 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
 
         events = self.events
 
+        j: StarlakeAirflowJob = job
+        max_active_runs: int = j.max_active_runs
+
+        default_args = {
+            **job.default_dag_args(), 
+            **job.caller_globals.get('default_dag_args', {})
+        }
+
         # AssetOrTimeSchedule is not supported yet within SL
         if self.cron is not None:
             airflow_schedule = self.cron
@@ -44,8 +54,13 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
             if not supports_inlet_events():
                 airflow_schedule = events
             else:
+                max_active_runs = 1
+                default_args.update({'max_active_runs': 1})
                 from functools import reduce
-                airflow_schedule = reduce(lambda a, b: a | b, events)
+                if job.dataset_triggering_strategy == DatasetTriggeringStrategy.ANY:
+                    airflow_schedule = reduce(lambda a, b: a | b, events)
+                else:
+                    airflow_schedule = reduce(lambda a, b: a & b, events)
                 if self.job.data_cycle_enabled and not self.job.data_cycle:
                     self.job.data_cycle = self.computed_cron_expr
                     
@@ -56,7 +71,7 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
                 from airflow.operators.python import get_current_context
                 context = get_current_context()
             ti = context["task_instance"]
-            sl_logical_date = ti.xcom_pull(task_ids="start", key="sl_logical_date")
+            sl_logical_date = ti.xcom_pull(task_ids="start", key=StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value)
             if sl_logical_date:
                 ts = sl_logical_date
             if isinstance(ts, str):
@@ -72,10 +87,10 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
                 from airflow.operators.python import get_current_context
                 context = get_current_context()
             ti = context["task_instance"]
-            sl_start_date = ti.xcom_pull(task_ids="start", key="sl_previous_logical_date")
-            sl_end_date = ti.xcom_pull(task_ids="start", key="sl_logical_date")
-            if sl_start_date and sl_end_date:
-                return f"sl_start_date='{sl_start_date.strftime(sl_timestamp_format)}',sl_end_date='{sl_end_date.strftime(sl_timestamp_format)}'"
+            sl_data_interval_start = ti.xcom_pull(task_ids="start", key=StarlakeParameters.DATA_INTERVAL_START_PARAMETER.value)
+            sl_data_interval_end = ti.xcom_pull(task_ids="start", key=StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value)
+            if sl_data_interval_start and sl_data_interval_end:
+                return f"{StarlakeParameters.DATA_INTERVAL_START_PARAMETER.value}='{sl_data_interval_start.strftime(sl_timestamp_format)}',{StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value}='{sl_data_interval_end.strftime(sl_timestamp_format)}'"
             return sl_cron_start_end_dates(cron_expr, start_time, sl_timestamp_format)
 
         user_defined_macros = kwargs.get('user_defined_macros', job.caller_globals.get('user_defined_macros', dict()))
@@ -96,13 +111,14 @@ class AirflowPipeline(AbstractPipeline[DAG, BaseOperator, TaskGroup, Dataset], A
             schedule=airflow_schedule,
             catchup=self.catchup,
             tags=list(set([tag.upper() for tag in self.tags])), 
-            default_args=job.caller_globals.get('default_dag_args', job.default_dag_args()),
+            default_args=default_args,
             description=job.caller_globals.get('description', ""),
             start_date=job.start_date,
             end_date=job.end_date,
             user_defined_macros=user_defined_macros,
             user_defined_filters=user_defined_filters,
             access_control=access_control,
+            max_active_runs=max_active_runs,
             **kwargs
         )
 
