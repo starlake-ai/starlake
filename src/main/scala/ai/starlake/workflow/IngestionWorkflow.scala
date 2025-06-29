@@ -966,9 +966,29 @@ class IngestionWorkflow(
 
     val (formattedDontExist, formattedExist) =
       if (config.format) {
+        val index1 = sqlWhenTableDontExist.toLowerCase().indexOf("select")
+        val finalSqlDontExist =
+          if (index1 >= 0) {
+            sqlWhenTableDontExist.substring(0, index1) + "\n" +
+            SQLUtils.format(
+              sqlWhenTableDontExist.substring(index1),
+              JSQLFormatter.OutputFormat.PLAIN
+            )
+          } else {
+            sqlWhenTableDontExist
+          }
+        val index2 = sqlWhenTableExist.toLowerCase().indexOf("select")
+        val finalSqlExist =
+          if (index2 >= 0) {
+            sqlWhenTableExist.substring(0, index2) + "\n" +
+            SQLUtils.format(sqlWhenTableExist.substring(index2), JSQLFormatter.OutputFormat.PLAIN)
+          } else {
+            sqlWhenTableDontExist
+          }
+
         (
-          SQLUtils.format(sqlWhenTableDontExist, JSQLFormatter.OutputFormat.PLAIN),
-          SQLUtils.format(sqlWhenTableExist, JSQLFormatter.OutputFormat.PLAIN)
+          finalSqlDontExist,
+          finalSqlExist
         )
       } else {
         (sqlWhenTableDontExist, sqlWhenTableExist)

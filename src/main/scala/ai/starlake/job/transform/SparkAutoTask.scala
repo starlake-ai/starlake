@@ -783,6 +783,7 @@ class SparkAutoTask(
           }
           settings.storageHandler().delete(tablePath)
         } else if (sinkConnection.isDuckDb()) {
+          val colNames = loadedDF.schema.fields.map(_.name)
           loadedDF.write
             .format("parquet")
             .mode(SaveMode.Overwrite) // truncate done above if requested
@@ -791,7 +792,7 @@ class SparkAutoTask(
             sinkConnection.options.updated("enable_external_access", "true")
           ) { conn =>
             val sql =
-              s"INSERT INTO $firstStepTempTable SELECT * FROM '$tablePath/*.parquet'"
+              s"INSERT INTO $firstStepTempTable SELECT ${colNames.mkString(",")} FROM '$tablePath/*.parquet'"
             JdbcDbUtils.executeUpdate(sql, conn)
           }
           settings.storageHandler().delete(tablePath)

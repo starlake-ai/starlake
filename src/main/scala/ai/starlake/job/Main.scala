@@ -1,12 +1,13 @@
 package ai.starlake.job
 
+import ai.starlake.buildinfo.BuildInfo
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.console.ConsoleCmd
-import ai.starlake.extract._
+import ai.starlake.extract.*
 import ai.starlake.job.bootstrap.BootstrapCmd
 import ai.starlake.job.convert.Parquet2CSVCmd
 import ai.starlake.job.infer.InferSchemaCmd
-import ai.starlake.job.ingest._
+import ai.starlake.job.ingest.*
 import ai.starlake.job.metrics.MetricsCmd
 import ai.starlake.job.sink.es.ESLoadCmd
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
@@ -21,13 +22,12 @@ import ai.starlake.lineage.{
 }
 import ai.starlake.migration.MigrateCmd
 import ai.starlake.schema.ProjectCompareCmd
-import ai.starlake.schema.generator._
+import ai.starlake.schema.generator.*
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateCmd}
 import ai.starlake.serve.MainServerCmd
 import ai.starlake.sql.StarlakeJdbcDialects
 import ai.starlake.tests.StarlakeTestCmd
-import ai.starlake.utils._
-import buildinfo.BuildInfo
+import ai.starlake.utils.*
 import com.typesafe.scalalogging.StrictLogging
 
 import java.io.ByteArrayOutputStream
@@ -300,8 +300,11 @@ class Main extends StrictLogging {
             }
           }
           val r = cmd.run(args.drop(1).toIndexedSeq, schemaHandler)
-          if (cmd.command == BootstrapCmd.command)
-            System.exit(0)
+          if (cmd.command == BootstrapCmd.command) {
+            if (args.length == 1 || args(1) != "--no-exit") {
+              System.exit(0)
+            }
+          }
           r
       }
     result

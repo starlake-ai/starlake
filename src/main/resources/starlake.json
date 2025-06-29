@@ -997,7 +997,7 @@
         },
         "postsql": {
           "type": "array",
-          "description": "Reserved for future use.",
+          "description": "List of SQL requests to executed after the table has been loaded.",
           "items": {
             "$ref": "#/definitions/ConvertibleToString"
           }

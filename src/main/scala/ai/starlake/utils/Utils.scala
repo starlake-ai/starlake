@@ -168,7 +168,7 @@ object Utils extends StrictLogging {
 
     while (currentException != null) {
       val prefix = ">" * count
-      val msg = currentException.getMessage.trim
+      val msg = Option(currentException.getMessage).getOrElse("").trim
       val msgPrefix = msg.indexOf("Exception:")
       if (msgPrefix > 0) {
         messages += prefix + " " + msg.substring(msgPrefix + "Exception:".length).trim
