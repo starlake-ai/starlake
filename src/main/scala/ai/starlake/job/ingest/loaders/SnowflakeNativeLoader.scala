@@ -156,8 +156,6 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     }
   }
 
-  val pattern = this.starlakeSchema.pattern.pattern()
-
   private val (compressionFormat, extension): (String, String) = {
     val compression =
       getOption("COMPRESSION").getOrElse("true").equalsIgnoreCase("true")
@@ -166,6 +164,8 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     else
       ("COMPRESSION = NONE", "")
   }
+
+  private val pattern = this.starlakeSchema.pattern.pattern()
 
   private val nullIf: String = mergedMetadata.getOptions().get("NULL_IF") match {
     case Some(value) if value.nonEmpty =>
@@ -208,7 +208,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       s"""
          |COPY INTO $domainAndTableName
          |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern'
+         |PATTERN = '$pattern$extension'
          |PURGE = ${purge}
          |FILE_FORMAT = (
          |  TYPE = JSON
@@ -231,7 +231,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       s"""
          |COPY INTO $domainAndTableName
          |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern'
+         |PATTERN = '$pattern$extension'
          |PURGE = ${purge}
          |FILE_FORMAT = (
          |  TYPE = XML
@@ -249,7 +249,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       s"""
          |COPY INTO $domainAndTableName
          |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern'
+         |PATTERN = '$pattern$extension'
          |PURGE = $purge
          |FILE_FORMAT = (
          |  TYPE = $format
@@ -398,6 +398,5 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
         val sql = buildCopyOther(domainAndTableName, format.toString.toUpperCase())
         JdbcDbUtils.executeQueryAsMap(sql, conn)
     }
-
   }
 }

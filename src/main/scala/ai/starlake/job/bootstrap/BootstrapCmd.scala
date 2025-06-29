@@ -23,6 +23,11 @@ object BootstrapCmd extends Cmd[BootstrapConfig] {
           |""".stripMargin
       ),
       builder
+        .opt[Unit]("no-exit")
+        .action((_, c) => c.copy(noExit = Some(true)))
+        .text("Should we exit after project creation ?")
+        .optional(),
+      builder
         .opt[String]("template")
         .action((x, c) => c.copy(template = Some(x)))
         .text("Template to use to bootstrap project")

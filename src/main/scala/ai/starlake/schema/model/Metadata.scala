@@ -69,7 +69,7 @@ import scala.jdk.CollectionConverters._
   * @param directory:
   *   Folder on the local filesystem where incoming files are stored. Typically, this folder will be
   *   scanned periodically to move the datasets to the cluster for ingestion. Files located in this
-  *   folder are moved to the pending folder for ingestion by the "import" command.
+  *   folder are moved to the pending folder for ingestion by the "stage" command.
   * @param ack:
   *   Ack extension used for each file. If specified, files are moved to the pending folder only
   *   once a file with the same name as the source file and with this extension is present. To move

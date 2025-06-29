@@ -21,13 +21,14 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
+import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.utils.conversion.Conversions.convertToScalaIterator
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs._
+import org.apache.hadoop.fs.*
 import org.apache.hadoop.io.compress.CompressionCodecFactory
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io._
+import java.io.*
 import java.net.URI
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{Instant, LocalDateTime, ZoneId}
@@ -61,14 +62,20 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
        */
       case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
-        val jsonKeyfile = connectionOptions.getOrElse(
+        val jsonKeyFilename = connectionOptions.getOrElse(
           "jsonKeyfile",
           throw new Exception("jsonKeyfile attribute is required for SERVICE_ACCOUNT_JSON_KEYFILE")
         )
+
+        val jsonKeyFile = BigQueryJobBase.getJsonKeyAbsoluteFile(jsonKeyFilename)
+        if (!jsonKeyFile.exists()) {
+          throw new Exception(s"jsonKeyfile $jsonKeyFilename does not exist")
+        }
+
         Map(
           "google.cloud.auth.type"                         -> "SERVICE_ACCOUNT_JSON_KEYFILE",
           "google.cloud.auth.service.account.enable"       -> "true",
-          "google.cloud.auth.service.account.json.keyfile" -> jsonKeyfile
+          "google.cloud.auth.service.account.json.keyfile" -> jsonKeyFile.toString()
         )
       case "USER_CREDENTIALS" =>
         val clientId = connectionOptions.getOrElse(

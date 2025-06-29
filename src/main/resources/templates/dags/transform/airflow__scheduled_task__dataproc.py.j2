@@ -33,6 +33,8 @@
 # - data_cycle: the data cycle to be used for the dag [OPTIONAL]
 # - beyond_data_cycle_enabled(True): whether the beyond data cycle feature is enabled or not [OPTIONAL]
 # - optional_dataset_enabled(False): whether a dataset can be treated as optional [OPTIONAL]
+# - dataset_triggering_strategy(any): the dataset triggering strategy to be used for the non scheduled dag, one of any or all (if not set the default 'any' strategy will be used) [OPTIONAL]
+# - min_timedelta_between_runs(900): the minimum timedelta between runs in seconds (900 by default) to avoid multiple dag executions when the strategy for dataset triggering is 'any' [OPTIONAL]
 {% include 'templates/dags/__starlake_airflow_orchestrator.py' %}
 {% include 'templates/dags/__starlake_dataproc_execution.py' %}
 {% include 'templates/dags/transform/__scheduled_task_tpl.py.j2' %}

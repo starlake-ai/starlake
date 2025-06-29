@@ -874,7 +874,7 @@ class SQLTransformTask(SQLTask):
                     self.enable_change_tracking(session, self.sink, dry_run)
 
             # execute postSqls
-            self.execute_sqls(session, self.statements.get('postSqls', []) , "Post sqls", dry_run)
+            self.execute_sqls(session, self.statements.get('postsql', []) , "Post sqls", dry_run)
 
             # run expectations
             self.run_expectations(session, jobid, dry_run)

@@ -16,7 +16,7 @@ class LoadXMLBQIntegrationSpec extends BigQueryIntegrationSpecBase {
         copyFilesToIncomingDir(sampleDataDir)
         assert(
           new Main().run(
-            Array("import")
+            Array("stage")
           )
         )
         assert(new Main().run(Array("load")))

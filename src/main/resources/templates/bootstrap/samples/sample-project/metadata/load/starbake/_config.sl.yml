@@ -1,0 +1,6 @@
+---
+version: 1
+load:
+  name: "starbake"
+  metadata:
+    directory: "{{incoming_path}}/starbake"

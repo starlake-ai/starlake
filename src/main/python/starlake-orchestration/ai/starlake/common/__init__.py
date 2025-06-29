@@ -34,6 +34,23 @@ class StarlakeCronPeriod(str, Enum):
         except ValueError:
             raise ValueError(f"Unsupported cron period: {value}")
 
+# Starlake parameters
+class StarlakeParameters(str, Enum):
+    # The parameters are prefixed with "sl_" to avoid conflicts with other parameters.
+    __SL_PREFIX = "sl_"
+
+    SCHEDULED_DATE_PARAMETER = f"{__SL_PREFIX}scheduled_date"
+    URI_PARAMETER = f"{__SL_PREFIX}uri"
+    SINK_PARAMETER = f"{__SL_PREFIX}sink"
+    CRON_PARAMETER = f"{__SL_PREFIX}cron"
+    FRESHNESS_PARAMETER = f"{__SL_PREFIX}freshness"
+    DATA_INTERVAL_START_PARAMETER = f"{__SL_PREFIX}data_interval_start"
+    DATA_INTERVAL_END_PARAMETER = f"{__SL_PREFIX}data_interval_end"
+    DRY_RUN_PARAMETER = f"{__SL_PREFIX}dry_run"
+
+    def __str__(self):
+        return self.value
+
 TODAY = datetime.today().strftime('%Y-%m-%d')
 
 def asQueryParameters(parameters: Union[dict,None]=None) -> str:
@@ -41,7 +58,7 @@ def asQueryParameters(parameters: Union[dict,None]=None) -> str:
     if parameters is None:
         parameters = dict()
     if parameters.__len__() > 0:
-        return '?' + '&'.join(list(f'{quote(k)}={quote(v)}' for (k, v) in parameters.items()))
+        return '?' + '&'.join(list(f'{quote(str(k))}={quote(str(v))}' for (k, v) in parameters.items()))
     else:
         return ''
 
@@ -125,7 +142,7 @@ def sort_crons_by_frequency(cron_expressions, reference_time: Optional[datetime]
             flattened.append(expr)
     return (sorted_groups, flattened)
 
-sl_timestamp_format = '%Y-%m-%d %H:%M:%S%z'
+sl_timestamp_format = '%Y-%m-%dT%H:%M:%S%z'
 
 def sl_cron_start_end_dates(cron_expr: str, start_time: datetime = cron_start_time(), format: str = sl_timestamp_format) -> str:
     """
@@ -144,8 +161,8 @@ def sl_cron_start_end_dates(cron_expr: str, start_time: datetime = cron_start_ti
         sl_end_date = curr
     else:
         sl_end_date = previous
-    sl_start_date = croniter(cron_expr, sl_end_date).get_prev(datetime)
-    return f"sl_start_date='{sl_start_date.strftime(format)}',sl_end_date='{sl_end_date.strftime(format)}'"
+    sl_start_date: datetime = croniter(cron_expr, sl_end_date).get_prev(datetime)
+    return f"{StarlakeParameters.DATA_INTERVAL_START_PARAMETER.value}='{sl_start_date.strftime(format)}',{StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value}='{sl_end_date.strftime(format)}'"
 
 def sl_scheduled_date(cron: Optional[str], ts: Union[datetime, str], previous: bool=False) -> datetime:
     """
@@ -176,14 +193,14 @@ def sl_scheduled_date(cron: Optional[str], ts: Union[datetime, str], previous: b
         print(f"Error converting timestamp to datetime: {e}")
         raise e
 
-def sl_scheduled_dataset(dataset: str, cron: Optional[str], ts:  Union[datetime, str], parameter_name: str = 'sl_schedule', format: str = sl_timestamp_format, previous: bool=False) -> str:
+def sl_scheduled_dataset(dataset: str, cron: Optional[str], ts:  Union[datetime, str], parameter_name: str = StarlakeParameters.SCHEDULED_DATE_PARAMETER.value, format: str = sl_timestamp_format, previous: bool=False) -> str:
     """
     Returns the dataset url with the schedule parameter added if a cron expression has been provided.
     Args:
         dataset (str): The dataset name.
         cron (str): The optional cron expression.
         ts (Union[datetime, str]): The timestamp.
-        parameter_name (str): The parameter name. Defaults to 'sl_schedule'.
+        parameter_name (str): The parameter name. Defaults to StarlakeParameters.SCHEDULED_DATE_PARAMETER.
         format (str): The format to return the schedule in. Defaults to '%Y%m%dT%H%M'.
     """
     if cron:

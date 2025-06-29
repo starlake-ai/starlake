@@ -37,7 +37,7 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
       copyFilesToIncomingDir(sampleDataDir)
       assert(
         new Main().run(
-          Array("import")
+          Array("stage")
         )
       )
       assert(new Main().run(Array("load")))
@@ -66,7 +66,7 @@ class LoadLocalIntegrationSpec extends IntegrationTestBase with TestHelper {
           copyFilesToIncomingDir(sampleDataDir)
           assert(
             new Main().run(
-              Array("import")
+              Array("stage")
             )
           )
           assert(new Main().run(Array("load")))

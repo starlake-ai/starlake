@@ -1,7 +1,7 @@
 package ai.starlake.serve
 
+import ai.starlake.buildinfo.BuildInfo
 import ai.starlake.utils.Utils
-import buildinfo.BuildInfo
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.sparkproject.jetty.server.Server
 import org.sparkproject.jetty.servlet.ServletHandler
@@ -77,6 +77,10 @@ object SingleUserMainServer {
               SingleUserServices.core(args, reload)(settings)
             }
           }
+        if (args.headOption.contains("bootstrap")) {
+          CaffeineSettingsManager.remove(root, env)
+        }
+
         result match {
           case Failure(e: IllegalArgumentException) =>
             s"""
