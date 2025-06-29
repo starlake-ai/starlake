@@ -1,6 +1,7 @@
 package ai.starlake.utils
 
-import ai.starlake.job.sink.bigquery.BigQueryJobBase.getJsonKeyStream
+import ai.starlake.config.Settings
+import ai.starlake.job.sink.bigquery.BigQueryJobBase.{getJsonKeyStream, getJsonKeyStreamFromBase64}
 import com.google.auth.Credentials
 import com.google.auth.oauth2.{
   AccessToken,
@@ -16,7 +17,7 @@ object GcpCredentials extends StrictLogging {
   def credentials(
     connectionOptions: Map[String, String],
     accessToken: scala.Option[String] = None
-  ): scala.Option[Credentials] = {
+  )(implicit settings: Settings): scala.Option[Credentials] = {
     accessToken match {
       case Some(token) =>
         logger.info(s"Using inline access token credentials")
@@ -48,6 +49,9 @@ object GcpCredentials extends StrictLogging {
           case "SERVICE_ACCOUNT_JSON_KEYFILE" =>
             val credentialsStream = getJsonKeyStream(connectionOptions)
             scala.Option(ServiceAccountCredentials.fromStream(credentialsStream))
+          case "SERVICE_ACCOUNT_JSON_KEY_BASE64" =>
+            val base64Key = getJsonKeyStreamFromBase64(connectionOptions)
+            scala.Option(ServiceAccountCredentials.fromStream(base64Key))
 
           case "USER_CREDENTIALS" =>
             val clientId = connectionOptions("clientId")
