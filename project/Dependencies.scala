@@ -136,8 +136,7 @@ object Dependencies {
     // Add the jar file to spark dependencies
     "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % Versions.sparkBigqueryWithDependencies % "provided" excludeAll (jacksonExclusions: _*),
     "com.google.cloud" % "google-cloud-datacatalog" % Versions.gcpDataCatalog excludeAll (jacksonExclusions: _*),
-    "com.google.cloud" % "google-cloud-logging" % Versions.gcpCloudLogging,
-    "com.google.apis" % "google-api-services-sheets" % Versions.googleSheets excludeAll (jacksonExclusions: _*)
+    "com.google.cloud" % "google-cloud-logging" % Versions.gcpCloudLogging
   )
 
   val esSpark212 = Seq(
