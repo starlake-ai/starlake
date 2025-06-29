@@ -13,6 +13,7 @@ sl_job = StarlakeJobFactory.create_job(
     options=options
 )
 
+from ai.starlake.common import sanitize_id
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDomain, StarlakeTable, OrchestrationFactory
 
 schedules= [{% for schedule in context.schedules %}
@@ -60,8 +61,6 @@ with OrchestrationFactory.create_orchestration(job=sl_job) as orchestration:
                 start >> pre_tasks
 
             def generate_load_domain(domain: StarlakeDomain):
-
-                from ai.starlake.common import sanitize_id
 
                 if schedule_name:
                     name = f"{domain.name}_{schedule_name}"
