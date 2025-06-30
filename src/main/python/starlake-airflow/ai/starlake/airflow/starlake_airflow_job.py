@@ -16,7 +16,7 @@ from ai.starlake.dataset import StarlakeDataset, AbstractEvent
 
 from airflow.datasets import Dataset
 
-from airflow.models import DagRun
+from airflow.models import DagBag, DagRun, TaskInstance
 
 from airflow.models.baseoperator import BaseOperator
 
@@ -312,12 +312,29 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
             def find_previous_dag_runs(scheduled_date: datetime, session: Session=None) -> List[DagRun]:
                 # we look for the first non skipped dag run before the scheduled date 
                 from airflow.utils.state import State
+
+                dag = DagBag().get_dag(dag_id)
+                leaves = dag.leaves
+                last_tasks_id = [task.task_id for task in leaves]
+
+                from sqlalchemy import and_
+
                 dag_runs: List[DagRun] = (
                     session.query(DagRun)
+                    .outerjoin(
+                        TaskInstance,
+                        and_(
+                            TaskInstance.dag_id == DagRun.dag_id,
+                            TaskInstance.execution_date == DagRun.execution_date,
+                            TaskInstance.task_id in last_tasks_id,
+                            TaskInstance.state == State.SKIPPED
+                        )
+                    )                    
                     .filter(
                         DagRun.dag_id == dag_id,
                         DagRun.state == State.SUCCESS,
-                        DagRun.data_interval_end < scheduled_date
+                        DagRun.data_interval_end < scheduled_date,
+                        TaskInstance.task_id == None  # Ensure that the last task was not skipped
                     )
                     .order_by(DagRun.data_interval_end.desc(), DagRun.start_date.desc())
                     .limit(1)
