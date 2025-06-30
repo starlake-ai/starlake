@@ -60,7 +60,8 @@ class StarlakeExecutionMode(str, Enum):
 class TaskType(str, Enum):
     START = "start"
     PRELOAD = "preload"
-    IMPORT = "import"
+    IMPORT = "import" # Deprecated, use STAGE instead
+    STAGE = "stage"
     LOAD = "load"
     TRANSFORM = "transform"
     EMPTY = "empty"
@@ -256,8 +257,8 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         self.__add_event(tmp_domain, **kwargs)
         task_id = f"import_{tmp_domain}" if not task_id else task_id
         kwargs.pop("task_id", None)
-        arguments = [TaskType.IMPORT.value, "--domains", domain, "--tables", ",".join(tables), "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
-        return self.sl_job(task_id=task_id, arguments=arguments, task_type=TaskType.IMPORT, **kwargs)
+        arguments = [TaskType.STAGE.value, "--domains", domain, "--tables", ",".join(tables), "--options", "SL_RUN_MODE=main,SL_LOG_LEVEL=info"]
+        return self.sl_job(task_id=task_id, arguments=arguments, task_type=TaskType.STAGE, **kwargs)
 
     @classmethod
     def get_sl_pre_load_task_id(cls, domain: str, pre_load_strategy: StarlakePreLoadStrategy, **kwargs) -> Optional[str]:
