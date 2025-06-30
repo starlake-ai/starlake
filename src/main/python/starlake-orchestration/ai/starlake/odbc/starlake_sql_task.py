@@ -873,7 +873,7 @@ class SQLTransformTask(SQLTask):
                 if snowflake:
                     self.enable_change_tracking(session, self.sink, dry_run)
 
-            # execute postSqls
+            # execute postsql
             self.execute_sqls(session, self.statements.get('postsql', []) , "Post sqls", dry_run)
 
             # run expectations
