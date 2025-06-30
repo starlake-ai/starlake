@@ -2044,4 +2044,60 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val schedules = taskSchedulesList ++ tableSchedulesList
     orderSchedules(orderBy, schedules)
   }
+
+  def updateTableSchedule(obj: ObjectSchedule)(implicit settings: Settings) = {
+    val domain = getDomain(obj.domain).getOrElse(
+      throw new Exception(s"Domain ${obj.domain} not found")
+    )
+    val table = domain.tables
+      .find(_.name.toLowerCase() == obj.table.toLowerCase())
+      .getOrElse(
+        throw new Exception(s"Table ${obj.table} not found in domain ${obj.domain}")
+      )
+    val metadata = table.metadata.getOrElse(
+      Metadata()
+    )
+    val updatedMetadata = metadata.copy(schedule = Option(obj.cron))
+    val updatedTable = table.copy(metadata = Some(updatedMetadata))
+
+    YamlSerde.serializeToPath(
+      new Path(DatasetArea.load, s"${domain.name}/${table.name}.sl.yml"),
+      updatedTable
+    )(settings.storageHandler())
+
+    val updatedDomain = domain.copy(tables = domain.tables.map {
+      case t if t.name.toLowerCase() == obj.table.toLowerCase() => updatedTable
+      case t                                                    => t
+    })
+    _domains = _domains.map(ds =>
+      ds.filterNot(_.name.toLowerCase() == domain.name.toLowerCase()) :+ updatedDomain
+    )
+
+  }
+  def updateTaskSchedule(obj: ObjectSchedule)(implicit settings: Settings) = {
+    val job = jobs()
+      .find(_.name.toLowerCase() == obj.domain.toLowerCase())
+      .getOrElse(
+        throw new Exception(s"Job ${obj.domain} not found")
+      )
+    val task = job.tasks
+      .find(_.name.toLowerCase() == obj.table.toLowerCase())
+      .getOrElse(
+        throw new Exception(s"Task ${obj.table} not found in job ${obj.domain}")
+      )
+    val updatedTask = task.copy(schedule = Option(obj.cron))
+
+    YamlSerde.serializeToPath(
+      new Path(DatasetArea.transform, s"${job.name}/${obj.table}.sl.yml"),
+      updatedTask
+    )(settings.storageHandler())
+
+    val updatedJob = job.copy(
+      tasks = job.tasks.map {
+        case t if t.name.toLowerCase() == obj.table.toLowerCase() => updatedTask
+        case t                                                    => t
+      }
+    )
+    _jobs = _jobs.filterNot(_.name.toLowerCase() == job.name.toLowerCase()) :+ updatedJob
+  }
 }
