@@ -1393,6 +1393,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     jobs().flatMap(_.tasks)
   }
 
+  def task(domain: String, tsk: String): Try[AutoTaskDesc] = {
+    val taskName = s"$domain.$tsk"
+    task(taskName)
+  }
+
   def task(taskName: String): Try[AutoTaskDesc] = Try {
     val allTasks = tasks()
     allTasks
@@ -1548,7 +1553,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     * @return
     *   List of schemas for a domain, empty list if no schema or domain is found
     */
-  def getSchemas(domain: String): List[Schema] = getDomain(domain).map(_.tables).getOrElse(Nil)
+  def tables(domain: String): List[Schema] = getDomain(domain).map(_.tables).getOrElse(Nil)
 
   /** Get schema by name for a domain
     *
@@ -1559,11 +1564,25 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     * @return
     *   Unique Schema with this name for a domain
     */
-  def getSchema(domainName: String, schemaName: String): Option[Schema] =
+  def table(domainName: String, schemaName: String): Option[Schema] =
     for {
       domain <- getDomain(domainName)
       schema <- domain.tables.find(_.name == schemaName)
     } yield schema
+
+  def table(domainNameAndSchemaName: String): Option[Schema] = {
+    val components = domainNameAndSchemaName.split('.')
+    assert(
+      components.length == 2,
+      s"Table name $domainNameAndSchemaName should be composed of domain and table name separated by a dot"
+    )
+    val domainName = components(0)
+    val schemaName = components(1)
+    for {
+      domain <- getDomain(domainName)
+      schema <- domain.tables.find(_.name == schemaName)
+    } yield schema
+  }
 
   def fromXSD(domain: Domain): Domain = {
     val domainMetadata = domain.metadata
@@ -2043,5 +2062,61 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val tableSchedulesList = tableSchedules(orderBy)
     val schedules = taskSchedulesList ++ tableSchedulesList
     orderSchedules(orderBy, schedules)
+  }
+
+  def updateTableSchedule(obj: ObjectSchedule)(implicit settings: Settings) = {
+    val domain = getDomain(obj.domain).getOrElse(
+      throw new Exception(s"Domain ${obj.domain} not found")
+    )
+    val table = domain.tables
+      .find(_.name.toLowerCase() == obj.table.toLowerCase())
+      .getOrElse(
+        throw new Exception(s"Table ${obj.table} not found in domain ${obj.domain}")
+      )
+    val metadata = table.metadata.getOrElse(
+      Metadata()
+    )
+    val updatedMetadata = metadata.copy(schedule = Option(obj.cron))
+    val updatedTable = table.copy(metadata = Some(updatedMetadata))
+
+    YamlSerde.serializeToPath(
+      new Path(DatasetArea.load, s"${domain.name}/${table.name}.sl.yml"),
+      updatedTable
+    )(settings.storageHandler())
+
+    val updatedDomain = domain.copy(tables = domain.tables.map {
+      case t if t.name.toLowerCase() == obj.table.toLowerCase() => updatedTable
+      case t                                                    => t
+    })
+    _domains = _domains.map(ds =>
+      ds.filterNot(_.name.toLowerCase() == domain.name.toLowerCase()) :+ updatedDomain
+    )
+
+  }
+  def updateTaskSchedule(obj: ObjectSchedule)(implicit settings: Settings) = {
+    val job = jobs()
+      .find(_.name.toLowerCase() == obj.domain.toLowerCase())
+      .getOrElse(
+        throw new Exception(s"Job ${obj.domain} not found")
+      )
+    val task = job.tasks
+      .find(_.name.toLowerCase() == obj.table.toLowerCase())
+      .getOrElse(
+        throw new Exception(s"Task ${obj.table} not found in job ${obj.domain}")
+      )
+    val updatedTask = task.copy(schedule = Option(obj.cron))
+
+    YamlSerde.serializeToPath(
+      new Path(DatasetArea.transform, s"${job.name}/${obj.table}.sl.yml"),
+      updatedTask
+    )(settings.storageHandler())
+
+    val updatedJob = job.copy(
+      tasks = job.tasks.map {
+        case t if t.name.toLowerCase() == obj.table.toLowerCase() => updatedTask
+        case t                                                    => t
+      }
+    )
+    _jobs = _jobs.filterNot(_.name.toLowerCase() == job.name.toLowerCase()) :+ updatedJob
   }
 }
