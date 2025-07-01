@@ -93,7 +93,7 @@ def get_cron_frequency(cron_expression) -> timedelta:
     next_run_2 = iter.get_next(datetime)
     return next_run_2 - next_run
 
-def sort_crons_by_frequency(cron_expressions, reference_time: Optional[datetime] = None) -> Tuple[Dict[int, List[str]], List[str]]:
+def sort_crons_by_frequency(cron_expressions, reference_time: Optional[datetime] = None, **kwargs) -> Tuple[Dict[int, List[str]], List[str]]:
     """
     Sort cron expressions by their frequency.
 

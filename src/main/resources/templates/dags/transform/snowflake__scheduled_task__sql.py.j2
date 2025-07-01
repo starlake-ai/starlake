@@ -1,6 +1,6 @@
 # This template executes individual SNOWFLAKE SQL jobs and requires the following dag generation options set:
 #
-# - stage_location: the location of the stage in snowflake [REQUIRED]
+# - stage_location: the location of the stage in snowflake where store procedures are located [REQUIRED]
 # - warehouse(COMPUTE_WH): the warehouse to use for the DAG [OPTIONAL], default to COMPUTE_WH
 # - timezone(UTC): the timezone to use for the schedule [OPTIONAL], default to UTC
 # - packages(croniter,python-dateutil,snowflake-snowpark-python): a list of packages to install before running the task [OPTIONAL], default to croniter,python-dateutil,snowflake-snowpark-python
