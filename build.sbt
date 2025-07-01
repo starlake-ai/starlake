@@ -38,8 +38,6 @@ val testJavaOptions = {
 
 Test / javaOptions ++= testJavaOptions
 
-ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
-
 // lazy val scala212 = "2.12.20"
 
 lazy val scala213 = "2.13.16"
@@ -48,13 +46,13 @@ lazy val scala3 = "3.3.1"
 lazy val supportedScalaVersions = Seq(scala213)
 
 
-ThisBuild / crossScalaVersions := supportedScalaVersions
+crossScalaVersions := supportedScalaVersions
 
 organization := "ai.starlake"
 
 organizationName := "starlake"
 
-ThisBuild / scalaVersion := scala213 // scala213 scala212
+scalaVersion := scala213 // scala213 scala212
 
 organizationHomepage := Some(url("https://github.com/starlake-ai/starlake"))
 
@@ -83,16 +81,7 @@ dependencyOverrides := Seq(
   "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jacksonForSpark3
 )
 
-name := {
-  val sparkNameSuffix = {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => "3"
-      case Some((2, 13)) => "3"
-      case _             => throw new Exception(s"Invalid Scala Version")
-    }
-  }
-  s"starlake-core"
-}
+name := "starlake-core"
 
 assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
 
@@ -213,19 +202,7 @@ assembly / assemblyShadeRules := Seq(
   //ShadeRule.rename("com.google.protobuf.**" -> "shade.@0").inAll
 )
 
-// Publish
-publishTo := {
-  (
-    sys.env.get("GCS_BUCKET_ARTEFACTS"),
-    sys.env.getOrElse("RELEASE_SONATYPE", "true").toBoolean
-  ) match {
-    case (None, false) =>
-      sonatypePublishToBundle.value
-    case (None, true) => sonatypePublishToBundle.value
-    case (Some(value), _) =>
-      Some(GCSPublisher.forBucket(value, AccessRights.InheritBucket))
-  }
-}
+
 // Disable scaladoc generation
 
 Compile / doc / sources := Seq.empty
@@ -235,11 +212,6 @@ Compile / doc / sources := Seq.empty
 Compile / packageBin / publishArtifact := true
 
 Compile / packageSrc / publishArtifact := true
-
-// Do not disable checksum
-publishLocal / checksums := Nil
-
-// publish / checksums := Nil
 
 // Your profile name of the sonatype account. The default is the same with the organization value
 sonatypeProfileName := "ai.starlake"
@@ -255,6 +227,21 @@ licenses := Seq(
 sonatypeProjectHosting := Some(
   GitHubHosting("starlake-ai", "starlake", "hayssam.saleh@starlake.ai")
 )
+
+
+pgpPassphrase := sys.env.get("PGP_PASSPHRASE").map(_.toCharArray)
+
+// Do not disable checksum
+publishLocal / checksums := Nil
+
+sonatypeCredentialHost := sonatypeCentralHost
+
+publishTo := {
+  val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
+  if (isSnapshot.value) Some("central-snapshots" at centralSnapshots)
+  else localStaging.value
+}
+
 
 // Release
 releaseCrossBuild := true
