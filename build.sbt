@@ -228,7 +228,6 @@ sonatypeProjectHosting := Some(
   GitHubHosting("starlake-ai", "starlake", "hayssam.saleh@starlake.ai")
 )
 
-
 pgpPassphrase := sys.env.get("PGP_PASSPHRASE").map(_.toCharArray)
 
 // Do not disable checksum
