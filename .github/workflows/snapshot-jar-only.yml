@@ -31,9 +31,6 @@ jobs:
         with:
           distribution: 'temurin' # See 'Supported distributions' for available options
           java-version: '17'
-          server-id: sonatype-nexus-snapshots
-          server-username: SONATYPE_USERNAME
-          server-password: SONATYPE_PASSWORD
       - name: Setup sbt launcher
         uses: sbt/setup-sbt@v1
         with:
