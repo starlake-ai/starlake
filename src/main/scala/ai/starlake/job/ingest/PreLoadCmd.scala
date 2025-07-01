@@ -82,7 +82,7 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
         val files = settings.storageHandler().list(pendingArea, recursive = false)
         val results =
           for (table <- config.tables) yield {
-            schemaHandler.getSchema(config.domain, table) match {
+            schemaHandler.table(config.domain, table) match {
               case Some(schema) =>
                 table -> files.count(file => schema.pattern.matcher(file.path.getName).matches())
               case None =>

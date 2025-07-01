@@ -81,16 +81,19 @@ object SQLUtils extends StrictLogging {
 
   def extractColumnNames(sql: String): List[String] = {
     var result: List[String] = Nil
+
     def extractColumnsFromPlainSelect(plainSelect: PlainSelect): Unit = {
       val selectItems = Option(plainSelect.getSelectItems).map(_.asScala).getOrElse(Nil)
       result = selectItems.map { selectItem =>
         selectItem.getASTNode.jjtGetLastToken().image
       }.toList
     }
+
     val selectVisitorAdapter = new SelectVisitorAdapter[Any]() {
       override def visit[T](plainSelect: PlainSelect, context: T): Any = {
         extractColumnsFromPlainSelect(plainSelect)
       }
+
       override def visit[T](setOpList: SetOperationList, context: T): Any = {
         val plainSelect = setOpList.getSelect(0).getPlainSelect
         extractColumnsFromPlainSelect(plainSelect)
@@ -131,25 +134,14 @@ object SQLUtils extends StrictLogging {
     result.toList
   }
 
-  def jsqlParse(sql: String): Statement = {
-    // remove TABLE keyword in order for sqlparser to be able to parse it
-    val parseable =
-      sql
-        .replaceAll("(?i)APPENDS\\s*\\(\\s*TABLE", "APPENDS(")
-        .replaceAll("(?i)CHANGES\\s*\\(\\s*TABLE", "CHANGES(")
-        .replaceAll("(?i)GAP_FILL\\s*\\(\\s*TABLE", "GAP_FILL(")
-
-    /*
-        .replaceAll("(?i)WHEN NOT MATCHED AND (.*) THEN ", "WHEN NOT MATCHED THEN ")
-        .replaceAll("(?i)WHEN MATCHED (.*) THEN ", "WHEN MATCHED THEN ")
-     */
+  private def jsqlParse(sql: String): Statement = {
     val features = new Consumer[CCJSqlParser] {
       override def accept(t: CCJSqlParser): Unit = {
         t.withTimeOut(60 * 1000)
       }
     }
     try {
-      CCJSqlParserUtil.parse(parseable, features)
+      CCJSqlParserUtil.parse(sql, features)
     } catch {
       case exception: Exception =>
         logger.error(s"Failed to parse $sql")
@@ -258,6 +250,7 @@ object SQLUtils extends StrictLogging {
     settings: Settings
   ): String = {
     def cteContains(table: String): Boolean = ctes.exists(cte => cte.equalsIgnoreCase(table))
+
     if (tableName.contains('/')) {
       // This is a file in the form of parquet.`/path/to/file`
       tableName

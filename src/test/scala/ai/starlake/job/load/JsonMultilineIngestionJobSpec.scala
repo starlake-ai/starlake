@@ -38,7 +38,7 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
         loadPending
 
         val schemaHandler = settings.schemaHandler()
-        val schema = schemaHandler.getSchema("jsonmultiline", "sample_json").get
+        val schema = schemaHandler.table("jsonmultiline", "sample_json").get
         val sparkSchema = schema.sourceSparkSchemaWithoutScriptedFields(schemaHandler)
 
         // Accepted should have the same data as input
