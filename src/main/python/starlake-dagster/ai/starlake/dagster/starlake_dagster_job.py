@@ -22,10 +22,10 @@ class DagsterDataset(AbstractEvent[AssetKey]):
         return AssetKey(dataset.uri)
 
 class StarlakeDagsterJob(IStarlakeJob[NodeDefinition, AssetKey], StarlakeOptions, DagsterDataset):
-    def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs) -> None:
+    def __init__(self, filename: str=None, module_name: str=None, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, options: dict=None, **kwargs) -> None:
         super().__init__(filename=filename, module_name=module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         import sys
-        module = sys.modules.get(module_name)
+        module = sys.modules.get(module_name) if module_name else None
         if module and hasattr(module, '__file__'):
             import os
             file_path = module.__file__

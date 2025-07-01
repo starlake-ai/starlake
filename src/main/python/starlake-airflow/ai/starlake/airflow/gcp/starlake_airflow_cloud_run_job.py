@@ -39,8 +39,8 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
     """Airflow Starlake Cloud Run Job."""
     def __init__(
             self, 
-            filename: str, 
-            module_name: str,
+            filename: str = None, 
+            module_name: str = None,
             pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None,
             project_id: str=None,
             cloud_run_job_name: str=None,

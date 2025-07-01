@@ -90,7 +90,7 @@ class AirflowDataset(AbstractEvent[Dataset]):
         return Dataset(dataset.uri, extra)
 
 class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOptions, AirflowDataset):
-    def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict=None, **kwargs) -> None:
+    def __init__(self, filename: Optional[str] = None, module_name: Optional[str] = None, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None] = None, options: dict = {}, **kwargs) -> None:
         """Overrides IStarlakeJob.__init__()
         Args:
             pre_load_strategy (Union[StarlakePreLoadStrategy, str, None]): The pre-load strategy to use.
@@ -100,7 +100,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
         self.outlets: List[Dataset] = kwargs.get('outlets', [])
         import sys
-        module = sys.modules.get(module_name)
+        module = sys.modules.get(module_name) if module_name else None
         if module and hasattr(module, '__file__'):
             import os
             file_path = module.__file__
@@ -357,6 +357,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
 
             @provide_session
             def find_dataset_events(uri: str, scheduled_date_to_check_min: datetime, scheduled_date_to_check_max: datetime, ts: datetime, session: Session=None) -> List[DatasetEvent]:
+                print(f'Finding dataset events for {uri} with data_interval_end between {scheduled_date_to_check_min.strftime(sl_timestamp_format)} and {scheduled_date_to_check_max.strftime(sl_timestamp_format)}, and with timestamp <= {ts.strftime(sl_timestamp_format)}')
                 from sqlalchemy import and_, asc
                 from sqlalchemy.orm import joinedload
                 events: List[DatasetEvent] = (
@@ -747,6 +748,7 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         return dag_args
 
 from airflow.lineage import prepare_lineage
+import jinja2
 
 class StarlakeDatasetMixin:
     """Mixin to update Airflow outlets with Starlake datasets."""
@@ -805,13 +807,53 @@ class StarlakeDatasetMixin:
         self.extra = extra
         super().__init__(task_id=task_id, **kwargs)  # Appelle l'init de l'opérateur principal
 
+    def render_template_fields(
+            self,
+            context: Context,
+            jinja_env: jinja2.Environment | None = None,
+        ) -> None:
+        dag = context.get('dag')
+        __ts_as_datetime = dag.user_defined_macros.get('ts_as_datetime', None)
+        if not __ts_as_datetime:
+            def ts_as_datetime(ts, context: Context = None):
+                from datetime import datetime
+                if not context:
+                    from airflow.operators.python import get_current_context
+                    context = get_current_context()
+                ti: TaskInstance = context["task_instance"]
+                sl_logical_date = ti.xcom_pull(task_ids="start", key=StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value)
+                if sl_logical_date:
+                    ts = sl_logical_date
+                if isinstance(ts, str):
+                    from dateutil import parser
+                    import pytz
+                    return parser.isoparse(ts).astimezone(pytz.timezone('UTC'))
+                elif isinstance(ts, datetime):
+                    return ts
+
+            print(f"add 'ts_as_datetime' to context")
+            context['ts_as_datetime'] = ts_as_datetime
+
+        __sl_scheduled_dataset = dag.user_defined_macros.get('sl_scheduled_dataset', None)
+        if not __sl_scheduled_dataset:
+            print(f"add 'sl_scheduled_dataset' to context")
+            from ai.starlake.common import sl_scheduled_dataset
+            context['sl_scheduled_dataset'] = sl_scheduled_dataset
+
+        __sl_scheduled_date = dag.user_defined_macros.get('sl_scheduled_date', None)
+        if not __sl_scheduled_date:
+            print(f"add 'sl_scheduled_date' to context")
+            from ai.starlake.common import sl_scheduled_date
+            context['sl_scheduled_date'] = sl_scheduled_date
+
+        return super().render_template_fields(context, jinja_env)
+
     @prepare_lineage
     def pre_execute(self, context: Context):
         if not context:
             from airflow.operators.python import get_current_context
             context = get_current_context()
 
-        from airflow.models.taskinstance import TaskInstance
         ti: TaskInstance = context.get('ti')
         ts: datetime = ti.start_date
 

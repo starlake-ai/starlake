@@ -21,8 +21,8 @@ class StarlakeDagsterFargateJob(StarlakeDagsterJob):
 
     def __init__(
             self, 
-            filename: str, 
-            module_name: str,
+            filename: str=None, 
+            module_name: str=None,
             pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, 
             options: dict=None,
             **kwargs) -> None:
