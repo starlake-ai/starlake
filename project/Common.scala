@@ -111,14 +111,13 @@ object Resolvers {
   val mulesoft =
     "Mulesoft repository" at "https://repository.mulesoft.org/nexus/content/repositories/public/"
 
-  val releases =
-    "Sonatype OSS Releases" at "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+  val snapshots = Resolver.sonatypeCentralSnapshots
 
-  val snapshots =
+  val legacySnapshots =
     "Sonatype OSS Snapshots" at "https://s01.oss.sonatype.org/content/repositories/snapshots/"
 
   val allResolvers =
-    Seq(Resolver.mavenLocal, releases, typeSafe, confluent, mulesoft, snapshots) ++ Resolver
+    Seq(Resolver.mavenLocal, typeSafe, confluent, mulesoft, snapshots, legacySnapshots) ++ Resolver
       .sonatypeOssRepos(
         "snapshots"
       )
