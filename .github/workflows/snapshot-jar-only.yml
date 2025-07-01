@@ -33,8 +33,8 @@ jobs:
           java-version: '17'
       - name: Setup sbt launcher
         uses: sbt/setup-sbt@v1
-      - name: Publish Snapshot on Sonatype Spark 3 for scala 2.13
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt ++2.13 publish
+      - name: Publish Snapshot on Sonatype
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt publish
       - name: trigger-starlake-api
         if: ${{ success() }}
         uses: actions/github-script@v6
