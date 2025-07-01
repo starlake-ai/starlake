@@ -202,7 +202,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // API
-    private static final ResourceDependency SL_API_ZIP = new ResourceDependency("starlake-api", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-api" + "_" + SCALA_VERSION + "/" + SL_API_VERSION + "/starlake-api"+ "_" + SCALA_VERSION + "-" + SL_API_VERSION + ".zip");
+    private static final ResourceDependency SL_API_ZIP = new ResourceDependency("starlake-api", "https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-api" + "_" + SCALA_VERSION + "/" + SL_API_VERSION + "/starlake-api"+ "_" + SCALA_VERSION + "-" + SL_API_VERSION + ".zip");
 
     // SPARK
     private static final ResourceDependency SPARK_JAR = new ResourceDependency("dist/spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + "-scala2.13.tgz");
@@ -233,8 +233,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency REDSHIFT_JDBC_JAR = new ResourceDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
     private static ResourceDependency SPARK_REDSHIFT_JAR = new ResourceDependency("spark-redshift", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/spark-redshift_" + SCALA_VERSION + "/" + SPARK_REDSHIFT_VERSION + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION + ".jar");
 
-    private static final ResourceDependency STARLAKE_SNAPSHOT_JAR = new ResourceDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core"+ "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
-    private static final ResourceDependency STARLAKE_RELEASE_JAR = new ResourceDependency("starlake-core", "https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
+    private static final ResourceDependency STARLAKE_SNAPSHOT_JAR = new ResourceDependency("starlake-core", "https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core"+ "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
+    private static final ResourceDependency STARLAKE_RELEASE_JAR = new ResourceDependency("starlake-core", " https://central.sonatype.com/repository/maven-releases/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
     private static final ResourceDependency CONFLUENT_KAFKA_SCHEMA_REGISTRY_CLIENT = new ResourceDependency("kafka-schema-registry-client", "https://packages.confluent.io/maven/io/confluent/kafka-schema-registry-client/" + CONFLUENT_VERSION + "/kafka-schema-registry-client-" + CONFLUENT_VERSION + ".jar");
     private static final ResourceDependency CONFLUENT_KAFKA_AVRO_SERIALIZER = new ResourceDependency("kafka-avro-serializer", "https://packages.confluent.io/maven/io/confluent/kafka-avro-serializer/" + CONFLUENT_VERSION + "/kafka-avro-serializer-" + CONFLUENT_VERSION + ".jar");
 
