@@ -234,14 +234,14 @@ pgpPassphrase := sys.env.get("PGP_PASSPHRASE").map(_.toCharArray)
 // Do not disable checksum
 publishLocal / checksums := Nil
 
-sonatypeCredentialHost := sonatypeCentralHost
+//sonatypeCredentialHost := sonatypeCentralHost
 
-publishTo := {
+ThisBuild / publishTo := {
   val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
+  println("--> Publishing to " + (if (isSnapshot.value) "central-snapshots" else "local staging"))
   if (isSnapshot.value) Some("central-snapshots" at centralSnapshots)
   else localStaging.value
 }
-
 
 // Release
 releaseCrossBuild := true

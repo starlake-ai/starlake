@@ -31,10 +31,15 @@ jobs:
         with:
           distribution: 'temurin' # See 'Supported distributions' for available options
           java-version: '17'
+          server-id: sonatype-nexus-snapshots
+          server-username: SONATYPE_USERNAME
+          server-password: SONATYPE_PASSWORD
       - name: Setup sbt launcher
         uses: sbt/setup-sbt@v1
+        with:
+          sbt-runner-version: '1.11.2'
       - name: Publish Snapshot on Sonatype
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt publish -v
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt publish
       - name: trigger-starlake-api
         if: ${{ success() }}
         uses: actions/github-script@v6
