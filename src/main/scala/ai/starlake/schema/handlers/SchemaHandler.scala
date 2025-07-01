@@ -1393,6 +1393,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     jobs().flatMap(_.tasks)
   }
 
+  def task(domain: String, tsk: String): Try[AutoTaskDesc] = {
+    val taskName = s"$domain.$tsk"
+    task(taskName)
+  }
+
   def task(taskName: String): Try[AutoTaskDesc] = Try {
     val allTasks = tasks()
     allTasks
@@ -1548,7 +1553,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     * @return
     *   List of schemas for a domain, empty list if no schema or domain is found
     */
-  def getSchemas(domain: String): List[Schema] = getDomain(domain).map(_.tables).getOrElse(Nil)
+  def tables(domain: String): List[Schema] = getDomain(domain).map(_.tables).getOrElse(Nil)
 
   /** Get schema by name for a domain
     *
@@ -1559,11 +1564,25 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     * @return
     *   Unique Schema with this name for a domain
     */
-  def getSchema(domainName: String, schemaName: String): Option[Schema] =
+  def table(domainName: String, schemaName: String): Option[Schema] =
     for {
       domain <- getDomain(domainName)
       schema <- domain.tables.find(_.name == schemaName)
     } yield schema
+
+  def table(domainNameAndSchemaName: String): Option[Schema] = {
+    val components = domainNameAndSchemaName.split('.')
+    assert(
+      components.length == 2,
+      s"Table name $domainNameAndSchemaName should be composed of domain and table name separated by a dot"
+    )
+    val domainName = components(0)
+    val schemaName = components(1)
+    for {
+      domain <- getDomain(domainName)
+      schema <- domain.tables.find(_.name == schemaName)
+    } yield schema
+  }
 
   def fromXSD(domain: Domain): Domain = {
     val domainMetadata = domain.metadata
