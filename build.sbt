@@ -234,7 +234,7 @@ pgpPassphrase := sys.env.get("PGP_PASSPHRASE").map(_.toCharArray)
 // Do not disable checksum
 publishLocal / checksums := Nil
 
-//sonatypeCredentialHost := sonatypeCentralHost
+// sonatypeCredentialHost := sonatypeCentralHost
 
 ThisBuild / publishTo := {
   val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
