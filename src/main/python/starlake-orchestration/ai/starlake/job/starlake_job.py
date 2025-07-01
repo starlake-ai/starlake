@@ -79,7 +79,7 @@ class TaskType(str, Enum):
             return None
 
 class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
-    def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None], options: dict, **kwargs) -> None:
+    def __init__(self, filename: Optional[str] = None, module_name: Optional[str] = None, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None] = None, options: dict = {}, **kwargs) -> None:
         """Init the class.
         Args:
             filename (str): The filename from which the job is called.
@@ -125,7 +125,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
             self.retry_delay = 300
 
         # Define the source
-        self.source = filename.replace(".py", "").replace(".pyc", "").lower()
+        self.source = filename.replace(".py", "").replace(".pyc", "").lower() if filename else None
 
         # Access the caller file name
         self.caller_filename = filename
@@ -134,7 +134,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         self.caller_module_name = module_name
         
         # Access the caller's global variables
-        self.caller_globals = sys.modules[self.caller_module_name].__dict__
+        self.caller_globals = sys.modules[self.caller_module_name].__dict__ if module_name else {}
 
         def default_spark_config(*args, **kwargs) -> StarlakeSparkConfig:
             return StarlakeSparkConfig(
@@ -146,7 +146,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
                 **kwargs
             )
 
-        self.get_spark_config = getattr(self.caller_module_name, "get_spark_config", default_spark_config)
+        self.get_spark_config = getattr(self.caller_module_name, "get_spark_config", default_spark_config) if module_name else default_spark_config
 
         self._events: List[E] = []
 

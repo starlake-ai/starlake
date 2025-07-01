@@ -21,7 +21,7 @@ from airflow.utils.task_group import TaskGroup
 import logging
 
 class StarlakeAirflowFargateJob(StarlakeAirflowJob):
-    def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None] = None, options: Optional[dict] = None, **kwargs):
+    def __init__(self, filename: str=None, module_name: str=None, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None] = None, options: Optional[dict] = None, **kwargs):
         super().__init__(filename, module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.aws_conn_id = kwargs.get("aws_conn_id", self.caller_globals.get("aws_conn_id", __class__.get_context_var("aws_conn_id", "aws_default", self.options)))
         self.fargate_async = __class__.get_context_var(var_name='fargate_async', default_value="True", options=self.options).lower() == "true" 

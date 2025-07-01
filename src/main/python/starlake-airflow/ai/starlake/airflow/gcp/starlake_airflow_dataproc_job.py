@@ -255,7 +255,7 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
 
 class StarlakeAirflowDataprocJob(StarlakeAirflowJob):
     """Airflow Starlake Dataproc Job."""
-    def __init__(self, filename: str, module_name: str, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, cluster: Optional[StarlakeAirflowDataprocCluster]=None, options: dict=None, **kwargs):
+    def __init__(self, filename: str=None, module_name: str=None, pre_load_strategy: Union[StarlakePreLoadStrategy, str, None]=None, cluster: Optional[StarlakeAirflowDataprocCluster]=None, options: dict=None, **kwargs):
         super().__init__(filename, module_name, pre_load_strategy=pre_load_strategy, options=options, **kwargs)
         self.cluster = StarlakeAirflowDataprocCluster(StarlakeAirflowDataprocClusterConfig.from_module(filename, module_name, self.options), options=self.options, pool=self.pool) if not cluster else cluster
 
