@@ -321,29 +321,39 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 print(f"non skipped tasks to check [{','.join(last_tasks_id)}]")
 
                 from sqlalchemy import and_
+                from sqlalchemy.orm import aliased
 
-                dag_runs: List[DagRun] = (
+                TI = aliased(TaskInstance)
+
+                base_query = (
                     session.query(DagRun)
-                    .outerjoin(
-                        TaskInstance,
-                        and_(
-                            TaskInstance.dag_id == DagRun.dag_id,
-                            TaskInstance.run_id == DagRun.run_id,
-                            TaskInstance.task_id in last_tasks_id,
-                            TaskInstance.state == State.SKIPPED
-                        )
-                    )                    
                     .filter(
                         DagRun.dag_id == dag_id,
                         DagRun.state == State.SUCCESS,
-                        DagRun.data_interval_end < scheduled_date,
-                        TaskInstance.task_id == None  # Ensure that the last task was not skipped
+                        DagRun.data_interval_end < scheduled_date
                     )
                     .order_by(DagRun.data_interval_end.desc(), DagRun.start_date.desc())
-                    .limit(1)
-                    .all()
                 )
-                return dag_runs
+
+                skipped_query = (
+                    session.query(DagRun.id)
+                    .join(TI, and_(
+                        DagRun.dag_id == TI.dag_id,
+                        DagRun.run_id == TI.run_id,
+                        DagRun.state == State.SUCCESS,
+                        DagRun.data_interval_end < scheduled_date,
+                        TI.task_id.in_(last_tasks_id),
+                        TI.state == State.SKIPPED
+                    ))
+                    .distinct()
+                )
+
+                filtered_query = (
+                    base_query
+                    .filter(~DagRun.id.in_(skipped_query))
+                )
+
+                return filtered_query.all()
 
             @provide_session
             def find_dataset_events(uri: str, scheduled_date_to_check_min: datetime, scheduled_date_to_check_max: datetime, ts: datetime, session: Session=None) -> List[DatasetEvent]:
