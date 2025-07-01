@@ -37,7 +37,7 @@ jobs:
 #      - name: Run tests & Coverage Report
 #        run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS TEMPORARY_GCS_BUCKET=starlake-app SL_REMOTE_TEST=true sbt coverage test coverageReport
       - name: Release Spark 2/3
-        run: echo SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }}  SL_REMOTE_TEST=true RELEASE_SONATYPE=true sbt 'release with-defaults'
+        run: echo SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}  SL_REMOTE_TEST=true RELEASE_SONATYPE=true sbt 'release with-defaults'
       - name: Trigger starlake-api workflow
         if: ${{ success() }} 
         id: trigger-starlake-api
