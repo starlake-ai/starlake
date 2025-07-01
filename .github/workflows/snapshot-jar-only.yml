@@ -34,7 +34,7 @@ jobs:
       - name: Setup sbt launcher
         uses: sbt/setup-sbt@v1
       - name: Publish Snapshot on Sonatype
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt publish
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SONATYPE_USERNAME=${{ env.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ env.SONATYPE_PASSWORD }} sbt publish -v
       - name: trigger-starlake-api
         if: ${{ success() }}
         uses: actions/github-script@v6
