@@ -2,6 +2,9 @@
 # Release notes
 
 # 1.5.1:
+__Improvement__:
+- look at bigquery job's exceptions recursively to check for a retry
+
 __Bug fix__:
 - schema and data extraction runs in parallel again
 
