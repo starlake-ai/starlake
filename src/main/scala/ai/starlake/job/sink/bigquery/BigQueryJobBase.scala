@@ -1171,12 +1171,34 @@ object BigQueryJobBase extends StrictLogging {
     true
   }
 
+  def isRetryableException(ex: Throwable): Boolean = {
+    if (ex == null) false
+    else
+      ex match {
+        case be: GoogleJsonResponseException if be.getStatusCode >= 500 =>
+          true
+        case be: BigQueryException
+            if scala
+              .Option(be.getError)
+              .exists(e =>
+                e.getReason() == "rateLimitExceeded" || e.getReason == "jobRateLimitExceeded"
+              ) =>
+          true
+        case be: BigQueryException
+            if scala.Option(be.getError).exists(_.getReason() == "duplicate") =>
+          true
+        case te: TimeoutException =>
+          true
+        case _ => isRetryableException(ex.getCause)
+      }
+  }
+
   /** Retry on retryable bigquery exception.
     */
   def recoverBigqueryException[T](bigqueryProcess: => T): Try[T] = {
+    val maxAttemps = 3
     def processWithRetry(retry: Int = 0, bigqueryProcess: => T): Try[T] = {
-      def retryOneMoreTime(be: Exception) = {
-        logger.error(be.getMessage)
+      def retryOneMoreTime(be: Throwable) = {
         val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
         logger.error(s"Retry in $sleepTime. ${be.getMessage}")
         Thread.sleep(sleepTime)
@@ -1185,25 +1207,10 @@ object BigQueryJobBase extends StrictLogging {
       Try {
         bigqueryProcess
       }.recoverWith {
-        case be: GoogleJsonResponseException if be.getStatusCode == 503 =>
-          retryOneMoreTime(be)
-        case be: BigQueryException
-            if retry < 3 && scala
-              .Option(be.getError)
-              .exists(e =>
-                e.getReason() == "rateLimitExceeded" || e.getReason == "jobRateLimitExceeded"
-              ) =>
-          retryOneMoreTime(be)
-        case be: BigQueryException
-            if retry < 3 && scala.Option(be.getError).exists(_.getReason() == "duplicate") =>
-          processWithRetry(retry + 1, bigqueryProcess)
-        case te: TimeoutException if retry < 3 =>
-          retryOneMoreTime(te)
-        case ve: VerifyException if retry < 3 && Option(ve.getCause).exists {
-              case _: TimeoutException => true
-              case _                   => false
-            } =>
-          retryOneMoreTime(ve)
+        case ex: Throwable if retry < maxAttemps && isRetryableException(ex) => retryOneMoreTime(ex)
+        case ex: Throwable if retry >= maxAttemps && isRetryableException(ex) =>
+          logger.error(s"Failed to recover from exception after $maxAttemps attempts")
+          Failure(ex)
       }
     }
     processWithRetry(bigqueryProcess = bigqueryProcess)
