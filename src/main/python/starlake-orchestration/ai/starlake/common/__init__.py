@@ -220,3 +220,26 @@ def is_valid_cron(cron_expr: str) -> bool:
         print(f"Invalid cron expression: {cron_expr}. Error: {e}")
         # Return False if the cron expression is invalid
         return False
+
+def most_frequent_crons(all_crons: List[str]) -> Optional[List[str]]:
+    sorted_crons_by_frequency: Tuple[Dict[int, List[str]], List[str]] = sort_crons_by_frequency(all_crons)
+    if sorted_crons_by_frequency:
+        sorted_groups = sorted_crons_by_frequency[0]
+        if sorted_groups:
+            most_frequent_key = sorted(sorted_groups.keys(), reverse=False)[0]
+            most_frequent = sorted_groups[most_frequent_key]
+            print(f"most frequent crons -> {most_frequent}")
+            return most_frequent
+    return None
+
+def scheduled_dates_range(cron: str, scheduled_date: datetime) -> Tuple[datetime, datetime]:
+    iter = croniter(cron, scheduled_date)
+    curr = iter.get_current(datetime)
+    previous = iter.get_prev(datetime)
+    next = croniter(cron, previous).get_next(datetime)
+    if curr == next :
+        scheduled_date_to_check_max = curr
+    else:
+        scheduled_date_to_check_max = previous
+    scheduled_date_to_check_min = croniter(cron, scheduled_date_to_check_max).get_prev(datetime)
+    return (scheduled_date_to_check_min, scheduled_date_to_check_max)
