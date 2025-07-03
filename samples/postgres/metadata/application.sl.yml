@@ -2,7 +2,7 @@ application:
   connectionRef: {{connection}}
   connections:
     postgres:
-      type: jdbc
+      type: JDBC
       options:
         url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
         driver: "org.postgresql.Driver"
@@ -10,7 +10,7 @@ application:
         password: {{DATABASE_PASSWORD}}
         quoteIdentifiers: false
     spark-postgres:
-      type: jdbc
+      type: JDBC
       sparkFormat: jdbc
       options:
         url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"

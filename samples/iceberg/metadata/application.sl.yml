@@ -33,7 +33,7 @@ application:
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
     postgresql:
-      type: jdbc
+      type: JDBC
       options:
         url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DB}}"
         driver: "org.postgresql.Driver"
@@ -41,7 +41,7 @@ application:
         password: "{{POSTGRES_PASSWORD}}"
         quoteIdentifiers: false
     redshift:
-      type: jdbc
+      type: JDBC
       loader: "native"
       options:
         url: "jdbc:redshift://{{REDSHIFT_HOST}}:{{REDSHIFT_PORT}}/{{REDSHIFT_DATABASE}}"
@@ -50,7 +50,7 @@ application:
         password: "{{REDSHIFT_PASSWORD}}"
         quoteIdentifiers: false
     redshift_spark:
-      type: jdbc
+      type: JDBC
       sparkFormat: "io.github.spark_redshift_community.spark.redshift" # if running on top of Spark or else  "redshift" if running on top of Databricks
       options:
         url: "jdbc:redshift://{{REDSHIFT_HOST}}:{{REDSHIFT_PORT}}/{{REDSHIFT_DATABASE}}"

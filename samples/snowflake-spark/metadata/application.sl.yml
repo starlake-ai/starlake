@@ -3,7 +3,7 @@ application:
   connectionRef: {{connection}}
   connections:
     snowflake:
-      type: jdbc
+      type: JDBC
       options:
         url: "jdbc:snowflake://{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com"
         driver: "net.snowflake.client.jdbc.SnowflakeDriver"
@@ -16,7 +16,7 @@ application:
         keep_column_case: "off"
         preActions: "ALTER SESSION SET QUERY_TAG = 'starlake';ALTER SESSION SET TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
     spark-snowflake:
-      type: jdbc
+      type: JDBC
       sparkFormat: snowflake
       options:
         sfUrl: "{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com" # make sure you do not prefix by jdbc:snowflake://. This is done by the snowflaek driver

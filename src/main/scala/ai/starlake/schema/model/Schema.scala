@@ -67,7 +67,7 @@ import scala.util.Try
   *   spark engine.
   */
 case class Schema(
-  name: String,
+  name: String, // table name without the domain name prefix
   pattern: Pattern,
   attributes: List[Attribute],
   metadata: Option[Metadata] = None,
