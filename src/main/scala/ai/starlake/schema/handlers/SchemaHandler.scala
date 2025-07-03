@@ -2098,7 +2098,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         throw new Exception(s"Job ${obj.domain} not found")
       )
     val task = job.tasks
-      .find(_.name.toLowerCase() == obj.table.toLowerCase())
+      .find(_.getTableName().toLowerCase() == obj.table.toLowerCase())
       .getOrElse(
         throw new Exception(s"Task ${obj.table} not found in job ${obj.domain}")
       )
@@ -2111,8 +2111,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val updatedJob = job.copy(
       tasks = job.tasks.map {
-        case t if t.name.toLowerCase() == obj.table.toLowerCase() => updatedTask
-        case t                                                    => t
+        case t if t.getTableName().toLowerCase() == obj.table.toLowerCase() => updatedTask
+        case t                                                     => t
       }
     )
     _jobs = _jobs.filterNot(_.name.toLowerCase() == job.name.toLowerCase()) :+ updatedJob

@@ -10,7 +10,7 @@ application:
     taxonomy: GDPR
   connections:
     postgresql:
-      type: jdbc
+      type: JDBC
       options:
         url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
         driver: "org.postgresql.Driver"
@@ -23,7 +23,7 @@ application:
         url: "jdbc:duckdb:{{SL_ROOT}}/datasets/duckdb.db" # Location of the DuckDB database
         driver: "org.duckdb.DuckDBDriver"
     redshift:
-      type: jdbc
+      type: JDBC
       options:
         url: "jdbc:redshift://{{REDSHIFT_HOST}}:5439/{{REDSHIFT_DATABASE}}"
         driver: "com.amazon.redshift.jdbc42.Driver"
@@ -31,7 +31,7 @@ application:
         password: "{{REDSHIFT_PASSWORD}}"
         quoteIdentifiers: false
     redshift_spark:
-      type: jdbc
+      type: JDBC
       sparkFormat: "io.github.spark_redshift_community.spark.redshift" # if running on top of Spark or else  "redshift" if running on top of Databricks
       options:
         url: "jdbc:redshift://{{REDSHIFT_HOST}}:5439/{{REDSHIFT_DATABASE}}"
@@ -42,7 +42,7 @@ application:
         tempdir: "s3a://starlake-app/data"
         aws_iam_role: "{{REDSHIFT_ROLE}}"
     snowflake:
-      type: jdbc
+      type: JDBC
       options:
         url: "jdbc:snowflake://{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com/"
         driver: "net.snowflake.client.jdbc.SnowflakeDriver"

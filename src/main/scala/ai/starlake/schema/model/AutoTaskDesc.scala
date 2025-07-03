@@ -34,7 +34,7 @@ case class TaskDesc(version: Int, task: AutoTaskDesc)
   Array("_filenamePrefix", "_auditTableName", "_dbComment", "write")
 )
 case class AutoTaskDesc(
-  name: String,
+  name: String, // Name of the task. Made of jobName + '.' + tableName
   sql: Option[String],
   database: Option[String],
   domain: String,

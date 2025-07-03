@@ -9,7 +9,7 @@ application:
 
   connections:
     snowflake:
-      type: jdbc
+      type: JDBC
       options:
         url: "jdbc:snowflake://{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com/"
         driver: "net.snowflake.client.jdbc.SnowflakeDriver"

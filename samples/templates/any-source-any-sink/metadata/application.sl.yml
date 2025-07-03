@@ -18,7 +18,7 @@ application:
         #authType: "ACCESS_TOKEN"
         #gcpAccessToken: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     postgres:
-      type: jdbc
+      type: JDBC
       options:
         url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
         driver: "org.postgresql.Driver"
@@ -26,7 +26,7 @@ application:
         password: "{{DATABASE_PASSWORD}}"
         quoteIdentifiers: false
     spark-postgres:
-      type: jdbc
+      type: JDBC
       sparkFormat: jdbc
       options:
         url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DATABASE}}"
@@ -35,7 +35,7 @@ application:
         password: "{{DATABASE_PASSWORD}}"
         quoteIdentifiers: false
     snowflake:
-      type: jdbc
+      type: JDBC
       options:
         url: "jdbc:snowflake://{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com/"
         driver: "net.snowflake.client.jdbc.SnowflakeDriver"
@@ -48,7 +48,7 @@ application:
         keep_column_case: "off"
         preActions: "ALTER SESSION SET QUERY_TAG = 'starlake';ALTER SESSION SET TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
     spark-snowflake:
-      type: jdbc
+      type: JDBC
       sparkFormat: snowflake
       options:
         sfUrl: "{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com" # make sure you do not prefix by jdbc:snowflake://. This is done by the snowflaek driver
