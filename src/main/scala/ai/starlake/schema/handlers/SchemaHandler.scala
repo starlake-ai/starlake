@@ -2031,7 +2031,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             domain = job.getName(),
             table = task.getName(),
             cron = schedule,
-            comment = task.comment
+            comment = task.comment,
+            typ = "task"
           )
         }
       }
@@ -2048,7 +2049,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               domain = domain.finalName,
               table = table.finalName,
               cron = schedule,
-              comment = table.comment
+              comment = table.comment,
+              typ = "table"
             )
           }
         }
