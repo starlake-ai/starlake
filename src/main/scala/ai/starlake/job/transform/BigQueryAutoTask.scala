@@ -185,12 +185,7 @@ class BigQueryAutoTask(
       if (loadedDF.isEmpty) {
         buildAllSQLQueries(None, tableExistsForcedValue = None, forceNative = true)
       } else {
-        val sql = taskDesc.getSql()
-        val mainSql = schemaHandler.substituteRefTaskMainSQL(
-          sql,
-          taskDesc.getRunConnection(),
-          allVars
-        )
+        val mainSql: String = sqlSubst()
         mainSql
       }
 
@@ -403,19 +398,28 @@ class BigQueryAutoTask(
 
           res.foreach { _ =>
             if (settings.appConfig.autoExportSchema) {
-              SQLUtils.extractTableNames(mainSql()).foreach { domainAndTableName =>
-                val components = SQLUtils.unquoteAgressive(domainAndTableName.split("\\.").toList)
-                if (components.size == 2) {
-                  val domainName = components(0)
-                  val tableName = components(1)
-                  val slFile =
-                    new Path(new Path(DatasetArea.external, domainName), s"$tableName.sl.yml")
-                  if (!storageHandler.exists(slFile)) {
-                    val config =
-                      BigQueryTablesConfig(tables = Map(domainName -> List(tableName)))
-                    ExtractBigQuerySchema.extractAndSaveAsDomains(config, schemaHandler)
+              Try {
+                if (!taskDesc.getSql().startsWith("DESCRIBE ")) {
+                  SQLUtils.extractTableNames(sqlSubst()).foreach { domainAndTableName =>
+                    val components =
+                      SQLUtils.unquoteAgressive(domainAndTableName.split("\\.").toList)
+                    if (components.size == 2) {
+                      val domainName = components(0)
+                      val tableName = components(1)
+                      val slFile =
+                        new Path(new Path(DatasetArea.external, domainName), s"$tableName.sl.yml")
+                      if (!storageHandler.exists(slFile)) {
+                        val config =
+                          BigQueryTablesConfig(tables = Map(domainName -> List(tableName)))
+                        ExtractBigQuerySchema.extractAndSaveAsDomains(config, schemaHandler)
+                      }
+                    }
                   }
                 }
+              } match {
+                case Success(_) =>
+                case Failure(e) =>
+                  logger.warn(Utils.exceptionAsString(e))
               }
             }
           }
@@ -427,6 +431,16 @@ class BigQueryAutoTask(
     // We execute the post statements even if the main statement failed
     // We may be doing some cleanup here.
 
+  }
+
+  private def sqlSubst(): String = {
+    val sql = taskDesc.getSql()
+    val mainSql = schemaHandler.substituteRefTaskMainSQL(
+      sql,
+      taskDesc.getRunConnection(),
+      allVars
+    )
+    mainSql
   }
 
   private def saveNative(config: BigQueryLoadConfig, mainSql: String) = {
