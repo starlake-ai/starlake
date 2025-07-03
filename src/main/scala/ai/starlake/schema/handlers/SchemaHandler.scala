@@ -353,7 +353,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         case Some(None) if attr.`type` == "struct" =>
           // we found the primitive type but it has no ddlMapping
           None
-        case Some(None) =>
+        case Some(None) | None =>
           // we found the primitive type but it has no ddlMapping
           throw new Exception(s"${attr.name}: ${attr.`type`} DDL mapping not found (None)")
       }
@@ -524,6 +524,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       globalEnv
         .map(_.env)
         .getOrElse(Map.empty)
+        .view
         .mapValues(
           _.richFormat(externalProps, slDateVars)
         )
@@ -560,7 +561,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         val independentKeyValues = localEnvDesc.map { case (k, v) =>
           k -> v.richFormat(localEnvDesc.removed(k), Map.empty)
         }
-        independentKeyValues
+        independentKeyValues.view
           .mapValues(
             _.richFormat(sys.env, allVars)
           )
@@ -2025,16 +2026,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def taskSchedules(orderBy: Option[String]): List[ObjectSchedule] = {
     val schedules = jobs().flatMap { job =>
-      job.tasks.flatMap { task =>
-        task.schedule.map { schedule =>
-          ObjectSchedule(
-            domain = job.getName(),
-            table = task.getName(),
-            cron = schedule,
-            comment = task.comment,
-            typ = "task"
-          )
-        }
+      job.tasks.map { task =>
+        ObjectSchedule(
+          domain = job.getName(),
+          table = task.getName(),
+          cron = task.schedule,
+          comment = task.comment,
+          typ = "task"
+        )
       }
     }
     orderSchedules(orderBy, schedules)
@@ -2042,18 +2041,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def tableSchedules(orderBy: Option[String]): List[ObjectSchedule] = {
     val schedules = domains().flatMap { domain =>
-      domain.tables.flatMap { table =>
-        table.metadata.flatMap { metadata =>
-          metadata.schedule.map { schedule =>
-            ObjectSchedule(
-              domain = domain.finalName,
-              table = table.finalName,
-              cron = schedule,
-              comment = table.comment,
-              typ = "table"
-            )
-          }
-        }
+      domain.tables.map { table =>
+        val metadata = table.metadata.getOrElse(Metadata())
+        ObjectSchedule(
+          domain = domain.finalName,
+          table = table.finalName,
+          cron = metadata.schedule,
+          comment = table.comment,
+          typ = "table"
+        )
       }
     }
     orderSchedules(orderBy, schedules)
@@ -2078,7 +2074,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val metadata = table.metadata.getOrElse(
       Metadata()
     )
-    val updatedMetadata = metadata.copy(schedule = Option(obj.cron))
+    val updatedMetadata = metadata.copy(schedule = obj.cron)
     val updatedTable = table.copy(metadata = Some(updatedMetadata))
 
     YamlSerde.serializeToPath(
@@ -2106,7 +2102,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .getOrElse(
         throw new Exception(s"Task ${obj.table} not found in job ${obj.domain}")
       )
-    val updatedTask = task.copy(schedule = Option(obj.cron))
+    val updatedTask = task.copy(schedule = obj.cron)
 
     YamlSerde.serializeToPath(
       new Path(DatasetArea.transform, s"${job.name}/${obj.table}.sl.yml"),
