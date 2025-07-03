@@ -1912,40 +1912,45 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     allVars: Map[String, String] = Map.empty,
     test: Boolean
   ): String = {
-    val sqlWithParameters =
-      Try {
-        substituteRefTaskMainSQL(
-          sql,
-          connection,
-          allVars
-        )
-      } match {
-        case Success(substitutedSQL) =>
-          substitutedSQL
-        case Failure(e) =>
-          Utils.logException(logger, e)
-          sql
-      }
+    if (sql.startsWith("DESCRIBE ")) {
+      // Do not transpile DESCRIBE statements
+      sql
+    } else {
+      val sqlWithParameters =
+        Try {
+          substituteRefTaskMainSQL(
+            sql,
+            connection,
+            allVars
+          )
+        } match {
+          case Success(substitutedSQL) =>
+            substitutedSQL
+          case Failure(e) =>
+            Utils.logException(logger, e)
+            sql
+        }
 
-    val sqlWithParametersTranspiledIfInTest =
-      if (test || connection._transpileDialect.isDefined) {
-        val envVars = allVars
-        val timestamps =
-          if (test) {
-            List(
-              "SL_CURRENT_TIMESTAMP",
-              "SL_CURRENT_DATE",
-              "SL_CURRENT_TIME"
-            ).flatMap { e =>
-              val value = envVars.get(e).orElse(Option(System.getenv().get(e)))
-              value.map { v => e -> v }
-            }.toMap
-          } else
-            Map.empty[String, String]
-        SQLUtils.transpile(sqlWithParameters, connection, timestamps)
-      } else
-        sqlWithParameters
-    sqlWithParametersTranspiledIfInTest
+      val sqlWithParametersTranspiledIfInTest =
+        if (test || connection._transpileDialect.isDefined) {
+          val envVars = allVars
+          val timestamps =
+            if (test) {
+              List(
+                "SL_CURRENT_TIMESTAMP",
+                "SL_CURRENT_DATE",
+                "SL_CURRENT_TIME"
+              ).flatMap { e =>
+                val value = envVars.get(e).orElse(Option(System.getenv().get(e)))
+                value.map { v => e -> v }
+              }.toMap
+            } else
+              Map.empty[String, String]
+          SQLUtils.transpile(sqlWithParameters, connection, timestamps)
+        } else
+          sqlWithParameters
+      sqlWithParametersTranspiledIfInTest
+    }
   }
 
   def addFK(
