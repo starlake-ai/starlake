@@ -57,8 +57,6 @@ class SparkEnv private (
       sysProps.setProperty("derby.system.home", datasetsArea)
       config.set("spark.sql.warehouse.dir", datasetsArea)
     }
-    import org.apache.spark.sql.SparkSession
-    val master = config.get("spark.master", sys.env.get("SPARK_MASTER_URL").getOrElse("local[*]"))
 
     if (Utils.isIcebergAvailable()) {
       // Handled by configuration
@@ -72,16 +70,6 @@ class SparkEnv private (
     }
 
     // spark.sql.catalogImplementation = in-memory incompatible with delta on multiple spark sessions
-
-    val session =
-      if (
-        sys.env.getOrElse("SL_SPARK_NO_CATALOG", "false").toBoolean &&
-        config.getOption("spark.sql.catalogImplementation").isEmpty
-      ) {
-        SparkSession.builder().config(config).master(master).enableHiveSupport().getOrCreate()
-      } else
-        SparkSession.builder().config(config).master(master).getOrCreate()
-
     /*
     val catalogs = settings.sparkConfig.getString("sql.catalogKeys").split(",").toList
       if (
@@ -96,19 +84,7 @@ class SparkEnv private (
 
     // hive support on databricks, spark local, hive metastore
 
-    logger.info("Spark Version -> " + session.version)
-    logger.debug(session.conf.getAll.mkString("\n"))
-
-    val hadoopConf = session.sparkContext.hadoopConfiguration
-    sys.env.get("SL_STORAGE_CONF").foreach { value =>
-      value
-        .split(',')
-        .map { x =>
-          val t = x.split('=')
-          t(0).trim -> t(1).trim
-        }
-        .foreach { case (k, v) => hadoopConf.set(k, v) }
-    }
+    val session = SparkSessionBuilder.build(config)
     session
   }
 }

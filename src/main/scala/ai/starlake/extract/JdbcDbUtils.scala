@@ -500,10 +500,10 @@ object JdbcDbUtils extends LazyLogging {
     ParUtils.runOneInExecutionContext {
       withJDBCConnection(readOnlyConnection(connectionSettings).options) { connection =>
         val statement = connection.prepareStatement("""
-            |SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
-            |WHERE TABLE_SCHEMA NOT IN ('INFORMATION_SCHEMA')
-            |GROUP BY TABLE_SCHEMA, TABLE_NAME
-            |""".stripMargin)
+              |SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+              |WHERE TABLE_SCHEMA NOT IN ('INFORMATION_SCHEMA')
+              |GROUP BY TABLE_SCHEMA, TABLE_NAME
+              |""".stripMargin)
         JdbcDbUtils.executeQuery(statement) { rs =>
           while (rs.next()) {
             val schema = rs.getString(1)
@@ -516,6 +516,46 @@ object JdbcDbUtils extends LazyLogging {
     }(dbExtractEC.executionContext)
     result.groupBy(_._1).toList.map { case (schema, tables) => schema -> tables.map(_._2).toList }
   }
+
+  def extractColumns(
+    connectionSettings: Connection,
+    tableSchema: String,
+    tableName: String
+  )(implicit
+    settings: Settings,
+    dbExtractEC: ExtractExecutionContext
+  ): Try[List[(String, String)]] = {
+    extractColumnsUsingInformationSchema(connectionSettings, tableSchema, tableName)
+  }
+
+  private def extractColumnsUsingInformationSchema(
+    connectionSettings: Connection,
+    tableSchema: String,
+    tableName: String
+  )(implicit
+    settings: Settings,
+    dbExtractEC: ExtractExecutionContext
+  ): Try[List[(String, String)]] = Try {
+    val result = ListBuffer[(String, String)]()
+    ParUtils.runOneInExecutionContext {
+      withJDBCConnection(readOnlyConnection(connectionSettings).options) { connection =>
+        val statement = connection.prepareStatement(s"""
+            |SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.TABLES
+            |WHERE LOWERCASE(TABLE_SCHEMA) LIKE LOWERCASE('$tableSchema') AND LOWERCASE(TABLE_NAME) LIKE LOWERCASE('$tableName')
+            |""".stripMargin)
+        JdbcDbUtils.executeQuery(statement) { rs =>
+          while (rs.next()) {
+            val columnName = rs.getString(1)
+            val dataType = rs.getString(2)
+            logger.info(s"Column: $columnName, Data Type: $dataType")
+            result.append(columnName -> dataType)
+          }
+        }
+      }
+    }(dbExtractEC.executionContext)
+    result.toList
+  }
+
   private def extractSchemasAndTableNamesUsingDatabaseMetadata(connectionSettings: Connection)(
     implicit
     settings: Settings,
