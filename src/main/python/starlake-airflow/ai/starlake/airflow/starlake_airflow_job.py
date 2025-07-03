@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from datetime import timedelta, datetime
 
-from typing import Optional, List, Union
+from typing import Dict, Optional, List, Tuple, Union
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOrchestrator, TaskType
 
 from ai.starlake.airflow.starlake_airflow_options import StarlakeAirflowOptions
 
-from ai.starlake.common import MissingEnvironmentVariable, get_cron_frequency, is_valid_cron, StarlakeParameters, sl_timestamp_format
+from ai.starlake.common import MissingEnvironmentVariable, get_cron_frequency, is_valid_cron, StarlakeParameters, sl_timestamp_format, most_frequent_crons, scheduled_dates_range
 
 from ai.starlake.job.starlake_job import StarlakeOrchestrator
 
@@ -389,15 +389,14 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                 previous_dag_ts: Optional[datetime] = None
 
                 # we look for the first succeeded dag run before the scheduled date 
-                dag_runs = find_previous_dag_runs(scheduled_date=scheduled_date, session=session)
+                __dag_runs = find_previous_dag_runs(scheduled_date=scheduled_date, session=session)
 
-                if dag_runs and len(dag_runs) > 0:
+                if __dag_runs and len(__dag_runs) > 0:
                     # we take the first dag run before the scheduled date
-                    dag_run = dag_runs[0]
-                    previous_dag_checked = dag_run.data_interval_end
-                    previous_dag_ts = dag_run.start_date
-                    print(f"Found previous succeeded dag run {dag_run.dag_id} with scheduled date {previous_dag_checked} and start date {previous_dag_ts}")
-                    print(f"Previous dag checked event found: {previous_dag_checked}")
+                    __dag_run = __dag_runs[0]
+                    previous_dag_checked = __dag_run.data_interval_end
+                    previous_dag_ts = __dag_run.start_date
+                    print(f"Found previous succeeded dag run {__dag_run.dag_id} with scheduled date {previous_dag_checked} and start date {previous_dag_ts}")
 
                 if not previous_dag_checked:
                     # if the dag never run successfuly, 
@@ -407,9 +406,9 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
 
                 if previous_dag_ts:
                     diff: timedelta = ts - previous_dag_ts
-                    if diff.seconds <= self.min_timedelta_between_runs:
+                    if diff.total_seconds() <= self.min_timedelta_between_runs:
                         # we just run successfuly this dag, we should skip the current execution
-                        print(f"A previous succeeded dag run was found and started less than {self.min_timedelta_between_runs} seconds ago ({diff.seconds} seconds)... The current DAG execution will be skipped")
+                        print(f"A previous succeeded dag run was found and started less than {self.min_timedelta_between_runs} seconds ago ({diff.total_seconds()} seconds)... The current DAG execution at {ts.strftime(sl_timestamp_format)} will be skipped")
                         return False
 
                 data_cycle_freshness = None
@@ -418,6 +417,17 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                     data_cycle_freshness = get_cron_frequency(self.data_cycle)
 
                 print(f"Start date is {ts.strftime(sl_timestamp_format)} and scheduled date is {scheduled_date.strftime(sl_timestamp_format)}")
+
+                # we retrieve the most frequent cron(s)
+                all_crons = set()
+                most_frequent = set()
+                for dataset in datasets:
+                    extra = dataset.extra or {}
+                    cron = extra.get(StarlakeParameters.CRON_PARAMETER.value, None)
+                    if cron:
+                        all_crons.add(cron)
+                if all_crons and len(all_crons) > 0:
+                    most_frequent = set(most_frequent_crons(all_crons))
 
                 # we check the datasets
                 for dataset in datasets:
@@ -443,15 +453,12 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                         print(f"Dataset {dataset.uri} is optional, we skip it")
                         continue
                     elif scheduled:
-                        iter = croniter(cron, scheduled_date)
-                        curr = iter.get_current(datetime)
-                        previous = iter.get_prev(datetime)
-                        next = croniter(cron, previous).get_next(datetime)
-                        if curr == next :
-                            scheduled_date_to_check_max = curr
+                        if not cron in most_frequent or cron.startswith('0 0'):
+                            dates_range = scheduled_dates_range(cron, scheduled_date)
                         else:
-                            scheduled_date_to_check_max = previous
-                        scheduled_date_to_check_min = croniter(cron, scheduled_date_to_check_max).get_prev(datetime)
+                            dates_range = scheduled_dates_range(cron, croniter(cron, scheduled_date.replace(hour=0, minute=0, second=0, microsecond=0)).get_next(datetime))
+                        scheduled_date_to_check_min = dates_range[0]
+                        scheduled_date_to_check_max = dates_range[1]
                         if not original_cron and previous_dag_checked > scheduled_date_to_check_min:
                             scheduled_date_to_check_min = previous_dag_checked
                         if beyond_data_cycle_allowed:
@@ -813,7 +820,7 @@ class StarlakeDatasetMixin:
             jinja_env: jinja2.Environment | None = None,
         ) -> None:
         dag = context.get('dag')
-        __ts_as_datetime = dag.user_defined_macros.get('ts_as_datetime', None)
+        __ts_as_datetime = dag.user_defined_macros.get('ts_as_datetime', None) if dag.user_defined_macros else None
         if not __ts_as_datetime:
             def ts_as_datetime(ts, context: Context = None):
                 from datetime import datetime
@@ -834,13 +841,13 @@ class StarlakeDatasetMixin:
             print(f"add 'ts_as_datetime' to context")
             context['ts_as_datetime'] = ts_as_datetime
 
-        __sl_scheduled_dataset = dag.user_defined_macros.get('sl_scheduled_dataset', None)
+        __sl_scheduled_dataset = dag.user_defined_macros.get('sl_scheduled_dataset', None) if dag.user_defined_macros else None
         if not __sl_scheduled_dataset:
             print(f"add 'sl_scheduled_dataset' to context")
             from ai.starlake.common import sl_scheduled_dataset
             context['sl_scheduled_dataset'] = sl_scheduled_dataset
 
-        __sl_scheduled_date = dag.user_defined_macros.get('sl_scheduled_date', None)
+        __sl_scheduled_date = dag.user_defined_macros.get('sl_scheduled_date', None) if dag.user_defined_macros else None
         if not __sl_scheduled_date:
             print(f"add 'sl_scheduled_date' to context")
             from ai.starlake.common import sl_scheduled_date
