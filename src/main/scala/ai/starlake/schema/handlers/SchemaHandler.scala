@@ -2005,7 +2005,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       jobs().flatMap { job =>
         job.tasks.flatMap { task =>
           task.streams.map { stream =>
-            stream -> s"${job.getName()}.${task.getName()}"
+            stream -> s"${job.getName()}.${task.getTableName()}"
           }
         }
       }.toMap
@@ -2029,7 +2029,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       job.tasks.map { task =>
         ObjectSchedule(
           domain = job.getName(),
-          table = task.getName(),
+          table = task.getTableName(),
           cron = task.schedule,
           comment = task.comment,
           typ = "task"
