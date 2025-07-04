@@ -56,7 +56,12 @@ object BigQuerySparkWriter extends StrictLogging {
                   .extractProjectDatasetAndTable(
                     settings.appConfig.audit.getDatabase(),
                     settings.appConfig.audit.getDomain(),
-                    tableName
+                    tableName,
+                    sink
+                      .getConnection()
+                      .options
+                      .get("projectId")
+                      .orElse(settings.appConfig.getDefaultDatabase())
                   )
               ),
               sourceFormat = settings.appConfig.defaultWriteFormat,
