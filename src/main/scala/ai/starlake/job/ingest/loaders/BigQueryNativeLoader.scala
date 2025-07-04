@@ -30,7 +30,8 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
     BigQueryJobBase.extractProjectDatasetAndTable(
       schemaHandler.getDatabase(domain),
       domain.finalName,
-      effectiveSchema.finalName
+      effectiveSchema.finalName,
+      sinkConnection.options.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
     )
 
   def run(): Try[List[IngestionCounters]] = {
@@ -66,7 +67,10 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                   BigQueryJobBase.extractProjectDatasetAndTable(
                     schemaHandler.getDatabase(domain),
                     domain.finalName,
-                    tempTableName + "_" + index
+                    tempTableName + "_" + index,
+                    sinkConnection.options
+                      .get("projectId")
+                      .orElse(settings.appConfig.getDefaultDatabase())
                   )
                 val firstStepConfig =
                   targetConfig
@@ -139,7 +143,10 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
               BigQueryJobBase.extractProjectDatasetAndTable(
                 schemaHandler.getDatabase(domain),
                 domain.finalName,
-                tempTableName + "_*"
+                tempTableName + "_*",
+                sinkConnection.options
+                  .get("projectId")
+                  .orElse(settings.appConfig.getDefaultDatabase())
               )
             ),
             tryListSequence(loadResults)

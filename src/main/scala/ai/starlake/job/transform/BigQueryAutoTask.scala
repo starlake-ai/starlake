@@ -65,7 +65,12 @@ class BigQueryAutoTask(
     .asInstanceOf[BigQuerySink]
 
   private lazy val targetTableId = BigQueryJobBase
-    .extractProjectDatasetAndTable(taskDesc.getDatabase(), taskDesc.domain, taskDesc.table)
+    .extractProjectDatasetAndTable(
+      taskDesc.getDatabase(),
+      taskDesc.domain,
+      taskDesc.table,
+      sinkOptions.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
+    )
 
   lazy val fullTableName: String = BigQueryJobBase.getBqTableForNative(targetTableId)
 
@@ -470,7 +475,8 @@ class BigQueryAutoTask(
             this.taskDesc.domain,
             this.taskDesc.table + shard
               .map("_" + StringUtils.replaceNonAlphanumericWithUnderscore(_))
-              .getOrElse("")
+              .getOrElse(""),
+            sinkOptions.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
           )
         ),
         sourceFormat = settings.appConfig.defaultWriteFormat,
@@ -536,7 +542,8 @@ class BigQueryAutoTask(
     val tableId = BigQueryJobBase.extractProjectDatasetAndTable(
       taskDesc.getDatabase(),
       taskDesc.domain,
-      taskDesc.table
+      taskDesc.table,
+      sinkOptions.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
     )
     BigQueryJobBase.buildACLQueries(tableId, taskDesc.acl)
   }
@@ -608,7 +615,8 @@ class BigQueryAutoTask(
       BigQueryJobBase.extractProjectDatasetAndTable(
         taskDesc.getDatabase(),
         taskDesc.domain,
-        taskDesc.table + sharding.map("_" + _).getOrElse("")
+        taskDesc.table + sharding.map("_" + _).getOrElse(""),
+        sinkOptions.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
       )
 
     val tableExists = bigqueryJob.tableExists(tableId)

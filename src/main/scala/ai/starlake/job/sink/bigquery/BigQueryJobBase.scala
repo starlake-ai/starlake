@@ -19,7 +19,6 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.{
 import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.Credentials as GcsCredentials
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.storage.{Storage, StorageOptions}
 import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
-import com.google.common.base.VerifyException
 import com.google.iam.v1.{Binding, Policy as IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
@@ -947,13 +946,14 @@ object BigQueryJobBase extends StrictLogging {
   def extractProjectDatasetAndTable(
     databaseId: scala.Option[String],
     datasetId: String,
-    tableId: String
+    tableId: String,
+    prjId: Option[String]
   ): TableId = {
     databaseId.filter(_.nonEmpty) match {
       case Some(dbId) =>
-        extractProjectDatasetAndTable(dbId + ":" + datasetId + "." + tableId)
+        extractProjectDatasetAndTable(dbId + ":" + datasetId + "." + tableId, prjId)
       case None =>
-        extractProjectDatasetAndTable(datasetId + "." + tableId)
+        extractProjectDatasetAndTable(datasetId + "." + tableId, prjId)
     }
   }
 
@@ -962,7 +962,7 @@ object BigQueryJobBase extends StrictLogging {
     *   <datasetId>.<tableId>
     * @return
     */
-  def extractProjectDatasetAndTable(resourceId: String): TableId = {
+  def extractProjectDatasetAndTable(resourceId: String, prjId: Option[String]): TableId = {
     def extractDatasetAndTable(str: String): (String, String) = {
       val sepIndex = str.indexOf('.')
       if (sepIndex > 0)
@@ -983,10 +983,10 @@ object BigQueryJobBase extends StrictLogging {
 
     project
       .map(project => TableId.of(project, dataset, table))
-      .getOrElse(TableId.of(projectId(None, None), dataset, table))
+      .getOrElse(TableId.of(projectId(prjId, None), dataset, table))
   }
 
-  def extractProjectDataset(value: String): DatasetId = {
+  def extractProjectDataset(value: String, prjId: Option[String]): DatasetId = {
     val sepIndex = value.indexOf(":")
     val (project, dataset) =
       if (sepIndex > 0)
@@ -996,7 +996,7 @@ object BigQueryJobBase extends StrictLogging {
 
     project
       .map(project => DatasetId.of(project, dataset))
-      .getOrElse(DatasetId.of(projectId(None, None), dataset))
+      .getOrElse(DatasetId.of(projectId(prjId, None), dataset))
   }
 
   private def getProjectIdPrefix(

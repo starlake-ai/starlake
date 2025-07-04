@@ -1320,7 +1320,16 @@ class IngestionWorkflow(
                 connectionRef = Some(metadata.getSinkConnectionRef()),
                 outputTableId = Some(
                   BigQueryJobBase
-                    .extractProjectDatasetAndTable(database, domain.name, schema.finalName)
+                    .extractProjectDatasetAndTable(
+                      database,
+                      domain.name,
+                      schema.finalName,
+                      settings.appConfig
+                        .connections(metadata.getSinkConnectionRef())
+                        .options
+                        .get("projectId")
+                        .orElse(settings.appConfig.getDefaultDatabase())
+                    )
                 ),
                 rls = schema.rls,
                 acl = schema.acl,

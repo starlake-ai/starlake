@@ -604,7 +604,8 @@ class SparkAutoTask(
         BigQueryJobBase.extractProjectDatasetAndTable(
           taskDesc.database,
           taskDesc.domain,
-          tempTablePartName
+          tempTablePartName,
+          sinkConnection.options.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
         )
 
       val config = BigQueryLoadConfig(

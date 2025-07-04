@@ -427,7 +427,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           BigQueryJobBase.extractProjectDatasetAndTable(
             businessTask1.database,
             businessTask1.domain,
-            businessTask1.table
+            businessTask1.table,
+            None
           )
         ),
         sourceFormat = "parquet",
@@ -468,7 +469,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           BigQueryJobBase.extractProjectDatasetAndTable(
             businessTask1.database,
             businessTask1.domain,
-            businessTask1.table
+            businessTask1.table,
+            None
           ),
           businessTask1.rls
         )

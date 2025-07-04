@@ -33,7 +33,8 @@ case class BigQueryLoadCliConfig(
   materialization: Materialization = Materialization.TABLE,
   accessToken: Option[String]
 ) {
-  def asBigqueryLoadConfig() = BigQueryLoadConfig(
+  /*
+  def asBigqueryLoadConfig()(implicit settings: Settings) = BigQueryLoadConfig(
     connectionRef = connectionRef,
     source = source,
     outputTableId = Some(
@@ -61,4 +62,6 @@ case class BigQueryLoadCliConfig(
     outputDatabase = outputDatabase,
     accessToken = accessToken
   )
+
+   */
 }
