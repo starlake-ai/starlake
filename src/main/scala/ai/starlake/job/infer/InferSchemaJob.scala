@@ -451,14 +451,31 @@ object InferSchemaJob {
       // remove extension from filename hello-1234.json => hello-1234
       val prefix = filename.substring(0, filename.length - (extension.length + 1))
 
-      val indexOfNonAlpha = prefix.lastIndexWhere(!_.isLetterOrDigit)
+      val prefixArray = prefix.toCharArray
+      var indexOfNonAlpha = 0
+      var continue = true
+      do {
+        continue = indexOfNonAlpha < prefixArray.length &&
+          (prefixArray(indexOfNonAlpha).isLetterOrDigit || prefixArray(indexOfNonAlpha) == '_')
+
+        val end =
+          prefixArray(indexOfNonAlpha) == '_' &&
+          indexOfNonAlpha + 1 < prefixArray.length &&
+          !prefixArray(indexOfNonAlpha + 1).isLetter
+
+        if (!continue || end) {
+          continue = false
+        } else {
+          indexOfNonAlpha = indexOfNonAlpha + 1
+        }
+      } while (continue)
+
       val prefixWithoutNonAlpha =
         if (
-          indexOfNonAlpha != -1 &&
-          (indexOfNonAlpha + 1) < prefix.length &&
-          prefix(indexOfNonAlpha + 1).isDigit
+          indexOfNonAlpha != 0 &&
+          (indexOfNonAlpha + 1) < prefix.length
         )
-          prefix.substring(0, indexOfNonAlpha + 1) // hello-1234 => hello-
+          prefix.substring(0, indexOfNonAlpha + 1)
         else prefix
       if (prefixWithoutNonAlpha.isEmpty)
         filename
