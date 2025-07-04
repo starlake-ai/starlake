@@ -216,10 +216,12 @@ trait IngestionJob extends SparkJob {
     engine match {
 
       case Engine.BQ =>
+        val connection = settings.appConfig.connections(mergedMetadata.getSinkConnectionRef())
         val tableId = BigQueryJobBase.extractProjectDatasetAndTable(
           schemaHandler.getDatabase(domain),
           domain.finalName,
-          schema.finalName
+          schema.finalName,
+          connection.options.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
         )
 
         sqls.foreach { sql =>
@@ -596,7 +598,12 @@ trait IngestionJob extends SparkJob {
         val tableId = BigQueryJobBase.extractProjectDatasetAndTable(
           settings.appConfig.audit.getDatabase(),
           settings.appConfig.audit.getDomain(),
-          "expectations"
+          "expectations",
+          mergedMetadata
+            .getSinkConnection()
+            .options
+            .get("projectId")
+            .orElse(settings.appConfig.getDefaultDatabase())
         )
         runBigQueryExpectations(bqNativeJob(tableId, ""))
       case _: JdbcSink =>
