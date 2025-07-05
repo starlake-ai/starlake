@@ -74,13 +74,14 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input], storageHandler:
         }
         .getOrElse(Nil)
 
-      val (withoutPredicate, withPredicate) = tablePolicies
-        .partition(_.predicate.toUpperCase() == "TRUE")
-
-      val acl = withoutPredicate.map(rls =>
-        AccessControlEntry("roles/bigquery.dataViewer", rls.grants, rls.name)
-      )
-      val rls = withPredicate
+      val acl = tablePolicies.flatMap {
+        case sl: AccessControlEntry => Some(sl)
+        case _                      => None
+      }
+      val rls = tablePolicies.flatMap {
+        case sl: RowLevelSecurity => Some(sl)
+        case _                    => None
+      }
 
       val presqlOpt = Option(
         row.getCell(headerMapSchema("_presql"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
