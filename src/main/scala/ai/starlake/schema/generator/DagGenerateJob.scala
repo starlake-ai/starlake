@@ -357,7 +357,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
               val orchestratorName = orchestratorFromTemplate(dagConfig.template).toLowerCase()
-              val nativeOrchestrator = Set("snowflake", "databricks").contains(orchestratorName)
+              val nativeOrchestrator =
+                Set("snowflake", "databricks", "bigquery").contains(orchestratorName)
               if (nativeOrchestrator) {
                 val statements =
                   new DummyIngestionJob(
