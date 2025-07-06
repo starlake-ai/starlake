@@ -7,7 +7,7 @@ import ai.starlake.utils.Utils
 import scala.util.Try
 
 case class AccessControlEntry(role: String, grants: Set[String] = Set.empty, name: String = "")
-    extends Named {
+    extends SecurityLevel {
 
   override def toString: String = {
     s"AccessControlEntry(role=$role, grants=$grants)"
