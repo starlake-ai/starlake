@@ -14,7 +14,7 @@ case class RowLevelSecurity(
   predicate: String = "TRUE",
   grants: Set[String] = Set.empty,
   description: String = ""
-) extends Named {
+) extends SecurityLevel {
 
   def asMap(): Map[String, String] = Map(
     "rlsName"        -> name,
