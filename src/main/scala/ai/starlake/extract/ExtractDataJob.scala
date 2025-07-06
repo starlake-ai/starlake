@@ -776,7 +776,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
           }
       }
     logger.info(s"$boundaryContext SQL: $effectiveSql")
-    connection.setAutoCommit(false)
+    Try { connection.setAutoCommit(false) } // ignore error if note supported aka clickhouse
     val statement = connection.prepareStatement(effectiveSql)
     statementFiller(statement)
     tableExtractDataConfig.fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))

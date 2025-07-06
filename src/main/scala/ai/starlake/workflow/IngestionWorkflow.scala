@@ -1180,6 +1180,7 @@ class IngestionWorkflow(
     logger.info(s"Transforming with config $transformConfig")
     logger.info(s"Entering ${action.taskDesc.getRunEngine()} engine")
     val runEngine = action.taskDesc.getRunEngine()
+
     runEngine match {
       case BQ =>
         val result = action.run()
