@@ -515,7 +515,8 @@ object Settings extends StrictLogging {
     def isMySQLOrMariaDb(): Boolean = isMySQL() || isMariaDb()
 
     @JsonIgnore
-    def isCLickhouse(): Boolean = getJdbcEngineName().toString == "clickhouse"
+    def isCLickhouse(): Boolean =
+      getJdbcEngineName().toString == "clickhouse" || getJdbcEngineName().toString == "ch"
 
     @JsonIgnore
     def isMySQL(): Boolean = getJdbcEngineName().toString == "mysql"

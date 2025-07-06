@@ -137,6 +137,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
     public static boolean ENABLE_POSTGRESQL = ENABLE_ALL || envIsTrue("ENABLE_POSTGRESQL");
     public static boolean ENABLE_DUCKDB = ENABLE_ALL || envIsTrue("ENABLE_DUCKDB");
     public static boolean ENABLE_KAFKA = ENABLE_ALL || envIsTrue("ENABLE_KAFKA");
+    public static boolean ENABLE_MARIADB = ENABLE_ALL || envIsTrue("ENABLE_MARIA");
+    public static boolean ENABLE_CLICKHOUSE = ENABLE_ALL || envIsTrue("ENABLE_CLICKHOUSE");
 
     private static final boolean[] ALL_ENABLERS = new boolean[] {
             ENABLE_BIGQUERY,
@@ -145,7 +147,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
             ENABLE_REDSHIFT,
             ENABLE_POSTGRESQL,
             ENABLE_DUCKDB,
-            ENABLE_KAFKA
+            ENABLE_KAFKA,
+            ENABLE_MARIADB,
+            ENABLE_CLICKHOUSE
     };
 
     private static final boolean ENABLE_API = envIsTrueWithDefaultTrue("ENABLE_API");
@@ -187,6 +191,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     // POSTGRESQL
     private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.7.6");
+
+    // MARIADB
+    private static final String MARIADB_VERSION = getEnv("MARIADB_VERSION").orElse("3.5.4");
+
+    // CLICKHOUSE
+    private static final String CLICKHOUSE_VERSION = getEnv("CLICKHOUSE_VERSION").orElse("0.9.0");
 
     // DUCKDB
     private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.3.0.0");
@@ -238,6 +248,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency CONFLUENT_KAFKA_SCHEMA_REGISTRY_CLIENT = new ResourceDependency("kafka-schema-registry-client", "https://packages.confluent.io/maven/io/confluent/kafka-schema-registry-client/" + CONFLUENT_VERSION + "/kafka-schema-registry-client-" + CONFLUENT_VERSION + ".jar");
     private static final ResourceDependency CONFLUENT_KAFKA_AVRO_SERIALIZER = new ResourceDependency("kafka-avro-serializer", "https://packages.confluent.io/maven/io/confluent/kafka-avro-serializer/" + CONFLUENT_VERSION + "/kafka-avro-serializer-" + CONFLUENT_VERSION + ".jar");
 
+    private static final ResourceDependency MARIADB_JAR = new ResourceDependency("mariadb-java-client", "https://repo1.maven.org/maven2/org/mariadb/jdbc/mariadb-java-client/" + MARIADB_VERSION + "/mariadb-java-client-" + MARIADB_VERSION + ".jar");
+    private static final ResourceDependency CLICKHOUSE_JAR = new ResourceDependency("clickhouse-jdbc", "https://repo1.maven.org/maven2/com/clickhouse/clickhouse-jdbc/"+ CLICKHOUSE_VERSION + "/clickhouse-jdbc-" + CLICKHOUSE_VERSION + "-all.jar");
+
+
     private static final ResourceDependency[] snowflakeDependencies = {
             SNOWFLAKE_JDBC_JAR,
             SPARK_SNOWFLAKE_JAR
@@ -280,6 +294,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency[] confluentDependencies = {
             CONFLUENT_KAFKA_SCHEMA_REGISTRY_CLIENT,
             CONFLUENT_KAFKA_AVRO_SERIALIZER
+    };
+    private static final ResourceDependency[] mariadbDependencies = {
+            MARIADB_JAR
+    };
+    private static final ResourceDependency[] clickhouseDependencies = {
+            CLICKHOUSE_JAR
     };
 
     private static Optional<String> getEnv(String env) {
@@ -335,6 +355,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             variableWriter.apply(writer).accept("ENABLE_AZURE", String.valueOf(ENABLE_AZURE));
             variableWriter.apply(writer).accept("ENABLE_SNOWFLAKE", String.valueOf(ENABLE_SNOWFLAKE));
             variableWriter.apply(writer).accept("ENABLE_POSTGRESQL", String.valueOf(ENABLE_POSTGRESQL));
+            variableWriter.apply(writer).accept("ENABLE_MARIADB", String.valueOf(ENABLE_MARIADB));
             variableWriter.apply(writer).accept("ENABLE_REDSHIFT", String.valueOf(ENABLE_REDSHIFT));
             variableWriter.apply(writer).accept("ENABLE_KAFKA", String.valueOf(ENABLE_KAFKA));
             variableWriter.apply(writer).accept("ENABLE_DUCKDB", String.valueOf(ENABLE_DUCKDB));
@@ -477,11 +498,14 @@ public class Setup extends ProxySelector implements X509TrustManager {
         ENABLE_SNOWFLAKE = true;
         ENABLE_REDSHIFT = true;
         ENABLE_POSTGRESQL = true;
+        ENABLE_MARIADB = true;
+        ENABLE_CLICKHOUSE = true;
         ENABLE_DUCKDB = true;
         ENABLE_KAFKA = true;
     }
     private static void askUserWhichConfigToEnable() {
-        System.out.println("Please enable at least one of the following configurations:");
+        System.out.println("Please enable at least one of the following profiles to download the required dependencies:");
+        System.out.println("Note: You may install more dependencies later by copying them to the bin/deps directory");
         System.out.println("1) Azure");
         System.out.println("2) BigQuery");
         System.out.println("3) Snowflake");
@@ -490,6 +514,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
         System.out.println("6) DuckDB   ");
         System.out.println("7) Spark    ");
         System.out.println("8) Kafka    ");
+        System.out.println("9) Mariadb  ");
+        System.out.println("10) ClickHouse");
         System.out.println("A) All      ");
         System.out.println("N) None     ");
         System.out.print("Please enter your choice(s) separated by commas (e.g. 1,2,3): ");
@@ -499,13 +525,14 @@ public class Setup extends ProxySelector implements X509TrustManager {
             String answer = reader.readLine();
             if (answer.equalsIgnoreCase("n")) {
                 System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
-                System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_DUCKDB, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA");
+                System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_DUCKDB, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA, ENABLE_MARIADB");
                 System.exit(1);
             }
             else if (answer.equalsIgnoreCase("a")) {
                 enableAllDependencies();
             }
             else {
+
                 String[] choices = answer.split(",");
                 for (String choice : choices) {
                     switch (choice.trim()) {
@@ -531,6 +558,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
                             break;
                         case "8":
                             ENABLE_KAFKA = true;
+                            break;
+                        case "9":
+                            ENABLE_MARIADB = true;
+                            break;
+                        case "10":
+                            ENABLE_CLICKHOUSE = true;
                             break;
                         default:
                             enableAllDependencies();
@@ -638,6 +671,17 @@ public class Setup extends ProxySelector implements X509TrustManager {
             if (ENABLE_POSTGRESQL) {
                 downloadAndDisplayProgress(postgresqlDependencies, depsDir, true);
             }
+
+            deleteDependencies(mariadbDependencies, depsDir);
+            if (ENABLE_MARIADB) {
+                downloadAndDisplayProgress(mariadbDependencies, depsDir, true);
+            }
+
+            deleteDependencies(clickhouseDependencies, depsDir);
+            if (ENABLE_CLICKHOUSE) {
+                downloadAndDisplayProgress(clickhouseDependencies, depsDir, true);
+            }
+
 
             boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
             generateVersions(targetDir, unix);
