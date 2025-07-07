@@ -22,7 +22,9 @@ trait XlsModel {
     "_name"        -> "Name",
     "_predicate"   -> "Predicate",
     "_grants"      -> "User Groups",
-    "_description" -> "Description"
+    "_description" -> "Description",
+    "_acl"         -> "ACL",
+    "_rls"         -> "RLS"
   )
 
   val allIamPolicyTagHeaders = List(
