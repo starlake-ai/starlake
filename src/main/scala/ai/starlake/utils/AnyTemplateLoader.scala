@@ -209,7 +209,7 @@ abstract class AnyTemplateLoader extends LazyLogging {
       .orElse(loadTemplateFromResources(templatePathname))
       .getOrElse(
         throw new RuntimeException(
-          s"Template `${templatePathname}` not found. Please provide an absolute path or a template returned by `list` command. This strategy may not be supported by your database."
+          s"Template `${templatePathname}` not found. Please provide an absolute path or a template returned by `list` command. This strategy may also not be supported by your platform."
         )
       )
   }
