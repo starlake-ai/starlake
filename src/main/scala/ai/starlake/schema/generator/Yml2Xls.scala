@@ -82,12 +82,32 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
 
     val policySheet = workbook.createSheet("_policies")
     fillHeaders(workbook, allPolicyHeaders, policySheet)
-    domain.policies().zipWithIndex.foreach { case (policy, rowIndex) =>
+    domain.securityLevels().zipWithIndex.foreach { case ((name, securityLevels), rowIndex) =>
       val policyRow = policySheet.createRow(2 + rowIndex)
-      policyRow.createCell(0).setCellValue(policy.name)
-      policyRow.createCell(1).setCellValue(policy.predicate)
-      policyRow.createCell(2).setCellValue(policy.grants.mkString(","))
-      policyRow.createCell(3).setCellValue(policy.description)
+      policyRow.createCell(0).setCellValue(name)
+      var _predicate = "TRUE"
+      val _grants = collection.mutable.Set.empty[String]
+      var _acl = false
+      var _rls = false
+      var _description = ""
+      for (sl <- securityLevels) {
+        sl match {
+          case rls: RowLevelSecurity =>
+            _predicate = rls.predicate
+            _rls = true
+            _grants ++= rls.grants
+            _description = rls.description
+          case acl: AccessControlEntry =>
+            _acl = true
+            _grants ++= acl.grants
+          case _ =>
+        }
+      }
+      policyRow.createCell(1).setCellValue(_predicate)
+      policyRow.createCell(2).setCellValue(_grants.toSet.mkString(","))
+      policyRow.createCell(3).setCellValue(_description)
+      policyRow.createCell(4).setCellValue(_acl)
+      policyRow.createCell(5).setCellValue(_rls)
     }
     for (i <- allPolicyHeaders.indices)
       policySheet.autoSizeColumn(i)

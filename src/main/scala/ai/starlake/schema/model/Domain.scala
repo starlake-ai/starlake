@@ -323,6 +323,12 @@ case class LoadDesc(version: Int, load: Domain)
     )
   }
 
+  def securityLevels(): Map[String, List[SecurityLevel]] = {
+    (tables
+      .flatMap(_.acl) ++ tables.flatMap(_.rls))
+      .groupBy(_.name)
+  }
+
   def writeDomainAsYaml(loadBasePath: Path)(implicit storage: StorageHandler): Unit = {
 
     val folder = new Path(loadBasePath, this.name)
