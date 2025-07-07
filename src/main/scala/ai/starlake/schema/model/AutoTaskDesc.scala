@@ -3,6 +3,7 @@ package ai.starlake.schema.model
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.model.Severity.Error
+import ai.starlake.sql.SQLUtils
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 
@@ -238,6 +239,90 @@ case class AutoTaskDesc(
       .map(_.getSink())
       .getOrElse(AllSinks().copy(connectionRef = Some(sinkConnectionRef)).getSink())
   }
+
+  /** Extracts attributes from the SQL statement.
+    * @param settings
+    * @return
+    */
+  def extractAttributesFromSql()(implicit settings: Settings): List[(String, String)] = {
+    val schemaHandler = settings.schemaHandler()
+    val allVars = schemaHandler.activeEnvVars()
+    val inputSQL = getSql()
+    val runConnection = this.getRunConnection()
+    val sqlWithParametersTranspiled =
+      schemaHandler.transpileAndSubstitute(
+        sql = inputSQL,
+        connection = runConnection,
+        allVars = allVars,
+        test = false
+      )
+    val columnNames = SQLUtils.extractColumnNames(sqlWithParametersTranspiled)
+    columnNames.map { col =>
+      col -> "undefined"
+    }
+  }
+
+  /** Extracts attributes from the SQL statement and compares them with the existing attributes in
+    * the yaml
+    * @param sqlAttributes
+    *   List of attributes extracted from the SQL statement.
+    * @param settings
+    * @return
+    */
+  def extractAttributesDiff(
+    sqlAttributes: List[AttributeDesc]
+  )(implicit settings: Settings): List[(AttributeDesc, AttributeStatus)] = {
+    val addedAndModifiedAttributes = sqlAttributes
+      .map { attr =>
+        this.attributes.find(_.name.equalsIgnoreCase(attr.name)) match {
+          case Some(existingAttr) =>
+            val (updatedType, status) =
+              if (existingAttr.`type` == attr.`type`) {
+                existingAttr -> AttributeStatus.UNCHANGED
+              } else {
+                existingAttr.copy(`type` = attr.`type`) -> AttributeStatus.MODIFIED
+              }
+            val (updateTypeAndComment, status2) =
+              if (attr.comment.nonEmpty) {
+                updatedType.copy(comment = attr.comment) -> AttributeStatus.MODIFIED
+              } else {
+                updatedType -> status
+              }
+            (updateTypeAndComment, status2)
+          case None =>
+            attr -> AttributeStatus.ADDED
+        }
+      }
+    val deletedAttributes = this.attributes
+      .filterNot(attDesc => sqlAttributes.exists(_.name.equalsIgnoreCase(attDesc.name)))
+      .map(attDesc => attDesc -> AttributeStatus.DELETED)
+    addedAndModifiedAttributes ++ deletedAttributes
+  }
+
+  /** Update the task description with the new attributes. Existing attributes are updated with the
+    * new type and comment. Attributes not present in the new list are dropped.
+    *
+    * @param attributes
+    *   List of attributes to update the task description with.
+    * @param settings
+    * @return
+    */
+  def updateAutoTaskDesc(
+    attributes: List[AttributeDesc]
+  )(implicit settings: Settings): AutoTaskDesc = {
+    val withoutDropped =
+      this.attributes.filter { existingAttr =>
+        attributes.exists(_.name.equalsIgnoreCase(existingAttr.name))
+      }
+    val addAndUpdatedAttributes = withoutDropped.map { existingAttr =>
+      attributes.find(_.name.equalsIgnoreCase(existingAttr.name)) match {
+        case Some(newAttr) => existingAttr.copy(`type` = newAttr.`type`, comment = newAttr.comment)
+        case None          => existingAttr
+      }
+    }
+    this.copy(attributes = addAndUpdatedAttributes)
+  }
+
 }
 
 object AutoTaskDesc {

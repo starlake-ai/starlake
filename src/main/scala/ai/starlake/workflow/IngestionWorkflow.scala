@@ -956,6 +956,13 @@ class IngestionWorkflow(
     )
   }
 
+  // TODO
+  def updateTaskAttributes(
+    config: TransformConfig
+  ): Try[Unit] = Try {
+    val task = buildTask(config)
+  }
+
   def compileAutoJob(config: TransformConfig): Try[(String, String)] = Try {
     val action = buildTask(config)
     // TODO Interactive compilation should check table existence
