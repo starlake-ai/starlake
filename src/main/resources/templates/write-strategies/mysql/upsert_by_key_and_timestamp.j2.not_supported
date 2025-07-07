@@ -1,0 +1,28 @@
+
+CREATE TEMPORARY VIEW SL_INCOMING AS {{ selectStatement }};
+
+{% if strategyOn == 'TARGET' %}
+
+MERGE INTO  {{ tableFullName }} SL_EXISTING USING ({{ selectStatement }}) SL_INCOMING ON ( {{ strategyKeyJoinCondition }})
+WHEN MATCHED AND SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }} THEN  UPDATE {{ tableUpdateSetExpression }}
+WHEN NOT MATCHED THEN {{ tableInsert }};
+
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
+
+MERGE INTO  {{ tableFullName }} SL_EXISTING 
+USING (
+SELECT  {{ tableColumnsCsv }}
+FROM (
+SELECT  {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }}  ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+FROM ({{ selectStatement }}) SL_TMP1
+) SL_TMP2 
+WHERE SL_SEQ = 1
+    
+) SL_INCOMING 
+ON ( {{ strategyKeyJoinCondition }})
+WHEN MATCHED AND SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }} THEN  UPDATE {{ tableUpdateSetExpression }}
+WHEN NOT MATCHED THEN {{ tableInsert }};
+
+{%  endif %}
+
+DROP VIEW  IF EXISTS SL_INCOMING;
