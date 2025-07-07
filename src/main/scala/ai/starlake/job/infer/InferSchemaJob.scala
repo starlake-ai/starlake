@@ -456,12 +456,16 @@ object InferSchemaJob {
       var continue = true
       do {
         continue = indexOfNonAlpha < prefixArray.length &&
-          (prefixArray(indexOfNonAlpha).isLetterOrDigit || prefixArray(indexOfNonAlpha) == '_')
+          (prefixArray(indexOfNonAlpha).isLetterOrDigit || prefixArray(
+            indexOfNonAlpha
+          ) == '_' || prefixArray(indexOfNonAlpha) == '-')
 
         val end =
-          prefixArray(indexOfNonAlpha) == '_' &&
+          indexOfNonAlpha == prefixArray.length || ((prefixArray(
+            indexOfNonAlpha
+          ) == '_' || prefixArray(indexOfNonAlpha) == '-') &&
           indexOfNonAlpha + 1 < prefixArray.length &&
-          !prefixArray(indexOfNonAlpha + 1).isLetter
+          !prefixArray(indexOfNonAlpha + 1).isLetter)
 
         if (!continue || end) {
           continue = false
