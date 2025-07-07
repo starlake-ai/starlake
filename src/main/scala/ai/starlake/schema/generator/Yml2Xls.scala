@@ -86,7 +86,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
       val policyRow = policySheet.createRow(2 + rowIndex)
       policyRow.createCell(0).setCellValue(name)
       var _predicate = "TRUE"
-      var _grants = Set()
+      val _grants = collection.mutable.Set.empty[String]
       var _acl = false
       var _rls = false
       var _description = ""
@@ -95,16 +95,16 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
           case rls: RowLevelSecurity =>
             _predicate = rls.predicate
             _rls = true
-            _grants = _grants ++ rls.grants
+            _grants ++= rls.grants
             _description = rls.description
           case acl: AccessControlEntry =>
             _acl = true
-            _grants = _grants ++ acl.grants
+            _grants ++= acl.grants
           case _ =>
         }
       }
       policyRow.createCell(1).setCellValue(_predicate)
-      policyRow.createCell(2).setCellValue(_grants.mkString(","))
+      policyRow.createCell(2).setCellValue(_grants.toSet.mkString(","))
       policyRow.createCell(3).setCellValue(_description)
       policyRow.createCell(4).setCellValue(_acl)
       policyRow.createCell(5).setCellValue(_rls)
