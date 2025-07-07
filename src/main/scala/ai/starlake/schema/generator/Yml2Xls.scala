@@ -95,11 +95,11 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
           case rls: RowLevelSecurity =>
             _predicate = rls.predicate
             _rls = true
-            _grants ++= rls.grants
+            _grants = _grants ++ rls.grants
             _description = rls.description
           case acl: AccessControlEntry =>
             _acl = true
-            _grants ++= acl.grants
+            _grants = _grants ++ acl.grants
           case _ =>
         }
       }
