@@ -1,0 +1,8 @@
+CREATE VIEW {{ tableDomain }}.SL_INCOMING AS {{ selectStatement }};
+
+DELETE FROM {{ tableFullName }} 
+WHERE {{ sinkPartition | first }} IN (SELECT DISTINCT {{ sinkPartition | first }} FROM {{ tableDomain }}.SL_INCOMING);
+
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}) SELECT {{ tableColumnsCsv }} FROM {{ tableDomain }}.SL_INCOMING;
+
+DROP VIEW IF EXISTS {{ tableDomain }}.SL_INCOMING;

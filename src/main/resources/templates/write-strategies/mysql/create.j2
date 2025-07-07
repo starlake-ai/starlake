@@ -1,0 +1,36 @@
+
+
+{#  ignore materialized view since it is not supported #}
+{% set createTable = 'CREATE TABLE ' + tableFullName %}
+
+
+{% if strategyOn == 'TARGET' %}
+
+{{ createTable }} AS {{selectStatement }};
+
+{% elif strategyOn == 'SOURCE_AND_TARGET' and strategyTimestamp == '' %}
+
+{{ createTable }} AS
+WITH SL_INCOMING AS ({{selectStatement }}),
+SL_VIEW_WITH_ROWNUM AS (SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY (select 0)) AS SL_SEQ FROM SL_INCOMING)
+SELECT  {{ tableColumnsCsv }} FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' and timestamp is present #}
+
+{{ createTable }} AS
+WITH SL_INCOMING AS ({{ selectStatement }}),
+SL_VIEW_WITH_ROWNUM AS (
+  SELECT  {{ tableColumnsCsv }},
+          ROW_NUMBER() OVER (PARTITION BY  {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+  FROM SL_INCOMING
+)
+SELECT {{ tableColumnsCsv }} FROM SL_VIEW_WITH_ROWNUM WHERE SL_SEQ = 1;
+""".stripMargin
+
+{%  endif %}
+
+
+{% if strategyType == 'SCD2' %}
+ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyStartTs }} TIMESTAMP;
+ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyEndTs }} TIMESTAMP;
+{% endif %}

@@ -1,6 +1,6 @@
 
 {%  if strategyTimestamp != ""  %}
-CREATE TEMPORARY VIEW SL_INCOMING AS 
+CREATE VIEW {{ tableDomain }}.SL_INCOMING AS
 {% if strategyOn == 'TARGET' %}
     {{ selectStatement }};
 {% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
@@ -10,20 +10,20 @@ CREATE TEMPORARY VIEW SL_INCOMING AS
 {% endif %}
 
 
-CREATE TEMPORARY VIEW SL_INCOMING_ALL AS
-    SELECT {{ renderStrategyKeyAsPseudo(strategyKey, 'SL_INCOMING') }}, SL_INCOMING.* FROM SL_INCOMING
+CREATE VIEW {{ tableDomain }}.SL_INCOMING_ALL AS
+    SELECT {{ renderStrategyKeyAsPseudo(strategyKey, 'SL_INCOMING') }}, SL_INCOMING.* FROM {{ tableDomain }}.SL_INCOMING SL_INCOMING
     LEFT JOIN {{ tableFullName }} SL_EXISTING 
     ON ({{ renderStrategyKeyJoinCondition('SL_INCOMING','SL_EXISTING',strategyKey) }} AND SL_EXISTING.{{strategyEndTs}} IS NULL)
     WHERE  {{ renderStrategyKeyIsNull('SL_EXISTING', strategyKey) }} OR SL_EXISTING.{{strategyTimestamp}} < SL_INCOMING.{{strategyTimestamp}}
     UNION ALL
     -- All line present in the source and target that are current in the target
-    SELECT {{ renderStrategyKeyAsNullPseudo(strategyKey) }}, SL_INCOMING.* FROM SL_INCOMING
+    SELECT {{ renderStrategyKeyAsNullPseudo(strategyKey) }}, SL_INCOMING.* FROM {{ tableDomain }}.SL_INCOMING SL_INCOMING
     INNER JOIN {{ tableFullName }} SL_EXISTING
     ON ({{ renderStrategyKeyJoinCondition('SL_INCOMING','SL_EXISTING',strategyKey) }} AND SL_EXISTING.{{strategyEndTs}} IS NULL)
     WHERE  SL_EXISTING.{{strategyTimestamp}} < SL_INCOMING.{{strategyTimestamp}};
 
 
-MERGE INTO {{ tableFullName }} USING SL_INCOMING_ALL
+MERGE INTO {{ tableFullName }} USING {{ tableDomain }}.SL_INCOMING_ALL
 ON ({{ renderStrategyJoinConditionWithPseudo('SL_INCOMING_ALL', '{{ tableFullName }}', strategyKey) }})
 WHEN MATCHED THEN UPDATE SET {{ strategyEndTs }} = CURRENT_TIMESTAMP
 WHEN NOT MATCHED THEN

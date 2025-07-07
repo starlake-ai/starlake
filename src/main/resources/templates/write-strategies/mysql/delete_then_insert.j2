@@ -1,0 +1,32 @@
+CREATE OR REPLACE VIEW {{ tableDomain }}.SL_INCOMING AS {{ selectStatement }};
+
+{% if strategyOn == 'TARGET' %}
+
+
+DELETE FROM {{ tableFullName }}
+WHERE EXISTS
+(
+SELECT 1 FROM {{ tableDomain }}.SL_INCOMING
+WHERE {{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }}
+);
+
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
+
+CREATE OR REPLACE VIEW {{ tableDomain }}.SL_VIEW_WITH_ROWNUM AS (
+SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY  {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+FROM {{ tableDomain }}.SL_INCOMING
+);
+
+DELETE FROM {{ tableFullName }}
+WHERE EXISTS (
+SELECT 1 FROM {{ tableDomain }}.SL_VIEW_WITH_ROWNUM
+WHERE {{ renderStrategyKeyJoinCondition(tableFullName, 'SL_VIEW_WITH_ROWNUM', strategyKey) }}
+);
+
+{% endif %}
+
+INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }}) SELECT {{ tableColumnsCsv }} FROM {{ tableDomain }}.SL_INCOMING;
+
+DROP VIEW IF EXISTS {{ tableDomain }}.SL_VIEW_WITH_ROWNUM;
+DROP VIEW IF EXISTS {{ tableDomain }}.SL_INCOMING;
+
