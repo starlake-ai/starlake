@@ -1,15 +1,15 @@
 package ai.starlake.diff;
 
 import java.util.ArrayList;
+import ai.starlake.diff.DiffAttributeStatus;
 
-
-public class Attribute {
+public class DiffAttribute {
     String name;
     String typ;
     boolean array;
-    AttributeStatus status;
+    DiffAttributeStatus status;
 
-    ArrayList<Attribute> attributes;  // present only if typ is "struct"
+    ArrayList<DiffAttribute> attributes;  // present only if typ is "struct"
 
     public boolean isNestedField() {
         assert(typ.equalsIgnoreCase("struct"));
@@ -18,7 +18,7 @@ public class Attribute {
     public boolean isNested() {
         return array;
     }
-    public Attribute(String name, String typ, boolean array, ArrayList<Attribute> attributes, AttributeStatus status) {
+    public DiffAttribute(String name, String typ, boolean array, ArrayList<DiffAttribute> attributes, DiffAttributeStatus status) {
         this.name = name;
         this.typ = typ;
         this.array = array;

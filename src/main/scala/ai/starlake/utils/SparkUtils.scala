@@ -77,14 +77,14 @@ object SparkUtils extends StrictLogging {
     conn: Connection,
     jdbcOptions: Map[String, String],
     domainAndTableName: String,
-    sparkSchema: StructType,
+    incomingSparkSchema: StructType,
     attributesWithDDLType: Map[String, String]
   ): Unit = {
     buildUpdateJdbcTableSchemaSQL(
       conn,
       jdbcOptions,
       domainAndTableName,
-      sparkSchema,
+      incomingSparkSchema,
       attributesWithDDLType
     )
       .foreach(JdbcDbUtils.executeAlterTable(_, conn))
@@ -94,16 +94,18 @@ object SparkUtils extends StrictLogging {
     conn: Connection,
     jdbcOptions: Map[String, String],
     domainAndTableName: String,
-    sparkSchema: StructType,
+    incomingSparkSchema: StructType,
     attributesWithDDLType: Map[String, String]
   ): Seq[String] = {
     val url = jdbcOptions("url")
-    if (isFlat(sparkSchema)) {
+    if (isFlat(incomingSparkSchema)) {
       val existingSchema = getSchemaOption(conn, jdbcOptions, domainAndTableName)
-      val addedSchema = SparkUtils.added(sparkSchema, existingSchema.getOrElse(sparkSchema))
-      val deletedSchema = SparkUtils.dropped(sparkSchema, existingSchema.getOrElse(sparkSchema))
+      val addedSColumns =
+        SparkUtils.added(incomingSparkSchema, existingSchema.getOrElse(incomingSparkSchema))
+      val deletedColumns =
+        SparkUtils.dropped(incomingSparkSchema, existingSchema.getOrElse(incomingSparkSchema))
       val alterTableDropColumns =
-        SparkUtils.alterTableDropColumnsString(deletedSchema, domainAndTableName)
+        SparkUtils.alterTableDropColumnsString(deletedColumns, domainAndTableName)
       if (alterTableDropColumns.nonEmpty) {
         logger.info(
           s"alter table ${domainAndTableName} with ${alterTableDropColumns.size} columns to drop"
@@ -112,7 +114,7 @@ object SparkUtils extends StrictLogging {
       }
       val alterTableAddColumns =
         SparkUtils.alterTableAddColumnsString(
-          addedSchema,
+          addedSColumns,
           domainAndTableName,
           attributesWithDDLType
         )

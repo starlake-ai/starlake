@@ -1,6 +1,6 @@
 package ai.starlake.diff;
 
-public enum AttributeStatus {
+public enum DiffAttributeStatus {
     ADDED,
     REMOVED,
     MODIFIED,
