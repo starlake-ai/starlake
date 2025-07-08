@@ -1,6 +1,6 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.schema.model.{Attribute, Schema}
+import ai.starlake.schema.model.{Attribute, SchemaInfo}
 
 import java.sql.Timestamp
 import java.util.regex.Pattern
@@ -26,7 +26,7 @@ case class RejectedRecord(
 }
 
 object RejectedRecord {
-  val starlakeSchema = Schema(
+  val starlakeSchema = SchemaInfo(
     name = "rejected",
     pattern = Pattern.compile("ignore"),
     attributes = List(

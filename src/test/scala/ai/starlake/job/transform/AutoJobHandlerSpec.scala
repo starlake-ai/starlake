@@ -60,7 +60,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
   "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
     new WithSettings() {
       val userView = pathUserAccepted.toString
-      val businessTask1 = AutoTaskDesc(
+      val businessTask1 = AutoTaskInfo(
         name = "",
         sql = Some(
           s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view where age={{age}}"
@@ -80,7 +80,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
-        AutoJobDesc(
+        AutoJobInfo(
           "",
           Nil
         )
@@ -119,7 +119,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val userView = pathUserAccepted.toString
       logger.info("************userView:" + userView)
-      val businessTask1 = AutoTaskDesc(
+      val businessTask1 = AutoTaskInfo(
         name = "user",
         sql = Some(
           s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
@@ -138,7 +138,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
-        AutoJobDesc(
+        AutoJobInfo(
           "",
           Nil
         )
@@ -164,7 +164,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     new WithSettings() {
 
       val userView = pathUserAccepted.toString
-      val businessTask1 = AutoTaskDesc(
+      val businessTask1 = AutoTaskInfo(
         name = "user",
         sql = Some(
           s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
@@ -186,7 +186,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
-        AutoJobDesc(
+        AutoJobInfo(
           "",
           Nil
         )
@@ -224,7 +224,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
   "trigger AutoJob with no parameters on SQL statement" should "generate a dataset in business" in {
     new WithSettings() {
       val userView = pathUserAccepted.toString
-      val businessTask1 = AutoTaskDesc(
+      val businessTask1 = AutoTaskInfo(
         name = "user",
         sql = Some(
           s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view"
@@ -246,7 +246,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val schemaHandler = settings.schemaHandler()
 
       val configJob =
-        AutoJobDesc(
+        AutoJobInfo(
           "",
           Nil
         )
@@ -282,7 +282,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     new WithSettings() {
       // because we are having a different schema for user in this test
       val userView = pathUserAccepted.toString
-      val businessTask1 = AutoTaskDesc(
+      val businessTask1 = AutoTaskInfo(
         name = "user",
         sql = Some(
           s"with user_view as (select * from parquet.`$userView`) select concatWithSpace(firstname, lastname) as fullName from user_View"
@@ -302,7 +302,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
-        AutoJobDesc(
+        AutoJobInfo(
           "",
           Nil
         )
@@ -334,7 +334,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
   }
   "trigger AutoJob by passing parameters to presql statement" should "generate a dataset in business" in {
     new WithSettings() {
-      val businessTask1 = AutoTaskDesc(
+      val businessTask1 = AutoTaskInfo(
         name = "graduateProgram",
         sql = Some(
           s"SELECT * FROM graduate_agg_view"
@@ -356,7 +356,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         sink = Some(FsSink().toAllSinks())
       )
       val configJob =
-        AutoJobDesc(
+        AutoJobInfo(
           "",
           Nil
         )
@@ -405,7 +405,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     }
 
     new WithSettings(bqConfiguration) {
-      val businessTask1 = AutoTaskDesc(
+      val businessTask1 = AutoTaskInfo(
         name = "",
         sql = Some("select * from domain"),
         database = None,

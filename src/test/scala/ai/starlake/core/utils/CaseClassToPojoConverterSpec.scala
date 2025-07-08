@@ -6,14 +6,14 @@ import ai.starlake.schema.model.{
   AccessControlEntry,
   AllSinks,
   Attribute,
-  Domain,
+  DomainInfo,
   ExpectationItem,
   Format,
   Freshness,
   Metadata,
   Position,
   RowLevelSecurity,
-  Schema,
+  SchemaInfo,
   WriteStrategy
 }
 import com.hubspot.jinjava.Jinjava
@@ -29,7 +29,7 @@ class CaseClassToPojoConverterSpec extends AnyFlatSpec {
 
   "asJava" should "convert domain and table succesfully" in {
     val javaItem = CaseClassToPojoConverter.asJava(
-      Domain(
+      DomainInfo(
         "aDomain",
         metadata = Some(
           Metadata(
@@ -48,7 +48,7 @@ class CaseClassToPojoConverterSpec extends AnyFlatSpec {
           )
         ),
         tables = List(
-          Schema(
+          SchemaInfo(
             name = "table",
             pattern = Pattern.compile("table.*\\.pos"),
             attributes = List(

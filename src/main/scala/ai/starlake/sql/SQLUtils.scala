@@ -152,8 +152,8 @@ object SQLUtils extends StrictLogging {
   def substituteRefInSQLSelect(
     sql: String,
     refs: RefDesc,
-    domains: List[Domain],
-    tasks: List[AutoTaskDesc],
+    domains: List[DomainInfo],
+    tasks: List[AutoTaskInfo],
     connection: Connection
   )(implicit
     settings: Settings
@@ -187,8 +187,8 @@ object SQLUtils extends StrictLogging {
   def buildSingleSQLQueryForRegex(
     sql: String,
     refs: RefDesc,
-    domains: List[Domain],
-    tasks: List[AutoTaskDesc],
+    domains: List[DomainInfo],
+    tasks: List[AutoTaskInfo],
     fromOrJoinRegex: Regex,
     keyword: String,
     connection: Connection
@@ -242,8 +242,8 @@ object SQLUtils extends StrictLogging {
   private def resolveTableNameInSql(
     tableName: String,
     refs: RefDesc,
-    domains: List[Domain],
-    tasks: List[AutoTaskDesc],
+    domains: List[DomainInfo],
+    tasks: List[AutoTaskInfo],
     ctes: List[String],
     connection: Connection
   )(implicit
@@ -288,8 +288,8 @@ object SQLUtils extends StrictLogging {
 
   private def resolveTableRefInDomainsAndJobs(
     tableComponents: List[String],
-    domains: List[Domain],
-    tasks: List[AutoTaskDesc]
+    domains: List[DomainInfo],
+    tasks: List[AutoTaskInfo]
   )(implicit
     settings: Settings
   ): Try[(String, String, String)] = Try {
@@ -555,6 +555,63 @@ object SQLUtils extends StrictLogging {
         logger.error(s"Failed to transpile SQL with dialect $dialect: $sql")
         Utils.logException(logger, e)
         sql
+    }
+  }
+
+  def getSelectStatementIndex(sql: String): Int = {
+    val trimmedSql = stripComments(sql.trim)
+
+    // If the query doesn't start with WITH (case-insensitive and allowing whitespace), return 0
+    val withPattern = "(?i)^\\s*WITH\\b".r
+    if (withPattern.findFirstIn(trimmedSql).isEmpty) {
+      0
+    } else {
+
+      var depth = 0
+      var inSingleQuote = false
+      var inDoubleQuote = false
+      var i = 0
+      var lastCteEnd = -1
+
+      while (i < trimmedSql.length) {
+        val c = trimmedSql(i)
+
+        // Handle quotes - toggle quote state but only if not escaped
+        if (c == '\'' && (i == 0 || trimmedSql(i - 1) != '\\')) {
+          inSingleQuote = !inSingleQuote
+        } else if (c == '"' && (i == 0 || trimmedSql(i - 1) != '\\')) {
+          inDoubleQuote = !inDoubleQuote
+        }
+
+        // Only count parentheses outside of string literals
+        if (!inSingleQuote && !inDoubleQuote) {
+          c match {
+            case '(' => depth += 1
+            case ')' =>
+              depth -= 1
+              // If we've closed the last CTE definition
+              if (depth == 0) {
+                lastCteEnd = i
+              }
+            case _ =>
+          }
+        }
+        i = i + 1
+      }
+
+      // If we found the end of the CTEs, look for the main SELECT
+      if (lastCteEnd >= 0) {
+        // Look for SELECT after the last CTE, considering case-insensitive matching
+        val restOfSql = trimmedSql.substring(lastCteEnd + 1)
+        val selectPattern = "(?i)\\bSELECT\\b".r
+        selectPattern.findFirstMatchIn(restOfSql) match {
+          case Some(m) => return lastCteEnd + 1 + m.start
+          case None    => // No SELECT found, fall through to return -1
+        }
+      }
+
+      // If we couldn't properly parse the query structure, return -1
+      -1
     }
   }
 }

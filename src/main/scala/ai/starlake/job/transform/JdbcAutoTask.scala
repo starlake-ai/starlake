@@ -4,7 +4,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractSchemaCmd, ExtractSchemaConfig, JdbcDbUtils}
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, Engine, WriteStrategyType}
+import ai.starlake.schema.model.{AccessControlEntry, AutoTaskInfo, Engine, WriteStrategyType}
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
 import com.typesafe.scalalogging.StrictLogging
@@ -20,7 +20,7 @@ import scala.util.{Failure, Success, Try}
 
 class JdbcAutoTask(
   appId: Option[String],
-  taskDesc: AutoTaskDesc,
+  taskDesc: AutoTaskInfo,
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,

@@ -20,7 +20,7 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
         WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP.value -> """group(2) == "UPSERT_BY_KEY_AND_TIMESTAMP" """,
         WriteStrategyType.OVERWRITE_BY_PARTITION.value -> """group(2) == "OVERWRITE_BY_PARTITION" """
       )
-      val givenSchema: Schema = Schema(
+      val givenSchema: SchemaInfo = SchemaInfo(
         "dummy-schema",
         pattern = Pattern.compile("(.*)\\.(.*)$"),
         Nil,
@@ -127,7 +127,7 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
         WriteStrategyType.UPSERT_BY_KEY_AND_TIMESTAMP.value -> """group(2) == "UPSERT_BY_KEY_AND_TIMESTAMP" """,
         WriteStrategyType.OVERWRITE_BY_PARTITION.value -> """group(2) == "OVERWRITE_BY_PARTITION" """
       )
-      val givenSchema: Schema = Schema(
+      val givenSchema: SchemaInfo = SchemaInfo(
         "dummy-schema",
         pattern = Pattern.compile("(.*)\\.(.*)$"),
         Nil,
@@ -150,7 +150,7 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
         ),
         None
       )
-      val complexGroupedSchema: Seq[(Schema, Iterable[FileInfo])] =
+      val complexGroupedSchema: Seq[(SchemaInfo, Iterable[FileInfo])] =
         AdaptiveWriteStrategy.adaptThenGroup(
           givenSchema,
           List(
@@ -215,7 +215,7 @@ class AdaptiveWriteStrategySpec extends TestHelper with TableDrivenPropertyCheck
         )
       )
 
-      val simpleGroupedSchema: Seq[(Schema, Iterable[FileInfo])] =
+      val simpleGroupedSchema: Seq[(SchemaInfo, Iterable[FileInfo])] =
         AdaptiveWriteStrategy.adaptThenGroup(
           givenSchema,
           (1 to 8).map(i =>

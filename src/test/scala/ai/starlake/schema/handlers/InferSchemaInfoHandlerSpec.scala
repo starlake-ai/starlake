@@ -3,7 +3,7 @@ package ai.starlake.schema.handlers
 import ai.starlake.TestHelper
 import ai.starlake.schema.model.Attribute
 
-class InferSchemaHandlerSpec extends TestHelper {
+class InferSchemaInfoHandlerSpec extends TestHelper {
 
   new WithSettings() {
     "CreateAttributes" should "create the correct list of attributes for a complex Json" in {

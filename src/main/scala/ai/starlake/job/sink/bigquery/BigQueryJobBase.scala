@@ -2,7 +2,7 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model
-import ai.starlake.schema.model.{Schema as _, TableInfo as _, *}
+import ai.starlake.schema.model.{SchemaInfo as _, TableInfo as _, *}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{GcpCredentials, Utils}

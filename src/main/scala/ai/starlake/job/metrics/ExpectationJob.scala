@@ -75,7 +75,7 @@ case class ExpectationReport(
 }
 
 object ExpectationReport {
-  val starlakeSchema = Schema(
+  val starlakeSchema = SchemaInfo(
     name = "expectations",
     pattern = Pattern.compile("ignore"),
     attributes = List(
@@ -234,7 +234,7 @@ class ExpectationJob(
                 )
               )
               .mkString("", " UNION ", "")
-            val taskDesc = AutoTaskDesc(
+            val taskDesc = AutoTaskInfo(
               name = applicationId(),
               sql = Some(sqls),
               database = settings.appConfig.audit.getDatabase(),

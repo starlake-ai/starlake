@@ -2,14 +2,14 @@ package ai.starlake.extract.spi
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.impl.openapi.OpenAPISchemaExtractor
-import ai.starlake.extract.{ExtractSchemaConfig, ExtractSchemas}
+import ai.starlake.extract.{ExtractSchemaConfig, ExtractSchemasInfo}
 
 /** Factory object for creating instances of SchemaExtractor based on provided configuration.
   */
 object SchemaExtractorFactory {
   def get(
     extractSchemaCliConfig: ExtractSchemaConfig,
-    extractSchemas: ExtractSchemas
+    extractSchemas: ExtractSchemasInfo
   )(implicit settings: Settings): SchemaExtractor = {
     val connection = resolveConnection(extractSchemaCliConfig, extractSchemas, settings)
     extractSchemas.openAPI match {
@@ -29,7 +29,7 @@ object SchemaExtractorFactory {
 
   private def resolveConnection(
     extractSchemaCliConfig: ExtractSchemaConfig,
-    extractSchemas: ExtractSchemas,
+    extractSchemas: ExtractSchemasInfo,
     settings: Settings
   ) = {
     extractSchemaCliConfig.connectionRef

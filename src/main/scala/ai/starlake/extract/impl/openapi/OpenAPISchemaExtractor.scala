@@ -75,7 +75,7 @@ class OpenAPISchemaExtractor(
     *   An Iterable collection of Domain objects, each containing metadata and schemas derived from
     *   the OpenAPI configuration and extractor settings.
     */
-  override def extract()(implicit settings: Settings): Iterable[Domain] = {
+  override def extract()(implicit settings: Settings): Iterable[DomainInfo] = {
     assert(
       connectionSettings.`type` == ConnectionType.FS,
       "Connection should be FS with 'path' option defined"
@@ -90,7 +90,7 @@ class OpenAPISchemaExtractor(
       domain <- extractConfig.domains
     } yield {
       val schemas = processDomain(apiEssentialSchemas, domain)
-      Domain(
+      DomainInfo(
         name = domain.name,
         metadata = Some(
           Metadata(
@@ -724,7 +724,7 @@ class OpenAPISchemaExtractor(
   private def openAPISchemaToStarlakeSchema(
     openAPIschema: OpenAPISwaggerSchema[_],
     formatTypeMapping: Map[String, String]
-  ): SchemaName => Schema = {
+  ): SchemaName => SchemaInfo = {
     val typeIgnored = scala.collection.mutable.ListBuffer[String]()
     def buildAttribute(fieldName: String, attributeSchema: OpenAPISwaggerSchema[_]): Attribute = {
       def asAttributeOf(
@@ -839,7 +839,7 @@ class OpenAPISchemaExtractor(
     }
     val attributes = buildAttributes(openAPIschema)
     (schemaName: String) =>
-      Schema(
+      SchemaInfo(
         name = schemaName,
         pattern = Pattern.compile(Pattern.quote(schemaName) + ".*"),
         attributes = attributes

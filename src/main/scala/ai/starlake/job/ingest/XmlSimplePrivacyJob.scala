@@ -28,8 +28,8 @@ import scala.util.{Failure, Success, Try}
   * @param settings
   */
 class XmlSimplePrivacyJob(
-  val domain: Domain,
-  val schema: Schema,
+  val domain: DomainInfo,
+  val schema: SchemaInfo,
   val types: List[Type],
   val path: List[Path],
   val storageHandler: StorageHandler,

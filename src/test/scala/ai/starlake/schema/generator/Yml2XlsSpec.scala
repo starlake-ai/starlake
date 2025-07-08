@@ -1,7 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.Domain
+import ai.starlake.schema.model.DomainInfo
 import ai.starlake.utils.YamlSerde
 import better.files.File
 
@@ -23,7 +23,7 @@ class Yml2XlsSpec extends TestHelper {
         val schemaHandler = settings.schemaHandler()
         new Yml2Xls(schemaHandler).generateXls(Nil, "/tmp")
         val reader = new XlsDomainReader(InputPath("/tmp/position.xlsx"))
-        val domain: Option[Domain] = reader.getDomain()
+        val domain: Option[DomainInfo] = reader.getDomain()
         assert(domain.isDefined)
         domain.foreach { domain =>
           assert(domain.name == "position")

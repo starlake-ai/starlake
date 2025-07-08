@@ -32,7 +32,7 @@ import org.apache.spark.sql.types.{Metadata => _, _}
 
 import scala.reflect.io.Directory
 
-class Schema1HandlerSpec extends TestHelper {
+class SchemaInfo1HandlerSpec extends TestHelper {
 
   override def afterAll(): Unit = {
     super.afterAll()

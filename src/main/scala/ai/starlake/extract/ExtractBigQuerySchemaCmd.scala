@@ -36,7 +36,7 @@ object ExtractBigQuerySchemaCmd extends BigQueryTablesCmd {
         val externalDomains = extractor.extractSchemasAndTables(schemaHandler, config.tables)
         schemaHandler.saveToExternals(externalDomains)
       } else {
-        ExtractBigQuerySchema.extractAndSaveAsDomains(config, schemaHandler)
+        ExtractBigQuerySchema.extractAndSaveToExternal(config, schemaHandler)
       }
     }.map(_ => JobResult.empty)
 }

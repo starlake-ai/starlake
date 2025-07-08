@@ -69,7 +69,7 @@ object IngestionUtil {
 
       case _ =>
         val taskDesc =
-          AutoTaskDesc(
+          AutoTaskInfo(
             name = s"rejected-$applicationId-$domainName-$schemaName",
             sql = None,
             database = settings.appConfig.audit.getDatabase(),

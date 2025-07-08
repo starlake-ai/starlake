@@ -36,7 +36,7 @@ import org.apache.spark.sql.{DataFrame, Row}
 import java.net.URL
 import scala.util.{Failure, Success, Try}
 
-class Schema2HandlerSpec extends TestHelper {
+class SchemaInfo2HandlerSpec extends TestHelper {
 
   override def afterAll(): Unit = {
     super.afterAll()
@@ -587,7 +587,7 @@ class Schema2HandlerSpec extends TestHelper {
         ).foreach(deliverSourceTable)
         val schemaHandler = settings.schemaHandler()
 
-        val schema: Option[Schema] = schemaHandler
+        val schema: Option[SchemaInfo] = schemaHandler
           .domains()
           .find(_.name == "locations")
           .flatMap(_.tables.find(_.name == "locations"))
@@ -658,7 +658,7 @@ class Schema2HandlerSpec extends TestHelper {
         val ds: URL = getClass.getResource("/sample/mapping/dataset")
 
         logger.info(
-          Schema.mapping(
+          SchemaInfo.mapping(
             "domain",
             "schema",
             StructField("ignore", sparkSession.read.parquet(ds.toString).schema),

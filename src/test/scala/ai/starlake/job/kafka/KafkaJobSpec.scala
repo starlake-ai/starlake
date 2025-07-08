@@ -468,7 +468,7 @@ class KafkaJobSpec extends TestHelper {
       }
       /*
       s"$cometOffsetsMode($cometOffsetTopicName) Stream from HTTP to Kafka" should "succeed" in {
-        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        val kafkaClient = new KafkaClient(settings.appConfig.kafka)
         if (cometOffsetsMode == "FILE")
           File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
         kafkaClient.deleteTopic("test_offload_http_to_kafka")
@@ -480,17 +480,16 @@ class KafkaJobSpec extends TestHelper {
         val kafkaJob =
           new KafkaJob(
             KafkaJobConfig(
-              topicConfigName = "test_offload_http_to_kafka",
-              offload = false,
+              streaming = true,
+              topicConfigName = Some("test_offload_http_to_kafka"),
               format = "starlake-http-source",
-              mode = SaveMode.Append,
+              writeMode = SaveMode.Append.toString,
               options = Map(
                 "port" -> "9999",
                 "name" -> "test_offload_http_to_kafka"
               ),
               path = "topic_sink",
-              streaming = true,
-              streamingWriteFormat = "kafka",
+              writeFormat = "kafka",
               streamingTrigger = Some("ProcessingTime"),
               streamingTriggerOption = "10 millisecond",
               writeOptions = Map(

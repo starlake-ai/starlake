@@ -54,7 +54,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
               val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
               val sqlWithTransformedFields = starlakeSchema.buildSqlSelectOnLoad(unionTempTables)
 
-              val taskDesc = AutoTaskDesc(
+              val taskDesc = AutoTaskInfo(
                 name = targetTableName,
                 sql = Some(sqlWithTransformedFields),
                 database = schemaHandler.getDatabase(domain),
@@ -310,7 +310,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
   def singleStepLoad(
     domain: String,
     table: String,
-    schema: Schema,
+    schema: SchemaInfo,
     path: List[Path],
     temporary: Boolean,
     conn: java.sql.Connection

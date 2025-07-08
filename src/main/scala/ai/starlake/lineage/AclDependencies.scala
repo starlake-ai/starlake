@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import AutoTaskDependencies.{Column, Diagram, Item, Relation}
 import ai.starlake.core.utils.StringUtils
-import ai.starlake.schema.model.{RowLevelSecurity, Schema}
+import ai.starlake.schema.model.{RowLevelSecurity, SchemaInfo}
 import ai.starlake.utils.{JsonSerializer, Utils}
 import com.typesafe.scalalogging.LazyLogging
 
@@ -358,7 +358,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     // All tables that have an ACL
     val aclTableNames: Map[String, Set[String]] = schemaHandler
       .domains()
-      .map(d => d.finalName -> d.aclTables(config).toSet[Schema].map(_.finalName))
+      .map(d => d.finalName -> d.aclTables(config).toSet[SchemaInfo].map(_.finalName))
       .toMap
     //      .filter { case (domainName, rls) => rls.nonEmpty }
 
@@ -407,7 +407,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     // All tables that have an ACL
     val aclTableNames: Map[String, Set[String]] = schemaHandler
       .domains()
-      .map(d => d.finalName -> d.aclTables(config).toSet[Schema].map(_.finalName))
+      .map(d => d.finalName -> d.aclTables(config).toSet[SchemaInfo].map(_.finalName))
       .toMap
 //      .filter { case (domainName, rls) => rls.nonEmpty }
 

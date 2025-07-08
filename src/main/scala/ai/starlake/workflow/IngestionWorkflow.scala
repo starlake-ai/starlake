@@ -85,12 +85,12 @@ class IngestionWorkflow(
   schemaHandler: SchemaHandler
 )(implicit settings: Settings)
     extends StrictLogging {
-  private var _domains: Option[List[Domain]] = None
+  private var _domains: Option[List[DomainInfo]] = None
 
   private def domains(
     domainNames: List[String] = Nil,
     tableNames: List[String] = Nil
-  ): List[Domain] = {
+  ): List[DomainInfo] = {
     _domains match {
       case None =>
         if (domainNames.nonEmpty)
@@ -200,7 +200,7 @@ class IngestionWorkflow(
     }
   }
 
-  def listStageFiles(domain: Domain, dryMode: Boolean): Map[String, List[FileInfo]] = {
+  def listStageFiles(domain: DomainInfo, dryMode: Boolean): Map[String, List[FileInfo]] = {
     val inputDir = new Path(domain.resolveDirectory())
     val storageHandler = settings.storageHandler()
     if (storageHandler.exists(inputDir)) {
@@ -455,8 +455,8 @@ class IngestionWorkflow(
               )
 
               case class JobContext(
-                domain: Domain,
-                schema: Schema,
+                domain: DomainInfo,
+                schema: SchemaInfo,
                 paths: List[Path],
                 options: Map[String, String],
                 accessToken: Option[String]
@@ -575,7 +575,7 @@ class IngestionWorkflow(
     }
   }
 
-  private def domainsToWatch(config: LoadConfig): List[Domain] = {
+  private def domainsToWatch(config: LoadConfig): List[DomainInfo] = {
     val includedDomains = config.domains match {
       case Nil =>
         domains()
@@ -594,7 +594,7 @@ class IngestionWorkflow(
   private def pending(
     domainName: String,
     schemasName: List[String]
-  ): (Iterable[(Option[Schema], FileInfo)], Iterable[(Option[Schema], FileInfo)]) = {
+  ): (Iterable[(Option[SchemaInfo], FileInfo)], Iterable[(Option[SchemaInfo], FileInfo)]) = {
     val pendingArea = DatasetArea.stage(domainName)
     logger.info(s"List files in $pendingArea")
     val loadStrategy =
@@ -611,7 +611,7 @@ class IngestionWorkflow(
       logger.info(s"No Files Found.")
     val domain = schemaHandler.getDomain(domainName)
 
-    val filteredFiles = (dom: Domain) =>
+    val filteredFiles = (dom: DomainInfo) =>
       if (schemasName.nonEmpty) {
         logger.info(
           s"We will only watch files that match the schemas name:" +
@@ -644,7 +644,7 @@ class IngestionWorkflow(
     schemas.partition { case (schema, _) => schema.isDefined }
   }
 
-  private def predicate(domain: Domain, schemasName: List[String], file: Path): Boolean = {
+  private def predicate(domain: DomainInfo, schemasName: List[String], file: Path): Boolean = {
     schemasName.exists { schemaName =>
       val schema = domain.tables.find(_.name.equals(schemaName))
       schema.exists(_.pattern.matcher(file.getName).matches())
@@ -703,8 +703,8 @@ class IngestionWorkflow(
 
   @nowarn
   def ingest(
-    domain: Domain,
-    schema: Schema,
+    domain: DomainInfo,
+    schema: SchemaInfo,
     ingestingPaths: List[Path],
     options: Map[String, String],
     accessToken: Option[String],
@@ -915,7 +915,7 @@ class IngestionWorkflow(
   ): AutoTask = {
     val taskDesc =
       if (config.name == "__ignore__.__ignore__") {
-        AutoTaskDesc(
+        AutoTaskInfo(
           name = "__ignore__.__ignore__",
           sql = config.query,
           domain = "__ignore__",
@@ -1264,7 +1264,7 @@ class IngestionWorkflow(
     } yield (domain, schema)
 
     cmdArgs match {
-      case Some((domain: Domain, schema: Schema)) =>
+      case Some((domain: DomainInfo, schema: SchemaInfo)) =>
         val result = new MetricsJob(
           None,
           domain,

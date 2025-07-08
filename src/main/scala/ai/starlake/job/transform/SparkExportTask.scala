@@ -2,7 +2,7 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AutoTaskDesc, FsSink, WriteStrategyType}
+import ai.starlake.schema.model.{AutoTaskInfo, FsSink, WriteStrategyType}
 import ai.starlake.utils.{JobResult, SparkJobResult}
 import org.apache.hadoop.fs.Path
 import org.apache.poi.ss.usermodel.{
@@ -22,7 +22,7 @@ import scala.util.matching.Regex
 
 class SparkExportTask(
   appId: Option[String],
-  taskDesc: AutoTaskDesc,
+  taskDesc: AutoTaskInfo,
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,

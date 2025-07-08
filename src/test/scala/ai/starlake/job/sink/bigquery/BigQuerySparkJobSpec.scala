@@ -3,7 +3,7 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.job.transform.TransformConfig
-import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, WriteStrategy}
+import ai.starlake.schema.model.{AutoTaskInfo, BigQuerySink, WriteStrategy}
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.bigquery.{BigQueryOptions, StandardTableDefinition, Table, TableId}
 import com.typesafe.config.{Config, ConfigFactory}
@@ -65,7 +65,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
               |        )
               |        select * from tbl
               |""".stripMargin
-          private val businessTaskPart = AutoTaskDesc(
+          private val businessTaskPart = AutoTaskInfo(
             "tableWithPartitions",
             None,
             None,
@@ -77,7 +77,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             writeStrategy = Some(WriteStrategy.Overwrite)
           )
 
-          case class Task(task: AutoTaskDesc)
+          case class Task(task: AutoTaskInfo)
 
           private val businessTaskPartDef = mapper
             .writer()
@@ -106,7 +106,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
               |)
               |select * from tbl
               |""".stripMargin
-          private val businessTaskAddPart = AutoTaskDesc(
+          private val businessTaskAddPart = AutoTaskInfo(
             "addPartitionsWithOverwrite",
             Some(query),
             None,

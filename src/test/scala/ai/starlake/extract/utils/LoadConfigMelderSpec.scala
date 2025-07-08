@@ -11,7 +11,7 @@ import ai.starlake.core.utils.{
   TableAttributeMelderConfig,
   TableMelderConfig
 }
-import ai.starlake.schema.model.{Attribute, Domain, Metadata, Schema}
+import ai.starlake.schema.model.{Attribute, DomainInfo, Metadata, SchemaInfo}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -45,7 +45,7 @@ class LoadConfigMelderSpec extends AnyFlatSpec with Matchers {
 
   "meldDomain" should "prioritize extracted values when precedence is set to Extract" in {
     val melder = new LoadConfigMelder()
-    val sampleExtractedDomain = Domain(
+    val sampleExtractedDomain = DomainInfo(
       name = "extractedDomain",
       comment = Some("Extracted Domain Comment"),
       tags = Set("extractTag"),
@@ -58,7 +58,7 @@ class LoadConfigMelderSpec extends AnyFlatSpec with Matchers {
       database = Some("extractedDatabase")
     )
 
-    val sampleCurrentDomain = Domain(
+    val sampleCurrentDomain = DomainInfo(
       name = "currentDomain",
       comment = Some("Current Domain Comment"),
       tags = Set("currentTag"),
@@ -94,7 +94,7 @@ class LoadConfigMelderSpec extends AnyFlatSpec with Matchers {
 
   it should "prioritize current values when precedence is set to Current" in {
     val melder = new LoadConfigMelder()
-    val sampleExtractedDomain = Domain(
+    val sampleExtractedDomain = DomainInfo(
       name = "extractedDomain",
       comment = Some("Extracted Domain Comment"),
       tags = Set("extractTag"),
@@ -107,7 +107,7 @@ class LoadConfigMelderSpec extends AnyFlatSpec with Matchers {
       database = Some("extractedDatabase")
     )
 
-    val sampleCurrentDomain = Domain(
+    val sampleCurrentDomain = DomainInfo(
       name = "currentDomain",
       comment = Some("Current Domain Comment"),
       tags = Set("currentTag"),
@@ -143,7 +143,7 @@ class LoadConfigMelderSpec extends AnyFlatSpec with Matchers {
 
   it should "fallback to extracted values if current values are empty" in {
     val melder = new LoadConfigMelder()
-    val sampleExtractedDomain = Domain(
+    val sampleExtractedDomain = DomainInfo(
       name = "extractedDomain",
       comment = None,
       tags = Set("extractTag"),
@@ -156,7 +156,7 @@ class LoadConfigMelderSpec extends AnyFlatSpec with Matchers {
       database = None
     )
 
-    val sampleCurrentDomain = Domain(
+    val sampleCurrentDomain = DomainInfo(
       name = "currentDomain",
       comment = Some("Current Domain Comment"),
       tags = Set("currentTag"),
@@ -254,10 +254,10 @@ class LoadConfigMelderSpec extends AnyFlatSpec with Matchers {
   "meldDomainRecursively" should "handle domain and tables merging with attributes" in {
     val melder = new LoadConfigMelder()
 
-    val extractedDomain = Domain(
+    val extractedDomain = DomainInfo(
       name = "TestDomain",
       tables = List(
-        Schema(
+        SchemaInfo(
           "TestTable",
           attributes = List(sampleAttr1),
           pattern = Pattern.compile("\\QTestTable\\E.*")
@@ -266,10 +266,10 @@ class LoadConfigMelderSpec extends AnyFlatSpec with Matchers {
     )
 
     val currentDomain = Some(
-      Domain(
+      DomainInfo(
         name = "TestDomain",
         tables = List(
-          Schema(
+          SchemaInfo(
             "TestTable",
             attributes = List(sampleAttr2),
             pattern = Pattern.compile("\\QTestTable\\E.*")

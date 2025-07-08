@@ -19,7 +19,7 @@ case class BigQueryLoadConfig(
   engine: Engine = Engine.SPARK,
   partitionsToUpdate: List[String] = Nil,
   acl: List[AccessControlEntry] = Nil,
-  starlakeSchema: Option[Schema] = None,
+  starlakeSchema: Option[SchemaInfo] = None,
   domainTags: Set[String] = Set.empty,
   domainDescription: Option[String] = None,
   materialization: Materialization = Materialization.TABLE,

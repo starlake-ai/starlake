@@ -108,7 +108,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
-          val businessTask1 = AutoTaskDesc(
+          val businessTask1 = AutoTaskInfo(
             "",
             Some("select * except(code0000) from bqtest.account"),
             None,
@@ -130,7 +130,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           storageHandler.write(businessTaskDef, pathBusiness)
 
           val configJob =
-            AutoJobDesc(
+            AutoJobInfo(
               "",
               Nil
             )

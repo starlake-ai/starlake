@@ -22,15 +22,15 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     DagGenerateCmd.run(args.toIndexedSeq, schemaHandler).map(_ => ())
 
   case class TableWithDagConfig(
-    domain: Domain,
-    table: Schema,
+    domain: DomainInfo,
+    table: SchemaInfo,
     dagConfigName: String,
-    dagConfig: DagGenerationConfig,
+    dagConfig: DagGenerationInfo,
     schedule: Option[String]
   )
 
   private def tableWithDagConfigs(
-    dagConfigs: Map[String, DagGenerationConfig],
+    dagConfigs: Map[String, DagGenerationInfo],
     tags: Set[String]
   )(implicit settings: Settings): List[TableWithDagConfig] = {
     logger.info("Starting to generate dags")
@@ -57,14 +57,14 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   case class TaskWithDagConfig(
-    taskDesc: AutoTaskDesc,
+    taskDesc: AutoTaskInfo,
     dagConfigName: String,
-    dagConfig: DagGenerationConfig,
+    dagConfig: DagGenerationInfo,
     schedule: Option[String]
   )
 
   private def taskWithDagConfigs(
-    dagConfigs: Map[String, DagGenerationConfig],
+    dagConfigs: Map[String, DagGenerationInfo],
     tags: Set[String]
   )(implicit settings: Settings): List[TaskWithDagConfig] = {
     logger.info("Starting to task generate dags")
@@ -584,7 +584,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
   )(implicit settings: Settings): Unit = {
     val context2 = context.clone().asInstanceOf[util.HashMap[String, Object]]
 
-    DagGenerationConfig.externalKeys.foreach { key =>
+    DagGenerationInfo.externalKeys.foreach { key =>
       context2.remove(key)
     }
     val json = JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(context2)
@@ -611,7 +611,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     */
   private def groupByDagConfigScheduleDomain(
     tableWithDagConfigs: List[TableWithDagConfig]
-  ): Map[String, Map[String, Map[Domain, List[Schema]]]] = {
+  ): Map[String, Map[String, Map[DomainInfo, List[SchemaInfo]]]] = {
     val groupByDagConfigName = tableWithDagConfigs.groupBy(_.dagConfigName)
     val groupDagConfigNameAndSchedule = groupByDagConfigName.map {
       case (dagConfigName, tableWithDagConfigs) =>

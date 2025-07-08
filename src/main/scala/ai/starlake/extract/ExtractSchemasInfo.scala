@@ -45,9 +45,9 @@ class SanitizeStrategyDeserializer extends JsonDeserializer[SanitizeStrategy] {
   }
 }
 
-case class ExtractDesc(version: Int, extract: ExtractSchemas)
+case class ExtractDesc(version: Int, extract: ExtractSchemasInfo)
 
-case class ExtractSchemas(
+case class ExtractSchemasInfo(
   sanitizeAttributeName: SanitizeStrategy = OnExtract,
   jdbcSchemas: Option[List[JDBCSchema]] = None,
   openAPI: Option[OpenAPIExtractSchema] = None,
@@ -74,7 +74,7 @@ case class ExtractSchemas(
     *   - write
     *   - pattern
     */
-  def propagateGlobalJdbcSchemas(): ExtractSchemas = {
+  def propagateGlobalJdbcSchemas(): ExtractSchemasInfo = {
     if (default.isDefined) {
       this.copy(jdbcSchemas =
         jdbcSchemas

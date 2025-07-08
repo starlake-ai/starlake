@@ -27,7 +27,7 @@ import scala.util.{Failure, Success, Try}
 
 class SparkAutoTask(
   appId: Option[String],
-  taskDesc: AutoTaskDesc,
+  taskDesc: AutoTaskInfo,
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,
@@ -36,7 +36,7 @@ class SparkAutoTask(
   accessToken: Option[String] = None,
   resultPageSize: Int,
   resultPageNumber: Int,
-  schema: Option[Schema] = None
+  schema: Option[SchemaInfo] = None
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,
@@ -128,7 +128,7 @@ class SparkAutoTask(
     *   this schema to set the JSON metadata in the BQ table as a JSON column
     * @return
     */
-  def sink(dataframe: DataFrame, schema: Option[Schema] = None): Boolean = {
+  def sink(dataframe: DataFrame, schema: Option[SchemaInfo] = None): Boolean = {
     val sink = this.sinkConfig
     logger.info(s"Sinking data to $sink")
     Utils.printOut(s"""
@@ -571,7 +571,7 @@ class SparkAutoTask(
   ///////////////////////////////////////////////////
   ///////////////////////////////////////////////////
 
-  private def sinkToBQ(loadedDF: DataFrame, slSchema: Option[Schema] = None): Try[JobResult] = {
+  private def sinkToBQ(loadedDF: DataFrame, slSchema: Option[SchemaInfo] = None): Try[JobResult] = {
     val twoSteps = strategy.isMerge()
     val isDirect = sinkConnection.options.getOrElse("writeMethod", "direct") == "direct"
     slSchema.foreach { schema =>

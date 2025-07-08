@@ -3,15 +3,15 @@ package ai.starlake.job.ingest
 import ai.starlake.config.Settings
 import ai.starlake.job.validator.SimpleRejectedRecord
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{Domain, Schema, Type}
+import ai.starlake.schema.model.{DomainInfo, SchemaInfo, Type}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Dataset, Row}
 
 import scala.util.Try
 
 class DummyIngestionJob(
-  val domain: Domain,
-  val schema: Schema,
+  val domain: DomainInfo,
+  val schema: SchemaInfo,
   val types: List[Type],
   val path: List[Path],
   val storageHandler: StorageHandler,

@@ -66,7 +66,7 @@ import scala.util.Try
   *   allow accepted data to be filtered out before sinking it and column renamed. Only apply to
   *   spark engine.
   */
-case class Schema(
+case class SchemaInfo(
   name: String, // table name without the domain name prefix
   pattern: Pattern,
   attributes: List[Attribute],
@@ -672,7 +672,7 @@ case class Schema(
     }
   }
 
-  def normalize(): Schema = {
+  def normalize(): SchemaInfo = {
     this.copy(
       rls = this.rls.map(rls => {
         val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
@@ -767,12 +767,12 @@ case class Schema(
     *   merged schema
     */
   def mergeWith(
-    fallbackSchema: Schema,
+    fallbackSchema: SchemaInfo,
     domainMetadata: Option[Metadata] = None,
     attributeMergeStrategy: AttributeMergeStrategy
   )(implicit
     schemaHandler: SchemaHandler
-  ): Schema = {
+  ): SchemaInfo = {
     this.copy(
       rename = this.rename.orElse(fallbackSchema.rename),
       comment = this.comment.orElse(fallbackSchema.comment),
@@ -803,7 +803,7 @@ case class Schema(
   }
 }
 
-object Schema {
+object SchemaInfo {
 
   val SL_INTERNAL_TABLE = "SL_INTERNAL_TABLE"
 
@@ -822,7 +822,7 @@ object Schema {
   def fromSparkSchema(
     schemaName: String,
     obj: StructField
-  ): Schema = {
+  ): SchemaInfo = {
     def buildAttributeTree(obj: StructField): Attribute = {
       if (SparkBigQueryUtil.isJson(obj.metadata)) {
         Attribute(
@@ -863,7 +863,7 @@ object Schema {
       }
     }
 
-    Schema(
+    SchemaInfo(
       schemaName,
       Pattern.compile("ignore"),
       buildAttributeTree(obj).attributes,
@@ -872,7 +872,7 @@ object Schema {
     )
   }
 
-  def compare(existing: Schema, incoming: Schema): Try[TableDiff] = {
+  def compare(existing: SchemaInfo, incoming: SchemaInfo): Try[TableDiff] = {
     Try {
       if (!existing.isFlat() || !incoming.isFlat())
         throw new Exception("Only flat schemas are supported")
@@ -955,7 +955,7 @@ object Schema {
   }
 }
 
-case class TableDesc(version: Int, table: Schema)
+case class TableDesc(version: Int, table: SchemaInfo)
 
 object MakesCompîlerHappyCrossCompile {
   SparkMetadata.empty

@@ -2,7 +2,7 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.schema.model.{Domain, Format, FsSink, Schema}
+import ai.starlake.schema.model.{DomainInfo, Format, FsSink, SchemaInfo}
 import ai.starlake.utils.YamlSerde
 import better.files.File
 
@@ -17,7 +17,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
     val schema1Path: File = File(DatasetArea.load.toString + "/someDomain/SCHEMA1.sl.yml")
     val schema2Path: File = File(DatasetArea.load.toString + "/someDomain/SCHEMA2.sl.yml")
 
-    lazy val result: Domain = YamlSerde
+    lazy val result: DomainInfo = YamlSerde
       .deserializeYamlLoadConfig(
         outputPath.contentAsString,
         outputPath.pathAsString,
@@ -27,12 +27,12 @@ class Xls2YmlDomainsSpec extends TestHelper {
       case Failure(exception) => throw exception
     }
 
-    lazy val schema1: Schema = YamlSerde
+    lazy val schema1: SchemaInfo = YamlSerde
       .deserializeYamlTables(schema1Path.contentAsString, schema1Path.pathAsString)
       .head
       .table
 
-    lazy val schema2: Schema = YamlSerde
+    lazy val schema2: SchemaInfo = YamlSerde
       .deserializeYamlTables(schema2Path.contentAsString, schema2Path.pathAsString)
       .head
       .table
@@ -84,7 +84,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
     val reader = new XlsDomainReader(
       InputPath(getClass.getResource("/sample/SomeDomainTemplate.xlsx").getPath)
     )
-    val domainOpt: Option[Domain] = reader.getDomain()
+    val domainOpt: Option[DomainInfo] = reader.getDomain()
 
     "a complex XLS (aka JSON/XML)" should "produce the correct schema" in {
       val complexReader =
@@ -115,7 +115,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
       domainOpt.get.tables.flatMap(_.comment) should have length 1
     }
 
-    private def validCount(domain: Domain, algo: String, count: Int) =
+    private def validCount(domain: DomainInfo, algo: String, count: Int) =
       domain.tables
         .flatMap(_.attributes)
         .filter(_.resolvePrivacy().toString == algo) should have length count

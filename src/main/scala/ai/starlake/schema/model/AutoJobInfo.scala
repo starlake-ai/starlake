@@ -27,7 +27,7 @@ import scala.collection.mutable
 import scala.util.Try
 import ai.starlake.schema.model.Severity._
 
-case class TransformDesc(version: Int, transform: AutoJobDesc)
+case class TransformDesc(version: Int, transform: AutoJobInfo)
 
 /** A job is a set of transform tasks executed using the specified engine.
   *
@@ -49,11 +49,11 @@ case class TransformDesc(version: Int, transform: AutoJobDesc)
   * @param engine
   *   : SPARK or BQ. Default value is SPARK.
   */
-case class AutoJobDesc(
+case class AutoJobInfo(
   name: String,
-  tasks: List[AutoTaskDesc] = Nil,
+  tasks: List[AutoTaskInfo] = Nil,
   comment: Option[String] = None,
-  default: Option[AutoTaskDesc] = None
+  default: Option[AutoTaskInfo] = None
 ) extends Named {
   def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
   // TODO
@@ -114,11 +114,11 @@ case class AttributeDesc(
   }
 }
 
-object AutoJobDesc {
+object AutoJobInfo {
   private def diffTasks(
-    existing: List[AutoTaskDesc],
-    incoming: List[AutoTaskDesc]
-  ): (List[AutoTaskDesc], List[AutoTaskDesc], List[AutoTaskDesc]) = {
+    existing: List[AutoTaskInfo],
+    incoming: List[AutoTaskInfo]
+  ): (List[AutoTaskInfo], List[AutoTaskInfo], List[AutoTaskInfo]) = {
     val (commonTasks, deletedTasks) =
       existing
         // .filter(_.name.nonEmpty)
@@ -130,12 +130,12 @@ object AutoJobDesc {
     (addedTasks, deletedTasks, commonTasks)
   }
 
-  def compare(existing: AutoJobDesc, incoming: AutoJobDesc): Try[TransformsDiff] = {
+  def compare(existing: AutoJobInfo, incoming: AutoJobInfo): Try[TransformsDiff] = {
     Try {
       val (addedTasks, deletedTasks, existingCommonTasks) =
         diffTasks(existing.tasks, incoming.tasks)
 
-      val commonTasks: List[(AutoTaskDesc, AutoTaskDesc)] = existingCommonTasks.map { task =>
+      val commonTasks: List[(AutoTaskInfo, AutoTaskInfo)] = existingCommonTasks.map { task =>
         (
           task,
           incoming.tasks
@@ -145,7 +145,7 @@ object AutoJobDesc {
       }
 
       val updatedTasksDiff = commonTasks.map { case (existing, incoming) =>
-        AutoTaskDesc.compare(existing, incoming)
+        AutoTaskInfo.compare(existing, incoming)
       }
       TransformsDiff(
         existing.name,

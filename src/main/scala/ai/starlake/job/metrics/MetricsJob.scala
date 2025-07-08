@@ -4,7 +4,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import ai.starlake.job.transform.SparkAutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AutoTaskDesc, Domain, Schema}
+import ai.starlake.schema.model.{AutoTaskInfo, DomainInfo, SchemaInfo}
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
@@ -27,8 +27,8 @@ import scala.util.{Failure, Success, Try}
   */
 class MetricsJob(
   appId: Option[String],
-  domain: Domain,
-  schema: Schema,
+  domain: DomainInfo,
+  schema: SchemaInfo,
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
@@ -81,8 +81,8 @@ class MetricsJob(
   private def unionDisContMetric(
     discreteDataset: Option[DataFrame],
     continuousDataset: Option[DataFrame],
-    domain: Domain,
-    schema: Schema,
+    domain: DomainInfo,
+    schema: SchemaInfo,
     count: Long,
     ingestionTime: Timestamp
   ): MetricsDatasets = {
@@ -185,7 +185,7 @@ class MetricsJob(
         case Some(df) =>
           settings.appConfig.internal.foreach(in => df.persist(in.cacheStorageLevel))
           val taskDesc =
-            AutoTaskDesc(
+            AutoTaskInfo(
               name = applicationId(),
               sql = None,
               database = settings.appConfig.audit.getDatabase(),

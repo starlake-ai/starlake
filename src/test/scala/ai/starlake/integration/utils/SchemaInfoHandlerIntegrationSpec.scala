@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.integration.IntegrationTestBase
 import ai.starlake.workflow.IngestionWorkflow
 
-class SchemaHandlerIntegrationSpec extends IntegrationTestBase {
+class SchemaInfoHandlerIntegrationSpec extends IntegrationTestBase {
 
   protected def clearDataDirectories(): Unit = {
     directoriesToClear.foreach { dir =>

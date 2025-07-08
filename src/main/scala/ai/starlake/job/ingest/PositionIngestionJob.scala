@@ -44,8 +44,8 @@ import scala.util.Try
   *   : Storage Handler
   */
 class PositionIngestionJob(
-  domain: Domain,
-  schema: Schema,
+  domain: DomainInfo,
+  schema: SchemaInfo,
   types: List[Type],
   path: List[Path],
   storageHandler: StorageHandler,

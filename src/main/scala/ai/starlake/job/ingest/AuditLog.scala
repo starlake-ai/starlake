@@ -180,7 +180,7 @@ object AuditLog extends StrictLogging {
     ("tenant", StandardSQLTypeName.STRING, StringType)
   )
 
-  val starlakeSchema = Schema(
+  val starlakeSchema = SchemaInfo(
     name = "audit",
     pattern = Pattern.compile("ignore"),
     attributes = auditCols.map { case (name, _, dataType) =>
@@ -247,7 +247,7 @@ object AuditLog extends StrictLogging {
           val selectSql = productionLog
             .map(_.asSelect(auditSink.getConnection().getJdbcEngineName()))
             .mkString("\nUNION ALL\n")
-          val auditTaskDesc = AutoTaskDesc(
+          val auditTaskDesc = AutoTaskInfo(
             name = s"audit-$jobId",
             sql = Some(selectSql),
             database = settings.appConfig.audit.getDatabase(),

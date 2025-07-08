@@ -18,7 +18,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input], storageHandler:
 
   private lazy val policies = new XlsPolicyReader(policyInput.getOrElse(input)).policies
 
-  lazy val autoTasksDesc: List[AutoTaskDesc] = {
+  lazy val autoTasksDesc: List[AutoTaskInfo] = {
 
     val sheetSchema = workbook.getSheet("schemas")
     val (rowsSchema, headerMapSchema) =
@@ -200,7 +200,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input], storageHandler:
         if (domainOpt.isEmpty) None
         else
           Some(
-            AutoTaskDesc(
+            AutoTaskInfo(
               name = jobNameOpt.getOrElse(throw new Exception("Job name is required in XLS")),
               sql = None,
               database = databaseOpt,

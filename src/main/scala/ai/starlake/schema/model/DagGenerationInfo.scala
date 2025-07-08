@@ -13,7 +13,7 @@ import java.util.Calendar
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
-case class DagDesc(version: Int, dag: DagGenerationConfig)
+case class DagDesc(version: Int, dag: DagGenerationInfo)
 
 case class DagSchedule(
   schedule: String,
@@ -49,7 +49,7 @@ case class DagPair(name: String, value: String) {
   def getValue(): String = value
 }
 
-case class DagGenerationConfig(
+case class DagGenerationInfo(
   comment: String,
   template: String,
   filename: String,
@@ -173,7 +173,7 @@ case class DagGenerationConfig(
   }
 }
 
-object DagGenerationConfig {
+object DagGenerationInfo {
   val externalKeys =
     Set(
       "name",
@@ -188,7 +188,7 @@ object DagGenerationConfig {
     )
 }
 case class LoadDagGenerationContext(
-  config: DagGenerationConfig,
+  config: DagGenerationInfo,
   schedules: List[DagSchedule],
   workflowStatementsIn: List[Map[String, Object]]
 ) {
@@ -258,7 +258,7 @@ case class LoadDagGenerationContext(
       workflowStatements.foreach { tableConfig =>
         val tableAsJava = new java.util.HashMap[String, Object]() {
           tableConfig.foreach { case (k, v) =>
-            if (!DagGenerationConfig.externalKeys.contains(k))
+            if (!DagGenerationInfo.externalKeys.contains(k))
               put(k, v)
           }
         }
@@ -280,7 +280,7 @@ case class LoadDagGenerationContext(
   }
 }
 case class TransformDagGenerationContext(
-  config: DagGenerationConfig,
+  config: DagGenerationInfo,
   deps: List[TaskViewDependencyNode],
   cron: Option[String],
   statements: List[AutoTaskQueries]

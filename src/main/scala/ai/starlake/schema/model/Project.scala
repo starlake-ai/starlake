@@ -44,7 +44,7 @@ object Project {
     val (addedDomains, deletedDomains, existingCommonDomains) =
       AnyRefDiff.partitionNamed(p1Domains, p2Domains)
 
-    val commonDomains: List[(Domain, Domain)] = existingCommonDomains.map { domain =>
+    val commonDomains: List[(DomainInfo, DomainInfo)] = existingCommonDomains.map { domain =>
       (
         domain,
         p2Domains
@@ -54,7 +54,7 @@ object Project {
     }
 
     val updatedDomainsDiff: List[DomainDiff] = commonDomains.flatMap { case (existing, incoming) =>
-      Domain.compare(existing, incoming).toOption
+      DomainInfo.compare(existing, incoming).toOption
     }
     DomainsDiff(addedDomains.map(_.name), deletedDomains.map(_.name), updatedDomainsDiff)
   }
@@ -70,7 +70,7 @@ object Project {
     val (addedJobs, deletedJobs, existingCommonJobs) =
       AnyRefDiff.partitionNamed(p1Jobs, p2Jobs)
 
-    val commonJobs: List[(AutoJobDesc, AutoJobDesc)] = existingCommonJobs.map { job =>
+    val commonJobs: List[(AutoJobInfo, AutoJobInfo)] = existingCommonJobs.map { job =>
       (
         job,
         p2Jobs
@@ -80,7 +80,7 @@ object Project {
     }
 
     val updatedJobsDiff: List[TransformsDiff] = commonJobs.flatMap { case (existing, incoming) =>
-      AutoJobDesc.compare(existing, incoming).toOption
+      AutoJobInfo.compare(existing, incoming).toOption
     }
     JobsDiff(addedJobs.map(_.name), deletedJobs.map(_.name), updatedJobsDiff)
   }

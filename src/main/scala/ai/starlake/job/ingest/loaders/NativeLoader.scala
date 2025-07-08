@@ -23,9 +23,9 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
   val settings: Settings
 ) extends StrictLogging {
 
-  val domain: Domain = ingestionJob.domain
+  val domain: DomainInfo = ingestionJob.domain
 
-  val starlakeSchema: Schema = ingestionJob.schema
+  val starlakeSchema: SchemaInfo = ingestionJob.schema
 
   val storageHandler: StorageHandler = ingestionJob.storageHandler
 
@@ -52,7 +52,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
   lazy val tempTableName: String = SQLUtils.temporaryTableName(starlakeSchema.finalName)
 
-  protected def requireTwoSteps(schema: Schema): Boolean = {
+  protected def requireTwoSteps(schema: SchemaInfo): Boolean = {
     // renamed attribute can be loaded directly so it's not in the condition
     schema
       .hasTransformOrIgnoreOrScriptColumns() ||
@@ -101,7 +101,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
         )
       val req =
         s"SELECT ${firstStepFields.mkString(",")}, '${ingestionJob.applicationId()}' as JOBID FROM $targetTable"
-      val taskDesc = AutoTaskDesc(
+      val taskDesc = AutoTaskInfo(
         s"archive-${ingestionJob.applicationId()}",
         Some(req),
         database = archiveDatabaseName,
@@ -162,7 +162,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     (archiveDatabaseName, archiveDomainName, archiveTableName)
   }
 
-  protected def computeEffectiveInputSchema(): Schema = {
+  protected def computeEffectiveInputSchema(): SchemaInfo = {
     mergedMetadata.resolveFormat() match {
       case Format.DSV =>
         (mergedMetadata.resolveWithHeader(), path.map(_.toString).headOption) match {
@@ -229,7 +229,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     val sqlWithTransformedFields =
       starlakeSchema.buildSqlSelectOnLoad(tempTable, queryEngine)
 
-    val taskDesc = AutoTaskDesc(
+    val taskDesc = AutoTaskInfo(
       name = targetTableName,
       sql = Some(sqlWithTransformedFields),
       database = schemaHandler.getDatabase(domain),
@@ -452,7 +452,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     result
   }
 
-  lazy val effectiveSchema: Schema = computeEffectiveInputSchema()
-  lazy val schemaWithMergedMetadata: Schema = effectiveSchema.copy(metadata = Some(mergedMetadata))
+  lazy val effectiveSchema: SchemaInfo = computeEffectiveInputSchema()
+  lazy val schemaWithMergedMetadata: SchemaInfo =
+    effectiveSchema.copy(metadata = Some(mergedMetadata))
 
 }

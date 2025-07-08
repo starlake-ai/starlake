@@ -15,7 +15,7 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
     "Parse Jinja" should "should be able to extract template file and access all variables" in {
       val templateContent = new Yml2DagTemplateLoader().loadTemplate("sample.py.j2")
       val context = LoadDagGenerationContext(
-        config = DagGenerationConfig(
+        config = DagGenerationInfo(
           template = "sample.py.j2",
           comment = "This is a comment",
           filename = "sample.py",
@@ -45,18 +45,18 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
             ).asJava,
             List(
               CaseClassToPojoConverter.asJava(
-                Domain(
+                DomainInfo(
                   name = "domain1",
                   rename = Some("finalDomain1"),
                   tables = List(
-                    Schema(
+                    SchemaInfo(
                       name = "table1",
                       rename = Some("finalTable1"),
                       pattern = Pattern.compile("table1.*\\.json"),
                       attributes =
                         List(Attribute(name = "attr1", `type` = "int", comment = Some("Comment1")))
                     ),
-                    Schema(
+                    SchemaInfo(
                       name = "table2",
                       rename = Some("finalTable2"),
                       pattern = Pattern.compile("table2.*\\.json"),
@@ -66,11 +66,11 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
                 )
               ),
               CaseClassToPojoConverter.asJava(
-                Domain(
+                DomainInfo(
                   name = "domain2",
                   rename = Some("finalDomain2"),
                   tables = List(
-                    Schema(
+                    SchemaInfo(
                       name = "table3",
                       rename = Some("finalTable3"),
                       pattern = Pattern.compile("table3.*\\.json"),
@@ -78,7 +78,7 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
                         Attribute(name = "attr3", `type` = "variant", comment = Some("Comment3"))
                       )
                     ),
-                    Schema(
+                    SchemaInfo(
                       name = "table4",
                       rename = Some("finalTable4"),
                       pattern = Pattern.compile("table4.*\\.json"),

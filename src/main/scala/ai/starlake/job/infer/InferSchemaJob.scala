@@ -423,7 +423,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
           )
       }
 
-      val domain: Domain =
+      val domain: DomainInfo =
         InferSchemaHandler.createDomain(
           domainName,
           Some(

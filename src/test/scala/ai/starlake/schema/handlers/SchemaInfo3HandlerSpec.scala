@@ -26,7 +26,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
 
-class Schema3HandlerSpec extends TestHelper {
+class SchemaInfo3HandlerSpec extends TestHelper {
 
   override def afterAll(): Unit = {
     super.afterAll()

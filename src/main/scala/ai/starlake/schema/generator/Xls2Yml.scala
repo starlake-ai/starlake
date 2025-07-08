@@ -22,7 +22,7 @@ object Xls2Yml extends LazyLogging {
     }
   }
 
-  def writeDomainAsYaml(domain: Domain, basePath: Path)(implicit
+  def writeDomainAsYaml(domain: DomainInfo, basePath: Path)(implicit
     storageHandler: StorageHandler
   ): Unit = {
     logger.info(s"""Generated schemas:

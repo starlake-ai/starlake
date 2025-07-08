@@ -10,9 +10,9 @@ import ai.starlake.core.utils.{
   TableAttributeMelderConfig,
   TableMelderConfig
 }
-import ai.starlake.extract.{ExtractSchemaConfig, ExtractSchemas, OnExtract, SanitizeStrategy}
+import ai.starlake.extract.{ExtractSchemaConfig, ExtractSchemasInfo, OnExtract, SanitizeStrategy}
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model.{Domain, Schema}
+import ai.starlake.schema.model.{DomainInfo, SchemaInfo}
 import ai.starlake.utils.YamlSerde
 import org.apache.hadoop.fs.Path
 
@@ -23,7 +23,7 @@ import scala.util.{Failure, Success}
   * them into specified output storage.
   */
 object SchemaExtractorWorkflow {
-  def run(config: ExtractSchemaConfig, jdbcSchemas: ExtractSchemas)(implicit
+  def run(config: ExtractSchemaConfig, jdbcSchemas: ExtractSchemasInfo)(implicit
     settings: Settings
   ): Unit = {
     implicit val storageHandler: StorageHandler = settings.storageHandler()
@@ -55,7 +55,7 @@ object SchemaExtractorWorkflow {
 
   private def processDomain(
     loadConfigMelder: LoadConfigMelder,
-    domain: Domain,
+    domain: DomainInfo,
     outputDomainConfigPath: Path,
     domainConfigExists: Boolean
   )(implicit storageHandler: StorageHandler): Unit = {
@@ -79,7 +79,7 @@ object SchemaExtractorWorkflow {
     loadConfigMelder: LoadConfigMelder,
     outputDomainFolderPath: Path,
     domainConfigExists: Boolean,
-    table: Schema,
+    table: SchemaInfo,
     sanitizeStrategy: SanitizeStrategy
   )(implicit storageHandler: StorageHandler): Unit = {
     val outputTableConfigPath = new Path(outputDomainFolderPath, table.name + ".sl.yml")
