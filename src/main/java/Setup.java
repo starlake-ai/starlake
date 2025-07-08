@@ -299,7 +299,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             MARIADB_JAR
     };
     private static final ResourceDependency[] clickhouseDependencies = {
-            CLICKHOUSE_JAR
+    //        CLICKHOUSE_JAR
     };
 
     private static Optional<String> getEnv(String env) {
@@ -499,7 +499,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
         ENABLE_REDSHIFT = true;
         ENABLE_POSTGRESQL = true;
         ENABLE_MARIADB = true;
-        ENABLE_CLICKHOUSE = true;
+        ENABLE_CLICKHOUSE = false;
         ENABLE_DUCKDB = true;
         ENABLE_KAFKA = true;
     }
@@ -515,7 +515,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
         System.out.println("7) Spark    ");
         System.out.println("8) Kafka    ");
         System.out.println("9) Mariadb  ");
-        System.out.println("10) ClickHouse");
+//        System.out.println("10) ClickHouse");
         System.out.println("A) All      ");
         System.out.println("N) None     ");
         System.out.print("Please enter your choice(s) separated by commas (e.g. 1,2,3): ");
@@ -562,9 +562,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
                         case "9":
                             ENABLE_MARIADB = true;
                             break;
-                        case "10":
-                            ENABLE_CLICKHOUSE = true;
-                            break;
+//                        case "10":
+//                            ENABLE_CLICKHOUSE = true;
+//                            break;
                         default:
                             enableAllDependencies();
                             System.out.println("Installing All dependencies.");

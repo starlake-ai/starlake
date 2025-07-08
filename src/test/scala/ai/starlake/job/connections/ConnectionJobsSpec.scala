@@ -73,7 +73,7 @@ class ConnectionJobsSpec extends TestHelper {
 
       val userOutOptions =
         settings.appConfig.connections(connection).options + ("dbtable" -> "myusers.userout")
-      sparkSession.read.format("jdbc").options(userOutOptions).load.collect() should have size 1
+      sparkSession.read.format("jdbc").options(userOutOptions).load().collect() should have size 1
     }
   }
 }

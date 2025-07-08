@@ -61,7 +61,8 @@ case class AutoTaskInfo(
   taskTimeoutMs: Option[Long] = None,
   _dbComment: Option[String] = None,
   connectionRef: Option[String] = None,
-  streams: List[String] = Nil
+  streams: List[String] = Nil,
+  primaryKey: List[String] = Nil
 ) extends Named {
 
   @JsonIgnore

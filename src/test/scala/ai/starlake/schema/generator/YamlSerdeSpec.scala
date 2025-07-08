@@ -657,7 +657,7 @@ object YamlConfigGenerators {
   implicit val openAPIExtractSchema: Arbitrary[OpenAPIExtractSchema] = Arbitrary {
     for {
       basePath          <- arbitrary[Option[String]]
-      formatTypeMapping <- arbitrary[Map[String, Pattern]].map(_.mapValues(_.toString).toMap)
+      formatTypeMapping <- arbitrary[Map[String, Pattern]].map(_.view.mapValues(_.toString).toMap)
       domains           <- arbitrary[List[OpenAPIDomain]].filter(_.nonEmpty)
     } yield OpenAPIExtractSchema(
       basePath = basePath,
@@ -1504,11 +1504,13 @@ object YamlConfigGenerators {
       `type`       <- arbitrary[String]
       comment      <- arbitrary[String]
       accessPolicy <- Gen.option(arbitrary[String])
+      foreignKey   <- Gen.option(arbitrary[String])
     } yield AttributeDesc(
       name = name,
       `type` = `type`,
       comment = comment,
-      accessPolicy = accessPolicy
+      accessPolicy = accessPolicy,
+      foreignKey = foreignKey
     )
   }
 
@@ -1540,6 +1542,7 @@ object YamlConfigGenerators {
       taskTimeoutMs  <- Gen.option(arbitrary[Long])
       parseSQL       <- Gen.option(arbitrary[Boolean])
       streams        <- arbitrary[List[String]]
+      primaryKey     <- arbitrary[List[String]]
     } yield {
       val autoTask = AutoTaskInfo(
         name = name,
@@ -1562,7 +1565,8 @@ object YamlConfigGenerators {
         dagRef = dagRef,
         taskTimeoutMs = taskTimeoutMs,
         parseSQL = parseSQL,
-        streams = streams
+        streams = streams,
+        primaryKey = primaryKey
       )
       autoTask.copy(
         // fill with default value in order to match with deserialization
