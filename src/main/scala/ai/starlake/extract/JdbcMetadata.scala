@@ -9,7 +9,7 @@ import ai.starlake.extract.JdbcDbUtils.{
   TableName,
   TableRemarks
 }
-import ai.starlake.schema.model.Attribute
+import ai.starlake.schema.model.{Attribute, JDBCSchema}
 import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.{DatabaseMetaData, ResultSetMetaData}

@@ -1,13 +1,14 @@
 package ai.starlake.extract.spi
 
 import ai.starlake.config.Settings
+import ai.starlake.extract.ExtractSchemaConfig
 import ai.starlake.extract.impl.openapi.OpenAPISchemaExtractor
-import ai.starlake.extract.{ExtractSchemaConfig, ExtractSchemasInfo}
+import ai.starlake.schema.model.ExtractSchemasInfo
 
 /** Factory object for creating instances of SchemaExtractor based on provided configuration.
   */
 object SchemaExtractorFactory {
-  def get(
+  def getExtractor(
     extractSchemaCliConfig: ExtractSchemaConfig,
     extractSchemas: ExtractSchemasInfo
   )(implicit settings: Settings): SchemaExtractor = {

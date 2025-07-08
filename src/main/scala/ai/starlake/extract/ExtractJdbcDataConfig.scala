@@ -20,7 +20,7 @@
 package ai.starlake.extract
 
 import ai.starlake.config.Settings.Connection
-import ai.starlake.schema.model.{Attribute, PrimitiveType}
+import ai.starlake.schema.model.{Attribute, JDBCSchema, PrimitiveType}
 import org.apache.hadoop.fs.Path
 
 import java.time.format.DateTimeFormatter

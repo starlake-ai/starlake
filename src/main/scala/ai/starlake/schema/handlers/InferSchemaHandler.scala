@@ -429,7 +429,7 @@ object InferSchemaHandler extends StrictLogging {
     logger.whenDebugEnabled {
       lineWithColumnTypesDF.show(truncate = false)
       DataTypesToInt.values.foreach { v =>
-        println(v.id + " -> " + v.toString)
+        println(s"${v.id} -> ${v.toString}")
       }
     }
     val aggregations = reduceAttributeColumnTypes ++ maxSampleColumn

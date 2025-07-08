@@ -21,19 +21,13 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
-import ai.starlake.extract.{
-  ExtractExecutionContext,
-  ExtractTableAttributes,
-  JDBCSchema,
-  JdbcDbUtils,
-  ParUtils
-}
+import ai.starlake.extract.{ExtractExecutionContext, ExtractTableAttributes, JdbcDbUtils, ParUtils}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{DomainInfo, SchemaInfo}
+import ai.starlake.schema.model.{DomainInfo, JDBCSchema, SchemaInfo}
 import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.hadoop.fs.{Path => StoragePath}
+import org.apache.hadoop.fs.Path as StoragePath
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 
 import scala.util.Try

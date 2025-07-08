@@ -509,7 +509,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
     }.toList
     val withEndOfStruct = markEndOfStruct(attrs)
     val topParent = Attribute("__dummy", "struct", attributes = withEndOfStruct)
-    buildAttrsTree(topParent, withEndOfStruct.toIterator).attributes
+    buildAttrsTree(topParent, withEndOfStruct.iterator).attributes
   }
 
   private def markEndOfStruct(attrs: List[Attribute]): List[Attribute] = {

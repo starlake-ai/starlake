@@ -10,9 +10,9 @@ import ai.starlake.core.utils.{
   TableAttributeMelderConfig,
   TableMelderConfig
 }
-import ai.starlake.extract.{ExtractSchemaConfig, ExtractSchemasInfo, OnExtract, SanitizeStrategy}
+import ai.starlake.extract.{ExtractSchemaConfig, OnExtract, SanitizeStrategy}
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model.{DomainInfo, SchemaInfo}
+import ai.starlake.schema.model.{DomainInfo, ExtractSchemasInfo, SchemaInfo}
 import ai.starlake.utils.YamlSerde
 import org.apache.hadoop.fs.Path
 
@@ -30,7 +30,7 @@ object SchemaExtractorWorkflow {
     val loadConfigMelder = new LoadConfigMelder()
     val outputBasePath: Path =
       config.outputDir.map(new Path(_)).getOrElse(DatasetArea.load)
-    val schemaExtractor = SchemaExtractorFactory.get(config, jdbcSchemas)
+    val schemaExtractor = SchemaExtractorFactory.getExtractor(config, jdbcSchemas)
     schemaExtractor.extract().foreach { domain =>
       val outputDomainFolderPath = new Path(outputBasePath, domain.name)
       val outputDomainConfigPath = new Path(outputDomainFolderPath, "_config.sl.yml")

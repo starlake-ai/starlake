@@ -270,6 +270,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
         desc.domain -> desc.table
       }
       .groupBy(_._1)
+      .view
       .mapValues(_.map { case (domain, table) => table }.toSet)
 
     val tasks: Map[String, Set[String]] = rlsAclTaskNames.toMap
@@ -318,6 +319,7 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
         desc.domain -> desc.table
       }
       .groupBy(_._1)
+      .view
       .mapValues(_.map { case (domain, table) => table }.toSet)
 
     val tasks: Map[String, Set[String]] = rlsAclTaskNames.toMap
