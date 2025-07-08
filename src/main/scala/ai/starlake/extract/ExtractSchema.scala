@@ -5,8 +5,8 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.extract.spi.SchemaExtractorWorkflow
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.*
-import ai.starlake.utils.Formatter.*
+import ai.starlake.schema.model._
+import ai.starlake.utils.Formatter._
 import ai.starlake.utils.YamlSerde
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path

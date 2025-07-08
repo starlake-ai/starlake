@@ -1,38 +1,21 @@
 package ai.starlake.utils
 
-import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.config.Settings.latestSchemaVersion
+import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.exceptions.SchemaValidationException
-import ai.starlake.extract.{ExtractDesc, ExtractSchemasInfo}
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model.{
-  AutoJobInfo,
-  AutoTaskInfo,
-  DagDesc,
-  DagGenerationInfo,
-  DomainDesc,
-  DomainInfo,
-  EnvDesc,
-  IamPolicyTags,
-  RefDesc,
-  SchemaInfo,
-  TableDesc,
-  TaskDesc,
-  TransformDesc,
-  Type,
-  TypesDesc
-}
-import ai.starlake.utils.ImplicitRichPath._
+import ai.starlake.schema.model.*
+import ai.starlake.utils.ImplicitRichPath.*
 import ai.starlake.utils.YamlMigrator.V1.TableForExtractConfig
 import com.fasterxml.jackson.databind.node.{ArrayNode, BooleanNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
+import com.networknt.schema.*
 import com.networknt.schema.SpecVersion.VersionFlag
-import com.networknt.schema._
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import java.util.Locale
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
 object YamlSerde extends LazyLogging with YamlUtils {

@@ -118,6 +118,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
         .toCharArray
         .map((_, 1))
         .groupBy(_._1)
+        .view
         .mapValues(_.length)
         .toList
 

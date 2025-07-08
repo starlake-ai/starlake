@@ -2,6 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.JDBCSchema
 import ai.starlake.utils.JobResult
 
 import scala.util.Try

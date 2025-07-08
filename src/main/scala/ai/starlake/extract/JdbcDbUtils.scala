@@ -5,7 +5,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
 import ai.starlake.job.Main
-import ai.starlake.schema.model.*
+import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.tests.StarlakeTestData.DomainName
 import ai.starlake.utils.{SparkUtils, Utils}
@@ -14,7 +14,7 @@ import com.typesafe.scalalogging.LazyLogging
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.jdbc.JdbcType
-import org.apache.spark.sql.types.*
+import org.apache.spark.sql.types._
 
 import java.sql.{
   Connection => SQLConnection,

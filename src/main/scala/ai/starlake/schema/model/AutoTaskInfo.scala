@@ -2,7 +2,7 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
-import ai.starlake.extract.ExtractSchemaConfig
+import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig}
 import ai.starlake.schema.model.Severity.Error
 import ai.starlake.sql.SQLUtils
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
@@ -328,13 +328,14 @@ case class AutoTaskInfo(
     val sql = this.getSql()
     val tableNames = SQLUtils.extractTableNames(sql)
     val schemaHandler = settings.schemaHandler()
-    ExtractSchemaConfig(
+    val config = ExtractSchemaConfig(
       tables = tableNames,
       external = true,
       outputDir = None,
       connectionRef = Some(this.getRunConnectionRef()),
       accessToken = accessToken
     )
+    val extractor = new ExtractSchema(schemaHandler)
     // val diff = new JSQLSchemaDiff()
   }
 

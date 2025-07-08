@@ -4,11 +4,11 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.config.Settings.Connection
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.exceptions.DataExtractionException
-import ai.starlake.extract.JdbcDbUtils.*
-import ai.starlake.extract.LastExportUtils.*
+import ai.starlake.extract.JdbcDbUtils._
+import ai.starlake.extract.LastExportUtils._
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.PrimitiveType
-import ai.starlake.utils.Formatter.*
+import ai.starlake.schema.model.{JDBCSchema, JDBCTable, PrimitiveType}
+import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{Utils, YamlSerde}
 import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.conversions.Conversions
@@ -17,7 +17,7 @@ import org.apache.hadoop.fs.Path
 
 import java.io.FileNotFoundException
 import java.nio.charset.StandardCharsets
-import java.sql.{Connection => SQLConnection, Date, PreparedStatement, ResultSet, Timestamp}
+import java.sql.{Connection as SQLConnection, Date, PreparedStatement, ResultSet, Timestamp}
 import java.util.concurrent.atomic.AtomicLong
 import scala.annotation.nowarn
 import scala.util.{Failure, Success, Try, Using}

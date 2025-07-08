@@ -145,6 +145,7 @@ class OpenAPISchemaExtractor(
   ) = {
     schemasByTableName
       .groupBy { case (tableName, _) => tableName }
+      .view
       .mapValues { infos =>
         checkSchemaCollision(infos.map(_._2))
         infos
@@ -155,6 +156,7 @@ class OpenAPISchemaExtractor(
           )
       }
       .groupBy { case (_, i) => i.schema }
+      .view
       .mapValues(_.toList) // just transform to list in order to be compatible with 2.12
       .toList
   }
@@ -666,6 +668,7 @@ class OpenAPISchemaExtractor(
         .getOpenAPI
     val schemaNames = openAPI.getComponents.getSchemas.asScala.toList
       .groupBy { case (_, schema) => schema }
+      .view
       .mapValues(_.map { case (schemaName, _) => schemaName })
       .toMap
     (for {

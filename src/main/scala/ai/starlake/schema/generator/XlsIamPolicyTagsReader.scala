@@ -4,7 +4,7 @@ import ai.starlake.schema.model._
 import org.apache.poi.ss.usermodel._
 
 import java.io.File
-import scala.collection.convert.ImplicitConversions.`iterator asScala`
+import scala.jdk.CollectionConverters._
 
 class XlsIamPolicyTagsReader(input: Input) extends XlsModel {
 
@@ -14,7 +14,7 @@ class XlsIamPolicyTagsReader(input: Input) extends XlsModel {
   }
 
   lazy val iamPolicyTags: List[IamPolicyTag] = {
-    val sheets = workbook.sheetIterator().toList
+    val sheets = workbook.sheetIterator().asScala.toList
     val sheet = Option(
       workbook
         .getSheet("_iam_policy_tags")
