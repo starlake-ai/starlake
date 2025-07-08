@@ -4,7 +4,15 @@ import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
 import ai.starlake.exceptions.SchemaValidationException
-import ai.starlake.schema.model.{DomainInfo, Metadata, SchemaInfo}
+import ai.starlake.schema.model.{
+  DomainInfo,
+  ExtractSchemasInfo,
+  JDBCSchema,
+  JDBCTable,
+  Metadata,
+  SchemaInfo,
+  TableColumn
+}
 import ai.starlake.utils.YamlSerde
 import better.files.File
 import org.apache.hadoop.fs.Path
