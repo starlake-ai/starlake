@@ -105,7 +105,8 @@ case class AttributeDesc(
   name: String,
   `type`: String = "variant",
   comment: String = "",
-  accessPolicy: Option[String] = None
+  accessPolicy: Option[String] = None,
+  foreignKey: Option[String] = None // [domain.]table.attribute
 ) {
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 

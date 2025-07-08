@@ -181,6 +181,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
         .groupBy { case (location, _) =>
           location
         }
+        .view
         .mapValues(_.map { case (_, errorMessage) =>
           errorMessage
         }.mkString("\n     - ", "\n     - ", ""))
