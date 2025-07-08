@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
 import ai.starlake.exceptions.SchemaValidationException
-import ai.starlake.schema.model.{Domain, Metadata, Schema}
+import ai.starlake.schema.model.{DomainInfo, Metadata, SchemaInfo}
 import ai.starlake.utils.YamlSerde
 import better.files.File
 import org.apache.hadoop.fs.Path
@@ -19,7 +19,7 @@ class ExtractSpec extends TestHelper {
         quote = Some("::"),
         directory = Some("/{{domain}}/{{schema}}")
       )
-      val domainTemplate = Domain(name = "CUSTOM_NAME", metadata = Some(metadata))
+      val domainTemplate = DomainInfo(name = "CUSTOM_NAME", metadata = Some(metadata))
       testSchemaExtraction(
         JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*"))
           .fillWithDefaultValues(),
@@ -242,8 +242,10 @@ class ExtractSpec extends TestHelper {
   private def testSchemaExtraction(
     jdbcSchema: JDBCSchema,
     connectionSettings: Connection,
-    domainTemplate: Option[Domain]
-  )(assertOutput: (Domain, Schema, Schema) => Unit) // Domain, Table definition and View definition
+    domainTemplate: Option[DomainInfo]
+  )(
+    assertOutput: (DomainInfo, SchemaInfo, SchemaInfo) => Unit
+  ) // Domain, Table definition and View definition
   (implicit settings: Settings) = {
     val jdbcOptions = settings.appConfig.connections("test-pg")
     val conn = DriverManager.getConnection(
@@ -348,7 +350,7 @@ class ExtractSpec extends TestHelper {
           jdbcMapping.pathAsString
         )
       assert(jdbcSchemas.jdbcSchemas.getOrElse(Nil).nonEmpty)
-      jdbcSchemas shouldBe ExtractSchemas(
+      jdbcSchemas shouldBe ExtractSchemasInfo(
         connectionRef = Some("test-pg"),
         jdbcSchemas = Some(
           List(
@@ -423,7 +425,7 @@ class ExtractSpec extends TestHelper {
           jdbcMapping.pathAsString
         )
       assert(jdbcSchemas.jdbcSchemas.getOrElse(Nil).nonEmpty)
-      jdbcSchemas shouldBe ExtractSchemas(
+      jdbcSchemas shouldBe ExtractSchemasInfo(
         connectionRef = Some("test-pg"),
         jdbcSchemas = Some(
           List(
@@ -503,7 +505,7 @@ class ExtractSpec extends TestHelper {
           jdbcMapping.pathAsString
         )
       assert(jdbcSchemas.jdbcSchemas.getOrElse(Nil).nonEmpty)
-      jdbcSchemas shouldBe ExtractSchemas(
+      jdbcSchemas shouldBe ExtractSchemasInfo(
         connectionRef = Some("test-pg"),
         jdbcSchemas = Some(
           List(

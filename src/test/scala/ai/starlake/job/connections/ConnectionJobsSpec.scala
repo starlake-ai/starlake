@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.transform.TransformConfig
-import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, JdbcSink, WriteStrategy}
+import ai.starlake.schema.model.{AutoJobInfo, AutoTaskInfo, JdbcSink, WriteStrategy}
 import ai.starlake.workflow.IngestionWorkflow
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
@@ -39,7 +39,7 @@ class ConnectionJobsSpec extends TestHelper {
       }
       usersDF.write.format("jdbc").options(usersOptions).mode(SaveMode.Overwrite).save()
       println(pgContainer.jdbcUrl)
-      val businessTask1 = AutoTaskDesc(
+      val businessTask1 = AutoTaskInfo(
         name = "",
         sql = Some(
           "(with user_View as (select * from myusers.myusers) select firstname, lastname from user_View where age = {{age}})"
@@ -52,7 +52,7 @@ class ConnectionJobsSpec extends TestHelper {
         writeStrategy = Some(WriteStrategy.Overwrite)
       )
       val businessJob =
-        AutoJobDesc(
+        AutoJobInfo(
           name = "myusers",
           tasks = List(businessTask1)
         )

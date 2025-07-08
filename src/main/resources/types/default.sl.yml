@@ -18,13 +18,13 @@ types:
     sample: "\"Hello World\""
     comment: "Valid JSON object"
     ddlMapping:
-      bigquery: JSON
+      bigquery: STRING
       snowflake: VARIANT
       postgres: JSONB
       synapse: NVARCHAR(MAX) # https://docs.microsoft.com/fr-fr/azure/synapse-analytics/metadata/table
       duckdb: JSON
   - name: "integer"
-    pattern: "[-+]?[0-9]+"
+    pattern: "[-|\\+|0-9][0-9]*"
     primitiveType: "long"
     sample: "1234"
     comment: "Int number"
@@ -35,7 +35,7 @@ types:
       postgres: INT
       duckdb: INTEGER
   - name: "int"
-    pattern: "[-+]?[0-9]+"
+    pattern: "[-|\\+|0-9][0-9]*"
     primitiveType: "long"
     sample: "1234"
     comment: "Int number"
@@ -69,7 +69,7 @@ types:
       duckdb: DOUBLE
   - name: "long"
     primitiveType: "long"
-    pattern: "[-+]?[0-9]+"
+    pattern: "-?\\d+"
     sample: "-64564"
     comment: "any positive or negative number"
     ddlMapping:
@@ -80,7 +80,7 @@ types:
       duckdb: BIGINT
   - name: "short"
     primitiveType: "short"
-    pattern: "[-+]?[0-9]+"
+    pattern: "-?\\d+"
     sample: "564"
     comment: "any positive or negative number"
     ddlMapping:
@@ -112,7 +112,7 @@ types:
       duckdb: TIMESTAMPTZ
   - name: "decimal"
     primitiveType: "decimal"
-    pattern: "[+-]?\\d*\\.?\\d+(?:[eE][+-]?\\d+)?"
+    pattern: "[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*"
     sample: "-45.787686786876"
     comment: "Any floating value"
     ddlMapping:

@@ -112,7 +112,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     reload: Boolean = false
   )(implicit storage: StorageHandler): List[ValidationMessage] = {
 
-    val domainStructureValidity = Domain.checkFilenamesValidity()(storage, settings)
+    val domainStructureValidity = DomainInfo.checkFilenamesValidity()(storage, settings)
     val types = this.types(reload)
     if (types.isEmpty) {
       throw new Exception(
@@ -321,7 +321,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (allErrorsAndWarnings, errorCount, warningCount)
   }
 
-  def getDdlMapping(schema: Schema): Map[String, Map[String, String]] = {
+  def getDdlMapping(schema: SchemaInfo): Map[String, Map[String, String]] = {
 
     schema.attributes.flatMap { attr =>
       val ddlMapping = types().find(_.name == attr.`type`).map(_.ddlMapping)
@@ -334,7 +334,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }.toMap
   }
 
-  def getAttributesWithDDLType(schema: Schema, dbName: String): Map[String, String] = {
+  def getAttributesWithDDLType(schema: SchemaInfo, dbName: String): Map[String, String] = {
     schema.attributes.flatMap { attr =>
       val ddlMapping = types().find(_.name == attr.`type`).map(_.ddlMapping)
       ddlMapping match {
@@ -610,7 +610,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     domainPath: Path,
     domainNames: List[String] = Nil,
     raw: Boolean = false
-  ): List[(Path, Try[Domain])] = {
+  ): List[(Path, Try[DomainInfo])] = {
     val directories = storage.listDirectories(path = domainPath)
     val requestedDomainDirectories =
       if (domainNames.isEmpty)
@@ -644,7 +644,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           (
             configPath,
             Success(
-              Domain(name = directory.getName, comment = Some(s"${directory.getName} domain"))
+              DomainInfo(name = directory.getName, comment = Some(s"${directory.getName} domain"))
             )
           )
         }
@@ -775,7 +775,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     tableNames: List[String] = Nil,
     reload: Boolean = false,
     raw: Boolean = false
-  ): List[Domain] = {
+  ): List[DomainInfo] = {
     _domains match {
       case Some(domains) =>
         if (reload || raw) { // raw is used only for special use cases so we force it to reload
@@ -789,18 +789,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  private[handlers] var (_domainErrors, _domains): (List[ValidationMessage], Option[List[Domain]]) =
+  private[handlers] var (_domainErrors, _domains)
+    : (List[ValidationMessage], Option[List[DomainInfo]]) =
     (Nil, None)
 
-  private var _externals = List.empty[Domain]
+  private var _externals = List.empty[DomainInfo]
   private var _externalLastUpdate = LocalDateTime.MIN
 
-  def externals(): List[Domain] = {
+  def externals(): List[DomainInfo] = {
     if (_externals.isEmpty) loadExternals()
     _externals
   }
 
-  def loadExternals(): List[Domain] = {
+  def loadExternals(): List[DomainInfo] = {
     _externals = if (storage.exists(DatasetArea.external)) {
       val loadedDomains =
         loadDomains(DatasetArea.external, Nil, Nil, raw = false, _externalLastUpdate) match {
@@ -863,7 +864,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
+  def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationInfo] = {
     val dagsConfigsPaths =
       storage
         .list(path = dagPath, extension = ".sl.yml", recursive = false)
@@ -893,12 +894,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     * Override of dag generation config can be done inside domain config file at domain or table
     * level.
     */
-  def loadDagGenerationConfigs(): Map[String, DagGenerationConfig] = {
+  def loadDagGenerationConfigs(): Map[String, DagGenerationInfo] = {
     if (storage.exists(DatasetArea.dags)) {
       deserializedDagGenerationConfigs(DatasetArea.dags)
     } else {
       logger.info("No dags config provided. Use only configuration defined in domain config files.")
-      Map.empty[String, DagGenerationConfig]
+      Map.empty[String, DagGenerationInfo]
     }
   }
 
@@ -909,7 +910,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     domainNames: List[String] = Nil,
     tableNames: List[String] = Nil,
     raw: Boolean = false
-  ): (List[ValidationMessage], List[Domain]) = {
+  ): (List[ValidationMessage], List[DomainInfo]) = {
     val area = DatasetArea.load
     val (validDomainsFile, invalidDomainsFiles) =
       loadDomains(area, domainNames, tableNames, raw)
@@ -965,7 +966,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     tableNames: List[String] = Nil,
     raw: Boolean,
     lastUpdated: LocalDateTime = LocalDateTime.MIN
-  ): (List[Try[Domain]], List[Try[Domain]]) = {
+  ): (List[Try[DomainInfo]], List[Try[DomainInfo]]) = {
     val (validDomainsFile, invalidDomainsFiles) =
       deserializedDomains(area, domainNames, raw)
         .map {
@@ -993,7 +994,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     raw: Boolean,
     folder: Path,
     lastUpdated: LocalDateTime
-  ): List[Schema] = {
+  ): List[SchemaInfo] = {
     val tableRefNames =
       storage
         .list(folder, extension = ".sl.yml", since = lastUpdated, recursive = true)
@@ -1061,22 +1062,22 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
 
-  def loadJobTasksFromFile(jobPath: Path, taskNames: List[String] = Nil): Try[AutoJobDesc] =
+  def loadJobTasksFromFile(jobPath: Path, taskNames: List[String] = Nil): Try[AutoJobInfo] =
     for {
       jobDesc   <- loadJobDesc(jobPath)
       taskDescs <- loadAutoTasksInto(jobDesc, jobPath.getParent, taskNames)
     } yield taskDescs
 
   private def loadAutoTasksInto(
-    jobDesc: AutoJobDesc,
+    jobDesc: AutoJobInfo,
     jobFolder: Path,
     taskNames: List[String] = Nil
-  ): Try[AutoJobDesc] = {
+  ): Try[AutoJobInfo] = {
     Try {
       // Load task refs and inject them in the job
       val autoTasksRefs = loadAutoTaskFiles(jobDesc, jobFolder, taskNames)
 
-      val jobDescWithTaskRefs: AutoJobDesc =
+      val jobDescWithTaskRefs: AutoJobInfo =
         jobDesc.copy(tasks = Option(jobDesc.tasks).getOrElse(Nil) ::: autoTasksRefs)
 
       // set task name / domain / table and load sql/py file if any
@@ -1102,7 +1103,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           postsql = task.postsql.map(sql => SQLUtils.stripComments(sql))
         )
       }
-      AutoJobDesc(
+      AutoJobInfo(
         name = jobName,
         tasks = mergedTasksWithStrippedComments,
         default = jobDesc.default
@@ -1114,7 +1115,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  private def loadJobDesc(jobPath: Path): Try[AutoJobDesc] =
+  private def loadJobDesc(jobPath: Path): Try[AutoJobInfo] =
     Try {
       logger.info("Loading job " + jobPath)
       val jobDesc =
@@ -1132,7 +1133,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           }
         } else {
           // no _config.sl.yml file. Dir name is the job name
-          AutoJobDesc(name = jobPath.getParent.getName, tasks = Nil)
+          AutoJobInfo(name = jobPath.getParent.getName, tasks = Nil)
         }
 
       if (jobDesc.name != jobPath.getParent.getName)
@@ -1144,10 +1145,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
 
   def loadAutoTask(
-    jobDesc: AutoJobDesc,
+    jobDesc: AutoJobInfo,
     jobFolder: Path,
-    taskDesc: AutoTaskDesc
-  ): AutoTaskDesc = {
+    taskDesc: AutoTaskInfo
+  ): AutoTaskInfo = {
     val (taskName, tableName) = (taskDesc.name, taskDesc.table) match {
       case ("", "") =>
         throw new Exception(
@@ -1250,10 +1251,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   private def loadAutoTaskFiles(
-    jobDesc: AutoJobDesc,
+    jobDesc: AutoJobInfo,
     folder: Path,
     taskNames: List[String] = Nil
-  ): List[AutoTaskDesc] = {
+  ): List[AutoTaskInfo] = {
     // List[(prefix, filename, extension)]
     val taskNamesPrefix = taskNames.map(taskName => taskName + ".")
     val allFiles =
@@ -1316,7 +1317,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             }
           case _ =>
             Some(
-              AutoTaskDesc(
+              AutoTaskInfo(
                 name = taskFilePrefix,
                 sql = None,
                 database = None,
@@ -1366,7 +1367,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def jobs(reload: Boolean = false): List[AutoJobDesc] = {
+  def jobs(reload: Boolean = false): List[AutoJobInfo] = {
     if (_jobs.isEmpty || reload) {
       val (errors, validJobs) = loadJobs()
       this._jobs = validJobs
@@ -1385,7 +1386,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def tasks(reload: Boolean = false): List[AutoTaskDesc] = {
+  def tasks(reload: Boolean = false): List[AutoTaskInfo] = {
     if (reload) {
       val (errors, validJobs) = loadJobs()
       this._jobs = validJobs
@@ -1394,12 +1395,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     jobs().flatMap(_.tasks)
   }
 
-  def task(domain: String, tsk: String): Try[AutoTaskDesc] = {
+  def task(domain: String, tsk: String): Try[AutoTaskInfo] = {
     val taskName = s"$domain.$tsk"
     task(taskName)
   }
 
-  def task(taskName: String): Try[AutoTaskDesc] = Try {
+  def task(taskName: String): Try[AutoTaskInfo] = Try {
     val allTasks = tasks()
     allTasks
       .find(t => t.name.equalsIgnoreCase(taskName))
@@ -1409,7 +1410,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def taskOnly(
     taskName: String,
     reload: Boolean = false
-  ): Try[AutoTaskDesc] = {
+  ): Try[AutoTaskInfo] = {
     val refs = loadRefs()
     if (refs.refs.isEmpty) {
       val components = taskName.split('.')
@@ -1470,12 +1471,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  private var (_jobErrors, _jobs): (List[ValidationMessage], List[AutoJobDesc]) = (Nil, Nil)
+  private var (_jobErrors, _jobs): (List[ValidationMessage], List[AutoJobInfo]) = (Nil, Nil)
 
   /** All Jobs are defined under the "transform" folder in the metadata folder
     */
   @throws[Exception]
-  private def loadJobs(): (List[ValidationMessage], List[AutoJobDesc]) = {
+  private def loadJobs(): (List[ValidationMessage], List[AutoJobInfo]) = {
     if (storage.exists(DatasetArea.transform)) {
       val directories = storage.listDirectories(DatasetArea.transform)
       val (validJobsFile, invalidJobsFile) = directories
@@ -1544,7 +1545,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     * @return
     *   Unique Domain referenced by this name.
     */
-  def getDomain(name: String, raw: Boolean = false): Option[Domain] =
+  def getDomain(name: String, raw: Boolean = false): Option[DomainInfo] =
     domains(domainNames = List(name), raw = raw).find(_.name == name)
 
   /** Return all schemas for a domain
@@ -1554,7 +1555,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     * @return
     *   List of schemas for a domain, empty list if no schema or domain is found
     */
-  def tables(domain: String): List[Schema] = getDomain(domain).map(_.tables).getOrElse(Nil)
+  def tables(domain: String): List[SchemaInfo] = getDomain(domain).map(_.tables).getOrElse(Nil)
 
   /** Get schema by name for a domain
     *
@@ -1565,13 +1566,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     * @return
     *   Unique Schema with this name for a domain
     */
-  def table(domainName: String, schemaName: String): Option[Schema] =
+  def table(domainName: String, schemaName: String): Option[SchemaInfo] =
     for {
       domain <- getDomain(domainName)
       schema <- domain.tables.find(_.name == schemaName)
     } yield schema
 
-  def table(domainNameAndSchemaName: String): Option[Schema] = {
+  def table(domainNameAndSchemaName: String): Option[SchemaInfo] = {
     val components = domainNameAndSchemaName.split('.')
     assert(
       components.length == 2,
@@ -1585,7 +1586,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     } yield schema
   }
 
-  def fromXSD(domain: Domain): Domain = {
+  def fromXSD(domain: DomainInfo): DomainInfo = {
     val domainMetadata = domain.metadata
     val tables = domain.tables.map { table =>
       fromXSD(table, domainMetadata)
@@ -1593,7 +1594,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     domain.copy(tables = tables)
   }
 
-  def fromXSD(ymlSchema: Schema, domainMetadata: Option[Metadata]): Schema = {
+  def fromXSD(ymlSchema: SchemaInfo, domainMetadata: Option[Metadata]): SchemaInfo = {
     val metadata = ymlSchema.mergedMetadata(domainMetadata)
     metadata.getXsdPath() match {
       case None =>
@@ -1620,7 +1621,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def getFullTableName(domain: Domain, schema: Schema)(implicit
+  def getFullTableName(domain: DomainInfo, schema: SchemaInfo)(implicit
     settings: Settings
   ): String = {
     val databaseName = domain.database.orElse(settings.appConfig.getDefaultDatabase())
@@ -1632,14 +1633,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def getDatabase(domain: Domain)(implicit settings: Settings): Option[String] =
+  def getDatabase(domain: DomainInfo)(implicit settings: Settings): Option[String] =
     domain.database.orElse(settings.appConfig.getDefaultDatabase())
   // SL_DATABASE
   // default database
 
-  def objects(): List[Domain] = domains() ++ externals() ++ List(auditTables)
+  def objects(): List[DomainInfo] = domains() ++ externals() ++ List(auditTables)
 
-  def findTableInObjects(domain: String, table: String): Option[Schema] =
+  def findTableInObjects(domain: String, table: String): Option[SchemaInfo] =
     objects()
       .find(_.name.equalsIgnoreCase(domain))
       .flatMap(_.tables.find(_.name.equalsIgnoreCase(table)))
@@ -1797,19 +1798,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     result.values.toList
   }
 
-  def saveToExternals(domains: List[Domain]) = {
+  def saveToExternals(domains: List[DomainInfo]) = {
     saveTo(domains, DatasetArea.external)
     loadExternals()
   }
 
-  def saveTo(domains: List[Domain], outputPath: Path) = {
+  def saveTo(domains: List[DomainInfo], outputPath: Path) = {
     domains.foreach { domain =>
       domain.writeDomainAsYaml(outputPath)(settings.storageHandler())
     }
   }
 
-  lazy val auditTables: Domain =
-    Domain(
+  lazy val auditTables: DomainInfo =
+    DomainInfo(
       settings.appConfig.audit.getDomain(),
       tables = List(
         AuditLog.starlakeSchema,
@@ -1843,7 +1844,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def tableAdded(domain: String, table: String): Try[Unit] = {
     _domains.getOrElse(Nil).find(_.name.toLowerCase() == domain.toLowerCase()) match {
       case None =>
-        _domains = Some(_domains.getOrElse(Nil) :+ Domain(domain))
+        _domains = Some(_domains.getOrElse(Nil) :+ DomainInfo(domain))
       case Some(_) =>
       // do nothing
     }
@@ -1865,7 +1866,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def taskAdded(domainName: String, taskName: String): Try[Unit] = {
     _jobs.find(_.name.toLowerCase() == domainName.toLowerCase()) match {
       case None =>
-        _jobs = _jobs :+ AutoJobDesc(domainName)
+        _jobs = _jobs :+ AutoJobInfo(domainName)
       case Some(_) =>
       // do nothing
     }

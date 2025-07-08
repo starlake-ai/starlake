@@ -22,7 +22,7 @@ package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{Domain, Mode, Schema, Type}
+import ai.starlake.schema.model.{DomainInfo, Mode, SchemaInfo, Type}
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.{JobResult, Utils}
 import org.apache.hadoop.fs.Path
@@ -45,8 +45,8 @@ import scala.util.{Failure, Try}
   *   : Storage Handler
   */
 class KafkaIngestionJob(
-  domain: Domain,
-  schema: Schema,
+  domain: DomainInfo,
+  schema: SchemaInfo,
   types: List[Type],
   path: List[Path],
   storageHandler: StorageHandler,

@@ -55,7 +55,7 @@ import scala.util.{Failure, Success}
 class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryValues {
   new WithSettings() {
     "Job with no explicit engine toMap" should "should produce the correct map" in {
-      val task = AutoTaskDesc(
+      val task = AutoTaskInfo(
         name = "",
         sql = Some("select firstname, lastname, age from {{view}} where age=${age}"),
         database = None,
@@ -65,7 +65,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
         writeStrategy = Some(WriteStrategy.Overwrite)
       )
       val job =
-        AutoJobDesc("user", List(task))
+        AutoJobInfo("user", List(task))
       val jobMap = YamlSerde.toMap(job)
       val expected = Map(
         "name" -> "user",
@@ -81,7 +81,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
       assert((jobMap.toSet diff expected.toSet).toMap.isEmpty)
     }
     "Job wit BQ engine toMap" should "should produce the correct map with right engine" in {
-      val task = AutoTaskDesc(
+      val task = AutoTaskInfo(
         name = "",
         sql = Some("select firstname, lastname, age from dataset.table where age=${age}"),
         None,
@@ -91,7 +91,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
         writeStrategy = Some(WriteStrategy.Overwrite)
       )
       val job =
-        AutoJobDesc(
+        AutoJobInfo(
           "user",
           List(task)
         )
@@ -110,7 +110,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
       assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
     }
     "Job with SPARK engine toMap" should "should produce the correct map" in {
-      val task = AutoTaskDesc(
+      val task = AutoTaskInfo(
         name = "",
         sql = Some("select firstname, lastname, age from {{view}} where age=${age}"),
         database = None,
@@ -120,7 +120,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
         writeStrategy = Some(WriteStrategy.Overwrite)
       )
       val job =
-        AutoJobDesc("user", List(task))
+        AutoJobInfo("user", List(task))
       val jobMap = YamlSerde.toMap(job)
       val expected: Map[String, Any] = Map(
         "name" -> "user",
@@ -146,7 +146,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
       val config = mapperWithEmptyString.writeValueAsString(yamlExtractConfig)
       try {
-        val deserializedConfig: ExtractSchemas =
+        val deserializedConfig: ExtractSchemasInfo =
           YamlSerde.deserializeYamlExtractConfig(config, "input")
         val inputConfig = yamlExtractConfig.extract.propagateGlobalJdbcSchemas()
         for {
@@ -222,7 +222,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
           inputExplosionRenameRoutes should contain theSameElementsAs deserializedExplosionRenameRoutes
         }
         val dummyPattern = Pattern.compile("dummy")
-        def substitutePattern(extractSchemas: ExtractSchemas): ExtractSchemas = {
+        def substitutePattern(extractSchemas: ExtractSchemasInfo): ExtractSchemasInfo = {
           val openAPI = extractSchemas.openAPI.map { openAPI =>
             val domains = openAPI.domains.map { domain =>
               val schemas = domain.schemas.map { schema =>
@@ -279,7 +279,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
 
   it should "round-trip any Yaml Load Config" in {
     import YamlConfigGenerators._
-    forAll { (yamlLoadConfig: LoadDesc) =>
+    forAll { (yamlLoadConfig: DomainDesc) =>
       val mapperWithEmptyString =
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
       val config = mapperWithEmptyString.writeValueAsString(yamlLoadConfig)
@@ -666,7 +666,7 @@ object YamlConfigGenerators {
     )
   }
 
-  implicit val jdbcSchemas: Arbitrary[ExtractSchemas] = Arbitrary {
+  implicit val jdbcSchemas: Arbitrary[ExtractSchemasInfo] = Arbitrary {
     for {
       sanitizeAttributeName <- Gen.oneOf(OnLoad, OnExtract)
       jdbcSchemas           <- arbitrary[Option[List[JDBCSchema]]]
@@ -678,7 +678,7 @@ object YamlConfigGenerators {
       loadConnectionRef      <- Gen.option(arbitrary[String])
       transformConnectionRef <- Gen.option(arbitrary[String])
       auditConnectionRef     <- Gen.option(arbitrary[String])
-    } yield ExtractSchemas(
+    } yield ExtractSchemasInfo(
       sanitizeAttributeName = sanitizeAttributeName,
       jdbcSchemas = jdbcSchemas,
       default = default,
@@ -688,12 +688,12 @@ object YamlConfigGenerators {
     )
   }
 
-  implicit val openAPISchemas: Arbitrary[ExtractSchemas] = Arbitrary {
+  implicit val openAPISchemas: Arbitrary[ExtractSchemasInfo] = Arbitrary {
     for {
       sanitizeAttributeName <- Gen.oneOf(OnLoad, OnExtract)
       openAPIExtractSchema  <- arbitrary[Option[OpenAPIExtractSchema]]
       connectionRef         <- Gen.option(arbitrary[String])
-    } yield ExtractSchemas(
+    } yield ExtractSchemasInfo(
       sanitizeAttributeName = sanitizeAttributeName,
       openAPI = openAPIExtractSchema,
       connectionRef = connectionRef
@@ -706,13 +706,13 @@ object YamlConfigGenerators {
     } yield ExtractDesc(latestSchemaVersion, extract = extractSchemas)
   }
 
-  implicit val dagGenerationConfig: Arbitrary[DagGenerationConfig] = Arbitrary {
+  implicit val dagGenerationConfig: Arbitrary[DagGenerationInfo] = Arbitrary {
     for {
       comment  <- arbitrary[String].filter(_.nonEmpty)
       template <- arbitrary[String].filter(_.nonEmpty)
       filename <- arbitrary[String].filter(_.nonEmpty)
       options  <- arbitrary[Map[String, String]]
-    } yield DagGenerationConfig(
+    } yield DagGenerationInfo(
       comment = comment,
       template = template,
       filename = filename,
@@ -722,7 +722,7 @@ object YamlConfigGenerators {
 
   implicit val dagDesc: Arbitrary[DagDesc] = Arbitrary {
     for {
-      dagGenerationConfig <- arbitrary[DagGenerationConfig]
+      dagGenerationConfig <- arbitrary[DagGenerationInfo]
     } yield DagDesc(latestSchemaVersion, dagGenerationConfig)
   }
 
@@ -959,7 +959,7 @@ object YamlConfigGenerators {
     } yield AccessControlEntry(name = name, grants = grants, role = role)
   }
 
-  implicit val schema: Arbitrary[Schema] = Arbitrary {
+  implicit val schema: Arbitrary[SchemaInfo] = Arbitrary {
     for {
       name          <- arbitrary[String]
       attributes    <- arbitrary[List[Attribute]]
@@ -978,7 +978,7 @@ object YamlConfigGenerators {
       patternSample <- Gen.option(arbitrary[String])
       pattern       <- arbitrary[Pattern]
       streams       <- arbitrary[List[String]]
-    } yield Schema(
+    } yield SchemaInfo(
       name = name,
       attributes = attributes,
       metadata = metadata,
@@ -999,7 +999,7 @@ object YamlConfigGenerators {
     )
   }
 
-  implicit val domain: Arbitrary[Domain] = Arbitrary {
+  implicit val domain: Arbitrary[DomainInfo] = Arbitrary {
     for {
       name     <- arbitrary[String]
       metadata <- Gen.option(arbitrary[Metadata])
@@ -1007,7 +1007,7 @@ object YamlConfigGenerators {
       tags     <- arbitrary[List[String]].map(_.toSet)
       rename   <- Gen.option(arbitrary[String])
       database <- Gen.option(arbitrary[String])
-    } yield Domain(
+    } yield DomainInfo(
       name = name,
       metadata = metadata,
       tables = Nil,
@@ -1018,10 +1018,10 @@ object YamlConfigGenerators {
     )
   }
 
-  implicit val loadDesc: Arbitrary[LoadDesc] = Arbitrary {
+  implicit val loadDesc: Arbitrary[DomainDesc] = Arbitrary {
     for {
-      domain <- arbitrary[Domain]
-    } yield LoadDesc(latestSchemaVersion, load = domain)
+      domain <- arbitrary[DomainInfo]
+    } yield DomainDesc(latestSchemaVersion, load = domain)
   }
 
   implicit val inputRef: Arbitrary[InputRef] = Arbitrary {
@@ -1516,7 +1516,7 @@ object YamlConfigGenerators {
     Gen.oneOf("/tmp", "relativeFolder/subfolder", "myFolder").map(new Path(_))
   }
 
-  implicit val autoTaskDesc: Arbitrary[AutoTaskDesc] = Arbitrary {
+  implicit val autoTaskDesc: Arbitrary[AutoTaskInfo] = Arbitrary {
     for {
       name           <- arbitrary[String]
       sql            <- Gen.option(arbitrary[String])
@@ -1541,7 +1541,7 @@ object YamlConfigGenerators {
       parseSQL       <- Gen.option(arbitrary[Boolean])
       streams        <- arbitrary[List[String]]
     } yield {
-      val autoTask = AutoTaskDesc(
+      val autoTask = AutoTaskInfo(
         name = name,
         sql = sql,
         database = database,
@@ -1576,28 +1576,28 @@ object YamlConfigGenerators {
 
   implicit val taskDesc: Arbitrary[TaskDesc] = Arbitrary {
     for {
-      task <- arbitrary[AutoTaskDesc]
+      task <- arbitrary[AutoTaskInfo]
     } yield TaskDesc(latestSchemaVersion, task)
   }
 
-  implicit val autoJobDesc: Arbitrary[AutoJobDesc] = Arbitrary {
+  implicit val autoJobDesc: Arbitrary[AutoJobInfo] = Arbitrary {
     for {
       name    <- arbitrary[String]
-      tasks   <- arbitrary[List[AutoTaskDesc]].map(_.take(maxElementInCollections))
+      tasks   <- arbitrary[List[AutoTaskInfo]].map(_.take(maxElementInCollections))
       comment <- Gen.option(arbitrary[String])
-      default <- Gen.option(arbitrary[AutoTaskDesc])
-    } yield AutoJobDesc(name = name, tasks = tasks, comment = comment, default = default)
+      default <- Gen.option(arbitrary[AutoTaskInfo])
+    } yield AutoJobInfo(name = name, tasks = tasks, comment = comment, default = default)
   }
 
   implicit val transformDesc: Arbitrary[TransformDesc] = Arbitrary {
     for {
-      transform <- arbitrary[AutoJobDesc]
+      transform <- arbitrary[AutoJobInfo]
     } yield TransformDesc(latestSchemaVersion, transform = transform)
   }
 
   implicit val tableDesc: Arbitrary[TableDesc] = Arbitrary {
     for {
-      table <- arbitrary[Schema]
+      table <- arbitrary[SchemaInfo]
     } yield TableDesc(latestSchemaVersion, table)
   }
 

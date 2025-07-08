@@ -45,8 +45,8 @@ import scala.util.Try
   *   : Parameters to pass as input (k1=v1,k2=v2,k3=v3)
   */
 class DsvIngestionJob(
-  val domain: Domain,
-  val schema: Schema,
+  val domain: DomainInfo,
+  val schema: SchemaInfo,
   val types: List[Type],
   val path: List[Path],
   val storageHandler: StorageHandler,

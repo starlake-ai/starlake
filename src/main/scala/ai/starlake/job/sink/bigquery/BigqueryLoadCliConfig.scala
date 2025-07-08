@@ -5,7 +5,7 @@ import ai.starlake.schema.model.{
   Engine,
   Materialization,
   RowLevelSecurity,
-  Schema
+  SchemaInfo
 }
 import org.apache.spark.sql.DataFrame
 
@@ -27,7 +27,7 @@ case class BigQueryLoadCliConfig(
   engine: Engine = Engine.SPARK,
   partitionsToUpdate: List[String] = Nil,
   acl: List[AccessControlEntry] = Nil,
-  starlakeSchema: Option[Schema] = None,
+  starlakeSchema: Option[SchemaInfo] = None,
   domainTags: Set[String] = Set.empty,
   domainDescription: Option[String] = None,
   materialization: Materialization = Materialization.TABLE,

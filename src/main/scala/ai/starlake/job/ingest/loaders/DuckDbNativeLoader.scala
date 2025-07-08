@@ -20,9 +20,9 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
   val settings: Settings
 ) extends StrictLogging {
 
-  val domain: Domain = ingestionJob.domain
+  val domain: DomainInfo = ingestionJob.domain
 
-  val schema: Schema = ingestionJob.schema
+  val schema: SchemaInfo = ingestionJob.schema
 
   val storageHandler: StorageHandler = ingestionJob.storageHandler
 
@@ -36,7 +36,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
   lazy val mergedMetadata: Metadata = ingestionJob.mergedMetadata
 
-  private def requireTwoSteps(schema: Schema): Boolean = {
+  private def requireTwoSteps(schema: SchemaInfo): Boolean = {
     // renamed attribute can be loaded directly so it's not in the condition
     schema
       .hasTransformOrIgnoreOrScriptColumns() ||
@@ -45,7 +45,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     schema.filter.nonEmpty ||
     settings.appConfig.archiveTable
   }
-  lazy val effectiveSchema: Schema = computeEffectiveInputSchema()
+  lazy val effectiveSchema: SchemaInfo = computeEffectiveInputSchema()
   lazy val schemaWithMergedMetadata = effectiveSchema.copy(metadata = Some(mergedMetadata))
 
   def run(): Try[List[IngestionCounters]] = {
@@ -72,7 +72,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
         val targetTableName = s"${domain.finalName}.${schema.finalName}"
         val sqlWithTransformedFields = schema.buildSqlSelectOnLoad(unionTempTables)
 
-        val taskDesc = AutoTaskDesc(
+        val taskDesc = AutoTaskInfo(
           name = targetTableName,
           sql = Some(sqlWithTransformedFields),
           database = schemaHandler.getDatabase(domain),
@@ -137,7 +137,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     }
   }
 
-  private def computeEffectiveInputSchema(): Schema = {
+  private def computeEffectiveInputSchema(): SchemaInfo = {
     mergedMetadata.resolveFormat() match {
       case Format.DSV =>
         (mergedMetadata.resolveWithHeader(), path.map(_.toString).headOption) match {
@@ -200,7 +200,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     }
   }
 
-  def singleStepLoad(domain: String, table: String, schema: Schema, path: List[Path]) = {
+  def singleStepLoad(domain: String, table: String, schema: SchemaInfo, path: List[Path]) = {
     val sinkConnection = mergedMetadata.getSinkConnection()
     val incomingSparkSchema = schema.targetSparkSchemaWithIgnoreAndScript(schemaHandler)
     val domainAndTableName = domain + "." + table

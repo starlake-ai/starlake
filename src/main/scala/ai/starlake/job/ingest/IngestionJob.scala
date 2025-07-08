@@ -47,9 +47,9 @@ trait IngestionJob extends SparkJob {
   protected lazy val rowValidator: GenericRowValidator =
     loadGenericValidator(settings.appConfig.rowValidatorClass)
 
-  def domain: Domain
+  def domain: DomainInfo
 
-  def schema: Schema
+  def schema: SchemaInfo
 
   def storageHandler: StorageHandler
 
@@ -828,7 +828,7 @@ trait IngestionJob extends SparkJob {
 
   private def sinkAccepted(mergedDF: DataFrame): Try[Long] = {
     val result: Try[Try[Long]] = Try {
-      val taskDesc = AutoTaskDesc(
+      val taskDesc = AutoTaskInfo(
         name = schema.finalName,
         presql = schema.presql,
         postsql = schema.postsql,

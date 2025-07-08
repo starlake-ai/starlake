@@ -63,7 +63,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
     }
   }
 
-  def writeDomainXls(domain: Domain, folder: String)(implicit
+  def writeDomainXls(domain: DomainInfo, folder: String)(implicit
     storageHandler: StorageHandler
   ): Unit = {
     val workbook = new XSSFWorkbook()

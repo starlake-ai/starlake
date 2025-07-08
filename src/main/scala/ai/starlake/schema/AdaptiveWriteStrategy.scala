@@ -3,7 +3,7 @@ package ai.starlake.schema
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.FileInfo
 import ai.starlake.schema.model.WriteStrategyType._
-import ai.starlake.schema.model.{Schema, WriteStrategyType}
+import ai.starlake.schema.model.{SchemaInfo, WriteStrategyType}
 import ai.starlake.utils.CompilerUtils
 import com.typesafe.scalalogging.LazyLogging
 
@@ -19,15 +19,15 @@ object AdaptiveWriteStrategy extends LazyLogging {
     * ingestion accordingly.
     */
   def adaptThenGroup(
-    schema: Schema,
+    schema: SchemaInfo,
     fileInfos: Iterable[FileInfo]
-  )(implicit settings: Settings): Seq[(Schema, Iterable[FileInfo])] = {
+  )(implicit settings: Settings): Seq[(SchemaInfo, Iterable[FileInfo])] = {
     schema.metadata.flatMap(_.writeStrategy).flatMap(_.types) match {
       case Some(writeStrategyTypes) =>
         val results = fileInfos.toList
           .map(f => adapt(schema, f, writeStrategyTypes) -> f)
           .reverse
-          .foldLeft(List[(Schema, List[FileInfo])]()) {
+          .foldLeft(List[(SchemaInfo, List[FileInfo])]()) {
             case ((schema, fileInfos) +: groupedSchemas, (newSchema, newFileInfo))
                 if schema == newSchema =>
               (schema, newFileInfo +: fileInfos) +: groupedSchemas
@@ -57,9 +57,9 @@ object AdaptiveWriteStrategy extends LazyLogging {
   /** Alter given schema based on defined write strategy. Apply one of the write strategy only. If
     * not the case, throw an exception.
     */
-  def adapt(schema: Schema, fileInfo: FileInfo, writeStrategy: Map[String, String])(implicit
+  def adapt(schema: SchemaInfo, fileInfo: FileInfo, writeStrategy: Map[String, String])(implicit
     settings: Settings
-  ): Schema = {
+  ): SchemaInfo = {
     val matcher: Matcher = schema.pattern.matcher(fileInfo.path.getName)
     matcher.find()
     val context = buildContext(fileInfo, matcher)

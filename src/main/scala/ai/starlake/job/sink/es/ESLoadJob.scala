@@ -22,7 +22,7 @@ package ai.starlake.job.sink.es
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.Schema
+import ai.starlake.schema.model.SchemaInfo
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import org.apache.http.client.methods.{HttpDelete, HttpPut}
 import org.apache.http.entity.{ContentType, StringEntity}
@@ -110,7 +110,7 @@ class ESLoadJob(
         case _ =>
           // Handle datasets without YAML schema
           // We handle only index name like idx-{...}
-          Schema.mapping(
+          SchemaInfo.mapping(
             cliConfig.domain,
             cliConfig.schema,
             StructField("ignore", df.schema),

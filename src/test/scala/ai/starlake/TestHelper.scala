@@ -23,7 +23,7 @@ package ai.starlake
 import ai.starlake.config.{DatasetArea, Settings, SparkEnv}
 import ai.starlake.job.ingest.{IngestConfig, LoadConfig, StageConfig}
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model.{Attribute, AutoTaskDesc, Domain}
+import ai.starlake.schema.model.{Attribute, AutoTaskInfo, DomainInfo}
 import ai.starlake.utils._
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
@@ -497,15 +497,15 @@ trait TestHelper
       validator.load(config)
     }
 
-    def getTasks(): List[AutoTaskDesc] = {
+    def getTasks(): List[AutoTaskInfo] = {
       settings.schemaHandler().tasks()
     }
 
-    def getDomains(): List[Domain] = {
+    def getDomains(): List[DomainInfo] = {
       settings.schemaHandler().domains()
     }
 
-    def getDomain(domainName: String): Option[Domain] = {
+    def getDomain(domainName: String): Option[DomainInfo] = {
       settings.schemaHandler().getDomain(domainName)
     }
 

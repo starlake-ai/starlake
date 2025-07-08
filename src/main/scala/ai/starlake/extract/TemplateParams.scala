@@ -2,7 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.WriteMode.OVERWRITE
-import ai.starlake.schema.model.{Domain, Schema, TransformInput}
+import ai.starlake.schema.model.{DomainInfo, SchemaInfo, TransformInput}
 
 /** Params for the script's mustache template
   * @param domainToExport
@@ -103,7 +103,7 @@ object TemplateParams {
     * @return
     */
   def fromDomain(
-    domain: Domain,
+    domain: DomainInfo,
     defaultDeltaColumn: Option[String],
     deltaColumns: Map[String, String],
     auditDB: Option[String],
@@ -132,7 +132,7 @@ object TemplateParams {
     */
   def fromSchema(
     domainName: String,
-    schema: Schema,
+    schema: SchemaInfo,
     deltaColumn: Option[String],
     auditDB: Option[String],
     activeEnv: Map[String, String]

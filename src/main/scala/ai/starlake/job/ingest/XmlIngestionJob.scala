@@ -22,7 +22,7 @@ package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{Domain, Schema, Type}
+import ai.starlake.schema.model.{DomainInfo, SchemaInfo, Type}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row}
 
@@ -43,8 +43,8 @@ import scala.util.Try
   *   : Storage Handler
   */
 class XmlIngestionJob(
-  val domain: Domain,
-  val schema: Schema,
+  val domain: DomainInfo,
+  val schema: SchemaInfo,
   val types: List[Type],
   val path: List[Path],
   val storageHandler: StorageHandler,

@@ -10,7 +10,7 @@ import org.apache.hadoop.fs.Path
 import java.nio.charset.StandardCharsets
 import scala.io.Source
 
-class InferSchemaJobSpec extends TestHelper {
+class InferSchemaInfoJobSpec extends TestHelper {
 
   new WithSettings() {
 

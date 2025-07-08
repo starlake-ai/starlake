@@ -3,7 +3,7 @@ package ai.starlake.serve
 import ai.starlake.config.Settings
 import ai.starlake.job.Main
 import ai.starlake.schema.handlers.{DomainWithNameOnly, SchemaHandler}
-import ai.starlake.schema.model.{AutoJobDesc, Domain, Type}
+import ai.starlake.schema.model.{AutoJobInfo, DomainInfo, Type}
 
 import scala.util.Try
 
@@ -23,11 +23,11 @@ object SingleUserServices {
     result
   }
 
-  def domains(reload: Boolean)(implicit settings: Settings): List[Domain] = {
+  def domains(reload: Boolean)(implicit settings: Settings): List[DomainInfo] = {
     getSchemaHandler(reload).domains()
   }
 
-  def jobs(reload: Boolean)(implicit settings: Settings): List[AutoJobDesc] = {
+  def jobs(reload: Boolean)(implicit settings: Settings): List[AutoJobInfo] = {
     getSchemaHandler(reload).jobs()
   }
 

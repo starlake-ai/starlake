@@ -34,7 +34,7 @@ import scala.util.{Failure, Success, Try}
 
 class BigQueryAutoTask(
   appId: Option[String],
-  taskDesc: AutoTaskDesc,
+  taskDesc: AutoTaskInfo,
   commandParameters: Map[String, String],
   interactive: Option[String],
   truncate: Boolean,
@@ -416,7 +416,7 @@ class BigQueryAutoTask(
                       if (!storageHandler.exists(slFile)) {
                         val config =
                           BigQueryTablesConfig(tables = Map(domainName -> List(tableName)))
-                        ExtractBigQuerySchema.extractAndSaveAsDomains(config, schemaHandler)
+                        ExtractBigQuerySchema.extractAndSaveToExternal(config, schemaHandler)
                       }
                     }
                   }

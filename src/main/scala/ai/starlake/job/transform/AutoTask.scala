@@ -56,7 +56,7 @@ import scala.util.{Failure, Success, Try}
   */
 abstract class AutoTask(
   val appId: Option[String],
-  val taskDesc: AutoTaskDesc,
+  val taskDesc: AutoTaskInfo,
   val commandParameters: Map[String, String],
   val interactive: Option[String],
   val test: Boolean,
@@ -474,7 +474,7 @@ object AutoTask extends StrictLogging {
     settings: Settings
   ): AutoTask = {
     val desc =
-      AutoTaskDesc(
+      AutoTaskInfo(
         "__IGNORE__",
         sql = None,
         database = None,
@@ -547,7 +547,7 @@ object AutoTask extends StrictLogging {
 
   def task(
     appId: Option[String],
-    taskDesc: AutoTaskDesc,
+    taskDesc: AutoTaskInfo,
     configOptions: Map[String, String],
     interactive: Option[String],
     truncate: Boolean,
@@ -706,7 +706,7 @@ object AutoTask extends StrictLogging {
       else
         sql
 
-    val autoTaskDesc = AutoTaskDesc(
+    val autoTaskDesc = AutoTaskInfo(
       name = s"$domain.$table",
       sql = Some(finalSql),
       domain = domain,

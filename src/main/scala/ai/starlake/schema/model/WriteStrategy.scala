@@ -32,7 +32,7 @@ case class WriteStrategy(
 
   def checkValidity(
     domainName: String,
-    table: Option[Schema]
+    table: Option[SchemaInfo]
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
     val tableName = table.map(_.name).getOrElse("")
     val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty

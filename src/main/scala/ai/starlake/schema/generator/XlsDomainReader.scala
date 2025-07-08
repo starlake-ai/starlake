@@ -29,7 +29,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
     case InputFile(in) => WorkbookFactory.create(in)
   }
 
-  private lazy val domain: Option[Domain] = {
+  private lazy val domain: Option[DomainInfo] = {
     val sheet = Option(workbook.getSheet("_domain")).getOrElse(workbook.getSheet("domain"))
     val (rows, headerMap) = getColsOrder(sheet, allDomainHeaders.map { case (k, _) => k })
     rows.headOption.flatMap { row =>
@@ -96,7 +96,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
       nameOpt match {
         case Some(name) =>
           Some(
-            Domain(
+            DomainInfo(
               name,
               metadata = Some(
                 Metadata(
@@ -117,7 +117,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
     }
   }
 
-  private lazy val schemas: List[(Schema, SchemaName)] = {
+  private lazy val schemas: List[(SchemaInfo, SchemaName)] = {
     val sheet = Option(workbook.getSheet("_schemas")).getOrElse(workbook.getSheet("schemas"))
     val (rows, headerMap) = getColsOrder(sheet, allSchemaHeaders.map { case (name, _) => name })
     rows.flatMap { row =>
@@ -367,7 +367,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
             case _                    => None
           }
 
-          val schema = Schema(
+          val schema = SchemaInfo(
             name = longNameOpt.getOrElse(name),
             pattern = pattern,
             attributes = Nil,
@@ -482,12 +482,12 @@ class XlsDomainReader(input: Input) extends XlsModel {
     * @return
     *   an Option of Domain
     */
-  def getDomain()(implicit settings: Settings): Option[Domain] = {
+  def getDomain()(implicit settings: Settings): Option[DomainInfo] = {
     val completeSchemas = buildSchemas().filter(_.attributes.nonEmpty)
     domain.map(_.copy(tables = completeSchemas))
   }
 
-  private def buildSchemas()(implicit settings: Settings): List[Schema] = {
+  private def buildSchemas()(implicit settings: Settings): List[SchemaInfo] = {
     schemas.map { case (schema, originalName) =>
       val schemaName = originalName.value
       val sheetOpt = Option(workbook.getSheet(schemaName))
@@ -500,7 +500,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
     }
   }
 
-  private def buildAttributes(schema: Schema, sheet: Sheet)(implicit
+  private def buildAttributes(schema: SchemaInfo, sheet: Sheet)(implicit
     settings: Settings
   ): List[Attribute] = {
     val (rows, headerMap) = getColsOrder(sheet, allAttributeHeaders.map { case (k, _) => k })
@@ -567,7 +567,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
   }
 
   private def readAttribute(
-    schema: Schema,
+    schema: SchemaInfo,
     headerMap: Map[String, Int],
     row: Row
   )(implicit settings: Settings): Option[Attribute] = {

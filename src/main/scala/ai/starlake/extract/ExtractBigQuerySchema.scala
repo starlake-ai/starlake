@@ -27,9 +27,12 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
 
   val bigquery: BigQuery = bqJob.bigquery(accessToken = config.accessToken)
 
-  def extractSchemasAndTableNames(
-    schemaHandler: SchemaHandler
-  ): Try[List[(String, List[String])]] = {
+  /** Extracts all schemas and table names from BigQuery. This method lists all datasets and their
+    * tables, filtering out temporary tables that start with "zztmp_".
+    * @return
+    *   A Try containing a list of tuples, each with a dataset name and a list of table names.
+    */
+  def extractSchemasAndTableNames(): Try[List[(String, List[String])]] = {
     Try {
       val datasets = bigquery
         .listDatasets(DatasetListOption.pageSize(10000))
@@ -54,7 +57,7 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
   def extractSchemasAndTables(
     schemaHandler: SchemaHandler,
     tablesToExtract: Map[String, List[String]]
-  ): List[Domain] = {
+  ): List[DomainInfo] = {
     val datasetNames = tablesToExtract.keys.toList
     val lowercaseDatasetNames = tablesToExtract.keys.map(_.toLowerCase()).toList
     val filteredDatasets =
@@ -79,7 +82,7 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
     }.toList
   }
 
-  def extractDataset(schemaHandler: SchemaHandler, dataset: Dataset): Domain = {
+  private def extractDataset(schemaHandler: SchemaHandler, dataset: Dataset): DomainInfo = {
     val datasetId = dataset.getDatasetId()
     val bqTables = bigquery.listTables(datasetId, TableListOption.pageSize(10000))
     val allDatawareTables =
@@ -116,7 +119,7 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
           None
       }
     }
-    Domain(
+    DomainInfo(
       name = dataset.getDatasetId().getDataset(),
       tables = schemas.toList,
       comment = Option(dataset.getDescription),
@@ -127,12 +130,12 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
     )
   }
 
-  def extractTable(table: Table): Schema = {
+  private def extractTable(table: Table): SchemaInfo = {
     val bqSchema =
       table.getDefinition[StandardTableDefinition].getSchema
     val sparkSchema: StructType = BigQuerySchemaConverters.toSpark(bqSchema)
     val schema =
-      Schema.fromSparkSchema(table.getTableId().getTable(), StructField("ignore", sparkSchema))
+      SchemaInfo.fromSparkSchema(table.getTableId().getTable(), StructField("ignore", sparkSchema))
     schema.copy(comment = Option(table.getDescription()))
   }
 }
@@ -144,7 +147,7 @@ object ExtractBigQuerySchema {
     ExtractBigQuerySchemaCmd.run(args.toIndexedSeq, schemaHandler).map(_ => ())
   }
 
-  def extractAndSaveAsDomains(
+  def extractAndSaveToExternal(
     config: BigQueryTablesConfig,
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Unit = {

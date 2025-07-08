@@ -36,7 +36,7 @@ object Xls2YmlAutoJob extends LazyLogging {
       }
   }
 
-  def writeAutoTaskYaml(autoTask: AutoTaskDesc, outputPath: Path, fileName: String)(implicit
+  def writeAutoTaskYaml(autoTask: AutoTaskInfo, outputPath: Path, fileName: String)(implicit
     storageHandler: StorageHandler
   ): Unit = {
     storageHandler.mkdirs(outputPath)

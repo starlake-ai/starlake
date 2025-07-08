@@ -1,7 +1,7 @@
 package ai.starlake.extract.spi
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.model.Domain
+import ai.starlake.schema.model.DomainInfo
 
 trait SchemaExtractor {
 
@@ -10,5 +10,5 @@ trait SchemaExtractor {
     * @return
     *   an Iterable collection of Domain objects representing the extracted schema information
     */
-  def extract()(implicit settings: Settings): Iterable[Domain]
+  def extract()(implicit settings: Settings): Iterable[DomainInfo]
 }

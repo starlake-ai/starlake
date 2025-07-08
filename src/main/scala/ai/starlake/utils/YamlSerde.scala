@@ -3,19 +3,19 @@ package ai.starlake.utils
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.exceptions.SchemaValidationException
-import ai.starlake.extract.{ExtractDesc, ExtractSchemas}
+import ai.starlake.extract.{ExtractDesc, ExtractSchemasInfo}
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.{
-  AutoJobDesc,
-  AutoTaskDesc,
+  AutoJobInfo,
+  AutoTaskInfo,
   DagDesc,
-  DagGenerationConfig,
-  Domain,
+  DagGenerationInfo,
+  DomainDesc,
+  DomainInfo,
   EnvDesc,
   IamPolicyTags,
-  LoadDesc,
   RefDesc,
-  Schema => ModelSchema,
+  SchemaInfo,
   TableDesc,
   TaskDesc,
   TransformDesc,
@@ -44,13 +44,13 @@ object YamlSerde extends LazyLogging with YamlUtils {
     */
   private def wrapEntityToDesc[T](entity: T) = {
     entity match {
-      case e: AutoJobDesc         => TransformDesc(latestSchemaVersion, e)
-      case e: AutoTaskDesc        => TaskDesc(latestSchemaVersion, e)
-      case e: Domain              => LoadDesc(latestSchemaVersion, e)
-      case e: ModelSchema         => TableDesc(latestSchemaVersion, e)
-      case e: ExtractSchemas      => ExtractDesc(latestSchemaVersion, e)
-      case e: DagGenerationConfig => DagDesc(latestSchemaVersion, e)
-      case _                      => entity
+      case e: AutoJobInfo        => TransformDesc(latestSchemaVersion, e)
+      case e: AutoTaskInfo       => TaskDesc(latestSchemaVersion, e)
+      case e: DomainInfo         => DomainDesc(latestSchemaVersion, e)
+      case e: SchemaInfo         => TableDesc(latestSchemaVersion, e)
+      case e: ExtractSchemasInfo => ExtractDesc(latestSchemaVersion, e)
+      case e: DagGenerationInfo  => DagDesc(latestSchemaVersion, e)
+      case _                     => entity
     }
   }
 
@@ -63,7 +63,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
     mapper.treeToValue(rootNode, classOf[IamPolicyTags])
   }
 
-  def toMap(job: AutoJobDesc)(implicit settings: Settings): Map[String, Any] = {
+  def toMap(job: AutoJobInfo)(implicit settings: Settings): Map[String, Any] = {
     val jobWriter = mapper
       .writer()
       .withAttribute(classOf[Settings], settings)
@@ -226,7 +226,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
     content: String,
     inputFilename: String,
     propageDefault: Boolean = true
-  ): ExtractSchemas = {
+  ): ExtractSchemasInfo = {
     val extractSubPath = "extract"
     val extractNode =
       validateConfigFile(
@@ -236,7 +236,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
         List(YamlMigrator.V1.ExtractConfig),
         Some(YamlMigrator.ScalaClass.ExtractConfig)
       ).path(extractSubPath)
-    val jdbcSchemas = mapper.treeToValue(extractNode, classOf[ExtractSchemas])
+    val jdbcSchemas = mapper.treeToValue(extractNode, classOf[ExtractSchemasInfo])
     if (propageDefault) {
       jdbcSchemas.propagateGlobalJdbcSchemas()
     } else {
@@ -317,12 +317,12 @@ object YamlSerde extends LazyLogging with YamlUtils {
     content: String,
     path: String,
     isForExtract: Boolean
-  ): Try[Domain] = {
+  ): Try[DomainInfo] = {
     Try {
       val loadSubPath = "load"
       val filePath = new Path(path)
       val rawRootNode: JsonNode = mapper.readTree(content)
-      val attachedTables: List[ModelSchema] =
+      val attachedTables: List[SchemaInfo] =
         if (
           !rawRootNode.has("version") && (rawRootNode.path("load").has("tables")) || rawRootNode
             .has("tables")
@@ -349,7 +349,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
             YamlMigrator.V1.LoadConfig
           )
         )
-      val loadDesc = mapper.treeToValue(domainNode, classOf[LoadDesc])
+      val loadDesc = mapper.treeToValue(domainNode, classOf[DomainDesc])
       loadDesc.load.copy(tables = attachedTables)
     } match {
       case Success(value) => Success(value)
@@ -365,7 +365,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
     mapper.treeToValue(refsNode, classOf[TypesDesc]).types
   }
 
-  def deserializeYamlDagConfig(content: String, path: String): Try[DagGenerationConfig] = {
+  def deserializeYamlDagConfig(content: String, path: String): Try[DagGenerationInfo] = {
     Try {
       val dagSubPath = "dag"
       val dagNode = validateConfigFile(dagSubPath, content, path, List(YamlMigrator.V1.DagConfig))
@@ -389,7 +389,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
   }
 
   // Used by starlake-api
-  def deserializeYamlTask(content: String, path: String): AutoTaskDesc = {
+  def deserializeYamlTask(content: String, path: String): AutoTaskInfo = {
     val refsSubPath = "task"
     val taskNode = validateConfigFile(refsSubPath, content, path, List(YamlMigrator.V1.TaskConfig))
       .path("task") match {
@@ -397,10 +397,10 @@ object YamlSerde extends LazyLogging with YamlUtils {
       case _ =>
         throw new RuntimeException("Should never happen since it has been validated")
     }
-    mapper.treeToValue(taskNode, classOf[AutoTaskDesc])
+    mapper.treeToValue(taskNode, classOf[AutoTaskInfo])
   }
 
-  def deserializeYamlTransform(content: String, path: String): Try[AutoJobDesc] = {
+  def deserializeYamlTransform(content: String, path: String): Try[AutoJobInfo] = {
     Try {
       val transformSubPath = "transform"
       val transformNode =
@@ -411,7 +411,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
       case Failure(exception) =>
         if (content.trim == "transform:") {
           logger.warn(s"Empty transform file: $path")
-          Success(AutoJobDesc("", Nil))
+          Success(AutoJobInfo("", Nil))
         } else {
           logger.error(s"Invalid transform file: $path(${exception.getMessage})")
           Failure(exception)

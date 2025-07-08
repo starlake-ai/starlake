@@ -942,9 +942,9 @@ object JdbcDbUtils extends LazyLogging {
     */
   def extractDomain(
     jdbcSchema: JDBCSchema,
-    domainTemplate: Option[Domain],
+    domainTemplate: Option[DomainInfo],
     selectedTablesAndColumns: Map[String, ExtractTableAttributes]
-  ): Domain = {
+  ): DomainInfo = {
     def isNumeric(sparkType: String): Boolean = {
       sparkType match {
         case "double" | "decimal" | "long" => true
@@ -957,7 +957,7 @@ object JdbcDbUtils extends LazyLogging {
 
     val starlakeSchema = selectedTablesAndColumns.map { case (tableName, tableAttrs) =>
       val sanitizedTableName = StringUtils.replaceNonAlphanumericWithUnderscore(tableName)
-      Schema(
+      SchemaInfo(
         name = tableName,
         rename = if (sanitizedTableName != tableName) Some(sanitizedTableName) else None,
         pattern = Pattern.compile(s"$tableName.*"),
@@ -1001,7 +1001,7 @@ object JdbcDbUtils extends LazyLogging {
       )
     val ack = domainTemplate.flatMap(_.resolveAck())
 
-    Domain(
+    DomainInfo(
       database = database,
       name = jdbcSchema.sanitizeName match {
         case Some(true) => StringUtils.replaceNonAlphanumericWithUnderscore(jdbcSchema.schema)

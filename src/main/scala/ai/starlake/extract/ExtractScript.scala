@@ -2,7 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.Domain
+import ai.starlake.schema.model.DomainInfo
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -83,7 +83,7 @@ class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings)
     *   The list of produced files
     */
   private def generateDomain(
-    domain: Domain,
+    domain: DomainInfo,
     scriptTemplateName: String,
     defaultDeltaColumn: Option[String],
     deltaColumns: Map[String, String],
@@ -165,7 +165,7 @@ class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings)
     schemaHandler: SchemaHandler,
     domainNames: Seq[String]
   ): Boolean = {
-    val domains: List[Domain] = schemaHandler.domains()
+    val domains: List[DomainInfo] = schemaHandler.domains()
     domainNames
       .map { domainName =>
         // Extracting the domain from the Excel referential file

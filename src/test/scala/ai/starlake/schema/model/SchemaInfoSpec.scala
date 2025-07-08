@@ -25,7 +25,7 @@ import ai.starlake.schema.model.Severity._
 
 import java.io.{InputStream, StringWriter}
 
-class SchemaSpec extends TestHelper {
+class SchemaInfoSpec extends TestHelper {
 
   new WithSettings() {
     val schemaHandler = settings.schemaHandler()
@@ -49,7 +49,7 @@ class SchemaSpec extends TestHelper {
         ) // Should raise an error. Privacy cannot be applied on types other than string
       )
 
-      attr.checkValidity(schemaHandler, "ignore", new Schema()) shouldBe Left(
+      attr.checkValidity(schemaHandler, "ignore", new SchemaInfo()) shouldBe Left(
         List(
           ValidationMessage(
             Error,
@@ -73,7 +73,7 @@ class SchemaSpec extends TestHelper {
           )
         ) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
       )
-      attr.checkValidity(schemaHandler, "ignore", new Schema()) shouldBe Right(true)
+      attr.checkValidity(schemaHandler, "ignore", new SchemaInfo()) shouldBe Right(true)
     }
 
     "Sub Attribute" should "be present for struct types only" in {
@@ -98,7 +98,7 @@ class SchemaSpec extends TestHelper {
         )
       )
 
-      attr.checkValidity(schemaHandler, "ignore", new Schema()) shouldBe Left(expectedErrors)
+      attr.checkValidity(schemaHandler, "ignore", new SchemaInfo()) shouldBe Left(expectedErrors)
     }
 
     "Position serialization" should "output all fields" in {
@@ -123,7 +123,7 @@ class SchemaSpec extends TestHelper {
     "Default value for an attribute" should "only be used for non obligatory fields" in {
       val requiredAttribute =
         Attribute("requiredAttribute", "long", required = Some(true), default = Some("10"))
-      requiredAttribute.checkValidity(schemaHandler, "ignore", new Schema()) shouldBe Left(
+      requiredAttribute.checkValidity(schemaHandler, "ignore", new SchemaInfo()) shouldBe Left(
         List(
           ValidationMessage(
             Error,
@@ -135,7 +135,9 @@ class SchemaSpec extends TestHelper {
 
       val optionalAttribute =
         Attribute("optionalAttribute", "long", required = Some(false), default = Some("10"))
-      optionalAttribute.checkValidity(schemaHandler, "ignore", new Schema()) shouldBe Right(true)
+      optionalAttribute.checkValidity(schemaHandler, "ignore", new SchemaInfo()) shouldBe Right(
+        true
+      )
     }
   }
 }

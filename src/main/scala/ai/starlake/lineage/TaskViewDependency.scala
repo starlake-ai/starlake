@@ -5,7 +5,7 @@ import ai.starlake.job.transform.AutoTask
 import ai.starlake.lineage
 import ai.starlake.lineage.AutoTaskDependencies.{Item, Relation}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Domain, WriteStrategy}
+import ai.starlake.schema.model.{DomainInfo, WriteStrategy}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.typesafe.scalalogging.StrictLogging
 
@@ -91,7 +91,7 @@ object TaskViewDependency extends StrictLogging {
         case 2 | 3 =>
           val domainPart = parts.dropRight(1).last
           val tablePart = parts.last
-          val theDomain: Option[Domain] = domains
+          val theDomain: Option[DomainInfo] = domains
             .find(_.finalName.toLowerCase() == domainPart.toLowerCase())
           val theTable = theDomain.flatMap(
             _.tables.find(table => table.finalName.toLowerCase() == tablePart.toLowerCase())
@@ -198,7 +198,7 @@ object TaskViewDependency extends StrictLogging {
               val parentTable = parts.length match {
                 case 1 =>
                   val tablePart = parts.last // == 0
-                  val parentDomain: Option[Domain] = domains
+                  val parentDomain: Option[DomainInfo] = domains
                     .find(domain =>
                       domain.tables.exists(_.finalName.toLowerCase() == tablePart.toLowerCase())
                     )
@@ -207,7 +207,7 @@ object TaskViewDependency extends StrictLogging {
                 case 2 | 3 =>
                   val domainPart = parts.dropRight(1).last
                   val tablePart = parts.last
-                  val theDomain: Option[Domain] = domains
+                  val theDomain: Option[DomainInfo] = domains
                     .find(_.finalName.toLowerCase() == domainPart.toLowerCase())
                   val parentDomainFound = theDomain.exists(
                     _.tables.exists(table =>

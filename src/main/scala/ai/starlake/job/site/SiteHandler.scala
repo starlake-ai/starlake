@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.lineage._
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, Domain, Schema}
+import ai.starlake.schema.model.{AutoJobInfo, AutoTaskInfo, DomainInfo, SchemaInfo}
 import ai.starlake.sql.SQLUtils
 import better.files.File
 import com.manticore.jsqlformatter.JSQLFormatter
@@ -50,7 +50,7 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
   private def buildDomain(
     domainPath: File,
     domainIndex: Int,
-    domain: Domain,
+    domain: DomainInfo,
     config: SiteConfig
   ): Unit = {
     val normalizedDomainName = StringUtils.replaceNonAlphanumericWithUnderscore(domain.finalName)
@@ -80,8 +80,8 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
   }
 
   private def buildTable(
-    domain: Domain,
-    schema: Schema,
+    domain: DomainInfo,
+    schema: SchemaInfo,
     tableFile: File,
     config: SiteConfig
   ): Unit = {
@@ -121,7 +121,7 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
   private def buildJob(
     jobPath: File,
     jobIndex: Int,
-    jobDesc: AutoJobDesc,
+    jobDesc: AutoJobInfo,
     config: SiteConfig
   ): Unit = {
     val normalizedJobName = StringUtils.replaceNonAlphanumericWithUnderscore(jobDesc.name)
@@ -149,8 +149,8 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
   }
 
   private def buildTask(
-    jobDesc: AutoJobDesc,
-    taskDesc: AutoTaskDesc,
+    jobDesc: AutoJobInfo,
+    taskDesc: AutoTaskInfo,
     taskFile: File,
     config: SiteConfig
   ) = {
@@ -205,9 +205,9 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
   lazy val sspEngine: TemplateEngine = new TemplateEngine()
 
   def applyTableSSPAndSave(
-    domain: Domain,
+    domain: DomainInfo,
     outputFile: File,
-    table: Schema,
+    table: SchemaInfo,
     config: SiteConfig
   ): Unit = {
     val relationsSVGFile = File(outputFile.parent, table.finalName + "-relations.svg")
@@ -233,8 +233,8 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
   }
 
   def applyTaskSSPAndSave(
-    jobDesc: AutoJobDesc,
-    taskDesc: AutoTaskDesc,
+    jobDesc: AutoJobInfo,
+    taskDesc: AutoTaskInfo,
     outputFile: File,
     config: SiteConfig
   ): Unit = {

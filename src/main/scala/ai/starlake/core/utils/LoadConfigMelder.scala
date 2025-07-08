@@ -1,7 +1,7 @@
 package ai.starlake.core.utils
 
 import ai.starlake.schema.model
-import ai.starlake.schema.model.{Attribute, Domain, Schema, TransformInput}
+import ai.starlake.schema.model.{Attribute, DomainInfo, SchemaInfo, TransformInput}
 
 /** Represents the precedence level for configuration derived from extracted metadata. This object
   * is used within configuration settings to specify that certain values should be taken from the
@@ -143,9 +143,9 @@ class LoadConfigMelder() {
     tableMelderConfig: TableMelderConfig,
     tableAttributeMelderConfig: TableAttributeMelderConfig,
     attributeUnionStrategy: AttributeUnionStrategy,
-    extractedDomain: Domain,
-    currentDomain: Option[Domain]
-  ): Domain = {
+    extractedDomain: DomainInfo,
+    currentDomain: Option[DomainInfo]
+  ): DomainInfo = {
 
     val meldedDomain = meldDomain(domainMelderConfig, extractedDomain, currentDomain)
     val currentTablesMap =
@@ -164,9 +164,9 @@ class LoadConfigMelder() {
 
   def meldDomain(
     melderConfig: DomainMelderConfig,
-    extractedDomain: Domain,
-    currentDomain: Option[Domain]
-  ): Domain = {
+    extractedDomain: DomainInfo,
+    currentDomain: Option[DomainInfo]
+  ): DomainInfo = {
     extractedDomain.copy(
       comment = selectValue(extractedDomain, currentDomain)(_.comment, melderConfig.comment),
       tags = selectValue(extractedDomain, currentDomain)(_.tags, melderConfig.tags),
@@ -181,9 +181,9 @@ class LoadConfigMelder() {
     tableMelderConfig: TableMelderConfig,
     attributeMelderConfig: TableAttributeMelderConfig,
     attributeUnionStrategy: AttributeUnionStrategy,
-    extractedSchema: Schema,
-    currentSchema: Option[Schema]
-  ): Schema = {
+    extractedSchema: SchemaInfo,
+    currentSchema: Option[SchemaInfo]
+  ): SchemaInfo = {
     extractedSchema.copy(
       pattern = selectValue(extractedSchema, currentSchema)(_.pattern, tableMelderConfig.pattern),
       metadata =

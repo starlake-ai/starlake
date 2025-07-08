@@ -2,12 +2,13 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
+import ai.starlake.extract.ExtractSchemaConfig
 import ai.starlake.schema.model.Severity.Error
 import ai.starlake.sql.SQLUtils
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 
-case class TaskDesc(version: Int, task: AutoTaskDesc)
+case class TaskDesc(version: Int, task: AutoTaskInfo)
 
 /** Task executed in the context of a job. Each task is executed in its own session.
   *
@@ -34,7 +35,7 @@ case class TaskDesc(version: Int, task: AutoTaskDesc)
 @JsonIgnoreProperties(
   Array("_filenamePrefix", "_auditTableName", "_dbComment", "write")
 )
-case class AutoTaskDesc(
+case class AutoTaskInfo(
   name: String, // Name of the task. Made of jobName + '.' + tableName
   sql: Option[String],
   database: Option[String],
@@ -78,8 +79,8 @@ case class AutoTaskDesc(
   def getWriteMode(): WriteMode =
     writeStrategy.map(_.toWriteMode()).getOrElse(WriteMode.APPEND)
 
-  def merge(child: AutoTaskDesc): AutoTaskDesc = {
-    AutoTaskDesc(
+  def merge(child: AutoTaskInfo): AutoTaskInfo = {
+    AutoTaskInfo(
       name = child.name,
       sql = child.sql,
       database = child.database.orElse(database),
@@ -111,7 +112,7 @@ case class AutoTaskDesc(
   def checkValidity()(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
     val sinkErrors = sink.map(_.checkValidity(this.name, None)).getOrElse(Right(true))
     val freshnessErrors = freshness.map(_.checkValidity(this.name)).getOrElse(Right(true))
-    val emptySchema = new Schema()
+    val emptySchema = new SchemaInfo()
     val writeStrategyErrors = writeStrategy
       .map(
         _.checkValidity(
@@ -309,7 +310,7 @@ case class AutoTaskDesc(
     */
   def updateAutoTaskDesc(
     attributes: List[AttributeDesc]
-  )(implicit settings: Settings): AutoTaskDesc = {
+  )(implicit settings: Settings): AutoTaskInfo = {
     val withoutDropped =
       this.attributes.filter { existingAttr =>
         attributes.exists(_.name.equalsIgnoreCase(existingAttr.name))
@@ -323,10 +324,24 @@ case class AutoTaskDesc(
     this.copy(attributes = addAndUpdatedAttributes)
   }
 
+  def extractAttributesDiffFromDB(accessToken: Option[String])(implicit settings: Settings) = {
+    val sql = this.getSql()
+    val tableNames = SQLUtils.extractTableNames(sql)
+    val schemaHandler = settings.schemaHandler()
+    ExtractSchemaConfig(
+      tables = tableNames,
+      external = true,
+      outputDir = None,
+      connectionRef = Some(this.getRunConnectionRef()),
+      accessToken = accessToken
+    )
+    // val diff = new JSQLSchemaDiff()
+  }
+
 }
 
-object AutoTaskDesc {
-  def compare(existing: AutoTaskDesc, incoming: AutoTaskDesc): ListDiff[Named] = {
+object AutoTaskInfo {
+  def compare(existing: AutoTaskInfo, incoming: AutoTaskInfo): ListDiff[Named] = {
     AnyRefDiff.diffAnyRef(existing.name, existing, incoming)
   }
 }

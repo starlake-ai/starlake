@@ -25,6 +25,11 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] = {
     ExtractSchemaCmd.run(args, schemaHandler).map(_ => ())
   }
+  def run(config: ExtractSchemaConfig)(implicit settings: Settings): Unit = {
+    ExtractUtils.timeIt("Schema extraction") {
+      extract(config)
+    }
+  }
 
   /** Generate YML file from JDBC Schema stored in a YML file
     *
@@ -36,9 +41,10 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     * @param settings
     *   : Application configuration file
     */
-  def run(userConfig: ExtractSchemaConfig, jdbcSchemas: ExtractSchemas)(implicit
+  def extract(userConfig: ExtractSchemaConfig)(implicit
     settings: Settings
-  ) = {
+  ): Unit = {
+    val jdbcSchemas = fromConfig(userConfig)
     val connectionSettings: Connection = jdbcSchemas.connectionRef match {
       case Some(connectionRef) =>
         settings.appConfig.getConnection(connectionRef).withAccessToken(userConfig.accessToken)
@@ -69,7 +75,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
             userConfig.copy(parallelism = Some(1))
           } else userConfig
           ParUtils.withExecutor(config.parallelism) { implicit extractEC =>
-            implicit val extractExecutionContext =
+            implicit val extractExecutionContext: ExtractExecutionContext =
               new ExtractExecutionContext(extractEC)
             ParUtils.runInParallel(jdbcSchemas.jdbcSchemas.getOrElse(Nil), config.parallelism) {
               jdbcSchema =>
@@ -131,44 +137,32 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     }
   }
 
-  def run(config: ExtractSchemaConfig)(implicit settings: Settings): Unit = {
-    ExtractUtils.timeIt("Schema extraction") {
-      val extractSchemasConfig = fromConfig(config)
-      run(config, extractSchemasConfig)
-    }
-  }
-
   private def fromConfig(
     config: ExtractSchemaConfig
-  )(implicit settings: _root_.ai.starlake.config.Settings): ExtractSchemas = {
-    val userConfig =
-      Try {
-        val extractArea = if (config.external) DatasetArea.external else DatasetArea.extract
-        val extractConfigPath = mappingPath(extractArea, config.extractConfig)
-        settings.storageHandler().exists(extractConfigPath) match {
-          case false =>
-            throw new FileNotFoundException(
-              s"Could not found extract config ${config.extractConfig}. Please check its existence."
-            )
-          case true => // do nothing
-            val content = settings
-              .storageHandler()
-              .read(extractConfigPath)
-              .richFormat(schemaHandler.activeEnvVars(), Map.empty)
-            val extractSchemasConfig =
-              YamlSerde.deserializeYamlExtractConfig(content, config.extractConfig)
-            extractSchemasConfig
-        }
+  )(implicit settings: Settings): ExtractSchemasInfo = {
+    val extractArea = if (config.external) DatasetArea.external else DatasetArea.extract
+    val extractConfigPath = mappingPath(extractArea, config.extractConfig)
+    val ymlExtractConfig =
+      if (settings.storageHandler().exists(extractConfigPath)) {
+        val content = settings
+          .storageHandler()
+          .read(extractConfigPath)
+          .richFormat(schemaHandler.activeEnvVars(), Map.empty)
+        val extractSchemasConfig =
+          YamlSerde.deserializeYamlExtractConfig(content, config.extractConfig)
+        Some(extractSchemasConfig)
+      } else {
+        None
       }
     if (config.all) {
       val connectionRef =
-        userConfig.toOption
+        ymlExtractConfig
           .flatMap(_.connectionRef)
           .orElse(config.connectionRef)
           .getOrElse(settings.appConfig.connectionRef)
       val schemaNames = ParUtils.withExecutor() { ec =>
-        implicit val extractEC = new ExtractExecutionContext(ec)
-        SchemaExtractor.extractSchemaNames(connectionRef, config.accessToken)
+        implicit val extractEC: ExtractExecutionContext = new ExtractExecutionContext(ec)
+        ExtractSchema.extractSchemaNames(connectionRef, config.accessToken)
       }
       val result =
         schemaNames match {
@@ -184,7 +178,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
               )
               jdbcSchema
             }
-            ExtractSchemas(jdbcSchemas = Some(jdbcSchemas), connectionRef = Some(connectionRef))
+            ExtractSchemasInfo(jdbcSchemas = Some(jdbcSchemas), connectionRef = Some(connectionRef))
         }
       result
     } else {
@@ -215,13 +209,15 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
             )
             jdbcSchema
           }
-        ExtractSchemas(jdbcSchemas = Some(jdbcSchemas), connectionRef = config.connectionRef)
+        ExtractSchemasInfo(jdbcSchemas = Some(jdbcSchemas), connectionRef = config.connectionRef)
       } else {
-        userConfig match {
-          case Success(extractSchemasConfig) =>
+        ymlExtractConfig match {
+          case Some(extractSchemasConfig) =>
             extractSchemasConfig
-          case Failure(e) =>
-            throw e
+          case None =>
+            throw new FileNotFoundException(
+              s"Could not found extract config ${config.extractConfig}. Please check its existence."
+            )
         }
       }
     }
@@ -231,8 +227,8 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     jdbcSchema: JDBCSchema,
     connectionSettings: Connection,
     baseOutputDir: Path,
-    domainTemplate: Option[Domain],
-    currentDomain: Option[Domain],
+    domainTemplate: Option[DomainInfo],
+    currentDomain: Option[DomainInfo],
     external: Boolean
   )(implicit
     settings: Settings,
@@ -316,11 +312,11 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
   private def extractDomain(
     jdbcSchema: JDBCSchema,
     connectionSettings: Connection,
-    domainTemplate: Option[Domain]
+    domainTemplate: Option[DomainInfo]
   )(implicit
     settings: Settings,
     dbExtractEC: ExtractExecutionContext
-  ): Domain = {
+  ): DomainInfo = {
     val selectedTablesAndColumns =
       JdbcDbUtils.extractJDBCTables(
         jdbcSchema,
@@ -345,5 +341,45 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
       ),
       Map.empty
     )
+  }
+
+}
+
+object ExtractSchema {
+
+  def extractSchemaNames(
+    connectionName: String,
+    accessToken: Option[String],
+    tables: Map[String, List[String]] = Map.empty
+  )(implicit
+    settings: Settings,
+    dbExtractEC: ExtractExecutionContext
+  ): Try[List[(String, List[String])]] = {
+    val connection = settings.appConfig.connections(connectionName).withAccessToken(accessToken)
+    val connType = connection.`type`
+    connType match {
+      case ConnectionType.JDBC =>
+        val result = JdbcDbUtils.extractSchemasAndTableNames(connection)
+        result
+      case ConnectionType.BQ =>
+        val extractor = new ExtractBigQuerySchema(
+          BigQueryTablesConfig(
+            connectionRef = Some(connectionName),
+            accessToken = accessToken,
+            tables = tables
+          )
+        )
+        val result = extractor.extractSchemasAndTableNames()
+        result
+
+      case ConnectionType.FS =>
+        val job = new SparkExtractorJob()
+        job.schemasAndTableNames()
+      case _ =>
+        Try {
+          throw new IllegalArgumentException(s"Unsupported connection type: $connType")
+        }
+
+    }
   }
 }

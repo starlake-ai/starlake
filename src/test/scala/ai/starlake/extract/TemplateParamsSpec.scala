@@ -9,7 +9,7 @@ class TemplateParamsSpec extends TestHelper {
   val scriptOutputFolder: File = File("/tmp")
   new WithSettings() {
     "fromSchema" should "generate the correct TemplateParams for a given Schema" in {
-      val schema: Schema = Schema(
+      val schema: SchemaInfo = SchemaInfo(
         name = "table1",
         pattern = Pattern.compile("output_file.*.csv"),
         List(
@@ -56,7 +56,7 @@ class TemplateParamsSpec extends TestHelper {
     }
 
     it should "generate the correct TemplateParams for an other Schema" in {
-      val schema: Schema = Schema(
+      val schema: SchemaInfo = SchemaInfo(
         name = "table1",
         pattern = Pattern.compile("output_file.*.csv"),
         List(Attribute(name = "col1"), Attribute(name = "col2", `type` = "long")),

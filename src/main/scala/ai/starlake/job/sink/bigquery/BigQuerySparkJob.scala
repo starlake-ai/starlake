@@ -166,7 +166,7 @@ class BigQuerySparkJob(
       lazy val maybeStarlakeSchema = cliConfig.starlakeSchema
         .orElse(
           cliConfig.source.toOption.map(df =>
-            Schema
+            SchemaInfo
               .fromSparkSchema("df_schema", StructField("ignore", df.schema))
           )
         )

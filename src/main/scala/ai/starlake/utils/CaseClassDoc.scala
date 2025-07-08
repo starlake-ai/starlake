@@ -1,6 +1,6 @@
 package ai.starlake.utils
 
-import ai.starlake.schema.model.Domain
+import ai.starlake.schema.model.DomainInfo
 
 object CaseClassDoc {
   import scala.reflect.runtime.universe._
@@ -46,6 +46,6 @@ object CaseClassDoc {
   case class Person(name: String, age: Int)
 
   def main(args: Array[String]): Unit =
-    generateCaseClassDocumentation(Domain(""))
+    generateCaseClassDocumentation(DomainInfo(""))
 
 }

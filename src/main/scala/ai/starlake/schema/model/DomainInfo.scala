@@ -38,7 +38,7 @@ import scala.util.Try
   * @param load:
   *   Domain to load
   */
-case class LoadDesc(version: Int, load: Domain)
+case class DomainDesc(version: Int, load: DomainInfo)
 
 /** Let's say you are willing to import customers and orders from your Sales system. Sales is
   * therefore the domain and customers & orders are your datasets. In a DBMS, A Domain would be
@@ -83,10 +83,10 @@ case class LoadDesc(version: Int, load: Domain)
 @JsonIgnoreProperties(
   Array("tables")
 )
-@nowarn case class Domain(
+@nowarn case class DomainInfo(
   name: String,
   metadata: Option[Metadata] = None,
-  tables: List[Schema] = Nil, // used internally only
+  tables: List[SchemaInfo] = Nil, // used internally only
   comment: Option[String] = None,
   tags: Set[String] = Set.empty,
   rename: Option[String] = None,
@@ -108,7 +108,7 @@ case class LoadDesc(version: Int, load: Domain)
     *   : dataset filename
     * @return
     */
-  def findSchema(filename: String): Option[Schema] = {
+  def findSchema(filename: String): Option[SchemaInfo] = {
     tables.find(_.pattern.matcher(filename).matches())
   }
 
@@ -121,7 +121,7 @@ case class LoadDesc(version: Int, load: Domain)
     *   attributes dynamically computed mappings
     */
   def esMapping(
-    schema: Schema
+    schema: SchemaInfo
   )(implicit settings: Settings): Option[String] = {
     val template = new Path(new Path(DatasetArea.mapping, this.name), schema.name + ".json")
     if (settings.storageHandler().exists(template))
@@ -259,7 +259,7 @@ case class LoadDesc(version: Int, load: Domain)
       .flatMap(_.foreignTablesForDot(this.finalName))
   }
 
-  def getTables(tableNames: Seq[String]): List[Schema] = {
+  def getTables(tableNames: Seq[String]): List[SchemaInfo] = {
     val filteredTables = tableNames.flatMap { tableName =>
       this.tables.filter { table =>
         tableNames
@@ -269,7 +269,7 @@ case class LoadDesc(version: Int, load: Domain)
     filteredTables.toList
   }
 
-  def aclTables(config: AclDependenciesConfig): List[Schema] = {
+  def aclTables(config: AclDependenciesConfig): List[SchemaInfo] = {
     val filteredTables = if (config.tables.nonEmpty) {
       tables.filter { table =>
         config.tables.exists(
@@ -336,7 +336,7 @@ case class LoadDesc(version: Int, load: Domain)
 
 }
 
-object Domain {
+object DomainInfo {
   def checkFilenamesValidity()(implicit
     storage: StorageHandler,
     settings: Settings
@@ -385,12 +385,12 @@ object Domain {
     allWarnings
   }
 
-  def compare(existing: Domain, incoming: Domain): Try[DomainDiff] = {
+  def compare(existing: DomainInfo, incoming: DomainInfo): Try[DomainDiff] = {
     Try {
       val (addedTables, deletedTables, existingCommonTables) =
         AnyRefDiff.partitionNamed(existing.tables, incoming.tables)
 
-      val commonTables: List[(Schema, Schema)] = existingCommonTables.map { table =>
+      val commonTables: List[(SchemaInfo, SchemaInfo)] = existingCommonTables.map { table =>
         (
           table,
           incoming.tables
@@ -401,7 +401,7 @@ object Domain {
 
       val updatedTablesDiff: List[TableDiff] = commonTables.flatMap {
         case (existingTable, incomingTable) =>
-          Schema.compare(existingTable, incomingTable).toOption
+          SchemaInfo.compare(existingTable, incomingTable).toOption
       }
       val metadataDiff: ListDiff[Named] =
         AnyRefDiff.diffOptionAnyRef("metadata", existing.metadata, incoming.metadata)

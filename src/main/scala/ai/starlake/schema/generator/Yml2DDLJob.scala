@@ -29,7 +29,7 @@ import ai.starlake.extract.{
   ParUtils
 }
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Domain, Schema}
+import ai.starlake.schema.model.{DomainInfo, SchemaInfo}
 import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
@@ -69,7 +69,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
           List(res)
       }
       val sqlString = new StringBuffer()
-      Try(Domain.ddlExtract(config.datawarehouse, "global")) match {
+      Try(DomainInfo.ddlExtract(config.datawarehouse, "global")) match {
         case scala.util.Success(_) =>
           // global.ssp exists
           val customParamMap = Map(
@@ -84,7 +84,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
       domains.map { domain =>
         val domainLabels = Utils.labels(domain.tags)
 
-        Try(Domain.ddlExtract(config.datawarehouse, "domain")) match {
+        Try(DomainInfo.ddlExtract(config.datawarehouse, "domain")) match {
           case scala.util.Success(_) =>
             // domain.ssp exists
             val customParamMap = Map(
@@ -98,7 +98,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
           case scala.util.Failure(_) =>
           // no domain.ssp file, do nothing
         }
-        val schemas: Seq[Schema] = config.schemas match {
+        val schemas: Seq[SchemaInfo] = config.schemas match {
           case Some(schemas) =>
             schemas.flatMap(schema =>
               domain.tables.find(_.name.toLowerCase() == schema.toLowerCase)
@@ -311,7 +311,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
     dropParamMap: Map[String, Any]
   ): String = {
     val (templatePath, templateContent) =
-      Domain.ddlExtract(
+      DomainInfo.ddlExtract(
         config.datawarehouse,
         ddlType
       )

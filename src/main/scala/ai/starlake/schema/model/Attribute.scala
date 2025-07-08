@@ -130,7 +130,7 @@ case class Attribute(
   def checkValidity(
     schemaHandler: SchemaHandler,
     domainName: String,
-    schema: Schema
+    schema: SchemaInfo
   ): Either[List[ValidationMessage], Boolean] = {
     val tableName = schema.getName()
     val errorList: mutable.ListBuffer[ValidationMessage] = mutable.ListBuffer.empty

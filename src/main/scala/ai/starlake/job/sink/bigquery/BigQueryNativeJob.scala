@@ -7,7 +7,7 @@ import ai.starlake.schema.model.{
   FieldPartitionInfo,
   Format,
   Materialization,
-  Schema,
+  SchemaInfo,
   TableInfo => SLTableInfo
 }
 import ai.starlake.sql.SQLUtils
@@ -17,7 +17,7 @@ import com.google.cloud.bigquery.BigQuery.QueryResultsOption
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption, WriteDisposition}
 import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
-import com.google.cloud.bigquery.{Schema => BQSchema, Table, _}
+import com.google.cloud.bigquery.{Schema as BQSchema, *}
 import com.google.cloud.{PageImpl, RetryOption}
 import com.manticore.jsqlformatter.JSQLFormatter
 
@@ -151,7 +151,7 @@ class BigQueryNativeJob(
     jobId
   }
 
-  def getTableInfo(tableId: TableId, toBQSchema: Schema => BQSchema): SLTableInfo = {
+  def getTableInfo(tableId: TableId, toBQSchema: SchemaInfo => BQSchema): SLTableInfo = {
     SLTableInfo(
       tableId,
       cliConfig.outputTableDesc,

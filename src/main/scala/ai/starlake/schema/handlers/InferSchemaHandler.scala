@@ -603,8 +603,8 @@ object InferSchemaHandler extends StrictLogging {
     attributes: List[Attribute],
     metadata: Option[Metadata],
     sample: Option[String]
-  ): Schema =
-    Schema(
+  ): SchemaInfo =
+    SchemaInfo(
       name = name,
       pattern = pattern,
       attributes = attributes,
@@ -630,9 +630,9 @@ object InferSchemaHandler extends StrictLogging {
   def createDomain(
     name: String,
     metadata: Option[Metadata] = None,
-    schemas: List[Schema] = Nil
-  ): Domain =
-    Domain(name = name, metadata = metadata, tables = schemas)
+    schemas: List[SchemaInfo] = Nil
+  ): DomainInfo =
+    DomainInfo(name = name, metadata = metadata, tables = schemas)
 
   /** * Generates the YAML file using the domain object and a savepath
     *
@@ -641,7 +641,7 @@ object InferSchemaHandler extends StrictLogging {
     * @param savePath
     *   path to save files.
     */
-  def generateYaml(domain: Domain, saveDir: String, clean: Boolean)(implicit
+  def generateYaml(domain: DomainInfo, saveDir: String, clean: Boolean)(implicit
     settings: Settings
   ): Try[Path] = Try {
     implicit val storageHandler: StorageHandler = settings.storageHandler()

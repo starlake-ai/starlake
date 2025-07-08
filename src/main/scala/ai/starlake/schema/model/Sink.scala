@@ -223,7 +223,7 @@ final case class AllSinks(
 
   def checkValidity(
     tableName: String,
-    table: Option[Schema]
+    table: Option[SchemaInfo]
   )(implicit settings: Settings): Either[List[ValidationMessage], Boolean] = {
     var errors = List.empty[ValidationMessage]
 

@@ -124,7 +124,7 @@ case class Metadata(
 
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
-  def checkValidity(domainName: String, table: Option[Schema])(implicit
+  def checkValidity(domainName: String, table: Option[SchemaInfo])(implicit
     settings: Settings
   ): Either[List[ValidationMessage], Boolean] = {
     val tableName = table.map(_.name).getOrElse("")

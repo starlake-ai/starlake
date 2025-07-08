@@ -93,7 +93,7 @@ class StorageHandlerSpec extends TestHelper {
     }
 
     "Domain Case Class" should "be written as yaml and read correctly" in {
-      val domain = Domain(
+      val domain = DomainInfo(
         name = "DOMAIN",
         metadata = Some(
           Metadata(
@@ -110,7 +110,7 @@ class StorageHandlerSpec extends TestHelper {
           )
         ),
         tables = List(
-          Schema(
+          SchemaInfo(
             "User",
             Pattern.compile("SCHEMA-.*.dsv"),
             List(
@@ -150,7 +150,7 @@ class StorageHandlerSpec extends TestHelper {
       // TODO different behaviour between sbt & intellij
       //    readFileContent(pathDomain) shouldBe loadFile("/expected/yml/domain.yml")
 
-      val resultDomain: Domain = mapper.readValue[Domain](storageHandler.read(pathDomain))
+      val resultDomain: DomainInfo = mapper.readValue[DomainInfo](storageHandler.read(pathDomain))
 
       resultDomain.name shouldBe domain.name
       resultDomain.resolveDirectory() shouldBe domain.resolveDirectory()
@@ -193,7 +193,7 @@ class StorageHandlerSpec extends TestHelper {
     }
 
     "Business Job Definition" should "be valid json" in {
-      val businessTask1 = AutoTaskDesc(
+      val businessTask1 = AutoTaskInfo(
         name = "",
         sql = Some("select * from domain"),
         database = None,
@@ -213,7 +213,7 @@ class StorageHandlerSpec extends TestHelper {
       storageHandler.write(businessJobDef, pathBusiness)
 
       val configJob =
-        AutoJobDesc(
+        AutoJobInfo(
           "",
           Nil
         )
@@ -225,10 +225,10 @@ class StorageHandlerSpec extends TestHelper {
       storageHandler.write(configJobDef, pathConfigBusiness)
 
       val expected = mapper
-        .readValue(loadTextFile("/expected/yml/business.sl.yml"), classOf[AutoJobDesc])
+        .readValue(loadTextFile("/expected/yml/business.sl.yml"), classOf[AutoJobInfo])
       logger.info(readFileContent(pathBusiness))
       val actual = mapper
-        .readValue(readFileContent(pathBusiness), classOf[AutoJobDesc])
+        .readValue(readFileContent(pathBusiness), classOf[AutoJobInfo])
       actual shouldEqual expected
     }
   }

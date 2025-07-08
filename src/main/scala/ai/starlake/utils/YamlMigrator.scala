@@ -354,7 +354,7 @@ object YamlMigrator extends LazyLogging {
             val mergeNode = tableOrTransform.path("merge")
             val keyNode = mergeNode.path("key")
             val timestampNode = mergeNode.path("timestamp")
-            // write strategy is created in migrateMetadata and set when dynamic partition overwrite is used only. AutoTaskDesc don't have this declarative feature.
+            // write strategy is created in migrateMetadata and set when dynamic partition overwrite is used only. AutoTaskInfo don't have this declarative feature.
             val existingWriteStrategyNode = tableOrTransform.path("metadata").path("writeStrategy")
             val writeStrategyType = existingWriteStrategyNode.path("type") match {
               case tn: TextNode => tn.textValue()
