@@ -336,6 +336,7 @@ case class AutoTaskInfo(
       accessToken = accessToken
     )
     val extractor = new ExtractSchema(schemaHandler)
+    extractor.extract(config)
     // val diff = new JSQLSchemaDiff()
   }
 

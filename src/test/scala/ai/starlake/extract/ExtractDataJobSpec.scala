@@ -3,7 +3,7 @@ package ai.starlake.extract
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
-import ai.starlake.schema.model.{Attribute, PrimitiveType}
+import ai.starlake.schema.model.{Attribute, JDBCSchema, JDBCTable, PrimitiveType}
 import better.files.File
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterEach
@@ -12,7 +12,6 @@ import java.nio.charset.StandardCharsets
 import java.sql.{DriverManager, ResultSet}
 import java.time.{LocalDateTime, OffsetDateTime, ZoneId}
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.ExecutionContext
 import scala.util.Success
 
 class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
