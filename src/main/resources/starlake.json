@@ -1184,6 +1184,13 @@
             "$ref": "#/definitions/ConvertibleToString"
           }
         },
+        "primaryKey": {
+          "type": "array",
+          "description": "List og columnsthat make up the primary key",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          }
+        },
         "database": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Output Database (refer to a project id in BigQuery). Default to SL_DATABASE env var if set."
@@ -1373,6 +1380,10 @@
           "description": "Column description"
         },
         "accessPolicy": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Access policy to apply to this column"
+        },
+        "foreignKey": {
           "$ref": "#/definitions/ConvertibleToString",
           "description": "Access policy to apply to this column"
         }

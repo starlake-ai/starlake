@@ -1498,14 +1498,14 @@ object YamlConfigGenerators {
     } yield ApplicationDesc(latestSchemaVersion, application = appConfig)
   }
 
-  implicit val attributeDesc: Arbitrary[AttributeDesc] = Arbitrary {
+  implicit val attributeDesc: Arbitrary[TaskAttribute] = Arbitrary {
     for {
       name         <- arbitrary[String]
       `type`       <- arbitrary[String]
       comment      <- arbitrary[String]
       accessPolicy <- Gen.option(arbitrary[String])
       foreignKey   <- Gen.option(arbitrary[String])
-    } yield AttributeDesc(
+    } yield TaskAttribute(
       name = name,
       `type` = `type`,
       comment = comment,
@@ -1525,7 +1525,6 @@ object YamlConfigGenerators {
       database       <- Gen.option(arbitrary[String])
       domain         <- arbitrary[String]
       table          <- arbitrary[String]
-      partition      <- arbitrary[List[String]]
       presql         <- arbitrary[List[String]]
       postsql        <- arbitrary[List[String]]
       sink           <- Gen.option(arbitrary[AllSinks])
@@ -1534,7 +1533,7 @@ object YamlConfigGenerators {
       acl            <- arbitrary[List[AccessControlEntry]]
       comment        <- Gen.option(arbitrary[String])
       freshness      <- Gen.option(arbitrary[Freshness])
-      attributesDesc <- arbitrary[List[AttributeDesc]]
+      attributesDesc <- arbitrary[List[TaskAttribute]]
       python         <- Gen.option(arbitrary[Path])
       tags           <- arbitrary[List[String]].map(_.toSet)
       schedule       <- Gen.option(arbitrary[String])

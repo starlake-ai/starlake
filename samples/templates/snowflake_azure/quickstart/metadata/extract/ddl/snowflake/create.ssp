@@ -5,11 +5,11 @@
 <%@ val alterRequiredAttributes: List[Map[String, Any]] %>
 <%@ val alterDataTypeAttributes: List[Map[String, Any]] %>
 <%@ val droppedAttributes: List[Map[String, Any]] %>
-<%@ val domain: ai.starlake.schema.model.Domain %>
+<%@ val domain: ai.starlake.schema.model.DomainInfo %>
 <%@ val domainName: String %>
 <%@ val domainComment: String = ""  %>
 <%@ val domainLabels: Map[String, String] %>
-<%@ val table: ai.starlake.schema.model.Schema %>
+<%@ val table: ai.starlake.schema.model.SchemaInfo %>
 <%@ val tableName: String %>
 <%@ val tableComment: String = ""  %>
 <%@ val tableLabels: Map[String, String] %>
