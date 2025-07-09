@@ -709,16 +709,16 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
           validatedDF.select(explode(col(SL_ERROR_COL))).as[String].collect()
 
         errors should contain theSameElementsAs List(
+          "`long` (long) doesn't match pattern `-?\\d+`: a10",
+          "`boolean` (boolean) doesn't match pattern `(?i)true|yes|[y1]|t<-TF->(?i)false|no|[n0]|f`: vrai",
           "`timestamp` (iso_date_time) doesn't match pattern `ISO_DATE_TIME`: 2011-12-03 10:15:30+01:00",
-          "`date` (date) doesn't match pattern `yyyy-MM-dd`: 2023-13-27",
-          "`long` (long) doesn't match pattern `[-+]?[0-9]+`: a10",
-          "`int` cannot be converted to `long` with sl type `int`: 9223372036854775808",
           "`double` (double) doesn't match pattern `[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*`: 12,5",
-          "`decimal` (decimal) doesn't match pattern `[+-]?\\d*\\.?\\d+(?:[eE][+-]?\\d+)?`: 012.5F-5",
+          "`int` cannot be converted to `long` with sl type `int`: 9223372036854775808",
+          "`date` (date) doesn't match pattern `yyyy-MM-dd`: 2023-13-27",
+          "`decimal` (decimal) doesn't match pattern `[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*`: 012.5F-5",
           "`byte` (byte) doesn't match pattern `.`: more than one byte",
-          "`short` (short) doesn't match pattern `[-+]?[0-9]+`: +",
           "`string` (string) doesn't match pattern `.*CONTAINS.*`: string value\nthis is not the expected keyword: MISSING in \n the pattern.",
-          "`boolean` (boolean) doesn't match pattern `(?i)true|yes|[y1]|t<-TF->(?i)false|no|[n0]|f`: vrai"
+          "`short` (short) doesn't match pattern `-?\\d+`: +"
         )
       }
     }
@@ -777,12 +777,12 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
         errors should contain theSameElementsAs (List(
           "`timestamp[0]` (iso_date_time) doesn't match pattern `ISO_DATE_TIME`: 2011-12-03 10:15:30+01:00",
           "`date[0]` (date) doesn't match pattern `yyyy-MM-dd`: 2023-13-27",
-          "`long[0]` (long) doesn't match pattern `[-+]?[0-9]+`: a10",
+          "`long[0]` (long) doesn't match pattern `-?\\d+`: a10",
           "`int[0]` cannot be converted to `long` with sl type `int`: 9223372036854775808",
           "`double[0]` (double) doesn't match pattern `[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*`: 12,5",
-          "`decimal[0]` (decimal) doesn't match pattern `[+-]?\\d*\\.?\\d+(?:[eE][+-]?\\d+)?`: 012.5F-5",
+          "`decimal[0]` (decimal) doesn't match pattern `[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*`: 012.5F-5",
           "`byte[0]` (byte) doesn't match pattern `.`: more than one byte",
-          "`short[0]` (short) doesn't match pattern `[-+]?[0-9]+`: +",
+          "`short[0]` (short) doesn't match pattern `-?\\d+`: +",
           "`string[0]` (string) doesn't match pattern `.*CONTAINS.*`: string value\nthis is not the expected keyword: MISSING in \n the pattern.",
           "`boolean[0]` (boolean) doesn't match pattern `(?i)true|yes|[y1]|t<-TF->(?i)false|no|[n0]|f`: vrai"
         ))
@@ -839,12 +839,12 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
         errors should contain theSameElementsAs List(
           "`struct_root.timestamp` (iso_date_time) doesn't match pattern `ISO_DATE_TIME`: 2011-12-03 10:15:30+01:00",
           "`struct_root.date` (date) doesn't match pattern `yyyy-MM-dd`: 2023-13-27",
-          "`struct_root.long` (long) doesn't match pattern `[-+]?[0-9]+`: a10",
+          "`struct_root.long` (long) doesn't match pattern `-?\\d+`: a10",
           "`struct_root.int` cannot be converted to `long` with sl type `int`: 9223372036854775808",
           "`struct_root.double` (double) doesn't match pattern `[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*`: 12,5",
-          "`struct_root.decimal` (decimal) doesn't match pattern `[+-]?\\d*\\.?\\d+(?:[eE][+-]?\\d+)?`: 012.5F-5",
+          "`struct_root.decimal` (decimal) doesn't match pattern `[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*`: 012.5F-5",
           "`struct_root.byte` (byte) doesn't match pattern `.`: more than one byte",
-          "`struct_root.short` (short) doesn't match pattern `[-+]?[0-9]+`: +",
+          "`struct_root.short` (short) doesn't match pattern `-?\\d+`: +",
           "`struct_root.string` (string) doesn't match pattern `.*CONTAINS.*`: string value\nthis is not the expected keyword: MISSING in \n the pattern.",
           "`struct_root.boolean` (boolean) doesn't match pattern `(?i)true|yes|[y1]|t<-TF->(?i)false|no|[n0]|f`: vrai"
         )
@@ -907,12 +907,12 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
         errors should contain theSameElementsAs List(
           "`array_root[0].timestamp` (iso_date_time) doesn't match pattern `ISO_DATE_TIME`: 2011-12-03 10:15:30+01:00",
           "`array_root[0].date` (date) doesn't match pattern `yyyy-MM-dd`: 2023-13-27",
-          "`array_root[0].long` (long) doesn't match pattern `[-+]?[0-9]+`: a10",
+          "`array_root[0].long` (long) doesn't match pattern `-?\\d+`: a10",
           "`array_root[0].int` cannot be converted to `long` with sl type `int`: 9223372036854775808",
           "`array_root[0].double` (double) doesn't match pattern `[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*`: 12,5",
-          "`array_root[0].decimal` (decimal) doesn't match pattern `[+-]?\\d*\\.?\\d+(?:[eE][+-]?\\d+)?`: 012.5F-5",
+          "`array_root[0].decimal` (decimal) doesn't match pattern `[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*`: 012.5F-5",
           "`array_root[0].byte` (byte) doesn't match pattern `.`: more than one byte",
-          "`array_root[0].short` (short) doesn't match pattern `[-+]?[0-9]+`: +",
+          "`array_root[0].short` (short) doesn't match pattern `-?\\d+`: +",
           "`array_root[0].string` (string) doesn't match pattern `.*CONTAINS.*`: string value\nthis is not the expected keyword: MISSING in \n the pattern.",
           "`array_root[0].boolean` (boolean) doesn't match pattern `(?i)true|yes|[y1]|t<-TF->(?i)false|no|[n0]|f`: vrai"
         )
@@ -999,8 +999,8 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
           validatedDF.select(explode(col(SL_ERROR_COL))).as[String].collect()
 
         errors should contain theSameElementsAs List(
-          "`int_array[1]` (int) doesn't match pattern `[-+]?[0-9]+`: a",
-          "`int_array[3]` (int) doesn't match pattern `[-+]?[0-9]+`: b"
+          "`int_array[1]` (int) doesn't match pattern `[-|\\+|0-9][0-9]*`: a",
+          "`int_array[3]` (int) doesn't match pattern `[-|\\+|0-9][0-9]*`: b"
         )
       }
     }

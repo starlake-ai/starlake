@@ -43,7 +43,7 @@ class Xls2YmlAutoJobSpec extends TestHelper {
         sink.requirePartitionFilter shouldBe Some(true)
       }
       result.comment shouldBe Some("jointure source1 et source2")
-      result.rls.size shouldBe 0
+      result.rls.size shouldBe 1
       result.acl.size shouldBe 1
       result.attributes.size shouldBe 3
       result.attributes.map(_.comment) shouldEqual List(

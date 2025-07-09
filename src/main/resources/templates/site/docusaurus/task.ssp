@@ -1,4 +1,4 @@
-<%@ val task: ai.starlake.schema.model.AutoTaskDesc %>
+<%@ val task: ai.starlake.schema.model.AutoTaskInfo %>
 <%@ val schemaHandler: ai.starlake.schema.handlers.SchemaHandler %>
 <%@ val relationsSVG: String %>
 <%@ val aclSVG: String %>

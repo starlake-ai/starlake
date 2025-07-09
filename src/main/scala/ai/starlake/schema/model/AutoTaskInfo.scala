@@ -49,7 +49,7 @@ case class AutoTaskInfo(
   acl: List[AccessControlEntry] = Nil,
   comment: Option[String] = None,
   freshness: Option[Freshness] = None,
-  attributes: List[AttributeDesc] = Nil,
+  attributes: List[TaskAttribute] = Nil,
   python: Option[Path] = None,
   tags: Set[String] = Set.empty,
   writeStrategy: Option[WriteStrategy] = None,
@@ -272,8 +272,8 @@ case class AutoTaskInfo(
     * @return
     */
   def extractAttributesDiff(
-    sqlAttributes: List[AttributeDesc]
-  )(implicit settings: Settings): List[(AttributeDesc, AttributeStatus)] = {
+    sqlAttributes: List[TaskAttribute]
+  )(implicit settings: Settings): List[(TaskAttribute, AttributeStatus)] = {
     val addedAndModifiedAttributes = sqlAttributes
       .map { attr =>
         this.attributes.find(_.name.equalsIgnoreCase(attr.name)) match {
@@ -310,7 +310,7 @@ case class AutoTaskInfo(
     * @return
     */
   def updateAutoTaskDesc(
-    attributes: List[AttributeDesc]
+    attributes: List[TaskAttribute]
   )(implicit settings: Settings): AutoTaskInfo = {
     val withoutDropped =
       this.attributes.filter { existingAttr =>

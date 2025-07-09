@@ -91,7 +91,6 @@ case class AutoJobInfo(
       Left(errorList.toList)
 
   }
-
 }
 
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
@@ -101,7 +100,7 @@ case class AutoJobInfo(
   * @param comment
   *   : free text for attribute description
   */
-case class AttributeDesc(
+case class TaskAttribute(
   name: String,
   `type`: String = "variant",
   comment: String = "",

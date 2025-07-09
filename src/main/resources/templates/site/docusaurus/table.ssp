@@ -1,4 +1,4 @@
-<%@ val table: ai.starlake.schema.model.Schema %>
+<%@ val table: ai.starlake.schema.model.SchemaInfo %>
 <%@ val schemaHandler: ai.starlake.schema.handlers.SchemaHandler %>
 <%@ val relationsSVG: String %>
 <%@ val aclSVG: String %>
