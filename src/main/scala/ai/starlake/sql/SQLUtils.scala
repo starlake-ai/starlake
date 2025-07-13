@@ -3,15 +3,18 @@ package ai.starlake.sql
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.handlers.TableWithNameAndType
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.transpiler.{JSQLColumResolver, JSQLTranspiler}
 import ai.starlake.utils.Utils
 import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.StrictLogging
+import net.sf.jsqlparser.expression.Alias
 import net.sf.jsqlparser.parser.{CCJSqlParser, CCJSqlParserUtil}
+import net.sf.jsqlparser.schema.Column
 import net.sf.jsqlparser.statement.select.{
   PlainSelect,
   Select,
+  SelectItem,
   SelectVisitorAdapter,
   SetOperationList
 }
@@ -21,7 +24,7 @@ import net.sf.jsqlparser.util.TablesNamesFinder
 import java.util.UUID
 import java.util.function.Consumer
 import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -614,4 +617,74 @@ object SQLUtils extends StrictLogging {
       -1
     }
   }
+
+  def addSelectItem(
+    statement: String,
+    columnName: String,
+    columnExpr: Option[String] = None
+  ): String = {
+    val select = CCJSqlParserUtil.parse(statement).asInstanceOf[PlainSelect]
+    columnExpr match {
+      case Some(expr) =>
+        val f = new Column(expr)
+        val itemAdd = new SelectItem(f, new Alias(columnName, true))
+        val items = select.getSelectItems
+        select.getSelectItems.add(itemAdd)
+      case None =>
+        // If no expression is provided, we just add the column name
+        val f = new Column(columnName)
+        val itemAdd = new SelectItem(f)
+        select.getSelectItems.add(itemAdd)
+    }
+    select.toString
+  }
+  def deleteSelectItem(statement: String, columnName: String): String = {
+    val select = CCJSqlParserUtil.parse(statement).asInstanceOf[PlainSelect]
+    val itemsToRemove = select.getSelectItems.asScala.filter { item =>
+      item.getExpression() match {
+        case col: Column => col.getColumnName == columnName
+        case _ =>
+          val alias = item.getAlias()
+          alias != null && alias.getName == columnName
+      }
+    }
+    itemsToRemove.foreach(select.getSelectItems.remove)
+    select.toString
+  }
+  def upsertSelectItem(
+    statement: String,
+    columnName: String,
+    columnExpr: Option[String] = None
+  ): String = {
+    val select = CCJSqlParserUtil.parse(statement).asInstanceOf[PlainSelect]
+    val items = select.getSelectItems
+    // update the column if it exists
+    val indexToUpdate = items.asScala.indexWhere { item =>
+      item.getExpression() match {
+        case col: Column => col.getColumnName == columnName
+        case _ =>
+          val alias = item.getAlias()
+          alias != null && alias.getName == columnName
+      }
+    }
+    indexToUpdate match {
+      case index if index >= 0 =>
+        columnExpr match {
+          case Some(expr) =>
+            val f = new Column(expr)
+            val updatedItem = new SelectItem(f, new Alias(columnName, true))
+            items.set(index, updatedItem)
+          case None =>
+            // If no expression is provided, we just update the column name
+            val f = new Column(columnName)
+            val updatedItem = new SelectItem(f)
+            items.set(index, updatedItem)
+        }
+      case _ => // -1
+        // If the column does not exist, we add it
+        addSelectItem(statement, columnName, columnExpr)
+    }
+    select.toString
+  }
+
 }
