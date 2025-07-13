@@ -7,7 +7,7 @@ object Versions {
   val sparkXML2d0 = "0.13.0"
   val sparkXML = "0.18.0"
   val springBoot = "2.0.6.RELEASE"
-  val typesafeConfig = "1.4.3"
+  val typesafeConfig = "1.4.4"
   val scalaLogging = "3.9.5"
   val zookeeper = "3.4.6"
   val jets3t = "0.9.3"
