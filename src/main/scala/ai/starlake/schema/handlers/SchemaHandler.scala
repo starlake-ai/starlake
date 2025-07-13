@@ -1841,6 +1841,22 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
+  def taskUpdated(
+    domainName: String,
+    taskName: String
+  ): Try[Unit] = {
+    taskDeleted(domainName, taskName)
+    taskAdded(domainName, taskName)
+  }
+
+  def tableUpdated(
+    domainName: String,
+    tableName: String
+  ): Try[Unit] = {
+    tableDeleted(domainName, tableName)
+    tableAdded(domainName, tableName)
+  }
+
   def tableAdded(domain: String, table: String): Try[Unit] = {
     _domains.getOrElse(Nil).find(_.name.toLowerCase() == domain.toLowerCase()) match {
       case None =>
@@ -1864,6 +1880,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def taskAdded(domainName: String, taskName: String): Try[Unit] = {
+    // Add the domain if it does not exist
     _jobs.find(_.name.toLowerCase() == domainName.toLowerCase()) match {
       case None =>
         _jobs = _jobs :+ AutoJobInfo(domainName)
@@ -1871,6 +1888,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       // do nothing
     }
 
+    // Load the task and add it to the job, replace if it already exists
     taskOnly(s"${domainName}.${taskName}", reload = true) match {
       case Success(taskDesc) =>
         _jobs.find(_.name.toLowerCase() == domainName.toLowerCase()) match {
@@ -1954,7 +1972,28 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def addFK(
+  def deleteTablePK(
+    domainName: String,
+    tableName: String
+  ): Try[Unit] =
+    setTablePK(domainName, tableName, Nil)
+
+  def setTablePK(
+    domainName: String,
+    tableName: String,
+    pk: List[String]
+  ): Try[Unit] = Try {
+    val path = new Path(DatasetArea.load, domainName + "/" + tableName + ".sl.yml")
+    val content = storage.read(path)
+    val tableDesc = YamlSerde.deserializeYamlTables(content, path.toString).head
+    val table = tableDesc.table
+    val tableWithPK = table.copy(primaryKey = pk)
+    val updatedTableDesc = tableDesc.copy(table = tableWithPK)
+    YamlSerde.serializeToPath(path, updatedTableDesc)(settings.storageHandler())
+    tableUpdated(domainName, tableName)
+  }
+
+  def setTableFK(
     domainName: String,
     tableName: String,
     columnName: String,
@@ -1962,21 +2001,21 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     targetTableName: String,
     targetColumnName: String
   ): Try[Unit] =
-    updateFK(
+    setTableFK(
       domainName,
       tableName,
       columnName,
       Some(s"${targetDomainName}.${targetTableName}.${targetColumnName}")
     )
 
-  def deleteFK(
+  def deleteTableFK(
     domainName: String,
     tableName: String,
     columnName: String
   ): Try[Unit] =
-    updateFK(domainName, tableName, columnName, None)
+    setTableFK(domainName, tableName, columnName, None)
 
-  def updateFK(
+  def setTableFK(
     domainName: String,
     tableName: String,
     columnName: String,
@@ -1995,6 +2034,27 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val updatedTable = table.copy(attributes = tableWithFK)
     val updatedTableDesc = tableDesc.copy(table = updatedTable)
     YamlSerde.serializeToPath(path, updatedTableDesc)(settings.storageHandler())
+    tableUpdated(domainName, tableName)
+  }
+
+  def deleteTaskPK(
+    domainName: String,
+    tableName: String
+  ): Try[Unit] =
+    setTaskPK(domainName, tableName, Nil)
+
+  def setTaskPK(
+    domainName: String,
+    tableName: String,
+    pk: List[String]
+  ): Try[Unit] = Try {
+    val path = new Path(DatasetArea.transform, domainName + "/" + tableName + ".sl.yml")
+    val content = storage.read(path)
+    val taskInfo = YamlSerde.deserializeYamlTask(content, path.toString)
+
+    val taskInfoWithPK = taskInfo.copy(primaryKey = pk)
+    YamlSerde.serializeToPath(path, taskInfoWithPK)(settings.storageHandler())
+    taskUpdated(domainName, tableName)
   }
 
   def streams(): CaseInsensitiveMap[String] = {

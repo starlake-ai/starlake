@@ -245,8 +245,10 @@ case class AutoTaskInfo(
   /** Extracts attributes from the SQL statement.
     * @param settings
     * @return
+    *   * List of tuples containing the attribute name and its type. The type is set to "undefined"
+    *   as
     */
-  def extractAttributesFromSql()(implicit settings: Settings): List[(String, String)] = {
+  def attributesInSqlStatement()(implicit settings: Settings): List[(String, String)] = {
     val schemaHandler = settings.schemaHandler()
     val allVars = schemaHandler.activeEnvVars()
     val inputSQL = getSql()
@@ -266,15 +268,21 @@ case class AutoTaskInfo(
 
   /** Extracts attributes from the SQL statement and compares them with the existing attributes in
     * the yaml
-    * @param sqlAttributes
-    *   List of attributes extracted from the SQL statement.
+    * @param sqlStatementAttributes
+    *   List of attributes extracted from an incoming SQL statement
     * @param settings
     * @return
+    *   * List of tuples containing the attribute and its status. The status can be one of the
+    *   AttributeStatus values:
+    *   - ADDED: The attribute is new and not present in the existing attributes
+    *   - MODIFIED: The attribute is present but its type or comment has changed
+    *   - UNCHANGED: The attribute is present and its type and comment are unchanged
     */
-  def extractAttributesDiff(
-    sqlAttributes: List[TaskAttribute]
+  def attributesStatus(
+    sqlStatementAttributes: List[TaskAttribute]
   )(implicit settings: Settings): List[(TaskAttribute, AttributeStatus)] = {
-    val addedAndModifiedAttributes = sqlAttributes
+
+    val addedAndModifiedAttributes = sqlStatementAttributes
       .map { attr =>
         this.attributes.find(_.name.equalsIgnoreCase(attr.name)) match {
           case Some(existingAttr) =>
@@ -296,7 +304,7 @@ case class AutoTaskInfo(
         }
       }
     val deletedAttributes = this.attributes
-      .filterNot(attDesc => sqlAttributes.exists(_.name.equalsIgnoreCase(attDesc.name)))
+      .filterNot(attDesc => sqlStatementAttributes.exists(_.name.equalsIgnoreCase(attDesc.name)))
       .map(attDesc => attDesc -> AttributeStatus.DELETED)
     addedAndModifiedAttributes ++ deletedAttributes
   }
@@ -304,20 +312,23 @@ case class AutoTaskInfo(
   /** Update the task description with the new attributes. Existing attributes are updated with the
     * new type and comment. Attributes not present in the new list are dropped.
     *
-    * @param attributes
+    * @param incomingAttributes
     *   List of attributes to update the task description with.
     * @param settings
     * @return
     */
-  def updateAutoTaskDesc(
-    attributes: List[TaskAttribute]
+  def updateAutoTaskInfo(
+    incomingAttributes: List[TaskAttribute]
   )(implicit settings: Settings): AutoTaskInfo = {
+    // Filter out attributes that are not present in the incoming attributes
     val withoutDropped =
       this.attributes.filter { existingAttr =>
-        attributes.exists(_.name.equalsIgnoreCase(existingAttr.name))
+        incomingAttributes.exists(_.name.equalsIgnoreCase(existingAttr.name))
       }
+
+    // Update existing attributes with the new type and comment, or keep the existing ones if not
     val addAndUpdatedAttributes = withoutDropped.map { existingAttr =>
-      attributes.find(_.name.equalsIgnoreCase(existingAttr.name)) match {
+      incomingAttributes.find(_.name.equalsIgnoreCase(existingAttr.name)) match {
         case Some(newAttr) => existingAttr.copy(`type` = newAttr.`type`, comment = newAttr.comment)
         case None          => existingAttr
       }

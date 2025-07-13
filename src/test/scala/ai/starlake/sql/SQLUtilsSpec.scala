@@ -4,13 +4,7 @@ import ai.starlake.TestHelper
 import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.job.strategies.TransformStrategiesBuilder
 import ai.starlake.schema.model.ConnectionType.FS
-import ai.starlake.schema.model.{
-  AllSinks,
-  Materialization,
-  RefDesc,
-  WriteStrategy,
-  WriteStrategyType
-}
+import ai.starlake.schema.model._
 
 class SQLUtilsSpec extends TestHelper {
   new WithSettings() {
@@ -325,7 +319,25 @@ class SQLUtilsSpec extends TestHelper {
           |from t
           |""".stripMargin.trim
       )
-
     }
+  }
+
+  "Statement Manipulation" should "return succeed" in {
+    val provided =
+      """with mycte as (
+        |select seller_email, amount
+        |from sellers hrs, orders sos where hrs.id = sos.seller_id
+        |)
+        |select seller_email, sum(amount) as sum from mycte
+        |group by mycte.seller_email
+        |""".stripMargin
+
+    val withCol1 = SQLUtils.addSelectItem(provided, "col1", Some("count(x)"))
+    println(withCol1)
+    val withCol2 = SQLUtils.addSelectItem(withCol1, "col2")
+    val withoutCol1 = SQLUtils.deleteSelectItem(withCol2, "col1")
+    println(withoutCol1)
+    val withoutCol2 = SQLUtils.deleteSelectItem(withCol2, "col2")
+    println(withoutCol2)
   }
 }
