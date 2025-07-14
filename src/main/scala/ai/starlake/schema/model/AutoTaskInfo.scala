@@ -49,7 +49,7 @@ case class AutoTaskInfo(
   acl: List[AccessControlEntry] = Nil,
   comment: Option[String] = None,
   freshness: Option[Freshness] = None,
-  attributes: List[TaskAttribute] = Nil,
+  attributes: List[AutoTaskAttribute] = Nil,
   python: Option[Path] = None,
   tags: Set[String] = Set.empty,
   writeStrategy: Option[WriteStrategy] = None,
@@ -242,6 +242,19 @@ case class AutoTaskInfo(
       .getOrElse(AllSinks().copy(connectionRef = Some(sinkConnectionRef)).getSink())
   }
 
+  def getTranspiledSql()(implicit settings: Settings): String = {
+    val schemaHandler = settings.schemaHandler()
+    val allVars = schemaHandler.activeEnvVars()
+    val inputSQL = getSql()
+    val runConnection = this.getRunConnection()
+    schemaHandler.transpileAndSubstitute(
+      sql = inputSQL,
+      connection = runConnection,
+      allVars = allVars,
+      test = false
+    )
+  }
+
   /** Extracts attributes from the SQL statement.
     * @param settings
     * @return
@@ -249,21 +262,35 @@ case class AutoTaskInfo(
     *   as
     */
   def attributesInSqlStatement()(implicit settings: Settings): List[(String, String)] = {
+    /*
     val schemaHandler = settings.schemaHandler()
-    val allVars = schemaHandler.activeEnvVars()
-    val inputSQL = getSql()
-    val runConnection = this.getRunConnection()
-    val sqlWithParametersTranspiled =
-      schemaHandler.transpileAndSubstitute(
-        sql = inputSQL,
-        connection = runConnection,
-        allVars = allVars,
-        test = false
+    val sqlWithParametersTranspiled = getTranspiledSql()
+    val taskAttributes: List[DiffAttribute] =
+      schemaHandler.taskOnly(this.domain + "." + this.table) match {
+        case Success(taskInfo) =>
+          taskInfo.attributes.map { tAttr => tAttr.toDiffAttribute() }
+        case Failure(exception) =>
+          // If the task does not exist, we return undefined for all columns
+          Nil
+      }
+    val allTableNames = SQLUtils.extractTableNames(sqlWithParametersTranspiled)
+
+    val dbSchema =
+      new DBSchema(
+        "",
+        this.domain,
+        this.table,
+        new java.util.ArrayList(taskAttributes.asJava)
       )
-    val columnNames = SQLUtils.extractColumnNames(sqlWithParametersTranspiled)
-    columnNames.map { col =>
-      col -> "undefined"
+    val statementColumns =
+      new JSQLSchemaDiff(dbSchema)
+        .getDiff(sqlWithParametersTranspiled, s"${this.domain}_${this.table}")
+    statementColumns.asScala.toList.map { col =>
+      col.getName -> col.getType
     }
+
+     */
+    Nil
   }
 
   /** Extracts attributes from the SQL statement and compares them with the existing attributes in
@@ -279,8 +306,8 @@ case class AutoTaskInfo(
     *   - UNCHANGED: The attribute is present and its type and comment are unchanged
     */
   def diffSqlAttributesWithYaml(
-    sqlStatementAttributes: List[TaskAttribute]
-  )(implicit settings: Settings): List[(TaskAttribute, AttributeStatus)] = {
+    sqlStatementAttributes: List[AutoTaskAttribute]
+  )(implicit settings: Settings): List[(AutoTaskAttribute, AttributeStatus)] = {
 
     val addedAndModifiedAttributes = sqlStatementAttributes
       .map { sqlAttr =>
@@ -311,10 +338,10 @@ case class AutoTaskInfo(
 
   def diffSqlAttributesWithYaml()(implicit
     settings: Settings
-  ): List[(TaskAttribute, AttributeStatus)] = {
+  ): List[(AutoTaskAttribute, AttributeStatus)] = {
     // Extract attributes from the SQL statement
     val sqlStatementAttributes = this.attributesInSqlStatement().map { case (name, typ) =>
-      TaskAttribute(name, typ)
+      AutoTaskAttribute(name, typ)
     }
     // Sync attributes with the SQL statement attributes
     this.diffSqlAttributesWithYaml(sqlStatementAttributes)
@@ -329,7 +356,7 @@ case class AutoTaskInfo(
     * @return
     */
   def updateAttributes(
-    incomingAttributes: List[TaskAttribute]
+    incomingAttributes: List[AutoTaskAttribute]
   )(implicit settings: Settings): AutoTaskInfo = {
     // Filter out attributes that are not present in the incoming attributes
     val withoutDropped =
@@ -349,7 +376,7 @@ case class AutoTaskInfo(
 
   def diffYamlAttributesWithDB(
     accessToken: Option[String]
-  )(implicit settings: Settings): List[(TaskAttribute, AttributeStatus)] = {
+  )(implicit settings: Settings): List[(AutoTaskAttribute, AttributeStatus)] = {
     val sql = this.getSql()
     val tableNames = SQLUtils.extractTableNames(sql)
     val schemaHandler = settings.schemaHandler()
@@ -380,7 +407,7 @@ case class AutoTaskInfo(
     val deletedAttributes = dbAttributes
       .filterNot(attr => yamlAttributes.exists(_.name.equalsIgnoreCase(attr.name)))
       .map(dbAttr =>
-        TaskAttribute(
+        AutoTaskAttribute(
           name = dbAttr.name,
           `type` = dbAttr.`type`,
           comment = dbAttr.comment.getOrElse("")

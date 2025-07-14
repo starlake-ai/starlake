@@ -10,7 +10,7 @@ import ai.starlake.job.sink.bigquery.{
   BigQueryNativeJob
 }
 import ai.starlake.job.transform.BigQueryAutoTask
-import ai.starlake.schema.model.*
+import ai.starlake.schema.model._
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.{IngestionCounters, JobResult, Utils}
 import com.google.cloud.bigquery
@@ -18,7 +18,7 @@ import com.google.cloud.bigquery.{Field, JobInfo, StandardSQLTypeName, TableId}
 import com.typesafe.scalalogging.StrictLogging
 
 import java.time.Duration
-import scala.jdk.CollectionConverters.*
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
