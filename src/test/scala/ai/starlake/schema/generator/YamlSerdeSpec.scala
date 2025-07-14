@@ -1498,14 +1498,14 @@ object YamlConfigGenerators {
     } yield ApplicationDesc(latestSchemaVersion, application = appConfig)
   }
 
-  implicit val attributeDesc: Arbitrary[TaskAttribute] = Arbitrary {
+  implicit val attributeDesc: Arbitrary[AutoTaskAttribute] = Arbitrary {
     for {
       name         <- arbitrary[String]
       `type`       <- arbitrary[String]
       comment      <- arbitrary[String]
       accessPolicy <- Gen.option(arbitrary[String])
       foreignKey   <- Gen.option(arbitrary[String])
-    } yield TaskAttribute(
+    } yield AutoTaskAttribute(
       name = name,
       `type` = `type`,
       comment = comment,
@@ -1533,7 +1533,7 @@ object YamlConfigGenerators {
       acl            <- arbitrary[List[AccessControlEntry]]
       comment        <- Gen.option(arbitrary[String])
       freshness      <- Gen.option(arbitrary[Freshness])
-      attributesDesc <- arbitrary[List[TaskAttribute]]
+      attributesDesc <- arbitrary[List[AutoTaskAttribute]]
       python         <- Gen.option(arbitrary[Path])
       tags           <- arbitrary[List[String]].map(_.toSet)
       schedule       <- Gen.option(arbitrary[String])

@@ -22,10 +22,10 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.Severity.*
 
 import scala.collection.mutable
 import scala.util.Try
-import ai.starlake.schema.model.Severity._
 
 case class TransformDesc(version: Int, transform: AutoJobInfo)
 
@@ -90,27 +90,6 @@ case class AutoJobInfo(
     else
       Left(errorList.toList)
 
-  }
-}
-
-/** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
-  *
-  * @param name
-  *   : Attribute name as defined in the source dataset and as received in the file
-  * @param comment
-  *   : free text for attribute description
-  */
-case class TaskAttribute(
-  name: String,
-  `type`: String = "variant",
-  comment: String = "",
-  accessPolicy: Option[String] = None,
-  foreignKey: Option[String] = None // [domain.]table.attribute
-) {
-  def this() = this("") // Should never be called. Here for Jackson deserialization only
-
-  override def toString: String = {
-    s"AttributeDesc(name=$name, type=${`type`}, comment=$comment, accessPolicy=$accessPolicy)"
   }
 }
 

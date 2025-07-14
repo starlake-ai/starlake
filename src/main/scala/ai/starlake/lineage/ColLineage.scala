@@ -31,7 +31,7 @@ class ColLineage(
       .getOrElse(Table(domain, table, Nil, isTask = false))
   }
 
-  def extractTables(column: JdbcColumn): List[Table] = {
+  private def extractTables(column: JdbcColumn): List[Table] = {
     val thisTable = getTableWithColumnNames(column.tableSchema, column.tableName)
 
     val scopeTable = getTableWithColumnNames(column.scopeSchema, column.scopeTable)
@@ -41,7 +41,7 @@ class ColLineage(
     val alTables = thisTable :: scopeTable :: childTables
     alTables.filter(it => it.table != null && it.table.nonEmpty)
   }
-  def extractTables(resultSetMetaData: JdbcResultSetMetaData): List[Table] = {
+  private def extractTables(resultSetMetaData: JdbcResultSetMetaData): List[Table] = {
     val allTables = resultSetMetaData.getColumns.asScala
       .flatMap { column =>
         extractTables(column)

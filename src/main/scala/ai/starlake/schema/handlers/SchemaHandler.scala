@@ -43,11 +43,11 @@ import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
-import ai.starlake.schema.model.Severity._
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
+import ai.starlake.schema.model.Severity.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData}
-import ai.starlake.utils.Formatter._
+import ai.starlake.utils.Formatter.*
 import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.Resource
 import com.databricks.spark.xml.util.XSDToSchema
@@ -58,7 +58,7 @@ import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 

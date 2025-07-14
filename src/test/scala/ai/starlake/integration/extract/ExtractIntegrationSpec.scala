@@ -2,6 +2,7 @@ package ai.starlake.integration.extract
 
 import ai.starlake.TestHelper
 import ai.starlake.extract.{ExtractDataJob, ExtractSchema}
+import ai.starlake.sql.StarlakeJdbcDialects
 import better.files.File
 
 import java.sql.DriverManager
@@ -10,6 +11,7 @@ class ExtractIntegrationSpec extends TestHelper {
 
   new WithSettings() {
     "Extract Data from mariadb" should "succeed" in {
+      StarlakeJdbcDialects.registerDialects()
       val jdbcOptions = settings.appConfig.connections("test-mariadb")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
@@ -64,7 +66,7 @@ class ExtractIntegrationSpec extends TestHelper {
           tmpDir.pathAsString
         )
       )
-      result should be a 'success
+      result should be a Symbol("success")
       val files = tmpDir.listRecursively.filter(_.name.endsWith(".csv")).toList
       assert(files.size == 1)
     }
@@ -142,7 +144,7 @@ class ExtractIntegrationSpec extends TestHelper {
           tmpDir.pathAsString
         )
       )
-      result should be a 'success
+      result should be a Symbol("success")
       val files = tmpDir.listRecursively.filter(_.name.endsWith(".csv")).toList
       assert(files.size == 2)
     }
