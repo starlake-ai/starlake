@@ -261,7 +261,6 @@ object SparkUtils extends StrictLogging {
       url
         .replace("jdbc:redshift", "jdbc:postgresql")
         .replace("jdbc:as400", "jdbc:db2")
-        .replace("mariadb", "mysql")
 
     val jdbcDialect: JdbcDialect = JdbcDialects.get(reworkedUrl)
     if (jdbcDialect.getClass.getSimpleName == "NoopDialect$") {

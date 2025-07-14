@@ -79,7 +79,7 @@ abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
             File(getClass.getResource(s"/sample/${datasetDomainName}/$jsonData")).pathAsString
           )
           .withColumn("email_domain", regexp_extract(col("email"), ".+@(.+)", 1))
-          .withColumn("source_file_name", regexp_extract(input_file_name, ".+\\/(.+)$", 1))
+          .withColumn("source_file_name", regexp_extract(input_file_name(), ".+\\/(.+)$", 1))
 
         logger.info(resultDf.showString())
         logger.info(expectedDf.showString())

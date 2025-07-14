@@ -429,7 +429,7 @@ trait IngestionJob extends SparkJob {
     // checkDomainValidity()
     val engineName = this.mergedMetadata.getSinkConnection().getJdbcEngineName()
     val engine = settings.appConfig.jdbcEngines
-      .getOrElse(engineName.toString, throw new Exception(s"Unknown engine $engineName"))
+      .getOrElse(engineName.toString, "spark")
 
     // Run selected ingestion engine
     val jobResult = selectLoader() match {

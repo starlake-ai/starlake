@@ -12,7 +12,7 @@ import scala.util.Try
 
 object ProjectCompare {
   def run(args: Array[String])(implicit settings: Settings): Try[Unit] =
-    ProjectCompareCmd.run(args, settings.schemaHandler()).map(_ => ())
+    ProjectCompareCmd.run(args.toIndexedSeq, settings.schemaHandler()).map(_ => ())
 
   private def applyJ2AndSave(
     outputDir: Path,
