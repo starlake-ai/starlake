@@ -150,9 +150,10 @@ object ExtractBigQuerySchema {
   def extractAndSaveToExternal(
     config: BigQueryTablesConfig,
     schemaHandler: SchemaHandler
-  )(implicit settings: Settings): Unit = {
+  )(implicit settings: Settings): List[DomainInfo] = {
     val domains =
       new ExtractBigQuerySchema(config).extractSchemasAndTables(schemaHandler, config.tables)
     schemaHandler.saveToExternals(domains)
+    domains
   }
 }

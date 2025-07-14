@@ -278,35 +278,46 @@ case class AutoTaskInfo(
     *   - MODIFIED: The attribute is present but its type or comment has changed
     *   - UNCHANGED: The attribute is present and its type and comment are unchanged
     */
-  def attributesStatus(
+  def diffSqlAttributesWithYaml(
     sqlStatementAttributes: List[TaskAttribute]
   )(implicit settings: Settings): List[(TaskAttribute, AttributeStatus)] = {
 
     val addedAndModifiedAttributes = sqlStatementAttributes
-      .map { attr =>
-        this.attributes.find(_.name.equalsIgnoreCase(attr.name)) match {
+      .map { sqlAttr =>
+        this.attributes.find(_.name.equalsIgnoreCase(sqlAttr.name)) match {
           case Some(existingAttr) =>
             val (updatedType, status) =
-              if (existingAttr.`type` == attr.`type`) {
+              if (existingAttr.`type` == sqlAttr.`type`) {
                 existingAttr -> AttributeStatus.UNCHANGED
               } else {
-                existingAttr.copy(`type` = attr.`type`) -> AttributeStatus.MODIFIED
+                existingAttr.copy(`type` = sqlAttr.`type`) -> AttributeStatus.MODIFIED
               }
             val (updateTypeAndComment, status2) =
-              if (attr.comment.nonEmpty) {
-                updatedType.copy(comment = attr.comment) -> AttributeStatus.MODIFIED
+              if (sqlAttr.comment.nonEmpty) {
+                updatedType.copy(comment = sqlAttr.comment) -> AttributeStatus.MODIFIED
               } else {
                 updatedType -> status
               }
             (updateTypeAndComment, status2)
           case None =>
-            attr -> AttributeStatus.ADDED
+            sqlAttr -> AttributeStatus.ADDED
         }
       }
     val deletedAttributes = this.attributes
       .filterNot(attDesc => sqlStatementAttributes.exists(_.name.equalsIgnoreCase(attDesc.name)))
       .map(attDesc => attDesc -> AttributeStatus.DELETED)
     addedAndModifiedAttributes ++ deletedAttributes
+  }
+
+  def diffSqlAttributesWithYaml()(implicit
+    settings: Settings
+  ): List[(TaskAttribute, AttributeStatus)] = {
+    // Extract attributes from the SQL statement
+    val sqlStatementAttributes = this.attributesInSqlStatement().map { case (name, typ) =>
+      TaskAttribute(name, typ)
+    }
+    // Sync attributes with the SQL statement attributes
+    this.diffSqlAttributesWithYaml(sqlStatementAttributes)
   }
 
   /** Update the task description with the new attributes. Existing attributes are updated with the
@@ -317,7 +328,7 @@ case class AutoTaskInfo(
     * @param settings
     * @return
     */
-  def updateAutoTaskInfo(
+  def updateAttributes(
     incomingAttributes: List[TaskAttribute]
   )(implicit settings: Settings): AutoTaskInfo = {
     // Filter out attributes that are not present in the incoming attributes
@@ -336,7 +347,9 @@ case class AutoTaskInfo(
     this.copy(attributes = addAndUpdatedAttributes)
   }
 
-  def extractAttributesDiffFromDB(accessToken: Option[String])(implicit settings: Settings) = {
+  def diffYamlAttributesWithDB(
+    accessToken: Option[String]
+  )(implicit settings: Settings): List[(TaskAttribute, AttributeStatus)] = {
     val sql = this.getSql()
     val tableNames = SQLUtils.extractTableNames(sql)
     val schemaHandler = settings.schemaHandler()
@@ -348,8 +361,50 @@ case class AutoTaskInfo(
       accessToken = accessToken
     )
     val extractor = new ExtractSchema(schemaHandler)
-    extractor.extract(config)
-    // val diff = new JSQLSchemaDiff()
+    val dbDomain = extractor.extract(config).getOrElse(Nil).headOption
+    val yamlAttributes = this.attributes
+    val dbAttributes =
+      dbDomain match {
+        case Some(domain) =>
+          domain.tables.headOption
+            .map(_.attributes)
+            .getOrElse(Nil)
+        case None =>
+          Nil
+      }
+    // list all attributes in the yaml that are not in the db
+    val addedAttributes = yamlAttributes
+      .filterNot(attr => dbAttributes.exists(_.name.equalsIgnoreCase(attr.name)))
+      .map(attr => attr -> AttributeStatus.ADDED)
+    // list all attributes in the db that are not in the yaml
+    val deletedAttributes = dbAttributes
+      .filterNot(attr => yamlAttributes.exists(_.name.equalsIgnoreCase(attr.name)))
+      .map(dbAttr =>
+        TaskAttribute(
+          name = dbAttr.name,
+          `type` = dbAttr.`type`,
+          comment = dbAttr.comment.getOrElse("")
+        ) -> AttributeStatus.DELETED
+      )
+    // list all attributes in the yaml that are in the db but with a different type or comment
+    val modifiedAttributes = yamlAttributes
+      .flatMap { yamlAttr =>
+        dbAttributes.find(_.name.equalsIgnoreCase(yamlAttr.name)) match {
+          case Some(dbAttr)
+              if dbAttr.`type` != yamlAttr.`type` || dbAttr.comment.getOrElse(
+                ""
+              ) != yamlAttr.comment =>
+            Some(
+              yamlAttr.copy(
+                `type` = dbAttr.`type`,
+                comment = dbAttr.comment.getOrElse("")
+              ) -> AttributeStatus.MODIFIED
+            )
+          case _ => None
+        }
+      }
+    // return all attributes with their status
+    addedAttributes ++ deletedAttributes ++ modifiedAttributes
   }
 
 }

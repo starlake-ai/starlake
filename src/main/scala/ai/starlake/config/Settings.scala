@@ -24,12 +24,12 @@ import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
-import ai.starlake.schema.handlers.*
-import ai.starlake.schema.model.*
+import ai.starlake.schema.handlers._
+import ai.starlake.schema.model._
 import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
-import ai.starlake.utils.*
+import ai.starlake.utils._
 import better.files.File
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -470,7 +470,9 @@ object Settings extends StrictLogging {
               val urlKey = if (options.contains("url")) "url" else "sfUrl"
               val engineName =
                 if (urlKey == "sfUrl") "snowflake" else options(urlKey).split(':')(1).toLowerCase()
-              if (engineName == "databricks")
+              if (engineName == "mariadb")
+                "mysql"
+              else if (engineName == "databricks")
                 "spark"
               else engineName
             case ConnectionType.BQ => "bigquery"
