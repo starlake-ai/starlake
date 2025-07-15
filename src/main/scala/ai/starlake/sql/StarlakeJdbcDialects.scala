@@ -6,7 +6,6 @@ import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst.SQLConfHelper
 import org.apache.spark.sql.catalyst.analysis.{IndexAlreadyExistsException, NoSuchIndexException}
 import org.apache.spark.sql.connector.catalog.Identifier
-import org.apache.spark.sql.connector.catalog.index.TableIndex
 import org.apache.spark.sql.connector.expressions.NamedReference
 import org.apache.spark.sql.execution.datasources.jdbc.{JDBCOptions, JdbcUtils}
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects, JdbcSQLQueryBuilder, JdbcType}
@@ -142,7 +141,7 @@ private case object MariaDbDialect extends JdbcDialect with SQLConfHelper {
       case _: Exception =>
         logWarning("Cannot show schemas.")
     }
-    schemaBuilder.result
+    schemaBuilder.result()
   }
 
   override def isCascadingTruncateTable(): Option[Boolean] = Some(false)

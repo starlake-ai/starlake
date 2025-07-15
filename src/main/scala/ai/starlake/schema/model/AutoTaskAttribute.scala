@@ -2,6 +2,8 @@ package ai.starlake.schema.model
 
 import ai.starlake.transpiler.schema.JdbcColumn
 
+import java.sql.Types
+
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
   * @param name
@@ -23,6 +25,6 @@ case class AutoTaskAttribute(
   }
 
   def toJdbcColumn(database: String, domain: String, table: String): JdbcColumn = {
-    new JdbcColumn(name)
+    new JdbcColumn(database, domain, table, name, Types.OTHER, `type`, 0, 0, 0, "", null)
   }
 }
