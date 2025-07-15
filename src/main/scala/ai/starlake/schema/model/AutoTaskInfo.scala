@@ -275,6 +275,30 @@ case class AutoTaskInfo(
       }
     val allTableNames = SQLUtils.extractTableNames(sqlWithParametersTranspiled)
 
+    allTableNames.map { tableName =>
+      val parts = tableName.split('.').toList
+      parts match {
+        case database :: domain :: table :: Nil =>
+          schemaHandler.taskOnly(s"$domain.$table") match {
+            case Success(taskInfo) =>
+              taskInfo.attributes.map { tAttr => tAttr.toJdbcColumn(database, domain, table) }
+            case Failure(exception) =>
+              // If the task does not exist, we return undefined for all columns
+              Nil
+          }
+        case domain :: table :: Nil =>
+          schemaHandler.taskOnly(s"$domain.$table") match {
+            case Success(taskInfo) =>
+              taskInfo.attributes.map { tAttr => tAttr.toJdbcColumn("", domain, table) }
+            case Failure(exception) =>
+              // If the task does not exist, we return undefined for all columns
+              Nil
+          }
+        case _ =>
+
+      }
+    }
+
     val dbSchema =
       new DBSchema(
         "",
