@@ -744,6 +744,7 @@ object AutoTask extends StrictLogging {
       case Success(jobResult) =>
         jobResult.asMap()
       case Failure(e) =>
+        e.printStackTrace()
         throw e
     }
   }

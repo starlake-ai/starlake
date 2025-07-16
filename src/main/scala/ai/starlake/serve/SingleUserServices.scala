@@ -9,7 +9,7 @@ import scala.util.Try
 
 object SingleUserServices {
   val core = new Main()
-  var schemaHandler: SchemaHandler = null
+  private var schemaHandler: SchemaHandler = null
   def getSchemaHandler(reload: Boolean)(implicit settings: Settings): SchemaHandler = {
     if (reload || schemaHandler == null) {
       schemaHandler = settings.schemaHandler()
