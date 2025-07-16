@@ -129,7 +129,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  protected def reorderTypes(orderedAttributes: List[Attribute]): (List[Type], StructType) = {
+  protected def reorderTypes(orderedAttributes: List[TableAttribute]): (List[Type], StructType) = {
     val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
     val (tpes, sparkFields) = orderedAttributes.map { attribute =>
       val tpe = typeMap(attribute.`type`)
@@ -583,8 +583,8 @@ trait IngestionJob extends SparkJob {
   // endregion
   // /////////////////////////////////////////////////////////////////////////
 
-  def reorderAttributes(dataFrame: DataFrame): List[Attribute] = {
-    val finalSchema = schema.attributesWithoutScriptedFields :+ Attribute(
+  def reorderAttributes(dataFrame: DataFrame): List[TableAttribute] = {
+    val finalSchema = schema.attributesWithoutScriptedFields :+ TableAttribute(
       name = CometColumns.cometInputFileNameColumn
     )
     val attributesMap =
@@ -798,7 +798,7 @@ trait IngestionJob extends SparkJob {
   }
 
   private def computeScriptedAttributes(acceptedDF: DataFrame): DataFrame = {
-    def enrichStructField(attr: Attribute, structField: StructField) = {
+    def enrichStructField(attr: TableAttribute, structField: StructField) = {
       structField.copy(
         name = attr.getFinalName(),
         nullable = if (attr.script.isDefined) true else !attr.resolveRequired(),

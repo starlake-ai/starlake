@@ -79,17 +79,17 @@ object ExpectationReport {
     name = "expectations",
     pattern = Pattern.compile("ignore"),
     attributes = List(
-      Attribute("jobid", "string"),
-      Attribute("database", "string"),
-      Attribute("domain", "string"),
-      Attribute("schema", "string"),
-      Attribute("timestamp", "timestamp"),
-      Attribute("query", "string"),
-      Attribute("expect", "string"),
-      Attribute("sql", "string"),
-      Attribute("count", "long"),
-      Attribute("exception", "string"),
-      Attribute("success", "boolean")
+      TableAttribute("jobid", "string"),
+      TableAttribute("database", "string"),
+      TableAttribute("domain", "string"),
+      TableAttribute("schema", "string"),
+      TableAttribute("timestamp", "timestamp"),
+      TableAttribute("query", "string"),
+      TableAttribute("expect", "string"),
+      TableAttribute("sql", "string"),
+      TableAttribute("count", "long"),
+      TableAttribute("exception", "string"),
+      TableAttribute("success", "boolean")
     ),
     None,
     None

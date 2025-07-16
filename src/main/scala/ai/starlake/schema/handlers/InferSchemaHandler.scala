@@ -450,14 +450,14 @@ object InferSchemaHandler extends StrictLogging {
     adjustedAttributes: Map[String, String], // field path, type
     schema: StructType,
     forcePattern: Boolean = true
-  ): List[Attribute] = {
+  ): List[TableAttribute] = {
 
     def createAttribute(
       currentSchema: DataType,
       container: StructField,
       fieldPath: String,
       forcePattern: Boolean = true
-    ): Attribute = {
+    ): TableAttribute = {
       val result =
         currentSchema match {
           case st: StructType =>
@@ -473,7 +473,7 @@ object InferSchemaHandler extends StrictLogging {
                 )
               }.toList
 
-              Attribute(
+              TableAttribute(
                 name = container.name,
                 `type` = st.typeName,
                 rename = renamedField,
@@ -485,7 +485,7 @@ object InferSchemaHandler extends StrictLogging {
             } catch {
               case e: InvalidFieldNameException =>
                 logger.error(e.getMessage, e)
-                Attribute(
+                TableAttribute(
                   name = container.name,
                   `type` = PrimitiveType.variant.value,
                   rename = renamedField,
@@ -520,7 +520,7 @@ object InferSchemaHandler extends StrictLogging {
               adjustedAttributes.getOrElse(fieldPath, PrimitiveType.from(currentSchema).value)
             val rename = NamingUtils.normalizeAttributeName(container.name, toSnakeCase = false)
             val renamedField = if (rename != container.name) Some(rename) else None
-            Attribute(
+            TableAttribute(
               name = container.name,
               `type` = cellType,
               rename = renamedField,
@@ -600,7 +600,7 @@ object InferSchemaHandler extends StrictLogging {
     name: String,
     pattern: Pattern,
     comment: Option[String],
-    attributes: List[Attribute],
+    attributes: List[TableAttribute],
     metadata: Option[Metadata],
     sample: Option[String]
   ): SchemaInfo =

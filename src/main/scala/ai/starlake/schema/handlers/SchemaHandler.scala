@@ -43,11 +43,11 @@ import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
-import ai.starlake.schema.model.*
-import ai.starlake.schema.model.Severity.*
+import ai.starlake.schema.model._
+import ai.starlake.schema.model.Severity._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData}
-import ai.starlake.utils.Formatter.*
+import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.Resource
 import com.databricks.spark.xml.util.XSDToSchema
@@ -58,7 +58,7 @@ import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
-import scala.jdk.CollectionConverters.*
+import scala.jdk.CollectionConverters._
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -1602,11 +1602,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       case Some(xsd) =>
         val xsdContent = storage.read(new Path(xsd))
         val sparkType = XSDToSchema.read(xsdContent)
-        val topElement = sparkType.fields.map(field => Attribute(field))
+        val topElement = sparkType.fields.map(field => TableAttribute(field))
         val (nonScripted, scripted) = topElement.head.attributes.partition(_.script.isEmpty)
         val xsdAttributes = nonScripted ++ scripted
         // val xsdAttributes = sordtedAttrs.head.attributes
-        val merged = Attribute.mergeAll(
+        val merged = TableAttribute.mergeAll(
           xsdAttributes,
           ymlSchema.attributes,
           AttributeMergeStrategy(
@@ -2182,5 +2182,22 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
     )
     _jobs = _jobs.filterNot(_.name.toLowerCase() == job.name.toLowerCase()) :+ updatedJob
+  }
+
+  def diffAttributes(domain: String, table: String) = {
+    taskOnly(s"$domain.$table") match {
+      case Success(taskInfo) =>
+        taskInfo.attributes.map { tAttr => tAttr.toDiffAttribute() }
+      case Failure(exception) =>
+        // If the task does not exist, we return undefined for all columns
+        this.table(domain, table) match {
+          case Some(schemaInfo) =>
+            schemaInfo.attributes.map { tAttr => tAttr.toDiffAttribute() }
+          case None =>
+            logger.warn(s"Table $domain.$table not found")
+            Nil
+        }
+        Nil
+    }
   }
 }

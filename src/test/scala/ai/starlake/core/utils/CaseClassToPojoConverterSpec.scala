@@ -5,7 +5,6 @@ import ai.starlake.schema.model.Trim.BOTH
 import ai.starlake.schema.model.{
   AccessControlEntry,
   AllSinks,
-  Attribute,
   DomainInfo,
   ExpectationItem,
   Format,
@@ -14,6 +13,7 @@ import ai.starlake.schema.model.{
   Position,
   RowLevelSecurity,
   SchemaInfo,
+  TableAttribute,
   WriteStrategy
 }
 import com.hubspot.jinjava.Jinjava
@@ -52,7 +52,7 @@ class CaseClassToPojoConverterSpec extends AnyFlatSpec {
             name = "table",
             pattern = Pattern.compile("table.*\\.pos"),
             attributes = List(
-              Attribute(
+              TableAttribute(
                 name = "firstname",
                 position = Some(Position(first = 1, last = 3)),
                 trim = Some(BOTH)

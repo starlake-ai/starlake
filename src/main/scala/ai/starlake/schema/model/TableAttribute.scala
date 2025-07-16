@@ -32,6 +32,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 import ai.starlake.schema.model.Severity._
+import ai.starlake.transpiler.diff.Attribute as DiffAttribute
 
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
@@ -65,7 +66,7 @@ import ai.starlake.schema.model.Severity._
   *   : Scripted field : SQL request on renamed column
   */
 
-case class Attribute(
+case class TableAttribute(
   name: String,
   `type`: String = "string",
   array: Option[Boolean] = None,
@@ -74,7 +75,7 @@ case class Attribute(
   comment: Option[String] = None,
   rename: Option[String] = None,
   metricType: Option[MetricType] = None,
-  attributes: List[Attribute] = Nil,
+  attributes: List[TableAttribute] = Nil,
   position: Option[Position] = None,
   default: Option[String] = None,
   tags: Set[String] = Set.empty,
@@ -114,6 +115,9 @@ case class Attribute(
     // we pretend the "settings" field does not exist
     s"Attribute(${name},${`type`},${resolveArray()},${resolveRequired()},${resolvePrivacy()},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
 
+  def toDiffAttribute(): DiffAttribute = {
+    new DiffAttribute(getFinalName(), `type`)
+  }
   @JsonIgnore
   def isNestedOrRepeatedField(): Boolean = {
     attributes.nonEmpty || array.getOrElse(false)
@@ -231,7 +235,7 @@ case class Attribute(
   def primitiveType(schemaHandler: SchemaHandler): Option[PrimitiveType] =
     schemaHandler.types().find(_.name == `type`).map(_.primitiveType)
 
-  def samePrimitiveType(other: Attribute)(implicit schemaHandler: SchemaHandler): Boolean = {
+  def samePrimitiveType(other: TableAttribute)(implicit schemaHandler: SchemaHandler): Boolean = {
     this.primitiveType(schemaHandler).map(_.value) == other
       .primitiveType(schemaHandler)
       .map(_.value)
@@ -260,7 +264,7 @@ case class Attribute(
     */
   def sparkType(
     schemaHandler: SchemaHandler,
-    structFieldModifier: (Attribute, StructField) => StructField = (_, sf) => sf
+    structFieldModifier: (TableAttribute, StructField) => StructField = (_, sf) => sf
   ): DataType = {
     def buildStruct(): List[StructField] = {
       if (attributes.isEmpty)
@@ -481,8 +485,8 @@ case class Attribute(
   }
 }
 
-object Attribute {
-  def apply(sparkField: StructField): Attribute = {
+object TableAttribute {
+  def apply(sparkField: StructField): TableAttribute = {
     val sparkType = sparkField.dataType
     val fieldName = sparkField.name
     val required = if (!sparkField.nullable) Some(true) else None
@@ -490,7 +494,7 @@ object Attribute {
     sparkType match {
       case st: StructType =>
         val subFields = st.fields.map(field => apply(field))
-        new Attribute(
+        new TableAttribute(
           fieldName,
           PrimitiveType.struct.toString,
           Some(isArray),
@@ -503,7 +507,7 @@ object Attribute {
             throw new RuntimeException("Don't support array of array")
           case nestedSt: StructType =>
             val subFields = nestedSt.fields.map(field => apply(field))
-            new Attribute(
+            new TableAttribute(
               fieldName,
               PrimitiveType.struct.toString,
               Some(isArray),
@@ -512,7 +516,7 @@ object Attribute {
             )
           case nestedDt =>
             val tpe = PrimitiveType.from(nestedDt)
-            new Attribute(
+            new TableAttribute(
               fieldName,
               tpe.toString,
               Some(isArray),
@@ -521,13 +525,16 @@ object Attribute {
         }
       case _ =>
         val tpe = PrimitiveType.from(sparkType)
-        new Attribute(fieldName, tpe.toString, Some(isArray), required)
+        new TableAttribute(fieldName, tpe.toString, Some(isArray), required)
     }
   }
 
   /** Compare refAttr with sourceAttr and reject if emptiness of attributes is not the same.
     */
-  private def checkAttributesEmptinessMismatch(refAttr: Attribute, sourceAttr: Attribute): Unit = {
+  private def checkAttributesEmptinessMismatch(
+    refAttr: TableAttribute,
+    sourceAttr: TableAttribute
+  ): Unit = {
     assert(
       refAttr.attributes.isEmpty == sourceAttr.attributes.isEmpty,
       s"attribute with name ${sourceAttr.name} has mismatch on attributes emptiness"
@@ -538,7 +545,7 @@ object Attribute {
     * Furthermore, if it's an array type, check that nested element are the same container type as
     * well recursively.
     */
-  private def checkContainerMismatch(refAttr: Attribute, sourceAttr: Attribute)(implicit
+  private def checkContainerMismatch(refAttr: TableAttribute, sourceAttr: TableAttribute)(implicit
     schemaHandler: SchemaHandler
   ): Unit = {
     @tailrec
@@ -571,10 +578,10 @@ object Attribute {
   }
 
   private def merge(
-    refAttr: Attribute,
-    sourceAttr: Attribute,
+    refAttr: TableAttribute,
+    sourceAttr: TableAttribute,
     attributeMergeStrategy: AttributeMergeStrategy
-  )(implicit schemaHandler: SchemaHandler): Attribute = {
+  )(implicit schemaHandler: SchemaHandler): TableAttribute = {
     if (attributeMergeStrategy.failOnContainerMismatch) {
       checkContainerMismatch(refAttr, sourceAttr)
     }
@@ -618,8 +625,8 @@ object Attribute {
   }
 
   private def mergeContainerAttributes(
-    refAttr: Attribute,
-    sourceAttr: Attribute,
+    refAttr: TableAttribute,
+    sourceAttr: TableAttribute,
     attributeMergeStrategy: AttributeMergeStrategy,
     refAttrDataType: DataType,
     sourceAttrDataType: DataType
@@ -675,10 +682,10 @@ object Attribute {
     * @return
     */
   def mergeAll(
-    refAttrs: List[Attribute],
-    sourceAttrs: List[Attribute],
+    refAttrs: List[TableAttribute],
+    sourceAttrs: List[TableAttribute],
     attributeMergeStrategy: AttributeMergeStrategy
-  )(implicit schemaHandler: SchemaHandler): List[Attribute] = {
+  )(implicit schemaHandler: SchemaHandler): List[TableAttribute] = {
     val missingAttributes = attributeMergeStrategy.keepSourceDiffAttributesStrategy match {
       case KeepAllDiff =>
         val missingAttributeNames = sourceAttrs.map(_.name).diff(refAttrs.map(_.name))
@@ -701,7 +708,7 @@ object Attribute {
 }
 
 object Attributes {
-  def from(structType: StructType): List[Attribute] = {
-    structType.fields.map(field => Attribute(field)).toList
+  def from(structType: StructType): List[TableAttribute] = {
+    structType.fields.map(field => TableAttribute(field)).toList
   }
 }

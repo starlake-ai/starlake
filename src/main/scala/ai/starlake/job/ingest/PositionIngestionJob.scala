@@ -134,7 +134,11 @@ object PositionIngestionUtil {
       .csv(path.map(_.toString): _*)
   }
 
-  def prepare(session: SparkSession, input: DataFrame, attributes: List[Attribute]): DataFrame = {
+  def prepare(
+    session: SparkSession,
+    input: DataFrame,
+    attributes: List[TableAttribute]
+  ): DataFrame = {
     import org.apache.spark.sql.functions._
     val attributesProjection = attributes.foldLeft(List[Column]()) { (projection, attribute) =>
       val attributePosition = attribute.position.getOrElse(

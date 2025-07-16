@@ -1,6 +1,6 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.schema.model.{Attribute, SchemaInfo}
+import ai.starlake.schema.model.{SchemaInfo, TableAttribute}
 
 import java.sql.Timestamp
 import java.util.regex.Pattern
@@ -30,12 +30,12 @@ object RejectedRecord {
     name = "rejected",
     pattern = Pattern.compile("ignore"),
     attributes = List(
-      Attribute("jobid", "string"),
-      Attribute("timestamp", "timestamp"),
-      Attribute("domain", "string"),
-      Attribute("schema", "string"),
-      Attribute("error", "string"),
-      Attribute("path", "string")
+      TableAttribute("jobid", "string"),
+      TableAttribute("timestamp", "timestamp"),
+      TableAttribute("domain", "string"),
+      TableAttribute("schema", "string"),
+      TableAttribute("error", "string"),
+      TableAttribute("path", "string")
     ),
     None,
     None

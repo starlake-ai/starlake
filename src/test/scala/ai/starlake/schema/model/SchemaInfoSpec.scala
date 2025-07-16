@@ -36,7 +36,7 @@ class SchemaInfoSpec extends TestHelper {
       val lines =
         scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
       val types = mapper.readValue(lines, classOf[TypesDesc])
-      val attr = Attribute(
+      val attr = TableAttribute(
         "attr",
         "invalid-type", // should raise error non existent type
         Some(true),
@@ -61,7 +61,7 @@ class SchemaInfoSpec extends TestHelper {
     }
 
     "Attribute privacy" should "applicable to any type" in {
-      val attr = Attribute(
+      val attr = TableAttribute(
         "attr",
         "long",
         Some(true),
@@ -77,7 +77,7 @@ class SchemaInfoSpec extends TestHelper {
     }
 
     "Sub Attribute" should "be present for struct types only" in {
-      val attr = Attribute(
+      val attr = TableAttribute(
         "attr",
         "struct",
         Some(true),
@@ -88,7 +88,7 @@ class SchemaInfoSpec extends TestHelper {
             false
           )
         ), // Should raise an error. Privacy cannot be applied on types other than string
-        attributes = List[Attribute]()
+        attributes = List[TableAttribute]()
       )
       val expectedErrors = List(
         ValidationMessage(
@@ -105,7 +105,7 @@ class SchemaInfoSpec extends TestHelper {
       val yml = loadTextFile(s"/expected/yml/position_serialization.sl.yml")
 
       val attr =
-        Attribute(
+        TableAttribute(
           "hello",
           position = Some(Position(1, 2)),
           array = Some(false),
@@ -122,7 +122,7 @@ class SchemaInfoSpec extends TestHelper {
 
     "Default value for an attribute" should "only be used for non obligatory fields" in {
       val requiredAttribute =
-        Attribute("requiredAttribute", "long", required = Some(true), default = Some("10"))
+        TableAttribute("requiredAttribute", "long", required = Some(true), default = Some("10"))
       requiredAttribute.checkValidity(schemaHandler, "ignore", new SchemaInfo()) shouldBe Left(
         List(
           ValidationMessage(
@@ -134,7 +134,7 @@ class SchemaInfoSpec extends TestHelper {
       )
 
       val optionalAttribute =
-        Attribute("optionalAttribute", "long", required = Some(false), default = Some("10"))
+        TableAttribute("optionalAttribute", "long", required = Some(false), default = Some("10"))
       optionalAttribute.checkValidity(schemaHandler, "ignore", new SchemaInfo()) shouldBe Right(
         true
       )

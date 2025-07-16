@@ -913,9 +913,9 @@ object YamlConfigGenerators {
     } yield StructField(name, dataType, nullable)
   }
 
-  implicit val attribute: Arbitrary[Attribute] = Arbitrary {
+  implicit val attribute: Arbitrary[TableAttribute] = Arbitrary {
     arbitrary[StructField].map { sf =>
-      val attributeInstance = Attribute(sf)
+      val attributeInstance = TableAttribute(sf)
       // Instantiate with serialized default value otherwise comparison in round-trip would fail
       attributeInstance.copy(
         ignore = Some(attributeInstance.resolveIgnore()),
@@ -962,7 +962,7 @@ object YamlConfigGenerators {
   implicit val schema: Arbitrary[SchemaInfo] = Arbitrary {
     for {
       name          <- arbitrary[String]
-      attributes    <- arbitrary[List[Attribute]]
+      attributes    <- arbitrary[List[TableAttribute]]
       metadata      <- Gen.option(arbitrary[Metadata])
       comment       <- Gen.option(arbitrary[String])
       presql        <- arbitrary[List[String]]

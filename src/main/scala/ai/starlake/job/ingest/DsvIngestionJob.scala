@@ -87,7 +87,7 @@ class DsvIngestionJob(
           dfInReader
         } else {
           // In a DSV file there is no depth so we can just traverse the first level
-          val inputSchema = Attribute(
+          val inputSchema = TableAttribute(
             name = "root",
             `type` = PrimitiveType.struct.value,
             attributes = schema.attributesWithoutScriptedFields

@@ -35,7 +35,7 @@ object JdbcDbUtils extends LazyLogging {
   type TableName = String
   type TableRemarks = String
   type ColumnName = String
-  type Columns = List[Attribute]
+  type Columns = List[TableAttribute]
   type PrimaryKeys = List[String]
 
   object StarlakeConnectionPool {
@@ -832,7 +832,7 @@ object JdbcDbUtils extends LazyLogging {
                             val primaryKeys = jdbcColumnMetadata.primaryKeys
                             val foreignKeys: Map[TableName, TableName] =
                               jdbcColumnMetadata.foreignKeys
-                            val columns: List[Attribute] = jdbcColumnMetadata.columns
+                            val columns: List[TableAttribute] = jdbcColumnMetadata.columns
                             logger.whenDebugEnabled {
                               columns
                                 .foreach(column =>
@@ -853,7 +853,7 @@ object JdbcDbUtils extends LazyLogging {
                                 .getOrElse(Map.empty)
                                 .toMap
                             val currentFilter = jdbcCurrentTable.flatMap(_.filter)
-                            val selectedColumns: List[Attribute] =
+                            val selectedColumns: List[TableAttribute] =
                               columns
                                 .filter(col =>
                                   currentTableRequestedColumns.isEmpty || currentTableRequestedColumns

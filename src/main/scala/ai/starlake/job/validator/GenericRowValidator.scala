@@ -1,7 +1,7 @@
 package ai.starlake.job.validator
 
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Attribute, Format, Type}
+import ai.starlake.schema.model.{Format, TableAttribute, Type}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.storage.StorageLevel
@@ -39,7 +39,7 @@ trait GenericRowValidator {
     format: Format,
     separator: String,
     dataset: DataFrame,
-    attributes: List[Attribute],
+    attributes: List[TableAttribute],
     types: List[Type],
     sparkType: StructType,
     privacyOptions: Map[String, String],

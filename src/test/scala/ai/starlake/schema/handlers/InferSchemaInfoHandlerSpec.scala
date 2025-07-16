@@ -1,7 +1,7 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.Attribute
+import ai.starlake.schema.model.TableAttribute
 
 class InferSchemaInfoHandlerSpec extends TestHelper {
 
@@ -16,13 +16,13 @@ class InferSchemaInfoHandlerSpec extends TestHelper {
         .option("inferSchema", value = true)
         .json(Seq(ComplexjsonStr).toDS())
 
-      val complexAttr2 = Attribute("key", "long", Some(false), required = None)
+      val complexAttr2 = TableAttribute("key", "long", Some(false), required = None)
       val complexAttr3 =
-        Attribute("value", "long", Some(false), required = None)
-      val complexAttr4 = Attribute("values", "long", Some(true), required = None)
+        TableAttribute("value", "long", Some(false), required = None)
+      val complexAttr4 = TableAttribute("values", "long", Some(true), required = None)
 
-      val complexAttr1: List[Attribute] = List(
-        Attribute(
+      val complexAttr1: List[TableAttribute] = List(
+        TableAttribute(
           "metadata",
           "struct",
           Some(false),
@@ -31,7 +31,7 @@ class InferSchemaInfoHandlerSpec extends TestHelper {
         )
       )
 
-      val complexAttr: List[Attribute] =
+      val complexAttr: List[TableAttribute] =
         InferSchemaHandler.createAttributes(Map.empty, df.schema)
 
       complexAttr shouldBe complexAttr1
@@ -47,12 +47,12 @@ class InferSchemaInfoHandlerSpec extends TestHelper {
         .option("inferSchema", value = true)
         .json(Seq(SimpleJsonStr).toDS())
 
-      val simpleAttr: List[Attribute] =
+      val simpleAttr: List[TableAttribute] =
         InferSchemaHandler.createAttributes(Map.empty, df1.schema)
 
-      val simpleAttr1: List[Attribute] = List(
-        Attribute("key", "string", Some(false), required = None),
-        Attribute("value", "long", Some(false), required = None)
+      val simpleAttr1: List[TableAttribute] = List(
+        TableAttribute("key", "string", Some(false), required = None),
+        TableAttribute("value", "long", Some(false), required = None)
       )
       simpleAttr shouldBe simpleAttr1
     }
@@ -79,12 +79,12 @@ class InferSchemaInfoHandlerSpec extends TestHelper {
         .option("inferSchema", value = true)
         .json(Seq(arrayJson).toDS())
 
-      val arrayAttr: List[Attribute] =
+      val arrayAttr: List[TableAttribute] =
         InferSchemaHandler.createAttributes(Map.empty, df1.schema)
 
-      val arrayAttr1: List[Attribute] = List(
-        Attribute("id", "long", Some(false), required = None),
-        Attribute("name", "string", Some(true), required = None)
+      val arrayAttr1: List[TableAttribute] = List(
+        TableAttribute("id", "long", Some(false), required = None),
+        TableAttribute("name", "string", Some(true), required = None)
       )
 
       arrayAttr shouldBe arrayAttr1
@@ -100,20 +100,26 @@ class InferSchemaInfoHandlerSpec extends TestHelper {
         .option("parserLib", "UNIVOCITY")
         .load("src/test/resources/sample/SCHEMA-VALID.dsv")
 
-      val dsv: List[Attribute] =
+      val dsv: List[TableAttribute] =
         InferSchemaHandler.createAttributes(Map.empty, df1.schema, forcePattern = false)
 
-      val dsv1: List[Attribute] = List(
-        Attribute(
+      val dsv1: List[TableAttribute] = List(
+        TableAttribute(
           "first name",
           "string",
           Some(false),
           required = None,
           rename = Some("first_name")
         ),
-        Attribute("last name", "string", Some(false), required = None, rename = Some("last_name")),
-        Attribute("age", "string", Some(false), required = None),
-        Attribute("ok", "string", Some(false), required = None)
+        TableAttribute(
+          "last name",
+          "string",
+          Some(false),
+          required = None,
+          rename = Some("last_name")
+        ),
+        TableAttribute("age", "string", Some(false), required = None),
+        TableAttribute("ok", "string", Some(false), required = None)
       )
       dsv shouldBe dsv1
 
@@ -128,12 +134,12 @@ class InferSchemaInfoHandlerSpec extends TestHelper {
         .option("parserLib", "UNIVOCITY")
         .load("src/test/resources/sample/SCHEMA-VALID-NOHEADER.dsv")
 
-      val dsv: List[Attribute] = InferSchemaHandler.createAttributes(Map.empty, df1.schema)
+      val dsv: List[TableAttribute] = InferSchemaHandler.createAttributes(Map.empty, df1.schema)
 
-      val dsv1: List[Attribute] = List(
-        Attribute("_c0", "string", Some(false), required = None, rename = Some("c0")),
-        Attribute("_c1", "string", Some(false), required = None, rename = Some("c1")),
-        Attribute("_c2", "int", Some(false), required = None, rename = Some("c2"))
+      val dsv1: List[TableAttribute] = List(
+        TableAttribute("_c0", "string", Some(false), required = None, rename = Some("c0")),
+        TableAttribute("_c1", "string", Some(false), required = None, rename = Some("c1")),
+        TableAttribute("_c2", "int", Some(false), required = None, rename = Some("c2"))
       )
       dsv shouldBe dsv1
 

@@ -2,7 +2,7 @@ package ai.starlake.job.validator
 
 import ai.starlake.config.{CometColumns, PrivacyLevels}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Attribute, Attributes, Format, Type}
+import ai.starlake.schema.model.{Attributes, Format, TableAttribute, Type}
 import org.apache.spark.sql.functions.{col, concat_ws, lit}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{functions, DataFrame, SparkSession}
@@ -15,7 +15,7 @@ object FlatRowValidator extends GenericRowValidator {
     format: Format,
     separator: String,
     dataset: DataFrame,
-    attributes: List[Attribute],
+    attributes: List[TableAttribute],
     types: List[Type],
     sparkType: StructType,
     privacyOptions: Map[String, String],

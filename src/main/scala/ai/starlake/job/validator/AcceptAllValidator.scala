@@ -2,7 +2,7 @@ package ai.starlake.job.validator
 
 import ai.starlake.config.PrivacyLevels
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Attribute, Attributes, Format, Type}
+import ai.starlake.schema.model.{Attributes, Format, TableAttribute, Type}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.storage.StorageLevel
@@ -13,7 +13,7 @@ object AcceptAllValidator extends GenericRowValidator {
     format: Format,
     separator: String,
     dataset: DataFrame,
-    attributes: List[Attribute],
+    attributes: List[TableAttribute],
     types: List[Type],
     sparkType: StructType,
     privacyOptions: Map[String, String],

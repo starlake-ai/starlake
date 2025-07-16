@@ -28,7 +28,7 @@ class AttributeSpec extends TestHelper {
 
     implicit val schemaHandler: SchemaHandler = settings.schemaHandler()
 
-    val refAttributes = mapper.readValue[List[Attribute]]("""
+    val refAttributes = mapper.readValue[List[TableAttribute]]("""
         |- name: "attr1"
         |  type: "string"
         |  required: true
@@ -97,7 +97,7 @@ class AttributeSpec extends TestHelper {
 
     "Merging with empty" should "return same content" in {
       val sourceAttributes = Nil
-      val mergedAttributes = Attribute.mergeAll(
+      val mergedAttributes = TableAttribute.mergeAll(
         refAttributes,
         sourceAttributes,
         AttributeMergeStrategy(
@@ -112,7 +112,7 @@ class AttributeSpec extends TestHelper {
 
     "Merging identical content" should "return same content" in {
       val sourceAttributes = refAttributes
-      val mergedAttributes = Attribute.mergeAll(
+      val mergedAttributes = TableAttribute.mergeAll(
         refAttributes,
         sourceAttributes,
         AttributeMergeStrategy(
@@ -126,7 +126,7 @@ class AttributeSpec extends TestHelper {
     }
 
     "Merging wider content" should "return wider content but not in the same order" in {
-      val sourceAttributes = mapper.readValue[List[Attribute]]("""
+      val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
           |- name: "attr0"
           |  type: "string"
           |- name: "attr1"
@@ -191,7 +191,7 @@ class AttributeSpec extends TestHelper {
           |  type: "string"
           |  script: "1"
           |""".stripMargin)
-      val mergedAttributes = Attribute.mergeAll(
+      val mergedAttributes = TableAttribute.mergeAll(
         refAttributes,
         sourceAttributes,
         AttributeMergeStrategy(
@@ -201,7 +201,7 @@ class AttributeSpec extends TestHelper {
           attributePropertiesMergeStrategy = RefFirst
         )
       )
-      val expectedAttributes = mapper.readValue[List[Attribute]]("""
+      val expectedAttributes = mapper.readValue[List[TableAttribute]]("""
           |- name: "attr1"
           |  type: "string"
           |  required: true
@@ -300,7 +300,7 @@ class AttributeSpec extends TestHelper {
     }
 
     it should "return same ref content" in {
-      val sourceAttributes = mapper.readValue[List[Attribute]]("""
+      val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
           |- name: "attr0"
           |  type: "string"
           |- name: "attr1"
@@ -365,7 +365,7 @@ class AttributeSpec extends TestHelper {
           |  type: "string"
           |  script: "1"
           |""".stripMargin)
-      val mergedAttributes = Attribute.mergeAll(
+      val mergedAttributes = TableAttribute.mergeAll(
         refAttributes,
         sourceAttributes,
         AttributeMergeStrategy(
@@ -380,7 +380,7 @@ class AttributeSpec extends TestHelper {
     }
 
     it should "return ref plus source's script but not in the same order" in {
-      val sourceAttributes = mapper.readValue[List[Attribute]]("""
+      val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
           |- name: "attr0"
           |  type: "string"
           |- name: "attr1"
@@ -445,7 +445,7 @@ class AttributeSpec extends TestHelper {
           |  type: "string"
           |  script: "1"
           |""".stripMargin)
-      val mergedAttributes = Attribute.mergeAll(
+      val mergedAttributes = TableAttribute.mergeAll(
         refAttributes,
         sourceAttributes,
         AttributeMergeStrategy(
@@ -455,7 +455,7 @@ class AttributeSpec extends TestHelper {
           attributePropertiesMergeStrategy = RefFirst
         )
       )
-      val expectedAttributes = mapper.readValue[List[Attribute]]("""
+      val expectedAttributes = mapper.readValue[List[TableAttribute]]("""
           |- name: "attr1"
           |  type: "string"
           |  required: true
@@ -540,7 +540,7 @@ class AttributeSpec extends TestHelper {
     }
 
     "Merging mismatched container" should "return reference content" in {
-      val sourceAttributes = mapper.readValue[List[Attribute]]("""
+      val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
           |- name: "attr1"
           |  type: "struct"
           |  attributes:
@@ -568,7 +568,7 @@ class AttributeSpec extends TestHelper {
           |- name: "array2"
           |  type: "long"
           |""".stripMargin)
-      val mergedAttributes = Attribute.mergeAll(
+      val mergedAttributes = TableAttribute.mergeAll(
         refAttributes,
         sourceAttributes,
         AttributeMergeStrategy(
@@ -584,7 +584,7 @@ class AttributeSpec extends TestHelper {
 
     it should "fail" in {
       var caughtError = intercept[AssertionError] {
-        val sourceAttributes = mapper.readValue[List[Attribute]]("""
+        val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
             |- name: "struct1"
             |  type: "struct"
             |  attributes:
@@ -594,7 +594,7 @@ class AttributeSpec extends TestHelper {
             |        - name: "ignored_attr"
             |          type: "string"
             |""".stripMargin)
-        Attribute.mergeAll(
+        TableAttribute.mergeAll(
           refAttributes,
           sourceAttributes,
           AttributeMergeStrategy(
@@ -610,7 +610,7 @@ class AttributeSpec extends TestHelper {
       )
 
       caughtError = intercept[AssertionError] {
-        val sourceAttributes = mapper.readValue[List[Attribute]]("""
+        val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
             |- name: "struct1"
             |  type: "struct"
             |  attributes:
@@ -618,7 +618,7 @@ class AttributeSpec extends TestHelper {
             |      array: true
             |      type: "long"
             |""".stripMargin)
-        Attribute.mergeAll(
+        TableAttribute.mergeAll(
           refAttributes,
           sourceAttributes,
           AttributeMergeStrategy(
@@ -634,11 +634,11 @@ class AttributeSpec extends TestHelper {
       )
 
       caughtError = intercept[AssertionError] {
-        val sourceAttributes = mapper.readValue[List[Attribute]]("""
+        val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
             |- name: "array2"
             |  type: "long"
             |""".stripMargin)
-        Attribute.mergeAll(
+        TableAttribute.mergeAll(
           refAttributes,
           sourceAttributes,
           AttributeMergeStrategy(
@@ -654,7 +654,7 @@ class AttributeSpec extends TestHelper {
       )
 
       caughtError = intercept[AssertionError] {
-        val sourceAttributes = mapper.readValue[List[Attribute]]("""
+        val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
             |- name: "array1"
             |  type: "struct"
             |  attributes:
@@ -662,7 +662,7 @@ class AttributeSpec extends TestHelper {
             |      array: true
             |      type: "long"
             |""".stripMargin)
-        Attribute.mergeAll(
+        TableAttribute.mergeAll(
           refAttributes,
           sourceAttributes,
           AttributeMergeStrategy(
@@ -678,7 +678,7 @@ class AttributeSpec extends TestHelper {
       )
 
       caughtError = intercept[AssertionError] {
-        val sourceAttributes = mapper.readValue[List[Attribute]]("""
+        val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
             |- name: "struct1"
             |  array: true
             |  type: "struct"
@@ -687,7 +687,7 @@ class AttributeSpec extends TestHelper {
             |      array: true
             |      type: "long"
             |""".stripMargin)
-        Attribute.mergeAll(
+        TableAttribute.mergeAll(
           refAttributes,
           sourceAttributes,
           AttributeMergeStrategy(
@@ -703,11 +703,11 @@ class AttributeSpec extends TestHelper {
       )
 
       caughtError = intercept[AssertionError] {
-        val sourceAttributes = mapper.readValue[List[Attribute]]("""
+        val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
             |- name: "struct1"
             |  type: "long"
             |""".stripMargin)
-        Attribute.mergeAll(
+        TableAttribute.mergeAll(
           refAttributes,
           sourceAttributes,
           AttributeMergeStrategy(
@@ -724,7 +724,7 @@ class AttributeSpec extends TestHelper {
     }
 
     "Merging mismatched struct emptiness" should "return reference content" in {
-      val sourceAttributes = mapper.readValue[List[Attribute]]("""
+      val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
           |- name: "attr1"
           |  type: "struct"
           |  attributes: []
@@ -741,7 +741,7 @@ class AttributeSpec extends TestHelper {
           |- name: "array2"
           |  type: "long"
           |""".stripMargin)
-      val mergedAttributes = Attribute.mergeAll(
+      val mergedAttributes = TableAttribute.mergeAll(
         refAttributes,
         sourceAttributes,
         AttributeMergeStrategy(
@@ -757,7 +757,7 @@ class AttributeSpec extends TestHelper {
 
     it should "fail" in {
       var caughtError = intercept[AssertionError] {
-        val sourceAttributes = mapper.readValue[List[Attribute]]("""
+        val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
             |- name: "struct1"
             |  type: "struct"
             |  attributes:
@@ -765,7 +765,7 @@ class AttributeSpec extends TestHelper {
             |      type: "struct"
             |      attributes: []
             |""".stripMargin)
-        Attribute.mergeAll(
+        TableAttribute.mergeAll(
           refAttributes,
           sourceAttributes,
           AttributeMergeStrategy(
@@ -781,12 +781,12 @@ class AttributeSpec extends TestHelper {
       )
 
       caughtError = intercept[AssertionError] {
-        val sourceAttributes = mapper.readValue[List[Attribute]]("""
+        val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
             |- name: "struct1"
             |  type: "struct"
             |  attributes: []
             |""".stripMargin)
-        Attribute.mergeAll(
+        TableAttribute.mergeAll(
           refAttributes,
           sourceAttributes,
           AttributeMergeStrategy(
@@ -802,13 +802,13 @@ class AttributeSpec extends TestHelper {
       )
 
       caughtError = intercept[AssertionError] {
-        val sourceAttributes = mapper.readValue[List[Attribute]]("""
+        val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
             |- name: "array1"
             |  array: true
             |  type: "struct"
             |  attributes: []
             |""".stripMargin)
-        Attribute.mergeAll(
+        TableAttribute.mergeAll(
           refAttributes,
           sourceAttributes,
           AttributeMergeStrategy(
@@ -825,7 +825,7 @@ class AttributeSpec extends TestHelper {
     }
 
     "Merging wider content with source properties first" should "return wider content but with mixed properties" in {
-      val sourceAttributes = mapper.readValue[List[Attribute]]("""
+      val sourceAttributes = mapper.readValue[List[TableAttribute]]("""
           |- name: "attr0"
           |  type: "string"
           |- name: "attr1"
@@ -920,7 +920,7 @@ class AttributeSpec extends TestHelper {
           |  type: "string"
           |  script: "1"
           |""".stripMargin)
-      val mergedAttributes = Attribute.mergeAll(
+      val mergedAttributes = TableAttribute.mergeAll(
         refAttributes,
         sourceAttributes,
         AttributeMergeStrategy(
@@ -930,7 +930,7 @@ class AttributeSpec extends TestHelper {
           attributePropertiesMergeStrategy = SourceFirst
         )
       )
-      val expectedAttributes = mapper.readValue[List[Attribute]]("""
+      val expectedAttributes = mapper.readValue[List[TableAttribute]]("""
           |- name: "attr1"
           |  type: "string"
           |  required: true

@@ -502,48 +502,48 @@ class XlsDomainReader(input: Input) extends XlsModel {
 
   private def buildAttributes(schema: SchemaInfo, sheet: Sheet)(implicit
     settings: Settings
-  ): List[Attribute] = {
+  ): List[TableAttribute] = {
     val (rows, headerMap) = getColsOrder(sheet, allAttributeHeaders.map { case (k, _) => k })
     val attrs = rows.flatMap { row =>
       readAttribute(schema, headerMap, row)
     }.toList
     val withEndOfStruct = markEndOfStruct(attrs)
-    val topParent = Attribute("__dummy", "struct", attributes = withEndOfStruct)
+    val topParent = TableAttribute("__dummy", "struct", attributes = withEndOfStruct)
     buildAttrsTree(topParent, withEndOfStruct.iterator).attributes
   }
 
-  private def markEndOfStruct(attrs: List[Attribute]): List[Attribute] = {
+  private def markEndOfStruct(attrs: List[TableAttribute]): List[TableAttribute] = {
     var previousLevel = 0
     val result = attrs.flatMap { attr =>
       val level = attr.name.count(_ == '.')
-      val attrWithEndStruct: List[Attribute] =
+      val attrWithEndStruct: List[TableAttribute] =
         if (level == previousLevel)
           List(attr)
         else if (level == previousLevel + 1) {
           List(attr)
         } else if (level < previousLevel) {
-          val endingStruct = ListBuffer.empty[Attribute]
+          val endingStruct = ListBuffer.empty[TableAttribute]
           for (i <- level until previousLevel)
-            endingStruct.append(Attribute(name = "__end_struct", `type` = "struct"))
+            endingStruct.append(TableAttribute(name = "__end_struct", `type` = "struct"))
           endingStruct.toList :+ attr
         } else
           throw new Exception("Invalid Level in XLS")
       previousLevel = level
       attrWithEndStruct
     }
-    val endingStruct = ListBuffer.empty[Attribute]
+    val endingStruct = ListBuffer.empty[TableAttribute]
     for (i <- 0 until previousLevel)
-      endingStruct.append(Attribute(name = "__end_struct", `type` = "struct"))
+      endingStruct.append(TableAttribute(name = "__end_struct", `type` = "struct"))
 
     result ++ endingStruct.toList
   }
 
   private def buildAttrsTree(
-    parent: Attribute,
-    attributes: Iterator[Attribute]
-  )(implicit settings: Settings): Attribute = {
+    parent: TableAttribute,
+    attributes: Iterator[TableAttribute]
+  )(implicit settings: Settings): TableAttribute = {
     //
-    val attrsAtTheSameLevel: ListBuffer[Attribute] = ListBuffer.empty
+    val attrsAtTheSameLevel: ListBuffer[TableAttribute] = ListBuffer.empty
     var endOfStructFound = false
     while (!endOfStructFound && attributes.hasNext) {
       val attr = attributes.next()
@@ -570,7 +570,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
     schema: SchemaInfo,
     headerMap: Map[String, Int],
     row: Row
-  )(implicit settings: Settings): Option[Attribute] = {
+  )(implicit settings: Settings): Option[TableAttribute] = {
     val nameOpt =
       Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
         .flatMap(formatter.formatCellValue)
@@ -670,7 +670,7 @@ class XlsDomainReader(input: Input) extends XlsModel {
         val isArray = if (name.endsWith("*")) Some(true) else None
         val simpleName = if (isArray.getOrElse(false)) name.dropRight(1) else name
         Some(
-          Attribute(
+          TableAttribute(
             name = simpleName,
             `type` = semanticType,
             array = isArray,

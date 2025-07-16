@@ -23,7 +23,7 @@ package ai.starlake
 import ai.starlake.config.{DatasetArea, Settings, SparkEnv}
 import ai.starlake.job.ingest.{IngestConfig, LoadConfig, StageConfig}
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model.{Attribute, AutoTaskInfo, DomainInfo}
+import ai.starlake.schema.model.{AutoTaskInfo, DomainInfo, TableAttribute}
 import ai.starlake.utils._
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
@@ -568,7 +568,7 @@ trait TestHelper
     ElasticsearchContainer.Def(esDockerImageName).start()
   }
 
-  def deepEquals(l1: List[Attribute], l2: List[Attribute]): Boolean = {
+  def deepEquals(l1: List[TableAttribute], l2: List[TableAttribute]): Boolean = {
     l1.zip(l2).foreach { case (a1, a2) =>
       a1.name should equal(a2.name)
       a1.`type` should equal(a2.`type`)
