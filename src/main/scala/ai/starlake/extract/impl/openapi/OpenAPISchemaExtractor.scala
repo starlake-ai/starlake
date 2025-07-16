@@ -729,11 +729,14 @@ class OpenAPISchemaExtractor(
     formatTypeMapping: Map[String, String]
   ): SchemaName => SchemaInfo = {
     val typeIgnored = scala.collection.mutable.ListBuffer[String]()
-    def buildAttribute(fieldName: String, attributeSchema: OpenAPISwaggerSchema[_]): Attribute = {
+    def buildAttribute(
+      fieldName: String,
+      attributeSchema: OpenAPISwaggerSchema[_]
+    ): TableAttribute = {
       def asAttributeOf(
         attributeType: String,
-        childAttributes: List[Attribute] = Nil
-      ): Attribute = {
+        childAttributes: List[TableAttribute] = Nil
+      ): TableAttribute = {
         val comment: Option[String] = Option(attributeSchema.getEnum)
           .map("One of: " + _.asScala.toList.map(_.toString).mkString(", "))
           .getOrElse("") match {
@@ -752,7 +755,7 @@ class OpenAPISchemaExtractor(
         val sanitizedFieldName =
           NamingUtils.normalizeAttributeName(fieldName, toSnakeCase = applySnakeCaseOnName)
 
-        new Attribute(
+        new TableAttribute(
           name = if (attributeSanitizeStrategy == OnExtract) sanitizedFieldName else fieldName,
           rename =
             if (attributeSanitizeStrategy == OnExtract) None
@@ -818,7 +821,7 @@ class OpenAPISchemaExtractor(
           )
       }
     }
-    def buildAttributes(schemaWithAttributes: OpenAPISwaggerSchema[_]): List[Attribute] = {
+    def buildAttributes(schemaWithAttributes: OpenAPISwaggerSchema[_]): List[TableAttribute] = {
       def handleObjectSchema = {
         Option(schemaWithAttributes.getProperties)
           .map(_.asScala)

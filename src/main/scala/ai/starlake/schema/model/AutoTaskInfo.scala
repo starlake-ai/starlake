@@ -5,8 +5,14 @@ import ai.starlake.config.Settings.Connection
 import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig}
 import ai.starlake.schema.model.Severity.Error
 import ai.starlake.sql.SQLUtils
+import ai.starlake.transpiler.JSQLSchemaDiff
+import ai.starlake.transpiler.diff.Attribute as DiffAttribute
+import ai.starlake.transpiler.diff.DBSchema
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
+
+import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success}
 
 case class TaskDesc(version: Int, task: AutoTaskInfo)
 
@@ -265,37 +271,27 @@ case class AutoTaskInfo(
     /*
     val schemaHandler = settings.schemaHandler()
     val sqlWithParametersTranspiled = getTranspiledSql()
-    val taskAttributes: List[DiffAttribute] =
-      schemaHandler.taskOnly(this.domain + "." + this.table) match {
-        case Success(taskInfo) =>
-          taskInfo.attributes.map { tAttr => tAttr.toDiffAttribute() }
-        case Failure(exception) =>
-          // If the task does not exist, we return undefined for all columns
-          Nil
-      }
     val allTableNames = SQLUtils.extractTableNames(sqlWithParametersTranspiled)
-
-    allTableNames.map { tableName =>
+    val thisTaskName = this.domain + "." + this.table
+    (thisTaskName +: allTableNames).map { tableName =>
       val parts = tableName.split('.').toList
       parts match {
-        case database :: domain :: table :: Nil =>
+        case database :: domain :: table :: Nil => Some(domain, table)
+        case domain :: table :: Nil             => Some(domain, table)
+        case _                                  => None
+      } match {
+        case Some((domain, table)) =>
           schemaHandler.taskOnly(s"$domain.$table") match {
             case Success(taskInfo) =>
-              taskInfo.attributes.map { tAttr => tAttr.toJdbcColumn(database, domain, table) }
+              taskInfo.attributes.map { tAttr => tAttr.toDiffAttribute() }
             case Failure(exception) =>
-              // If the task does not exist, we return undefined for all columns
-              Nil
-          }
-        case domain :: table :: Nil =>
-          schemaHandler.taskOnly(s"$domain.$table") match {
-            case Success(taskInfo) =>
-              taskInfo.attributes.map { tAttr => tAttr.toJdbcColumn("", domain, table) }
-            case Failure(exception) =>
-              // If the task does not exist, we return undefined for all columns
-              Nil
-          }
-        case _ =>
 
+              // If the task does not exist, we return undefined for all columns
+              Nil
+          }
+        case None =>
+          // If the table name is not in the expected format, we return undefined for all columns
+          Nil
       }
     }
 
@@ -312,7 +308,6 @@ case class AutoTaskInfo(
     statementColumns.asScala.toList.map { col =>
       col.getName -> col.getType
     }
-
      */
     Nil
   }

@@ -13,9 +13,9 @@ class TemplateParamsSpec extends TestHelper {
         name = "table1",
         pattern = Pattern.compile("output_file.*.csv"),
         List(
-          Attribute(name = "col1"),
-          Attribute(name = "col2", `type` = "long"),
-          Attribute(name = "col3", script = Some("script"))
+          TableAttribute(name = "col1"),
+          TableAttribute(name = "col2", `type` = "long"),
+          TableAttribute(name = "col3", script = Some("script"))
         ),
         metadata = Option(
           Metadata(
@@ -59,7 +59,7 @@ class TemplateParamsSpec extends TestHelper {
       val schema: SchemaInfo = SchemaInfo(
         name = "table1",
         pattern = Pattern.compile("output_file.*.csv"),
-        List(Attribute(name = "col1"), Attribute(name = "col2", `type` = "long")),
+        List(TableAttribute(name = "col1"), TableAttribute(name = "col2", `type` = "long")),
         metadata = Option(
           Metadata(
             separator = Some("|"),

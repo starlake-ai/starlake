@@ -2,7 +2,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.job.infer.InferSchemaJob
-import ai.starlake.schema.model.{Attribute, WriteMode}
+import ai.starlake.schema.model.{TableAttribute, WriteMode}
 import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.File
 import org.apache.hadoop.fs.Path
@@ -208,7 +208,7 @@ class InferSchemaInfoJobSpec extends TestHelper {
       }
     }
 
-    private def removeSampleField(attributes: List[Attribute]): List[Attribute] = {
+    private def removeSampleField(attributes: List[TableAttribute]): List[TableAttribute] = {
       attributes.map { attr =>
         if (attr.attributes.nonEmpty) {
           attr.copy(attributes = removeSampleField(attr.attributes), sample = None)

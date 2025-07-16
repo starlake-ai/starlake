@@ -1,7 +1,7 @@
 package ai.starlake.extract
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.model.{Attribute, DomainInfo, SchemaInfo}
+import ai.starlake.schema.model.{DomainInfo, SchemaInfo, TableAttribute}
 import ai.starlake.utils.{JobResult, SparkJob}
 
 import java.util.regex.Pattern
@@ -60,7 +60,7 @@ class SparkExtractorJob(domainAndTablesNames: Map[String, List[String]] = Map.em
                     .map { row =>
                       val colName = row.getString(0)
                       val colType = row.getString(1)
-                      Attribute(colName, colType)
+                      TableAttribute(colName, colType)
                     }
                     .toList
                 SchemaInfo(

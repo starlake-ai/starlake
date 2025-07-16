@@ -310,7 +310,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
             val startPosition = lastIndex + 1
             val endPosition = startPosition + field.length - 1
             lastIndex = endPosition
-            Attribute(
+            TableAttribute(
               name = fieldName,
               position = Some(Position(startPosition, endPosition)),
               sample = Option(field)
@@ -371,7 +371,7 @@ class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
               }.toMap
             })
             .getOrElse(Map.empty)
-          val attributes: List[Attribute] =
+          val attributes: List[TableAttribute] =
             InferSchemaHandler.createAttributes(
               adjustedAttributesTypeMap,
               dataframeWithFormat.schema

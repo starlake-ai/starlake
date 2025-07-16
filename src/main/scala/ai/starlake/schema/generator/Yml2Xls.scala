@@ -43,8 +43,11 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
       )
   }
 
-  private def linearize(attrs: List[Attribute], prefix: List[String] = Nil): List[Attribute] = {
-    def finalName(attr: Attribute, prefix: List[String]) = {
+  private def linearize(
+    attrs: List[TableAttribute],
+    prefix: List[String] = Nil
+  ): List[TableAttribute] = {
+    def finalName(attr: TableAttribute, prefix: List[String]) = {
       prefix match {
         case Nil => attr.name
         case _   => prefix.mkString(".") + "." + attr.name

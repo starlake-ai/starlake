@@ -1,8 +1,6 @@
 package ai.starlake.schema.model
 
-import ai.starlake.transpiler.schema.JdbcColumn
-
-import java.sql.Types
+import ai.starlake.transpiler.diff.Attribute as DiffAttribute
 
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
@@ -24,7 +22,7 @@ case class AutoTaskAttribute(
     s"AutoTaskAttribute(name=$name, type=${`type`}, comment=$comment, accessPolicy=$accessPolicy)"
   }
 
-  def toJdbcColumn(database: String, domain: String, table: String): JdbcColumn = {
-    new JdbcColumn(database, domain, table, name, Types.OTHER, `type`, 0, 0, 0, "", null)
+  def toDiffAttribute(): DiffAttribute = {
+    new DiffAttribute(this.name, this.`type`)
   }
 }

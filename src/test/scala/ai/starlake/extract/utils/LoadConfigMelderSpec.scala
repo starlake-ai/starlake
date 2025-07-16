@@ -11,7 +11,7 @@ import ai.starlake.core.utils.{
   TableAttributeMelderConfig,
   TableMelderConfig
 }
-import ai.starlake.schema.model.{Attribute, DomainInfo, Metadata, SchemaInfo}
+import ai.starlake.schema.model.{DomainInfo, Metadata, SchemaInfo, TableAttribute}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -19,7 +19,7 @@ import java.util.regex.Pattern
 
 class LoadConfigMelderSpec extends AnyFlatSpec with Matchers {
 
-  val sampleAttr1 = Attribute(
+  val sampleAttr1 = TableAttribute(
     name = "attr1",
     required = Some(true),
     comment = Some("This is attr1"),
@@ -28,7 +28,7 @@ class LoadConfigMelderSpec extends AnyFlatSpec with Matchers {
     rename = Some("renamedAttr1")
   )
 
-  val currentSampleAttr1 = Attribute(
+  val currentSampleAttr1 = TableAttribute(
     name = "attr1",
     required = Some(false),
     comment = Some("This is attr1.2"),
@@ -37,7 +37,7 @@ class LoadConfigMelderSpec extends AnyFlatSpec with Matchers {
     rename = Some("renamedAttr1.2")
   )
 
-  val sampleAttr2 = Attribute(name = "attr2", comment = Some("attr2 comment"))
+  val sampleAttr2 = TableAttribute(name = "attr2", comment = Some("attr2 comment"))
 
   val defaultDomainMelderConfig = DomainMelderConfig()
   val defaultTableMelderConfig = TableMelderConfig()

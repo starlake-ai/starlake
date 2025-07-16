@@ -30,9 +30,9 @@ import ai.starlake.utils.Formatter._
 import ai.starlake.utils.Utils
 import ai.starlake.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.google.cloud.bigquery.{Schema => BQSchema}
+import com.google.cloud.bigquery.Schema as BQSchema
 import com.google.cloud.spark.bigquery.SparkBigQueryUtil
-import org.apache.spark.sql.types.{Metadata => SparkMetadata, _}
+import org.apache.spark.sql.types.{Metadata as SparkMetadata, _}
 
 import java.util.regex.Pattern
 import scala.collection.mutable
@@ -69,7 +69,7 @@ import scala.util.Try
 case class SchemaInfo(
   name: String, // table name without the domain name prefix
   pattern: Pattern,
-  attributes: List[Attribute],
+  attributes: List[TableAttribute],
   metadata: Option[Metadata] = None,
   comment: Option[String] = None,
   presql: List[String] = Nil,
@@ -156,29 +156,30 @@ case class SchemaInfo(
   lazy val finalName: String = rename.getOrElse(name)
 
   @JsonIgnore
-  lazy val attributesWithoutScriptedFields: List[Attribute] = attributes.filter(_.script.isEmpty)
+  lazy val attributesWithoutScriptedFields: List[TableAttribute] =
+    attributes.filter(_.script.isEmpty)
 
   @JsonIgnore
-  lazy val attributesWithoutScriptedFieldsWithInputFileName: List[Attribute] =
-    attributesWithoutScriptedFields :+ Attribute(
+  lazy val attributesWithoutScriptedFieldsWithInputFileName: List[TableAttribute] =
+    attributesWithoutScriptedFields :+ TableAttribute(
       name = CometColumns.cometInputFileNameColumn
     )
 
-  def scriptAndTransformAttributes(): List[Attribute] = {
+  def scriptAndTransformAttributes(): List[TableAttribute] = {
     attributes.filter { attribute =>
       !attribute.resolveIgnore() && (attribute.script.nonEmpty || attribute.transform.nonEmpty)
     }
   }
 
-  def exceptIgnoreScriptAndTransformAttributes(): List[Attribute] = {
+  def exceptIgnoreScriptAndTransformAttributes(): List[TableAttribute] = {
     attributes.filter { attribute =>
       !attribute.resolveIgnore() && attribute.script.isEmpty && attribute.transform.isEmpty
     }
   }
 
-  def exceptIgnoreAttributes(): List[Attribute] = attributes.filter(!_.resolveIgnore())
+  def exceptIgnoreAttributes(): List[TableAttribute] = attributes.filter(!_.resolveIgnore())
 
-  def ignoredAttributes(): List[Attribute] = {
+  def ignoredAttributes(): List[TableAttribute] = {
     attributes.filter { attribute =>
       attribute.resolveIgnore()
     }
@@ -205,9 +206,9 @@ case class SchemaInfo(
 
   private def sparkSchemaWithCondition(
     schemaHandler: SchemaHandler,
-    p: Attribute => Boolean
+    p: TableAttribute => Boolean
   ): StructType = {
-    def enrichStructField(attr: Attribute, structField: StructField) = {
+    def enrichStructField(attr: TableAttribute, structField: StructField) = {
       structField.copy(
         name = attr.getFinalName(),
         nullable = if (attr.script.isDefined) true else !attr.resolveRequired(),
@@ -352,7 +353,8 @@ case class SchemaInfo(
     }
 
     val format = this.metadata.map(_.resolveFormat()).getOrElse(DSV)
-    def isXMLAttribute: Attribute => Boolean = (format == XML && _.getFinalName().startsWith("_"))
+    def isXMLAttribute: TableAttribute => Boolean =
+      (format == XML && _.getFinalName().startsWith("_"))
     val firstScriptedFiedlIndex = attributes.indexWhere(_.script.isDefined)
     val lastNonScriptedFiedlIndex =
       attributes.lastIndexWhere(x => x.script.isEmpty && !isXMLAttribute(x))
@@ -419,10 +421,10 @@ case class SchemaInfo(
       Right(true)
   }
 
-  def discreteAttrs(schemaHandler: SchemaHandler): List[Attribute] =
+  def discreteAttrs(schemaHandler: SchemaHandler): List[TableAttribute] =
     attributes.filter(_.getMetricType(schemaHandler) == MetricType.DISCRETE)
 
-  def continuousAttrs(schemaHandler: SchemaHandler): List[Attribute] =
+  def continuousAttrs(schemaHandler: SchemaHandler): List[TableAttribute] =
     attributes.filter(_.getMetricType(schemaHandler) == MetricType.CONTINUOUS)
 
   def esMapping(
@@ -479,7 +481,7 @@ case class SchemaInfo(
   def containsVariant(): Boolean = attributes.exists(_.containsVariant())
 
   private def dotRow(
-    attr: Attribute,
+    attr: TableAttribute,
     isPK: Boolean,
     isFK: Boolean,
     includeAllAttrs: Boolean
@@ -502,7 +504,7 @@ case class SchemaInfo(
   }
 
   private def relationAsRelation(
-    attr: Attribute,
+    attr: TableAttribute,
     domain: String,
     tableNames: Set[String]
   ): Option[Relation] = {
@@ -537,7 +539,7 @@ case class SchemaInfo(
   }
 
   private def relationAsDot(
-    attr: Attribute,
+    attr: TableAttribute,
     domain: String,
     tableNames: Set[String]
   ): Option[String] = {
@@ -565,7 +567,10 @@ case class SchemaInfo(
     }
   }
 
-  def fkComponents(attr: Attribute, domain: String): Option[(Attribute, String, String, String)] = { // (attr, refDomain, refSchema, refAttr)
+  def fkComponents(
+    attr: TableAttribute,
+    domain: String
+  ): Option[(TableAttribute, String, String, String)] = { // (attr, refDomain, refSchema, refAttr)
     attr.foreignKey match {
       case None => None
       case Some(ref) =>
@@ -789,7 +794,7 @@ case class SchemaInfo(
       acl = if (this.acl.isEmpty) fallbackSchema.acl else this.acl,
       sample = this.sample.orElse(fallbackSchema.sample),
       filter = this.filter.orElse(fallbackSchema.filter),
-      attributes = Attribute.mergeAll(
+      attributes = TableAttribute.mergeAll(
         this.attributes,
         fallbackSchema.attributes,
         attributeMergeStrategy
@@ -823,9 +828,9 @@ object SchemaInfo {
     schemaName: String,
     obj: StructField
   ): SchemaInfo = {
-    def buildAttributeTree(obj: StructField): Attribute = {
+    def buildAttributeTree(obj: StructField): TableAttribute = {
       if (SparkBigQueryUtil.isJson(obj.metadata)) {
-        Attribute(
+        TableAttribute(
           obj.name,
           PrimitiveType.variant.value,
           required = Some(!obj.nullable),
@@ -835,14 +840,14 @@ object SchemaInfo {
         obj.dataType match {
           case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType |
               ByteType | DateType | TimestampType =>
-            Attribute(
+            TableAttribute(
               obj.name,
               obj.dataType.typeName,
               required = Some(!obj.nullable),
               comment = obj.getComment()
             )
           case _: DecimalType =>
-            Attribute(
+            TableAttribute(
               obj.name,
               "decimal",
               required = Some(!obj.nullable),
@@ -851,7 +856,7 @@ object SchemaInfo {
           case ArrayType(eltType, containsNull) =>
             buildAttributeTree(obj.copy(dataType = eltType)).copy(array = Some(true))
           case x: StructType =>
-            Attribute(
+            TableAttribute(
               obj.name,
               "struct",
               required = Some(!obj.nullable),

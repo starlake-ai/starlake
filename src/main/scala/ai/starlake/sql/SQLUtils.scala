@@ -3,7 +3,7 @@ package ai.starlake.sql
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
 import ai.starlake.schema.handlers.TableWithNameAndType
-import ai.starlake.schema.model.*
+import ai.starlake.schema.model._
 import ai.starlake.transpiler.{JSQLColumResolver, JSQLTranspiler}
 import ai.starlake.utils.Utils
 import com.manticore.jsqlformatter.JSQLFormatter
@@ -24,7 +24,7 @@ import net.sf.jsqlparser.util.TablesNamesFinder
 import java.util.UUID
 import java.util.function.Consumer
 import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters.*
+import scala.jdk.CollectionConverters._
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -73,7 +73,7 @@ object SQLUtils extends StrictLogging {
     //  ctes.map(_.replaceAll("`", ""))
     // }
 
-    (froms ++ joins).map(_.replaceAll("`", ""))
+    (froms ++ joins).map(_.replaceAll("`", "")).distinct
   }
 
   def extractTableNamesFromCTEsUsingRegEx(sql: String): List[String] = {
@@ -116,7 +116,7 @@ object SQLUtils extends StrictLogging {
     val select = jsqlParse(sql)
     val finder = new TablesNamesFinder()
     val tableList = Option(finder.getTables(select)).map(_.asScala).getOrElse(Nil)
-    tableList.toList
+    tableList.toList.distinct
   }
 
   def extractCTENames(sql: String): List[String] = {

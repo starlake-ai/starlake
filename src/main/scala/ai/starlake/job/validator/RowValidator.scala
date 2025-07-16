@@ -3,7 +3,7 @@ package ai.starlake.job.validator
 import ai.starlake.job.validator.RowValidator.{SL_ERROR_COL, SL_INPUT_COL}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Trim.{BOTH, LEFT, NONE, RIGHT}
-import ai.starlake.schema.model.{Attribute, PrimitiveType, TransformInput, Type}
+import ai.starlake.schema.model.{PrimitiveType, TableAttribute, TransformInput, Type}
 import ai.starlake.utils.TransformEngine
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, Metadata, MetadataBuilder, StringType}
@@ -14,7 +14,7 @@ object RowValidator {
 }
 
 class RowValidator(
-  attributes: List[Attribute],
+  attributes: List[TableAttribute],
   types: List[Type],
   allPrivacyLevels: Map[String, ((TransformEngine, List[String]), TransformInput)],
   emptyIsNull: Boolean,
@@ -23,7 +23,7 @@ class RowValidator(
 
   protected val typesMap = types.map(tpe => tpe.name -> tpe).toMap
 
-  private def applyPrivacy(attribute: Attribute, column: Column): Column = {
+  private def applyPrivacy(attribute: TableAttribute, column: Column): Column = {
     val privacyLevel = attribute.resolvePrivacy()
     if (privacyLevel == TransformInput.None || privacyLevel.sql) {
       lit(null)
@@ -33,7 +33,7 @@ class RowValidator(
     }
   }
 
-  def validateWorkflow(inputDF: DataFrame, inputAttributes: List[Attribute])(implicit
+  def validateWorkflow(inputDF: DataFrame, inputAttributes: List[TableAttribute])(implicit
     schemaHandler: SchemaHandler
   ): (Dataset[Row], Dataset[Row]) = {
     val assertedDF =
@@ -52,10 +52,10 @@ class RowValidator(
     * @param inputDF
     * @return
     */
-  def fitToSchema(inputAttributes: List[Attribute])(inputDF: DataFrame)(implicit
+  def fitToSchema(inputAttributes: List[TableAttribute])(inputDF: DataFrame)(implicit
     schemaHandler: SchemaHandler
   ): DataFrame = {
-    def fitToField(attribute: Attribute, column: Column): Column = {
+    def fitToField(attribute: TableAttribute, column: Column): Column = {
       val attributeType = typesMap(attribute.`type`)
       val fittedAttribute: Column = attributeType.primitiveType match {
         case PrimitiveType.timestamp =>
@@ -75,7 +75,7 @@ class RowValidator(
         .otherwise(fittedAttribute)
     }
 
-    def buildSparkFieldMetadata(currentSchema: Attribute): Metadata = {
+    def buildSparkFieldMetadata(currentSchema: TableAttribute): Metadata = {
       val metadataBuilder = new MetadataBuilder()
       if (currentSchema.`type` == PrimitiveType.variant.value) {
         metadataBuilder.putString("sqlType", "JSON")
@@ -84,8 +84,8 @@ class RowValidator(
     }
 
     def fitToSchema(
-      currentSchema: Attribute,
-      currentInputSchema: Option[Attribute]
+      currentSchema: TableAttribute,
+      currentInputSchema: Option[TableAttribute]
     ): Column => Column = {
       currentInputSchema match {
         case Some(inputSchema) if currentSchema.resolveArray() =>
@@ -149,7 +149,7 @@ class RowValidator(
     inputDF.select(projectionsList: _*)
   }
 
-  def validate(inputAttributes: List[Attribute])(inputDF: DataFrame)(implicit
+  def validate(inputAttributes: List[TableAttribute])(inputDF: DataFrame)(implicit
     schemaHandler: SchemaHandler
   ): DataFrame = {
 
@@ -164,7 +164,7 @@ class RowValidator(
       } else rejectMessage
     }
 
-    def isRequired(attribute: Attribute, column: Column, path: Column): Column = {
+    def isRequired(attribute: TableAttribute, column: Column, path: Column): Column = {
       if (attribute.resolveRequired()) {
         when(column.isNull, rejectValue(path, " can't be null", path))
           .otherwise(lit(null))
@@ -173,7 +173,7 @@ class RowValidator(
       }
     }
 
-    def matchPattern(attribute: Attribute, column: Column, path: Column): Column = {
+    def matchPattern(attribute: TableAttribute, column: Column, path: Column): Column = {
       val attributeType = typesMap(attribute.`type`)
       val attributePatternIsValid: Column = attributeType.primitiveType match {
         case PrimitiveType.timestamp =>
@@ -208,7 +208,7 @@ class RowValidator(
         .otherwise(lit(null))
     }
 
-    def checkCast(attribute: Attribute, column: Column, path: Column): Column = {
+    def checkCast(attribute: TableAttribute, column: Column, path: Column): Column = {
       // this is useful to check for overflow cases
       val attributeType = typesMap(attribute.`type`)
       val attributePatternIsCastable: Column = attributeType.primitiveType match {
@@ -235,7 +235,7 @@ class RowValidator(
         .otherwise(lit(null))
     }
 
-    def checkPrivacyOutputType(attribute: Attribute, column: Column, path: Column): Column = {
+    def checkPrivacyOutputType(attribute: TableAttribute, column: Column, path: Column): Column = {
       val attributeType = typesMap(attribute.`type`)
       when(
         applyPrivacy(attribute, column).isNotNull
@@ -255,8 +255,8 @@ class RowValidator(
       *   (data Column, column name) => column validation expression
       */
     def validate(
-      currentSchema: Attribute,
-      currentInputSchema: Option[Attribute]
+      currentSchema: TableAttribute,
+      currentInputSchema: Option[TableAttribute]
     ): (Column, Column) => Column = {
       currentInputSchema match {
         case Some(inputSchema) =>
@@ -388,7 +388,7 @@ class RowValidator(
     * @param inputDF
     * @return
     */
-  def prepareData(inputAttributes: List[Attribute])(inputDF: DataFrame)(implicit
+  def prepareData(inputAttributes: List[TableAttribute])(inputDF: DataFrame)(implicit
     schemaHandler: SchemaHandler
   ): DataFrame = {
     def substituteToNull(column: Column): Column = {
@@ -403,7 +403,7 @@ class RowValidator(
       }
     }
 
-    def replaceWithDefaultValue(attribute: Attribute, column: Column): Column = {
+    def replaceWithDefaultValue(attribute: TableAttribute, column: Column): Column = {
       attribute.default match {
         case Some(defaultValue) =>
           when(
@@ -421,7 +421,7 @@ class RowValidator(
       * @return
       *   trimmed column if input column type is string
       */
-    def applyTrim(attribute: Attribute, column: Column): Column = {
+    def applyTrim(attribute: TableAttribute, column: Column): Column = {
       val trimmedColumn = attribute.trim match {
         case Some(NONE) | None => column
         case Some(LEFT)        => ltrim(column)
@@ -433,8 +433,8 @@ class RowValidator(
     }
 
     def prepareData(
-      currentSchema: Attribute,
-      currentInputSchema: Option[Attribute],
+      currentSchema: TableAttribute,
+      currentInputSchema: Option[TableAttribute],
       currentPath: String
     ): Option[Column => Column] = {
       currentInputSchema match {

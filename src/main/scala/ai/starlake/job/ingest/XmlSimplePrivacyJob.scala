@@ -91,7 +91,7 @@ object XmlSimplePrivacyJob {
 
   def applyPrivacy(
     inputDF: DataFrame,
-    attribute: Attribute,
+    attribute: TableAttribute,
     session: SparkSession
   )(implicit settings: Settings): Dataset[String] = {
     import session.implicits._

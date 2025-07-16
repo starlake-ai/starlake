@@ -9,7 +9,7 @@ import ai.starlake.extract.JdbcDbUtils.{
   TableName,
   TableRemarks
 }
-import ai.starlake.schema.model.{Attribute, JDBCSchema}
+import ai.starlake.schema.model.{JDBCSchema, TableAttribute}
 import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.{DatabaseMetaData, ResultSetMetaData}
@@ -158,8 +158,8 @@ sealed trait JdbcColumnMetadata extends StrictLogging {
 
   // remove duplicates
   // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
-  protected def removeDuplicatesColumns(list: List[Attribute]): List[Attribute] =
-    list.foldLeft(List.empty[Attribute]) { (partialResult, element) =>
+  protected def removeDuplicatesColumns(list: List[TableAttribute]): List[TableAttribute] =
+    list.foldLeft(List.empty[TableAttribute]) { (partialResult, element) =>
       if (partialResult.exists(_.name == element.name)) partialResult
       else partialResult :+ element
     }
@@ -278,7 +278,7 @@ final class JdbcColumnDatabaseMetadata(
     }
   }
 
-  override lazy val columns: List[Attribute] = {
+  override lazy val columns: List[TableAttribute] = {
     Using.resource(
       connectionSettings match {
         case d if d.isMySQLOrMariaDb() =>
@@ -304,10 +304,10 @@ final class JdbcColumnDatabaseMetadata(
       ).getOrElse(Map.empty)
 
       val attrs =
-        new Iterator[Attribute] {
+        new Iterator[TableAttribute] {
           def hasNext: Boolean = columnsResultSet.next()
 
-          def next(): Attribute = {
+          def next(): TableAttribute = {
             val colName = columnsResultSet.getString("COLUMN_NAME")
             val finalColName =
               jdbcSchema.tables
@@ -326,7 +326,7 @@ final class JdbcColumnDatabaseMetadata(
             val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
             val foreignKey = foreignKeys.get(colName.toUpperCase)
             // val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
-            Attribute(
+            TableAttribute(
               name = if (keepOriginalName) colName else finalColName,
               rename = if (keepOriginalName) Some(finalColName) else None,
               `type` = sparkType(
@@ -365,7 +365,7 @@ class ResultSetColumnMetadata(
   /** @return
     *   a list of attributes representing resource's columns
     */
-  override lazy val columns: List[Attribute] = {
+  override lazy val columns: List[TableAttribute] = {
     (1 to queryMetadata.getColumnCount).map { i =>
       val colName = queryMetadata.getColumnName(i)
       val finalColName =
@@ -380,7 +380,7 @@ class ResultSetColumnMetadata(
       )
       val colType = queryMetadata.getColumnType(i)
       val colTypename = queryMetadata.getColumnTypeName(i)
-      Attribute(
+      TableAttribute(
         name = if (keepOriginalName) colName else finalColName,
         rename = if (keepOriginalName) Some(finalColName) else None,
         `type` = sparkType(

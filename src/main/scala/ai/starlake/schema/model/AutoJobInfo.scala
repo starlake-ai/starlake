@@ -22,7 +22,7 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.Severity.*
+import ai.starlake.schema.model.Severity._
 
 import scala.collection.mutable
 import scala.util.Try

@@ -3,7 +3,7 @@ package ai.starlake.extract
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
-import ai.starlake.schema.model.{Attribute, JDBCSchema, JDBCTable, PrimitiveType}
+import ai.starlake.schema.model.{JDBCSchema, JDBCTable, PrimitiveType, TableAttribute}
 import better.files.File
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterEach
@@ -638,25 +638,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -734,25 +734,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             "select c_str as c_str_sql, c_short, c_int, c_long, c_decimal, c_ts, c_date from public.test_table"
           ),
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str_sql"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -828,25 +828,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -921,13 +921,13 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -1003,25 +1003,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -1097,25 +1097,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -1203,25 +1203,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
             "select c_str as c_str_sql, c_short, c_int, c_long, c_decimal, c_ts, c_date from public.test_table"
           ),
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str_sql"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -1307,25 +1307,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -1410,13 +1410,13 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             )
           ),
@@ -1502,29 +1502,29 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str",
               rename = Some("c_str_renamed")
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short",
               rename = Some("c_short_renamed")
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int",
               rename = Some("c_int_renamed")
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts",
               rename = Some("c_ts_renamed")
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -1617,25 +1617,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -1721,25 +1721,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -1825,25 +1825,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -1929,25 +1929,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -2033,25 +2033,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -2137,25 +2137,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -2241,25 +2241,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -2353,25 +2353,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -2468,25 +2468,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -2583,25 +2583,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -2698,25 +2698,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -2813,25 +2813,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -2927,25 +2927,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -3041,25 +3041,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -3155,25 +3155,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -3269,25 +3269,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -3384,25 +3384,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -3499,25 +3499,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -3614,25 +3614,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),
@@ -3817,25 +3817,25 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
           "test_table",
           None,
           List(
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_str"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_short"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_int"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_long"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_decimal"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_ts"
             ),
-            new Attribute().copy(
+            new TableAttribute().copy(
               name = "c_date"
             )
           ),

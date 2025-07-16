@@ -16,7 +16,7 @@ import scala.jdk.CollectionConverters._
 
 class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
   val complexStructure = List(
-    Attribute(
+    TableAttribute(
       "id",
       PrimitiveType.int.value,
       array = Some(false),
@@ -24,7 +24,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
       privacy = Some(TransformInput.None),
       trim = Some(Trim.BOTH)
     ),
-    Attribute(
+    TableAttribute(
       "temperature",
       PrimitiveType.double.value,
       array = Some(false),
@@ -32,14 +32,14 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
       privacy = Some(TransformInput.None),
       default = Some("999.99")
     ),
-    Attribute(
+    TableAttribute(
       "user_info",
       PrimitiveType.struct.value,
       array = Some(false),
       required = Some(false),
       privacy = Some(TransformInput.None),
       attributes = List(
-        Attribute(
+        TableAttribute(
           "firstname",
           PrimitiveType.string.value,
           array = Some(false),
@@ -48,7 +48,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
           trim = Some(Trim.BOTH),
           default = Some(" UNKNOWN UNTRIMMED ")
         ),
-        Attribute(
+        TableAttribute(
           "lastname",
           PrimitiveType.string.value,
           array = Some(false),
@@ -57,21 +57,21 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
         )
       )
     ),
-    Attribute(
+    TableAttribute(
       "geojson",
       PrimitiveType.variant.value,
       array = Some(false),
       required = Some(false),
       privacy = None
     ),
-    Attribute(
+    TableAttribute(
       "address",
       PrimitiveType.string.value,
       array = Some(true),
       required = Some(false),
       privacy = None,
       attributes = List(
-        Attribute(
+        TableAttribute(
           "addressId",
           PrimitiveType.int.value,
           array = Some(false),
@@ -80,14 +80,14 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
           trim = Some(Trim.BOTH),
           default = Some("-1")
         ),
-        Attribute(
+        TableAttribute(
           "type",
           PrimitiveType.string.value,
           array = Some(false),
           required = Some(true),
           privacy = None
         ),
-        Attribute(
+        TableAttribute(
           "full_address",
           PrimitiveType.string.value,
           array = Some(false),
@@ -371,17 +371,17 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
       val rowValidator =
         new RowValidator(
           List(
-            Attribute(
+            TableAttribute(
               name = "should_be_array",
               `type` = PrimitiveType.string.value,
               array = Some(true)
             ),
-            Attribute(
+            TableAttribute(
               name = "should_be_array_of_struct",
               `type` = PrimitiveType.struct.value,
               array = Some(true),
               attributes =
-                List(Attribute(name = "struct_field", `type` = PrimitiveType.string.value))
+                List(TableAttribute(name = "struct_field", `type` = PrimitiveType.string.value))
             )
           ),
           settings.schemaHandler().types(),
@@ -414,17 +414,17 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
       val rowValidator =
         new RowValidator(
           List(
-            Attribute(
+            TableAttribute(
               name = "should_be_array",
               `type` = PrimitiveType.string.value,
               array = Some(true)
             ),
-            Attribute(
+            TableAttribute(
               name = "should_be_array_of_struct",
               `type` = PrimitiveType.struct.value,
               array = Some(true),
               attributes =
-                List(Attribute(name = "struct_field", `type` = PrimitiveType.string.value))
+                List(TableAttribute(name = "struct_field", `type` = PrimitiveType.string.value))
             )
           ),
           settings.schemaHandler().types(),
@@ -487,7 +487,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
     types: List[Type],
     inputRows: Seq[Row],
     inputSchema: StructType,
-    ingestionSchema: List[Attribute]
+    ingestionSchema: List[TableAttribute]
   )(
     assertionRules: DataFrame => Unit
   )(implicit spark: SparkSession, schemaHandler: SchemaHandler): Unit = {
@@ -501,7 +501,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
   def assertValidateFun(
     types: List[Type],
     inputDF: DataFrame,
-    ingestionSchema: List[Attribute]
+    ingestionSchema: List[TableAttribute]
   )(
     assertionRules: DataFrame => Unit
   )(implicit schemaHandler: SchemaHandler): Unit = {
@@ -514,7 +514,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
     types: List[Type],
     inputRows: Seq[Row],
     inputSchema: StructType,
-    ingestionSchema: List[Attribute]
+    ingestionSchema: List[TableAttribute]
   )(
     assertionRules: DataFrame => Unit
   )(implicit spark: SparkSession, schemaHandler: SchemaHandler): Unit = {
@@ -528,7 +528,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
   def assertSchemaFitFun(
     types: List[Type],
     inputDF: DataFrame,
-    ingestionSchema: List[Attribute]
+    ingestionSchema: List[TableAttribute]
   )(
     assertionRules: DataFrame => Unit
   )(implicit schemaHandler: SchemaHandler): Unit = {
@@ -549,7 +549,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
     )
   }
 
-  def primitiveNativeType(): (Row, StructType, List[Attribute]) = {
+  def primitiveNativeType(): (Row, StructType, List[TableAttribute]) = {
     val nonEmptyRow = allPrimitiveTypes.map {
       case PrimitiveType.string  => "string value"
       case PrimitiveType.variant => "{}"
@@ -589,7 +589,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
     )
 
     val ingestionSchema = allPrimitiveTypes.map { primitiveType =>
-      Attribute(name = primitiveType.toString.toLowerCase).copy(
+      TableAttribute(name = primitiveType.toString.toLowerCase).copy(
         `type` = primitiveType match {
           case PrimitiveType.timestamp => "iso_date_time"
           case _                       => primitiveType.toString
@@ -615,7 +615,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
     }: _*)
   }
 
-  def primitiveStringType(): (Row, StructType, List[Attribute]) = {
+  def primitiveStringType(): (Row, StructType, List[TableAttribute]) = {
     val (inputRow, inputSchema, ingestionSchema) = primitiveNativeType()
 
     val stringInputRow = Row((0 until inputRow.size).map { i =>
@@ -632,7 +632,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
     (stringInputRow, stringInputSchema, ingestionSchema)
   }
 
-  def invalidPrimitiveStringType(): (Row, StructType, List[Attribute]) = {
+  def invalidPrimitiveStringType(): (Row, StructType, List[TableAttribute]) = {
     val (_, inputSchema, ingestionSchema) = primitiveStringType()
 
     val nonEmptyRow = allPrimitiveTypes.map {
@@ -800,7 +800,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
       val inputRow = Row(primitiveInputRow)
       val inputSchema = StructType(List(StructField("struct_root", primitiveInputSchema, true)))
       val ingestionSchema =
-        List(Attribute(name = "struct_root", attributes = primitiveIngestionSchema))
+        List(TableAttribute(name = "struct_root", attributes = primitiveIngestionSchema))
 
       assertValidateFun(
         defaultTypes,
@@ -824,7 +824,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
       val inputRow = Row(primitiveInputRow)
       val inputSchema = StructType(List(StructField("struct_root", primitiveInputSchema, true)))
       val ingestionSchema =
-        List(Attribute(name = "struct_root", attributes = primitiveIngestionSchema))
+        List(TableAttribute(name = "struct_root", attributes = primitiveIngestionSchema))
 
       assertValidateFun(
         overridedTypesForInvalidTests,
@@ -864,7 +864,11 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
         StructType(List(StructField("array_root", ArrayType(primitiveInputSchema), true)))
       val ingestionSchema =
         List(
-          Attribute(name = "array_root", attributes = primitiveIngestionSchema, array = Some(true))
+          TableAttribute(
+            name = "array_root",
+            attributes = primitiveIngestionSchema,
+            array = Some(true)
+          )
         )
 
       assertValidateFun(
@@ -891,7 +895,11 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
         StructType(List(StructField("array_root", ArrayType(primitiveInputSchema), true)))
       val ingestionSchema =
         List(
-          Attribute(name = "array_root", attributes = primitiveIngestionSchema, array = Some(true))
+          TableAttribute(
+            name = "array_root",
+            attributes = primitiveIngestionSchema,
+            array = Some(true)
+          )
         )
 
       assertValidateFun(
@@ -936,19 +944,19 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
         )
       val ingestionSchema =
         List(
-          Attribute(
+          TableAttribute(
             name = "should_be_array",
             `type` = PrimitiveType.int.value,
             array = Some(true)
           ),
-          Attribute(
+          TableAttribute(
             name = "should_be_array_of_struct",
             `type` = PrimitiveType.struct.value,
             attributes =
-              List(Attribute(name = "struct_field", `type` = PrimitiveType.string.value)),
+              List(TableAttribute(name = "struct_field", `type` = PrimitiveType.string.value)),
             array = Some(true)
           ),
-          Attribute(
+          TableAttribute(
             name = "mandatory_field",
             `type` = PrimitiveType.string.value,
             required = Some(true)
@@ -985,7 +993,7 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
         StructType(List(StructField("int_array", ArrayType(StringType), true)))
       val ingestionSchema =
         List(
-          Attribute(name = "int_array", `type` = PrimitiveType.int.value, array = Some(true))
+          TableAttribute(name = "int_array", `type` = PrimitiveType.int.value, array = Some(true))
         )
 
       assertValidateFun(
@@ -1106,26 +1114,30 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
         List(StructField("struct", StructType(Nil), true), StructField("double", DoubleType, true))
       )
       val ingestionSchema = List(
-        Attribute(name = "string", `type` = PrimitiveType.string.value, default = Some("It works")),
-        Attribute(name = "int", `type` = PrimitiveType.int.value, default = Some("10")),
-        Attribute(name = "long", `type` = PrimitiveType.int.value),
-        Attribute(name = "double", `type` = PrimitiveType.double.value),
-        Attribute(
+        TableAttribute(
+          name = "string",
+          `type` = PrimitiveType.string.value,
+          default = Some("It works")
+        ),
+        TableAttribute(name = "int", `type` = PrimitiveType.int.value, default = Some("10")),
+        TableAttribute(name = "long", `type` = PrimitiveType.int.value),
+        TableAttribute(name = "double", `type` = PrimitiveType.double.value),
+        TableAttribute(
           name = "struct",
           `type` = PrimitiveType.struct.value,
           attributes = List(
-            Attribute(
+            TableAttribute(
               name = "nested_date",
               `type` = PrimitiveType.date.value,
               default = Some("2024-01-10")
             )
           )
         ),
-        Attribute(
+        TableAttribute(
           name = "array",
           `type` = PrimitiveType.struct.value,
           attributes = List(
-            Attribute(
+            TableAttribute(
               name = "nested_timestamp",
               `type` = PrimitiveType.timestamp.value,
               default = Some("2024-01-10T01:01:01")
@@ -1140,7 +1152,9 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
         inputSchema,
         ingestionSchema
       ) { validatedDF =>
-        makeFieldsNullable(validatedDF.schema) should contain theSameElementsInOrderAs Attribute(
+        makeFieldsNullable(
+          validatedDF.schema
+        ) should contain theSameElementsInOrderAs TableAttribute(
           name = "__ROOT__",
           `type` = PrimitiveType.struct.value,
           attributes = ingestionSchema

@@ -176,7 +176,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             val attributesMap = schema.attributes.map(attr => attr.name -> attr).toMap
             val csvAttributesInOrders =
               csvHeaders.map(h =>
-                attributesMap.getOrElse(h, Attribute(h, ignore = Some(true), required = None))
+                attributesMap.getOrElse(h, TableAttribute(h, ignore = Some(true), required = None))
               )
             // attributes not in csv input file must not be required but we don't force them to optional.
             val effectiveAttributes =

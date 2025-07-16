@@ -192,7 +192,7 @@ object AuditLog extends StrictLogging {
           "timestamp"
         case _ => throw new RuntimeException(s"Unsupported type $dataType")
       }
-      Attribute(name, tpe)
+      TableAttribute(name, tpe)
     },
     None,
     None

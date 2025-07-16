@@ -53,14 +53,15 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
                       name = "table1",
                       rename = Some("finalTable1"),
                       pattern = Pattern.compile("table1.*\\.json"),
-                      attributes =
-                        List(Attribute(name = "attr1", `type` = "int", comment = Some("Comment1")))
+                      attributes = List(
+                        TableAttribute(name = "attr1", `type` = "int", comment = Some("Comment1"))
+                      )
                     ),
                     SchemaInfo(
                       name = "table2",
                       rename = Some("finalTable2"),
                       pattern = Pattern.compile("table2.*\\.json"),
-                      attributes = List(Attribute(name = "attr2", `type` = "double"))
+                      attributes = List(TableAttribute(name = "attr2", `type` = "double"))
                     )
                   )
                 )
@@ -75,14 +76,18 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
                       rename = Some("finalTable3"),
                       pattern = Pattern.compile("table3.*\\.json"),
                       attributes = List(
-                        Attribute(name = "attr3", `type` = "variant", comment = Some("Comment3"))
+                        TableAttribute(
+                          name = "attr3",
+                          `type` = "variant",
+                          comment = Some("Comment3")
+                        )
                       )
                     ),
                     SchemaInfo(
                       name = "table4",
                       rename = Some("finalTable4"),
                       pattern = Pattern.compile("table4.*\\.json"),
-                      attributes = List(Attribute(name = "attr4", `type` = "float"))
+                      attributes = List(TableAttribute(name = "attr4", `type` = "float"))
                     )
                   )
                 )

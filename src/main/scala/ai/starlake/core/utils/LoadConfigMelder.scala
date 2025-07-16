@@ -1,7 +1,7 @@
 package ai.starlake.core.utils
 
 import ai.starlake.schema.model
-import ai.starlake.schema.model.{Attribute, DomainInfo, SchemaInfo, TransformInput}
+import ai.starlake.schema.model.{DomainInfo, SchemaInfo, TableAttribute, TransformInput}
 
 /** Represents the precedence level for configuration derived from extracted metadata. This object
   * is used within configuration settings to specify that certain values should be taken from the
@@ -217,10 +217,10 @@ class LoadConfigMelder() {
   def meldTableAttributes(
     melderConfig: TableAttributeMelderConfig,
     attributeUnionStrategy: AttributeUnionStrategy,
-    extractedAttributes: List[Attribute],
-    currentAttributes: Option[List[Attribute]]
-  ): List[Attribute] = {
-    val currentAttributesScope: List[Attribute] = attributeUnionStrategy match {
+    extractedAttributes: List[TableAttribute],
+    currentAttributes: Option[List[TableAttribute]]
+  ): List[TableAttribute] = {
+    val currentAttributesScope: List[TableAttribute] = attributeUnionStrategy match {
       case KeepCurrentScript =>
         val extractedAttributesNames = extractedAttributes.map(_.name)
         currentAttributes
@@ -235,7 +235,7 @@ class LoadConfigMelder() {
         currentAttributes.getOrElse(List.empty)
     }
     val currentAttributesMap = currentAttributesScope.map(a => a.name -> a).toMap
-    val mergedExtractedAttributes: List[Attribute] = extractedAttributes.map { extractedAttr =>
+    val mergedExtractedAttributes: List[TableAttribute] = extractedAttributes.map { extractedAttr =>
       {
         val currentAttr = currentAttributesMap.get(extractedAttr.name)
         extractedAttr.copy(

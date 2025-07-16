@@ -20,7 +20,7 @@
 package ai.starlake.extract
 
 import ai.starlake.config.Settings.Connection
-import ai.starlake.schema.model.{Attribute, JDBCSchema, PrimitiveType}
+import ai.starlake.schema.model.{JDBCSchema, PrimitiveType, TableAttribute}
 import org.apache.hadoop.fs.Path
 
 import java.time.format.DateTimeFormatter
@@ -99,7 +99,7 @@ case class TableExtractDataConfig(
   domain: String,
   table: String,
   sql: Option[String],
-  columnsProjection: List[Attribute],
+  columnsProjection: List[TableAttribute],
   fullExport: Boolean,
   fetchSize: Option[Int],
   tableOutputDir: Path,
@@ -150,7 +150,7 @@ case class PartitionConfig(
 
 case class ExtractTableAttributes(
   tableRemarks: Option[String],
-  columNames: List[Attribute],
+  columNames: List[TableAttribute],
   primaryKeys: List[String],
   filterOpt: Option[String]
 )

@@ -114,21 +114,21 @@ class StorageHandlerSpec extends TestHelper {
             "User",
             Pattern.compile("SCHEMA-.*.dsv"),
             List(
-              Attribute(
+              TableAttribute(
                 "firstname",
                 "string",
                 Some(false),
                 required = Some(false),
                 Some(TransformInput.None)
               ),
-              Attribute(
+              TableAttribute(
                 "lastname",
                 "string",
                 Some(false),
                 required = Some(false),
                 Some(TransformInput("SHA1", sql = false))
               ),
-              Attribute(
+              TableAttribute(
                 "age",
                 "age",
                 Some(false),
