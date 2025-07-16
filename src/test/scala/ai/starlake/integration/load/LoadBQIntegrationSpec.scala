@@ -2,7 +2,6 @@ package ai.starlake.integration.load
 
 import ai.starlake.integration.BigQueryIntegrationSpecBase
 import ai.starlake.job.Main
-import better.files.File
 
 class LoadBQIntegrationSpec extends BigQueryIntegrationSpecBase {
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
