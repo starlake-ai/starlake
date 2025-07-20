@@ -8,6 +8,6 @@ case class TableInfo(
   maybeSchema: Option[BQSchema] = None,
   maybePartition: Option[FieldPartitionInfo] = None,
   maybeCluster: Option[ClusteringInfo] = None,
-  attributes: List[AutoTaskAttribute] = Nil,
+  attributes: List[TableAttribute] = Nil,
   maybeDurationMs: Option[Long] = None
 )

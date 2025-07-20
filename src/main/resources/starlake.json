@@ -1256,10 +1256,10 @@
           "description": "Configure freshness checks on the output table"
         },
         "attributes": {
-          "description": "Attributes comments and access policies",
+          "description": "Attributes",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/AttributeDescV1"
+            "$ref": "#/definitions/AttributeV1"
           }
         },
         "python": {
@@ -1363,34 +1363,6 @@
         }
       },
       "required": []
-    },
-    "AttributeDescV1": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "$ref": "#/definitions/ConvertibleToString",
-          "description": "Column name"
-        },
-        "type": {
-          "$ref": "#/definitions/ConvertibleToString",
-          "description": "Column Type"
-        },
-        "comment": {
-          "$ref": "#/definitions/ConvertibleToString",
-          "description": "Column description"
-        },
-        "accessPolicy": {
-          "$ref": "#/definitions/ConvertibleToString",
-          "description": "Access policy to apply to this column"
-        },
-        "foreignKey": {
-          "$ref": "#/definitions/ConvertibleToString",
-          "description": "Access policy to apply to this column"
-        }
-      },
-      "required": [
-        "name"
-      ]
     },
     "DomainV1": {
       "type": "object",

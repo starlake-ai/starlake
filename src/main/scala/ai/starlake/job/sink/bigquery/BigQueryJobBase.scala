@@ -617,7 +617,9 @@ trait BigQueryJobBase extends StrictLogging {
     * @return
     *   a Map with all the
     */
-  def getFieldsDescriptionSource(sql: String)(implicit settings: Settings): Map[String, String] = {
+  def getFieldsDescriptionSource(
+    sql: String
+  )(implicit settings: Settings): Map[String, Option[String]] = {
     val tableIds = SQLUtils
       .extractTableNamesUsingRegEx(sql)
       .flatMap(table => {
@@ -657,7 +659,7 @@ trait BigQueryJobBase extends StrictLogging {
       /** We expect that two tables with the same column name have exactly the same comment or else
         * we pick anyone by default
         */
-      .map(field => field.getName -> field.getDescription)
+      .map(field => field.getName -> Option(field.getDescription))
       .toMap ++
     cliConfig.attributesDesc
       .filter(_.comment.nonEmpty)
@@ -903,15 +905,14 @@ trait BigQueryJobBase extends StrictLogging {
 }
 
 object BigQueryJobBase extends StrictLogging {
-
-  def dictToBQSchema(dictField: Map[String, String]): BQSchema = {
+  def dictToBQSchema(dictField: Map[String, Option[String]]): BQSchema = {
     // we don't know the type of field so we put string by default
     BQSchema.of(
       dictField
         .map { case (fieldName, description) =>
           Field
             .newBuilder(fieldName, StandardSQLTypeName.STRING)
-            .setDescription(description)
+            .setDescription(description.orNull)
             .build()
         }
         .toList

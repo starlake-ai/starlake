@@ -22,7 +22,7 @@ class BigQuerySparkJob(
   override val cliConfig: BigQueryLoadConfig,
   maybeBqSchema: Option[BQSchema] = None,
   maybeTableDescription: Option[String] = None,
-  attributesDesc: List[AutoTaskAttribute] = Nil
+  attributesDesc: List[TableAttribute] = Nil
 )(implicit val settings: Settings)
     extends SparkJob
     with BigQueryJobBase {

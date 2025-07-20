@@ -48,7 +48,7 @@ class ColLineage(
       }
       .toList
       .distinct
-    val allTaskNames = schemaHandler.taskNames().map(_.toLowerCase)
+    val allTaskNames = schemaHandler.taskTableNames().map(_.toLowerCase)
     allTables.map { table =>
       val isTask = allTaskNames.contains(table.fullName.toLowerCase)
       table.copy(

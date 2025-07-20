@@ -29,6 +29,16 @@ trait TransformCmd extends Cmd[TransformConfig] {
         .optional()
         .text("Return final query only"),
       builder
+        .opt[Unit]("sync-apply")
+        .action((_, c) => c.copy(syncApply = true))
+        .optional()
+        .text("Update YAML attributes to match SQL query"),
+      builder
+        .opt[Unit]("sync-preview")
+        .action((_, c) => c.copy(syncPreview = true))
+        .optional()
+        .text("Preview YAML attributes to match SQL query"),
+      builder
         .opt[String]("query")
         .action((x, c) => c.copy(query = Some(x)))
         .optional()
@@ -120,11 +130,32 @@ trait TransformCmd extends Cmd[TransformConfig] {
   override def run(config: TransformConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
-    if (config.compile) {
+    if (config.syncPreview) {
+      syncPreview(config, schemaHandler) map { _ =>
+        JobResult.empty
+      }
+
+    } else if (config.syncApply) {
+      val list = schemaHandler.syncPreviewSqlWithYaml(config.name, config.query)
+      Try(schemaHandler.syncApplySqlWithYaml(config.name, list)) map { _ =>
+        JobResult.empty
+      }
+    } else if (config.compile) {
       workflow(schemaHandler).compileAutoJob(config).map(_ => JobResult.empty)
     } else {
       val res = workflow(schemaHandler).autoJob(config)
       res.map(_ => JobResult.empty)
+    }
+  }
+
+  private def syncPreview(config: TransformConfig, schemaHandler: SchemaHandler) = {
+    Try {
+      val list = schemaHandler.syncPreviewSqlWithYaml(config.name, config.query)
+      println(s"Previewing SQL attributes for task: ${config.name}")
+      list.foreach { case (attribute, status) =>
+        println(s"\tAttribute: ${attribute.name}, Status: $status")
+      }
+
     }
   }
 }

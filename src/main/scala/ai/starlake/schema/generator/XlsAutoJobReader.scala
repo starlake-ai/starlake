@@ -249,9 +249,9 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input], storageHandler:
                       (nameOpt, descriptionOpt) match {
                         case (Some(name), Some(description)) if description.trim.nonEmpty =>
                           Some(
-                            AutoTaskAttribute(
+                            TableAttribute(
                               name,
-                              comment = descriptionOpt.getOrElse("")
+                              comment = descriptionOpt
                             )
                           )
                         case _ => None

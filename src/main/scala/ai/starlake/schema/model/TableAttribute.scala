@@ -115,6 +115,28 @@ case class TableAttribute(
     // we pretend the "settings" field does not exist
     s"Attribute(${name},${`type`},${resolveArray()},${resolveRequired()},${resolvePrivacy()},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
 
+  def `type`(schemaHandler: SchemaHandler): Option[Type] =
+    schemaHandler.types().find(_.name == `type`)
+
+  def primitiveType(schemaHandler: SchemaHandler): Option[PrimitiveType] =
+    schemaHandler.types().find(_.name == `type`).map(_.primitiveType)
+
+  /** Spark Type if this attribute is a primitive type of array of primitive type
+    *
+    * @return
+    *   Primitive type if attribute is a leaf node or array of primitive type, None otherwise
+    */
+  def primitiveSparkType(schemaHandler: SchemaHandler): DataType = {
+    `type`(schemaHandler)
+      .map { tpe =>
+        if (resolveArray())
+          ArrayType(tpe.primitiveType.sparkType(tpe.zone), !resolveRequired())
+        else
+          tpe.primitiveType.sparkType(tpe.zone)
+      }
+      .getOrElse(PrimitiveType.struct.sparkType(None))
+  }
+
   def toDiffAttribute(): DiffAttribute = {
     new DiffAttribute(getFinalName(), `type`)
   }
@@ -229,32 +251,10 @@ case class TableAttribute(
       Right(true)
   }
 
-  def `type`(schemaHandler: SchemaHandler): Option[Type] =
-    schemaHandler.types().find(_.name == `type`)
-
-  def primitiveType(schemaHandler: SchemaHandler): Option[PrimitiveType] =
-    schemaHandler.types().find(_.name == `type`).map(_.primitiveType)
-
   def samePrimitiveType(other: TableAttribute)(implicit schemaHandler: SchemaHandler): Boolean = {
     this.primitiveType(schemaHandler).map(_.value) == other
       .primitiveType(schemaHandler)
       .map(_.value)
-  }
-
-  /** Spark Type if this attribute is a primitive type of array of primitive type
-    *
-    * @return
-    *   Primitive type if attribute is a leaf node or array of primitive type, None otherwise
-    */
-  def primitiveSparkType(schemaHandler: SchemaHandler): DataType = {
-    `type`(schemaHandler)
-      .map { tpe =>
-        if (resolveArray())
-          ArrayType(tpe.primitiveType.sparkType(tpe.zone), !resolveRequired())
-        else
-          tpe.primitiveType.sparkType(tpe.zone)
-      }
-      .getOrElse(PrimitiveType.struct.sparkType(None))
   }
 
   /** Go get recursively the Spark tree type of this object

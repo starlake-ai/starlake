@@ -28,13 +28,14 @@ import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.job.strategies.TransformStrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.Formatter.RichFormatter
-import ai.starlake.utils._
+import ai.starlake.utils.*
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
+import org.apache.spark.sql.types.StructType
 
 import java.sql.Timestamp
 import scala.util.{Failure, Success, Try}
@@ -70,6 +71,22 @@ abstract class AutoTask(
     extends SparkJob {
 
   def createAuditTable(): Boolean
+
+  /** Build the SQL statements to create or alter the table schema in the target database.
+    * @param incomingSchema
+    * @param tableName
+    * @return
+    *   A list of SQL statements to create or alter the table schema and a boolean indicating
+    *   whether the table existed before the operation.
+    *
+    * This method is expected to be implemented by subclasses to provide the specific SQL statements
+    * needed for the target database engine. For BigQuery and Spark, no need to implement it since
+    * these are schema on write databases
+    */
+  def buildTableSchemaSQL(
+    incomingSchema: StructType,
+    tableName: String
+  ): (List[String], Boolean) = (Nil, true)
 
   lazy val fullDomainName = taskDesc.database match {
     case Some(db) => s"$db.${taskDesc.domain}"
@@ -199,7 +216,35 @@ abstract class AutoTask(
           jdbcRunEngine,
           sinkConfig
         )
-        mainSql
+        if (settings.appConfig.syncSqlWithYaml && taskDesc._auditTableName.isEmpty) {
+          val list = schemaHandler.syncPreviewSqlWithYaml(taskDesc.getName(), None)
+          schemaHandler.syncApplySqlWithYaml(taskDesc.getName(), list)
+        }
+        if (settings.appConfig.syncYamlWithDb && taskDesc._auditTableName.isEmpty) {
+          logger.info(s"Main SQL: $mainSql")
+          logger.info("Identifying new / altered columns for " + fullTableName)
+          val columnStatements =
+            if (tableExists) {
+              val (columnStatements, _) =
+                buildTableSchemaSQL(
+                  this.taskDesc.sparkSchema(schemaHandler),
+                  this.fullTableName
+                )
+              logger.info(s"${columnStatements.length} Schema change(s) to apply:")
+              columnStatements.foreach { stmt =>
+                logger.info(s" - $stmt")
+              }
+              columnStatements
+            } else {
+              logger.info("No schema changes to apply for " + fullTableName)
+              Nil
+            }
+
+          columnStatements.mkString("", ";\n", ";\n") + mainSql
+        } else {
+          mainSql
+        }
+
       } else {
         val mainSql = schemaHandler.substituteRefTaskMainSQL(
           inputSQL,

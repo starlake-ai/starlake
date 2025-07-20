@@ -2,6 +2,8 @@ package ai.starlake.utils
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
+import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.TableAttribute
 import ai.starlake.sql.SQLUtils
 import better.files.File
 import com.manticore.jsqlformatter.JSQLFormatter
@@ -438,4 +440,35 @@ object SparkUtils extends StrictLogging {
     }
 
   }
+
+  def sparkSchemaWithCondition(
+    schemaHandler: SchemaHandler,
+    attributes: List[TableAttribute],
+    p: TableAttribute => Boolean
+  ): StructType = {
+    def enrichStructField(attr: TableAttribute, structField: StructField) = {
+      structField.copy(
+        name = attr.getFinalName(),
+        nullable = if (attr.script.isDefined) true else !attr.resolveRequired(),
+        metadata =
+          if (attr.`type` == "variant")
+            org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
+          else org.apache.spark.sql.types.Metadata.empty
+      )
+    }
+
+    val fields = attributes filter p map { attr =>
+      val structField = StructField(
+        attr.name,
+        attr.sparkType(schemaHandler, enrichStructField),
+        if (attr.script.isDefined) true else !attr.resolveRequired(),
+        if (attr.`type` == "variant")
+          org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
+        else org.apache.spark.sql.types.Metadata.empty
+      )
+      attr.comment.map(structField.withComment).getOrElse(structField)
+    }
+    StructType(fields)
+  }
+
 }

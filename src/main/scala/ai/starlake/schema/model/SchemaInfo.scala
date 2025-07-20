@@ -25,18 +25,18 @@ import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.lineage.AutoTaskDependencies.{Column, Item, Relation}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Format.{DSV, XML}
-import ai.starlake.schema.model.Severity._
-import ai.starlake.utils.Formatter._
-import ai.starlake.utils.Utils
+import ai.starlake.schema.model.Severity.*
+import ai.starlake.utils.Formatter.*
+import ai.starlake.utils.{SparkUtils, Utils}
 import ai.starlake.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.google.cloud.bigquery.Schema as BQSchema
 import com.google.cloud.spark.bigquery.SparkBigQueryUtil
-import org.apache.spark.sql.types.{Metadata as SparkMetadata, _}
+import org.apache.spark.sql.types.{Metadata as SparkMetadata, *}
 
 import java.util.regex.Pattern
 import scala.collection.mutable
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
 /** Dataset Schema
@@ -208,28 +208,7 @@ case class SchemaInfo(
     schemaHandler: SchemaHandler,
     p: TableAttribute => Boolean
   ): StructType = {
-    def enrichStructField(attr: TableAttribute, structField: StructField) = {
-      structField.copy(
-        name = attr.getFinalName(),
-        nullable = if (attr.script.isDefined) true else !attr.resolveRequired(),
-        metadata =
-          if (attr.`type` == "variant")
-            org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
-          else org.apache.spark.sql.types.Metadata.empty
-      )
-    }
-    val fields = attributes filter p map { attr =>
-      val structField = StructField(
-        attr.getFinalName(),
-        attr.sparkType(schemaHandler, enrichStructField),
-        if (attr.script.isDefined) true else !attr.resolveRequired(),
-        if (attr.`type` == "variant")
-          org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
-        else org.apache.spark.sql.types.Metadata.empty
-      )
-      attr.comment.map(structField.withComment).getOrElse(structField)
-    }
-    StructType(fields)
+    SparkUtils.sparkSchemaWithCondition(schemaHandler, attributes, p)
   }
 
   /** This Schema as a Spark Catalyst Schema, without scripted fields
