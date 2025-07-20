@@ -43,11 +43,12 @@ import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
-import ai.starlake.schema.model._
-import ai.starlake.schema.model.Severity._
+import ai.starlake.schema.model.*
+import ai.starlake.schema.model.Severity.*
 import ai.starlake.sql.SQLUtils
+import ai.starlake.transpiler.diff.Attribute
 import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData}
-import ai.starlake.utils.Formatter._
+import ai.starlake.utils.Formatter.*
 import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.Resource
 import com.databricks.spark.xml.util.XSDToSchema
@@ -58,7 +59,7 @@ import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -361,16 +362,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def loadTypes(filename: String): List[Type] = {
-    // TODO: remove deprecated file path in a version
-    val deprecatedTypesPath = new Path(DatasetArea.types, filename + ".yml")
     val typesCometPath = new Path(DatasetArea.types, filename + ".sl.yml")
     if (storage.exists(typesCometPath)) {
       YamlSerde.deserializeYamlTypes(storage.read(typesCometPath), typesCometPath.toString)
-    } else if (storage.exists(deprecatedTypesPath)) {
-      YamlSerde.deserializeYamlTypes(
-        storage.read(deprecatedTypesPath),
-        typesCometPath.toString
-      )
     } else
       List.empty[Type]
   }
@@ -685,7 +679,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def taskNames(): List[String] = {
+  def taskTableNames(): List[String] = {
     jobs().flatMap { j =>
       j.tasks.map { t =>
         s"${j.getName()}.${t.getTableName()}"
@@ -1296,7 +1290,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 )
                 .copy(name = taskFilePrefix)
               val taskName = if (taskDesc.name.nonEmpty) taskDesc.name else taskFilePrefix
-              if (taskDesc.name != taskName)
+
+              if (taskDesc.name != taskName && taskDesc.name != jobDesc.name + "." + taskName)
                 logger.warn(
                   s"Task name ${taskDesc.name} in ${taskPath.toString} is different from the file name ${taskFilePrefix}"
                 )
@@ -1395,16 +1390,23 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     jobs().flatMap(_.tasks)
   }
 
-  def task(domain: String, tsk: String): Try[AutoTaskInfo] = {
-    val taskName = s"$domain.$tsk"
-    task(taskName)
-  }
-
-  def task(taskName: String): Try[AutoTaskInfo] = Try {
+  def taskByName(taskName: String): Try[AutoTaskInfo] = Try {
     val allTasks = tasks()
     allTasks
       .find(t => t.name.equalsIgnoreCase(taskName))
       .getOrElse(throw new Exception(s"Task $taskName not found"))
+  }
+  def taskByTableName(domain: String, table: String): Option[AutoTaskInfo] = {
+    val allTasks = tasks()
+    allTasks.find(t => t.domain.equalsIgnoreCase(domain) && t.table.equalsIgnoreCase(table))
+  }
+
+  def taskByTableName(fullTableName: String): Option[AutoTaskInfo] = {
+    val components = fullTableName.split('.')
+    val domain = components(components.length - 2)
+    val table = components(components.length - 1)
+    val allTasks = tasks()
+    allTasks.find(t => t.domain.equalsIgnoreCase(domain) && t.table.equalsIgnoreCase(table))
   }
 
   def taskOnly(
@@ -1426,7 +1428,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           theJob match {
             case None =>
             case Some(job) =>
-              val tasks = job.tasks.filterNot(_.table.equalsIgnoreCase(taskPartName))
+              val tasks = job.tasks.filterNot(_.name.equalsIgnoreCase(taskName))
               val newJob = job.copy(tasks = tasks)
               _jobs = _jobs.filterNot(_.getName().equalsIgnoreCase(domainName)) :+ newJob
           }
@@ -1462,12 +1464,25 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               }
               mergedTask
             }
+
+          taskDesc.map { t =>
+            val theJob = _jobs.find(_.getName().equalsIgnoreCase(domainName))
+            theJob match {
+              case None =>
+              case Some(job) =>
+                val tasks = job.tasks :+ t
+                val newJob = job.copy(tasks = tasks)
+                _jobs = _jobs.filterNot(_.getName().equalsIgnoreCase(domainName)) :+ newJob
+            }
+
+          }
+
           taskDesc.orElse(
-            task(taskName)
+            taskByName(taskName)
           ) // because taskOnly can only handle task named after folder and file names
       }
     } else {
-      task(taskName)
+      taskByName(taskName)
     }
   }
 
@@ -1572,14 +1587,20 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       schema <- domain.tables.find(_.name == schemaName)
     } yield schema
 
+  def tableByFinalName(domainName: String, schemaName: String): Option[SchemaInfo] =
+    for {
+      domain <- getDomain(domainName)
+      schema <- domain.tables.find(_.finalName == schemaName)
+    } yield schema
+
   def table(domainNameAndSchemaName: String): Option[SchemaInfo] = {
     val components = domainNameAndSchemaName.split('.')
     assert(
-      components.length == 2,
+      components.length >= 2,
       s"Table name $domainNameAndSchemaName should be composed of domain and table name separated by a dot"
     )
-    val domainName = components(0)
-    val schemaName = components(1)
+    val domainName = components(components.length - 2)
+    val schemaName = components(components.length - 1)
     for {
       domain <- getDomain(domainName)
       schema <- domain.tables.find(_.name == schemaName)
@@ -2184,20 +2205,67 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     _jobs = _jobs.filterNot(_.name.toLowerCase() == job.name.toLowerCase()) :+ updatedJob
   }
 
-  def diffAttributes(domain: String, table: String) = {
-    taskOnly(s"$domain.$table") match {
-      case Success(taskInfo) =>
-        taskInfo.attributes.map { tAttr => tAttr.toDiffAttribute() }
-      case Failure(exception) =>
-        // If the task does not exist, we return undefined for all columns
-        this.table(domain, table) match {
-          case Some(schemaInfo) =>
-            schemaInfo.attributes.map { tAttr => tAttr.toDiffAttribute() }
-          case None =>
-            logger.warn(s"Table $domain.$table not found")
-            Nil
-        }
-        Nil
+  def external(domain: String, table: String): Option[SchemaInfo] = {
+    externals().find(_.name.equalsIgnoreCase(domain)).flatMap { domainInfo =>
+      domainInfo.tables.find(_.name.equalsIgnoreCase(table))
     }
   }
+  def attributesAsDiff(domain: String, table: String): List[Attribute] = {
+    taskByTableName(domain, table) match {
+      case Some(taskInfo) =>
+        taskInfo.attributes.map(_.toDiffAttribute())
+      case None =>
+        // If the task does not exist, we return undefined for all columns
+        this.tableByFinalName(domain, table) match {
+          case Some(schemaInfo) =>
+            schemaInfo.attributes.map(_.toDiffAttribute())
+          case None =>
+            external(domain, table) match {
+              case Some(externalSchema) =>
+                externalSchema.attributes.map(_.toDiffAttribute())
+              case None =>
+                logger.warn(s"Table $domain.$table not found in external schemas")
+                Nil
+            }
+        }
+    }
+  }
+
+  def syncApplySqlWithYaml(
+    taskName: String,
+    list: List[(TableAttribute, AttributeStatus)]
+  ): Unit = {
+    settings.schemaHandler().taskByName(taskName) match {
+      case Success(task) =>
+        val updatedTask = task.updateAttributes(list.map(_._1))
+        val taskPath = new Path(DatasetArea.transform, s"${task.domain}/${task.table}.sl.yml")
+
+        YamlSerde.serializeToPath(taskPath, updatedTask)(
+          settings.storageHandler()
+        )
+        logger.debug(s"Diff SQL attributes with YAML for task $taskName: $list")
+      case Failure(exception) =>
+        logger.error("Failed to get task", exception)
+        throw exception
+    }
+  }
+  def syncPreviewSqlWithYaml(
+    taskName: String,
+    query: Option[String]
+  ): List[(TableAttribute, AttributeStatus)] = {
+    settings.schemaHandler().taskByName(taskName) match {
+      case Success(task) =>
+        val list: List[(TableAttribute, AttributeStatus)] = task.diffSqlAttributesWithYaml(query)
+        logger.debug(s"Diff SQL attributes with YAML for task $taskName: ${list.length} attributes")
+        list.foreach { case (attribute, status) =>
+          logger.info(s"\tAttribute: ${attribute.name}, Status: $status")
+        }
+        list
+      case Failure(exception) =>
+        logger.error("Failed to get task", exception)
+        throw exception
+    }
+
+  }
+
 }

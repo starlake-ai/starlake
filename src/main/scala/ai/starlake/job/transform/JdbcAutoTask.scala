@@ -345,7 +345,7 @@ class JdbcAutoTask(
     *   (list of sql to execute, if the table exists) if (table exists, sqls are actually alter
     *   table statements, else these are create schema / table statements
     */
-  def buildTableSchemaSQL(
+  override def buildTableSchemaSQL(
     incomingSchema: StructType,
     tableName: String
   ): (List[String], Boolean) = {
@@ -353,24 +353,42 @@ class JdbcAutoTask(
     val isSCD2 = strategy.getEffectiveType() == WriteStrategyType.SCD2
     val incomingSchemaWithSCD2 =
       if (isSCD2) {
-        incomingSchema
-          .add(
-            StructField(
-              strategy.startTs
-                .getOrElse(settings.appConfig.scd2StartTimestamp),
-              TimestampType,
-              nullable = true
+        val startTs = strategy.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val incomingSchemaWithStartTs =
+          if (incomingSchema.fieldNames.contains(startTs)) {
+            logger.warn(
+              s"Incoming schema already contains SCD2 start timestamp column '$startTs'. It will not be added again."
             )
+            incomingSchema
+          } else {
+            incomingSchema
+              .add(
+                StructField(
+                  startTs,
+                  TimestampType,
+                  nullable = true
+                )
+              )
+          }
+        val endTs = strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
+        if (incomingSchemaWithStartTs.fieldNames.contains(endTs)) {
+          logger.warn(
+            s"Incoming schema already contains SCD2 end timestamp column '$endTs'. It will not be added again."
           )
-          .add(
-            StructField(
-              strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp),
-              TimestampType,
-              nullable = true
+          incomingSchemaWithStartTs
+        } else {
+          incomingSchemaWithStartTs
+            .add(
+              StructField(
+                endTs,
+                TimestampType,
+                nullable = true
+              )
             )
-          )
-      } else
+        }
+      } else {
         incomingSchema
+      }
     val sinkConnectionRefOptions = sinkConnection.options
     val jdbcUrl = sinkConnectionRefOptions("url")
     val targetTableExists: Boolean = tableExists

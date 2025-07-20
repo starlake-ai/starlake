@@ -22,19 +22,10 @@ import ai.starlake.config.Settings.{
   SparkScheduling
 }
 import ai.starlake.config.{ApplicationDesc, Settings}
-import ai.starlake.extract._
-import ai.starlake.extract.impl.openapi.{
-  Get,
-  HttpOperation,
-  OpenAPIDomain,
-  OpenAPIExtractSchema,
-  OpenAPIRoute,
-  OpenAPIRouteExplosion,
-  OpenAPISchema,
-  Post
-}
+import ai.starlake.extract.*
+import ai.starlake.extract.impl.openapi.*
 import ai.starlake.job.load.{IngestionNameStrategy, IngestionTimeStrategy}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.utils.{Utils, YamlSerde}
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.typesafe.config.{Config, ConfigFactory}
@@ -49,7 +40,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import java.util.TimeZone
 import java.util.regex.Pattern
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success}
 
 class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryValues {
@@ -140,7 +131,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
   }
 
   "YamlSerializer" should "round-trip any Yaml Extract Config" in {
-    import YamlConfigGenerators._
+    import YamlConfigGenerators.*
     forAll { (yamlExtractConfig: ExtractDesc) =>
       val mapperWithEmptyString =
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
@@ -260,7 +251,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
   }
 
   it should "round-trip any Yaml Dag Config" in {
-    import YamlConfigGenerators._
+    import YamlConfigGenerators.*
     forAll { (yamlDagConfig: DagDesc) =>
       val mapperWithEmptyString =
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
@@ -278,7 +269,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
   }
 
   it should "round-trip any Yaml Load Config" in {
-    import YamlConfigGenerators._
+    import YamlConfigGenerators.*
     forAll { (yamlLoadConfig: DomainDesc) =>
       val mapperWithEmptyString =
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
@@ -307,7 +298,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
   }
 
   it should "round-trip any Yaml Refs Config" in {
-    import YamlConfigGenerators._
+    import YamlConfigGenerators.*
     forAll { (yamlRefConfig: RefDesc) =>
       val mapperWithEmptyString =
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
@@ -337,7 +328,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
   }
 
   it should "round-trip any Yaml Application Config" in {
-    import YamlConfigGenerators._
+    import YamlConfigGenerators.*
     forAll { (yamlApplicationConfig: ApplicationDesc) =>
       val mapperWithEmptyString =
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
@@ -373,7 +364,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
   }
 
   it should "round-trip any Yaml Transform Config" in {
-    import YamlConfigGenerators._
+    import YamlConfigGenerators.*
     forAll { (yamlTransformConfig: TransformDesc) =>
       val mapperWithEmptyString =
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
@@ -391,7 +382,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
   }
 
   it should "round-trip any Yaml Table Config" in {
-    import YamlConfigGenerators._
+    import YamlConfigGenerators.*
     forAll { (yamlTableConfig: TableDesc) =>
       val mapperWithEmptyString =
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
@@ -415,7 +406,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
   }
 
   it should "round-trip any Yaml Types Config" in {
-    import YamlConfigGenerators._
+    import YamlConfigGenerators.*
     forAll { (yamlTypesConfig: TypesDesc) =>
       val mapperWithEmptyString =
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
@@ -432,7 +423,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
   }
 
   it should "round-trip any Yaml Env Config" in {
-    import YamlConfigGenerators._
+    import YamlConfigGenerators.*
     forAll { (yamlTypesConfig: EnvDesc) =>
       val mapperWithEmptyString =
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
@@ -1376,6 +1367,8 @@ object YamlConfigGenerators {
       testCsvNullString       <- arbitrary[String]
       maxInteractiveRecords   <- arbitrary[Int]
       duckdbPath              <- Gen.option(arbitrary[String])
+      syncSqlWithYaml         <- arbitrary[Boolean]
+      syncYamlWithDb          <- arbitrary[Boolean]
 
     } yield AppConfig(
       env = env,
@@ -1458,7 +1451,9 @@ object YamlConfigGenerators {
       duckdbPath = duckdbPath,
       ack = None,
       duckDbEnableExternalAccess = false,
-      duckdbExtensions = "json,spatial"
+      duckdbExtensions = "json,spatial",
+      syncSqlWithYaml = syncSqlWithYaml,
+      syncYamlWithDb = syncYamlWithDb
     )
   }
 
@@ -1498,22 +1493,6 @@ object YamlConfigGenerators {
     } yield ApplicationDesc(latestSchemaVersion, application = appConfig)
   }
 
-  implicit val attributeDesc: Arbitrary[AutoTaskAttribute] = Arbitrary {
-    for {
-      name         <- arbitrary[String]
-      `type`       <- arbitrary[String]
-      comment      <- arbitrary[String]
-      accessPolicy <- Gen.option(arbitrary[String])
-      foreignKey   <- Gen.option(arbitrary[String])
-    } yield AutoTaskAttribute(
-      name = name,
-      `type` = `type`,
-      comment = comment,
-      accessPolicy = accessPolicy,
-      foreignKey = foreignKey
-    )
-  }
-
   implicit val path: Arbitrary[Path] = Arbitrary {
     Gen.oneOf("/tmp", "relativeFolder/subfolder", "myFolder").map(new Path(_))
   }
@@ -1533,7 +1512,7 @@ object YamlConfigGenerators {
       acl            <- arbitrary[List[AccessControlEntry]]
       comment        <- Gen.option(arbitrary[String])
       freshness      <- Gen.option(arbitrary[Freshness])
-      attributesDesc <- arbitrary[List[AutoTaskAttribute]]
+      attributesDesc <- arbitrary[List[TableAttribute]]
       python         <- Gen.option(arbitrary[Path])
       tags           <- arbitrary[List[String]].map(_.toSet)
       schedule       <- Gen.option(arbitrary[String])

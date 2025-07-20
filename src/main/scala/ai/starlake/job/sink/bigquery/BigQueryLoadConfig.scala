@@ -24,7 +24,7 @@ case class BigQueryLoadConfig(
   domainDescription: Option[String] = None,
   materialization: Materialization = Materialization.TABLE,
   outputTableDesc: Option[String] = None,
-  attributesDesc: List[AutoTaskAttribute] = Nil,
+  attributesDesc: List[TableAttribute] = Nil,
   outputDatabase: Option[String] = None,
   enableRefresh: Option[Boolean] = None,
   refreshIntervalMs: Option[Long] = None,

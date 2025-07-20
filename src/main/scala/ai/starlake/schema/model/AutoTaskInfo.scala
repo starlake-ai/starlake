@@ -1,18 +1,20 @@
 package ai.starlake.schema.model
 
-import ai.starlake.config.Settings
 import ai.starlake.config.Settings.Connection
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Severity.Error
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLSchemaDiff
-import ai.starlake.transpiler.diff.Attribute as DiffAttribute
-import ai.starlake.transpiler.diff.DBSchema
+import ai.starlake.transpiler.diff.{Attribute as DiffAttribute, DBSchema}
+import ai.starlake.transpiler.schema.CaseInsensitiveLinkedHashMap
+import ai.starlake.utils.SparkUtils
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.types.StructType
 
-import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success}
+import scala.jdk.CollectionConverters.*
 
 case class TaskDesc(version: Int, task: AutoTaskInfo)
 
@@ -39,7 +41,7 @@ case class TaskDesc(version: Int, task: AutoTaskInfo)
   *   Row level security policy to apply too the output data.
   */
 @JsonIgnoreProperties(
-  Array("_filenamePrefix", "_auditTableName", "_dbComment", "write")
+  Array("_filenamePrefix", "_auditTableName", "_dbComment", "write", "sql")
 )
 case class AutoTaskInfo(
   name: String, // Name of the task. Made of jobName + '.' + tableName
@@ -55,7 +57,7 @@ case class AutoTaskInfo(
   acl: List[AccessControlEntry] = Nil,
   comment: Option[String] = None,
   freshness: Option[Freshness] = None,
-  attributes: List[AutoTaskAttribute] = Nil,
+  attributes: List[TableAttribute] = Nil,
   python: Option[Path] = None,
   tags: Set[String] = Set.empty,
   writeStrategy: Option[WriteStrategy] = None,
@@ -194,6 +196,7 @@ case class AutoTaskInfo(
     taskTimeoutMs = None
   ) // Should never be called. Here for Jackson deserialization only
 
+  @JsonIgnore
   def getSql(): String = sql.getOrElse("")
 
   def getDatabase()(implicit settings: Settings): Option[String] = {
@@ -267,49 +270,66 @@ case class AutoTaskInfo(
     *   * List of tuples containing the attribute name and its type. The type is set to "undefined"
     *   as
     */
-  def attributesInSqlStatement()(implicit settings: Settings): List[(String, String)] = {
-    /*
+  def attributesInSqlStatement(
+    sqlStatement: Option[String]
+  )(implicit settings: Settings): List[(String, String)] = {
     val schemaHandler = settings.schemaHandler()
-    val sqlWithParametersTranspiled = getTranspiledSql()
+    val sqlWithParametersTranspiled = sqlStatement.getOrElse(getTranspiledSql())
     val allTableNames = SQLUtils.extractTableNames(sqlWithParametersTranspiled)
-    val thisTaskName = this.domain + "." + this.table
-    (thisTaskName +: allTableNames).map { tableName =>
-      val parts = tableName.split('.').toList
-      parts match {
-        case database :: domain :: table :: Nil => Some(domain, table)
-        case domain :: table :: Nil             => Some(domain, table)
-        case _                                  => None
-      } match {
-        case Some((domain, table)) =>
-          schemaHandler.taskOnly(s"$domain.$table") match {
-            case Success(taskInfo) =>
-              taskInfo.attributes.map { tAttr => tAttr.toDiffAttribute() }
-            case Failure(exception) =>
+    val thisTableName = s"${this.domain}.${this.table}"
+    val tablesGroupedByDomain: List[(String, List[String])] =
+      (thisTableName +: allTableNames).distinct
+        .flatMap { fullTableName =>
+          val components = fullTableName.split('.')
+          assert(
+            components.length >= 2,
+            s"Table name $fullTableName should be composed of domain and table name separated by a dot"
+          )
+          val domainName = components(components.length - 2)
+          val schemaName = components(components.length - 1)
+          schemaHandler
+            .taskByTableName(domainName, schemaName)
+            .map { t =>
+              (t.domain, t.table)
+            }
+            .orElse {
+              schemaHandler.tableByFinalName(domainName, schemaName).map { t =>
+                (domainName, schemaName)
+              }
+            }
+            .orElse {
+              schemaHandler.external(domainName, schemaName).map { t =>
+                (domainName, schemaName)
+              }
+            }
+        }
+        .groupBy { case (domain, _) =>
+          domain
+        }
+        .view
+        .mapValues(_.map(_._2).distinct)
+        .toList
 
-              // If the task does not exist, we return undefined for all columns
-              Nil
-          }
-        case None =>
-          // If the table name is not in the expected format, we return undefined for all columns
-          Nil
-      }
-    }
+    val dbSchemas =
+      tablesGroupedByDomain.map { case (domain, tables) =>
+        val tablesMap = new CaseInsensitiveLinkedHashMap[java.util.Collection[DiffAttribute]]()
+        tables.map { table =>
+          val attrs = schemaHandler.attributesAsDiff(domain, table)
+          tablesMap.put(table, attrs.asJava)
+        }
+        new DBSchema("", domain, tablesMap)
+      }.asJava
 
-    val dbSchema =
-      new DBSchema(
-        "",
-        this.domain,
-        this.table,
-        new java.util.ArrayList(taskAttributes.asJava)
-      )
     val statementColumns =
-      new JSQLSchemaDiff(dbSchema)
-        .getDiff(sqlWithParametersTranspiled, s"${this.domain}_${this.table}")
-    statementColumns.asScala.toList.map { col =>
-      col.getName -> col.getType
-    }
-     */
-    Nil
+      new JSQLSchemaDiff(dbSchemas)
+        .getDiff(sqlWithParametersTranspiled, s"${this.domain}.${this.table}")
+
+    val result =
+      statementColumns.asScala.toList.map { col =>
+        col.getName -> col.getType
+      }
+
+    result
   }
 
   /** Extracts attributes from the SQL statement and compares them with the existing attributes in
@@ -325,8 +345,8 @@ case class AutoTaskInfo(
     *   - UNCHANGED: The attribute is present and its type and comment are unchanged
     */
   def diffSqlAttributesWithYaml(
-    sqlStatementAttributes: List[AutoTaskAttribute]
-  )(implicit settings: Settings): List[(AutoTaskAttribute, AttributeStatus)] = {
+    sqlStatementAttributes: List[TableAttribute]
+  )(implicit settings: Settings): List[(TableAttribute, AttributeStatus)] = {
 
     val addedAndModifiedAttributes = sqlStatementAttributes
       .map { sqlAttr =>
@@ -355,13 +375,15 @@ case class AutoTaskInfo(
     addedAndModifiedAttributes ++ deletedAttributes
   }
 
-  def diffSqlAttributesWithYaml()(implicit
+  def diffSqlAttributesWithYaml(sqlStatement: Option[String] = None)(implicit
     settings: Settings
-  ): List[(AutoTaskAttribute, AttributeStatus)] = {
+  ): List[(TableAttribute, AttributeStatus)] = {
+
     // Extract attributes from the SQL statement
-    val sqlStatementAttributes = this.attributesInSqlStatement().map { case (name, typ) =>
-      AutoTaskAttribute(name, typ)
-    }
+    val sqlStatementAttributes =
+      this.attributesInSqlStatement(sqlStatement).map { case (name, typ) =>
+        TableAttribute(name, typ)
+      }
     // Sync attributes with the SQL statement attributes
     this.diffSqlAttributesWithYaml(sqlStatementAttributes)
   }
@@ -375,7 +397,7 @@ case class AutoTaskInfo(
     * @return
     */
   def updateAttributes(
-    incomingAttributes: List[AutoTaskAttribute]
+    incomingAttributes: List[TableAttribute]
   )(implicit settings: Settings): AutoTaskInfo = {
     // Filter out attributes that are not present in the incoming attributes
     val withoutDropped =
@@ -384,10 +406,11 @@ case class AutoTaskInfo(
       }
 
     // Update existing attributes with the new type and comment, or keep the existing ones if not
-    val addAndUpdatedAttributes = withoutDropped.map { existingAttr =>
-      incomingAttributes.find(_.name.equalsIgnoreCase(existingAttr.name)) match {
-        case Some(newAttr) => existingAttr.copy(`type` = newAttr.`type`, comment = newAttr.comment)
-        case None          => existingAttr
+    val addAndUpdatedAttributes = incomingAttributes.map { newAttr =>
+      this.attributes.find(_.name.equalsIgnoreCase(newAttr.name)) match {
+        case Some(existingAttr) =>
+          existingAttr.copy(`type` = newAttr.`type`, comment = newAttr.comment)
+        case None => newAttr
       }
     }
     this.copy(attributes = addAndUpdatedAttributes)
@@ -395,7 +418,7 @@ case class AutoTaskInfo(
 
   def diffYamlAttributesWithDB(
     accessToken: Option[String]
-  )(implicit settings: Settings): List[(AutoTaskAttribute, AttributeStatus)] = {
+  )(implicit settings: Settings): List[(TableAttribute, AttributeStatus)] = {
     val sql = this.getSql()
     val tableNames = SQLUtils.extractTableNames(sql)
     val schemaHandler = settings.schemaHandler()
@@ -426,10 +449,10 @@ case class AutoTaskInfo(
     val deletedAttributes = dbAttributes
       .filterNot(attr => yamlAttributes.exists(_.name.equalsIgnoreCase(attr.name)))
       .map(dbAttr =>
-        AutoTaskAttribute(
+        TableAttribute(
           name = dbAttr.name,
           `type` = dbAttr.`type`,
-          comment = dbAttr.comment.getOrElse("")
+          comment = dbAttr.comment
         ) -> AttributeStatus.DELETED
       )
     // list all attributes in the yaml that are in the db but with a different type or comment
@@ -437,13 +460,11 @@ case class AutoTaskInfo(
       .flatMap { yamlAttr =>
         dbAttributes.find(_.name.equalsIgnoreCase(yamlAttr.name)) match {
           case Some(dbAttr)
-              if dbAttr.`type` != yamlAttr.`type` || dbAttr.comment.getOrElse(
-                ""
-              ) != yamlAttr.comment =>
+              if dbAttr.`type` != yamlAttr.`type` || dbAttr.comment != yamlAttr.comment =>
             Some(
               yamlAttr.copy(
                 `type` = dbAttr.`type`,
-                comment = dbAttr.comment.getOrElse("")
+                comment = dbAttr.comment
               ) -> AttributeStatus.MODIFIED
             )
           case _ => None
@@ -451,6 +472,21 @@ case class AutoTaskInfo(
       }
     // return all attributes with their status
     addedAttributes ++ deletedAttributes ++ modifiedAttributes
+  }
+
+  @JsonIgnore
+  def getPath()(implicit settings: Settings): Path = {
+    assert(
+      this.name.split('.').length == 2,
+      s"Invalid task name: ${this.name}. Expected format: domainName.tableName"
+    )
+    new Path(DatasetArea.transform, this.getName().replace('.', '/') + ".sl.yml")
+  }
+
+  def sparkSchema(
+    schemaHandler: SchemaHandler
+  ): StructType = {
+    SparkUtils.sparkSchemaWithCondition(schemaHandler, attributes, _ => true)
   }
 
 }

@@ -26,6 +26,7 @@ class IntegrationTestBase
   logger.info(starlakeDir.pathAsString)
   def samplesFolder = starlakeDir / "samples"
   def theSampleFolder = samplesFolder / "any-engine"
+  def theLinageFolder = samplesFolder / "lineage"
   def incomingDir = theSampleFolder / "incoming"
   def sampleDataDir = samplesFolder / "sample-data"
   def migrationDir = starlakeDir / "migration"

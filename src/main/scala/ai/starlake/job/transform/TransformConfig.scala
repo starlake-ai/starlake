@@ -4,6 +4,8 @@ case class TransformConfig(
   name: String = "",
   options: Map[String, String] = Map.empty,
   compile: Boolean = false,
+  syncApply: Boolean = false,
+  syncPreview: Boolean = false,
   tags: Seq[String] = Seq.empty,
   format: Boolean = false,
   interactive: Option[String] = None,
@@ -23,6 +25,8 @@ case class TransformConfig(
        |name=$name
        |options=$optionsAsString
        |compile=$compile
+       |syncApply=$syncApply
+       |syncPreview=$syncPreview
        |tags=$tags
        |format=$format
        |interactive=$interactive
