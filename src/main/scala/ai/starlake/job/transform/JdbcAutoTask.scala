@@ -424,7 +424,9 @@ class JdbcAutoTask(
           logger.debug(s"alter table ${alterTableAddColumns.mkString("\n")}")
         }
 
-        val allAlter = alterTableDropColumns ++ alterTableAddColumns
+        // always drop after adding, in case all columns are dropped
+        // because in case all columns are dropped, an error is raised for a table without any columns.
+        val allAlter = alterTableAddColumns ++ alterTableDropColumns
         (allAlter.toList, true)
       } else {
         val optionsWrite =
