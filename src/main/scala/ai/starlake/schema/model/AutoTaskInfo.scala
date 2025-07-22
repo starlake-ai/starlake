@@ -6,7 +6,7 @@ import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Severity.Error
 import ai.starlake.sql.SQLUtils
-import ai.starlake.transpiler.JSQLSchemaDiff
+import ai.starlake.transpiler.{diff, JSQLSchemaDiff}
 import ai.starlake.transpiler.diff.{Attribute as DiffAttribute, DBSchema}
 import ai.starlake.transpiler.schema.CaseInsensitiveLinkedHashMap
 import ai.starlake.utils.SparkUtils
@@ -14,7 +14,7 @@ import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructType
 
-import scala.jdk.CollectionConverters.*
+import scala.jdk.CollectionConverters._
 
 case class TaskDesc(version: Int, task: AutoTaskInfo)
 
@@ -320,13 +320,15 @@ case class AutoTaskInfo(
         new DBSchema("", domain, tablesMap)
       }.asJava
 
+    // println(YamlSerde.serialize(dbSchemas))
     val statementColumns =
       new JSQLSchemaDiff(dbSchemas)
         .getDiff(sqlWithParametersTranspiled, s"${this.domain}.${this.table}")
 
     val result =
-      statementColumns.asScala.toList.map { col =>
-        col.getName -> col.getType
+      statementColumns.asScala.toList.filter(_.getStatus != diff.AttributeStatus.REMOVED).map {
+        col =>
+          col.getName -> col.getType
       }
 
     result
@@ -371,7 +373,7 @@ case class AutoTaskInfo(
       }
     val deletedAttributes = this.attributes
       .filterNot(attDesc => sqlStatementAttributes.exists(_.name.equalsIgnoreCase(attDesc.name)))
-      .map(attDesc => attDesc -> AttributeStatus.DELETED)
+      .map(attDesc => attDesc -> AttributeStatus.REMOVED)
     addedAndModifiedAttributes ++ deletedAttributes
   }
 
@@ -453,7 +455,7 @@ case class AutoTaskInfo(
           name = dbAttr.name,
           `type` = dbAttr.`type`,
           comment = dbAttr.comment
-        ) -> AttributeStatus.DELETED
+        ) -> AttributeStatus.REMOVED
       )
     // list all attributes in the yaml that are in the db but with a different type or comment
     val modifiedAttributes = yamlAttributes

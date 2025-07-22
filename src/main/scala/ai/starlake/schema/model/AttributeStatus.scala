@@ -41,7 +41,7 @@ object AttributeStatus {
     value.toUpperCase match {
       case "ADD"       => AttributeStatus.ADDED
       case "MODIFIED"  => AttributeStatus.MODIFIED
-      case "DELETED"   => AttributeStatus.DELETED
+      case "REMOVED"   => AttributeStatus.REMOVED
       case "UNCHANGED" => AttributeStatus.UNCHANGED
       case _           => throw new IllegalArgumentException(s"Unknown attribute status: $value")
     }
@@ -49,7 +49,7 @@ object AttributeStatus {
   object ADDED extends AttributeStatus("ADD")
   object MODIFIED extends AttributeStatus("MODIFIED")
 
-  object DELETED extends AttributeStatus("DELETED")
+  object REMOVED extends AttributeStatus("REMOVED")
 
   object UNCHANGED extends AttributeStatus("UNCHANGED")
 
@@ -57,7 +57,7 @@ object AttributeStatus {
     Set(
       ADDED,
       MODIFIED,
-      DELETED,
+      REMOVED,
       UNCHANGED
     )
 }
