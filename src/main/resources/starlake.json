@@ -2362,6 +2362,14 @@
         "duckDbEnableExternalAccess": {
           "description": "Allow DuckDB to load / Save data from / to external sources. Default to true",
           "type": "boolean"
+        },
+        "syncSqlWithYaml": {
+          "description": "Update attributes in YAMl file when SQL is updated. Default to true",
+          "type": "boolean"
+        },
+        "syncYamlWithDb": {
+          "description": "Update database with YAML transform is run. Default to true",
+          "type": "boolean"
         }
       }
     },
