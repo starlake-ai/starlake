@@ -6,15 +6,15 @@ import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Severity.Error
 import ai.starlake.sql.SQLUtils
-import ai.starlake.transpiler.{diff, JSQLSchemaDiff}
 import ai.starlake.transpiler.diff.{Attribute as DiffAttribute, DBSchema}
 import ai.starlake.transpiler.schema.CaseInsensitiveLinkedHashMap
-import ai.starlake.utils.SparkUtils
+import ai.starlake.transpiler.{diff, JSQLSchemaDiff}
+import ai.starlake.utils.{SparkUtils, YamlSerde}
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructType
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 case class TaskDesc(version: Int, task: AutoTaskInfo)
 
@@ -271,7 +271,8 @@ case class AutoTaskInfo(
     *   as
     */
   def attributesInSqlStatement(
-    sqlStatement: Option[String]
+    sqlStatement: Option[String],
+    accessToken: Option[String]
   )(implicit settings: Settings): List[(String, String)] = {
     val schemaHandler = settings.schemaHandler()
     val sqlWithParametersTranspiled = sqlStatement.getOrElse(getTranspiledSql())
@@ -289,18 +290,40 @@ case class AutoTaskInfo(
           val schemaName = components(components.length - 1)
           schemaHandler
             .taskByTableName(domainName, schemaName)
+            .filter(it => it.attributes.nonEmpty)
             .map { t =>
+              logger.info(
+                s"Found task ${t.name} for table $fullTableName with attributes ${t.attributes.map(_.name).mkString(", ")}"
+              )
               (t.domain, t.table)
             }
             .orElse {
               schemaHandler.tableByFinalName(domainName, schemaName).map { t =>
+                logger.info(
+                  s"Found table ${t.name} for table $fullTableName with attributes ${t.attributes.map(_.name).mkString(", ")}"
+                )
                 (domainName, schemaName)
               }
             }
             .orElse {
               schemaHandler.external(domainName, schemaName).map { t =>
+                logger.info(
+                  s"Found external table ${t.name} for table $fullTableName with attributes ${t.attributes.map(_.name).mkString(", ")}"
+                )
                 (domainName, schemaName)
               }
+            }
+            .orElse {
+              new ExtractSchema(schemaHandler)
+                .extractTable(fullTableName, accessToken)
+                .toOption
+                .filter(_.tables.nonEmpty)
+                .map { it =>
+                  logger.info(
+                    s"Found extracted table ${it.tables.head.name} for table $fullTableName with attributes ${it.tables.head.attributes.map(_.name).mkString(", ")}"
+                  )
+                  (it.finalName, it.tables.head.finalName)
+                }
             }
         }
         .groupBy { case (domain, _) =>
@@ -314,13 +337,14 @@ case class AutoTaskInfo(
       tablesGroupedByDomain.map { case (domain, tables) =>
         val tablesMap = new CaseInsensitiveLinkedHashMap[java.util.Collection[DiffAttribute]]()
         tables.map { table =>
-          val attrs = schemaHandler.attributesAsDiff(domain, table)
+          val attrs = schemaHandler
+            .attributesAsDiff(domain, table, accessToken)
           tablesMap.put(table, attrs.asJava)
         }
         new DBSchema("", domain, tablesMap)
       }.asJava
 
-    // println(YamlSerde.serialize(dbSchemas))
+    println(YamlSerde.serialize(dbSchemas))
     val statementColumns =
       new JSQLSchemaDiff(dbSchemas)
         .getDiff(sqlWithParametersTranspiled, s"${this.domain}.${this.table}")
@@ -347,7 +371,8 @@ case class AutoTaskInfo(
     *   - UNCHANGED: The attribute is present and its type and comment are unchanged
     */
   def diffSqlAttributesWithYaml(
-    sqlStatementAttributes: List[TableAttribute]
+    sqlStatementAttributes: List[TableAttribute],
+    accessToken: Option[String]
   )(implicit settings: Settings): List[(TableAttribute, AttributeStatus)] = {
 
     val addedAndModifiedAttributes = sqlStatementAttributes
@@ -377,17 +402,20 @@ case class AutoTaskInfo(
     addedAndModifiedAttributes ++ deletedAttributes
   }
 
-  def diffSqlAttributesWithYaml(sqlStatement: Option[String] = None)(implicit
+  def diffSqlAttributesWithYaml(
+    sqlStatement: Option[String] = None,
+    accessToken: Option[String] = None
+  )(implicit
     settings: Settings
   ): List[(TableAttribute, AttributeStatus)] = {
 
     // Extract attributes from the SQL statement
     val sqlStatementAttributes =
-      this.attributesInSqlStatement(sqlStatement).map { case (name, typ) =>
+      this.attributesInSqlStatement(sqlStatement, accessToken).map { case (name, typ) =>
         TableAttribute(name, typ)
       }
     // Sync attributes with the SQL statement attributes
-    this.diffSqlAttributesWithYaml(sqlStatementAttributes)
+    this.diffSqlAttributesWithYaml(sqlStatementAttributes, accessToken)
   }
 
   /** Update the task description with the new attributes. Existing attributes are updated with the

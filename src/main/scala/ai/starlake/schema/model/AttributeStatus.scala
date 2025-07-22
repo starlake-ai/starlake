@@ -47,6 +47,7 @@ object AttributeStatus {
     }
   }
   object ADDED extends AttributeStatus("ADD")
+
   object MODIFIED extends AttributeStatus("MODIFIED")
 
   object REMOVED extends AttributeStatus("REMOVED")

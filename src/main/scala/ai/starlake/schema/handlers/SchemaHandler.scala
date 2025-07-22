@@ -41,6 +41,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extract.ExtractSchema
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
 import ai.starlake.schema.model.*
@@ -2209,23 +2210,41 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     externals().find(_.name.equalsIgnoreCase(domain)).flatMap { domainInfo =>
       domainInfo.tables.find(_.name.equalsIgnoreCase(table))
     }
+    None
   }
-  def attributesAsDiff(domain: String, table: String): List[Attribute] = {
-    taskByTableName(domain, table) match {
+  def attributesAsDiff(
+    domain: String,
+    table: String,
+    accessToken: Option[String]
+  ): List[Attribute] = {
+    taskByTableName(domain, table).filter(it => it.attributes.nonEmpty) match {
       case Some(taskInfo) =>
+        logger.info(s"Found task for $domain.$table from transform")
         taskInfo.attributes.map(_.toDiffAttribute())
       case None =>
         // If the task does not exist, we return undefined for all columns
-        this.tableByFinalName(domain, table) match {
+        this.tableByFinalName(domain, table).filter(it => it.attributes.nonEmpty) match {
           case Some(schemaInfo) =>
+            logger.info(s"Found schema for $domain.$table from load")
             schemaInfo.attributes.map(_.toDiffAttribute())
           case None =>
-            external(domain, table) match {
+            external(domain, table).filter(it => it.attributes.nonEmpty) match {
               case Some(externalSchema) =>
+                logger.info(s"Found external schema for $domain.$table from external")
                 externalSchema.attributes.map(_.toDiffAttribute())
               case None =>
-                logger.warn(s"Table $domain.$table not found in external schemas")
-                Nil
+                new ExtractSchema(this)
+                  .extractTable(domain, table, accessToken)
+                  .toOption
+                  .filter(_.tables.nonEmpty)
+                  .map { it =>
+                    logger.info(s"Extracted schema for $domain.$table from DB source")
+                    it.tables.head.attributes.map(_.toDiffAttribute())
+                  }
+                  .getOrElse {
+                    logger.warn(s"Table $domain.$table not found in external schemas")
+                    Nil
+                  }
             }
         }
     }
@@ -2251,11 +2270,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
   def syncPreviewSqlWithYaml(
     taskName: String,
-    query: Option[String]
+    query: Option[String],
+    accessToken: Option[String]
   ): List[(TableAttribute, AttributeStatus)] = {
     settings.schemaHandler().taskByName(taskName) match {
       case Success(task) =>
-        val list: List[(TableAttribute, AttributeStatus)] = task.diffSqlAttributesWithYaml(query)
+        val list: List[(TableAttribute, AttributeStatus)] =
+          task.diffSqlAttributesWithYaml(query, accessToken)
         logger.debug(s"Diff SQL attributes with YAML for task $taskName: ${list.length} attributes")
         list.foreach { case (attribute, status) =>
           logger.info(s"\tAttribute: ${attribute.name}, Status: $status")

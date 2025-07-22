@@ -136,7 +136,7 @@ trait TransformCmd extends Cmd[TransformConfig] {
       }
 
     } else if (config.syncApply) {
-      val list = schemaHandler.syncPreviewSqlWithYaml(config.name, config.query)
+      val list = schemaHandler.syncPreviewSqlWithYaml(config.name, config.query, config.accessToken)
       Try(schemaHandler.syncApplySqlWithYaml(config.name, list)) map { _ =>
         JobResult.empty
       }
@@ -150,7 +150,7 @@ trait TransformCmd extends Cmd[TransformConfig] {
 
   private def syncPreview(config: TransformConfig, schemaHandler: SchemaHandler) = {
     Try {
-      val list = schemaHandler.syncPreviewSqlWithYaml(config.name, config.query)
+      val list = schemaHandler.syncPreviewSqlWithYaml(config.name, config.query, config.accessToken)
       println(s"Previewing SQL attributes for task: ${config.name}")
       list.foreach { case (attribute, status) =>
         println(s"\tAttribute: ${attribute.name}, Status: $status")

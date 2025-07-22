@@ -1,6 +1,8 @@
 package ai.starlake.schema.model
 
-trait Named {
+import com.typesafe.scalalogging.LazyLogging
+
+trait Named extends LazyLogging {
   val name: String
 
   def getName(): String = name

@@ -21,18 +21,17 @@
 package ai.starlake.schema.model
 
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.DataTypeEx._
+import ai.starlake.schema.model.Severity.*
+import ai.starlake.transpiler.diff.Attribute as DiffAttribute
+import ai.starlake.utils.DataTypeEx.*
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.*
 
 import java.util.regex.Pattern
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
-import ai.starlake.schema.model.Severity._
-import ai.starlake.transpiler.diff.Attribute as DiffAttribute
 
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
@@ -85,8 +84,7 @@ case class TableAttribute(
   ignore: Option[Boolean] = None,
   accessPolicy: Option[String] = None,
   sample: Option[String] = None
-) extends Named
-    with LazyLogging {
+) extends Named {
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 
   def asMap(): Map[String, Any] = {
