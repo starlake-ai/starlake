@@ -2,11 +2,6 @@ package ai.starlake.integration.starbake
 
 import ai.starlake.config.Settings
 import ai.starlake.integration.IntegrationTestBase
-import ai.starlake.schema.model.{AttributeStatus, TableAttribute}
-import ai.starlake.utils.YamlSerde
-import org.apache.hadoop.fs.Path
-
-import scala.util.{Failure, Success}
 
 class StarbakeDiffAttributesSpecextends extends IntegrationTestBase {
 
@@ -22,7 +17,7 @@ class StarbakeDiffAttributesSpecextends extends IntegrationTestBase {
       val currentEnv = Option(System.getenv("SL_ENV"))
       implicit val settings: Settings = Settings(Settings.referenceConfig, currentEnv, None)
       val taskName = "starbake_analytics.customer_purchase_history"
-      val res = settings.schemaHandler().syncPreviewSqlWithYaml(taskName, None)
+      val res = settings.schemaHandler().syncPreviewSqlWithYaml(taskName, None, None)
       res.foreach { case (tableAttribute, attributeStatus) =>
         println(
           s"Table Attribute: ${tableAttribute.name}: ${tableAttribute.`type`}, Status: $attributeStatus"

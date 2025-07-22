@@ -31,6 +31,29 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     }
   }
 
+  def extractTable(domain: String, table: String, accessToken: Option[String])(implicit
+    settings: Settings
+  ): Try[DomainInfo] =
+    extractTable(s"$domain.$table", accessToken)
+
+  def extractTable(domainAndTableName: String, accessToken: Option[String])(implicit
+    settings: Settings
+  ): Try[DomainInfo] = Try {
+    val userConfig = ExtractSchemaConfig(
+      connectionRef = Some(settings.appConfig.connectionRef),
+      tables = List(domainAndTableName),
+      external = true,
+      accessToken = accessToken
+    )
+    val extractedDomains = extract(userConfig)
+    extractedDomains match {
+      case Some(domains) if domains.nonEmpty =>
+        domains.headOption.getOrElse(throw new Exception("No domain extracted"))
+      case _ =>
+        throw new Exception(s"Could not extract table $domainAndTableName")
+    }
+  }
+
   /** Generate YML file from JDBC Schema stored in a YML file
     *
     * @param jdbcMapFile

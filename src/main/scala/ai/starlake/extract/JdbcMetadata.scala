@@ -117,6 +117,9 @@ sealed trait JdbcColumnMetadata extends StrictLogging {
       case VARBINARY | BINARY =>
         logger.warn(s"forced conversion for $tableName.$colName from $sqlType to string")
         "string"
+      case 2000 => // HUGEINT from DuckDB
+        logger.warn(s"forced conversion for $tableName.$colName from $sqlType (2000) to long")
+        "long"
       case _ =>
         logger.warn(
           s"""Extracting user defined type $colTypename of type $sqlType ($jdbcType) in $tableName.$colName  as string"""
