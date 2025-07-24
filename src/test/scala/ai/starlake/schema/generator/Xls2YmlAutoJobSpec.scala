@@ -47,9 +47,9 @@ class Xls2YmlAutoJobSpec extends TestHelper {
       result.acl.size shouldBe 1
       result.attributes.size shouldBe 3
       result.attributes.map(_.comment) shouldEqual List(
-        "description colonne 1",
-        "description colonne 2",
-        "date de traitement"
+        Some("description colonne 1"),
+        Some("description colonne 2"),
+        Some("date de traitement")
       )
     }
 
@@ -112,8 +112,8 @@ class Xls2YmlAutoJobSpec extends TestHelper {
       resultBQ.acl.size shouldBe 0
       resultBQ.attributes.size shouldBe 2
       resultBQ.attributes.map(_.comment) shouldEqual List(
-        "description colonne 1",
-        "description colonne 2"
+        Some("description colonne 1"),
+        Some("description colonne 2")
       )
     }
   }

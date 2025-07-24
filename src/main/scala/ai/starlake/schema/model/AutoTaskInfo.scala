@@ -41,7 +41,7 @@ case class TaskDesc(version: Int, task: AutoTaskInfo)
   *   Row level security policy to apply too the output data.
   */
 @JsonIgnoreProperties(
-  Array("_filenamePrefix", "_auditTableName", "_dbComment", "write", "sql")
+  Array("_filenamePrefix", "_auditTableName", "_dbComment", "write")
 )
 case class AutoTaskInfo(
   name: String, // Name of the task. Made of jobName + '.' + tableName
@@ -196,7 +196,6 @@ case class AutoTaskInfo(
     taskTimeoutMs = None
   ) // Should never be called. Here for Jackson deserialization only
 
-  @JsonIgnore
   def getSql(): String = sql.getOrElse("")
 
   def getDatabase()(implicit settings: Settings): Option[String] = {
