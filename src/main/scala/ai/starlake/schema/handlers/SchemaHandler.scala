@@ -2256,7 +2256,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   ): Unit = {
     settings.schemaHandler().taskByName(taskName) match {
       case Success(task) =>
-        val updatedTask = task.updateAttributes(list.map(_._1))
+        val updatedTask =
+          task
+            .updateAttributes(list.map(_._1))
+            .copy(sql = None) // do not serialize sql. It is in its own file
         val taskPath = new Path(DatasetArea.transform, s"${task.domain}/${task.table}.sl.yml")
 
         YamlSerde.serializeToPath(taskPath, updatedTask)(

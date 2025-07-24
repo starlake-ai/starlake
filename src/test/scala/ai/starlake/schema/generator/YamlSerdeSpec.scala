@@ -66,6 +66,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
             // "sql"           -> "select firstname, lastname, age from {{view}} where age=${age}",
             "domain"        -> "user",
             "table"         -> "user",
+            "sql"           -> "select firstname, lastname, age from {{view}} where age=${age}",
             "writeStrategy" -> Map("type" -> "OVERWRITE")
           )
         )
@@ -92,10 +93,9 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
         "name" -> "user",
         "tasks" -> List(
           Map(
-            // sql is not serialized anymore
-            // "sql"    -> "select firstname, lastname, age from dataset.table where age=${age}",
-            "domain"        -> "user",
-            "table"         -> "user",
+            "sql"    -> "select firstname, lastname, age from dataset.table where age=${age}",
+            "domain" -> "user",
+            "table"  -> "user",
             "writeStrategy" -> Map("type" -> "OVERWRITE")
           )
         )
@@ -119,8 +119,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
         "name" -> "user",
         "tasks" -> List(
           Map(
-            // sql is not serialized anymore
-            // "sql"           -> "select firstname, lastname, age from {{view}} where age=${age}",
+            "sql"           -> "select firstname, lastname, age from {{view}} where age=${age}",
             "table"         -> "user",
             "domain"        -> "user",
             "writeStrategy" -> Map("type" -> "OVERWRITE")

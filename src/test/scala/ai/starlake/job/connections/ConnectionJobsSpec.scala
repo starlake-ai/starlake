@@ -12,6 +12,7 @@ import org.apache.spark.sql.SaveMode
 
 class ConnectionJobsSpec extends TestHelper {
   lazy val pathBusiness = new Path(starlakeMetadataPath + "/transform/myusers/myusers.sl.yml")
+  lazy val pathSqlBusiness = new Path(starlakeMetadataPath + "/transform/myusers/myusers.sql")
   val pgConfiguration: Config = {
     val config = ConfigFactory.parseString("""
                                              |connectionRef: "test-pg"
@@ -63,6 +64,10 @@ class ConnectionJobsSpec extends TestHelper {
         .writeValueAsString(businessTask1)
 
       storageHandler.write(businessTaskDef, pathBusiness)
+      storageHandler.write(
+        businessTask1.getSql(),
+        pathSqlBusiness
+      )
 
       val schemaHandler = settings.schemaHandler(Map("age" -> "10"))
 
