@@ -87,7 +87,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                 val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
                 val firstStepTableInfo = firstStepBigqueryJob.getTableInfo(
                   firstStepTempTable,
-                  _.targetBqSchemaWithIgnoreAndScript(schemaHandler)
+                  _.bigquerySchemaWithIgnoreAndScript(schemaHandler, withFinalName = false)
                 )
 
                 val enrichedTableInfo = firstStepTableInfo.copy(
@@ -169,10 +169,15 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
             output
           } // ignore exception but log it
       } else {
+        // Single step ingestion
         val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
         bigqueryJob
           .loadPathsToBQ(
-            bigqueryJob.getTableInfo(targetTableId, _.targetBqSchemaWithoutIgnore(schemaHandler))
+            bigqueryJob
+              .getTableInfo(
+                targetTableId,
+                _.bigquerySchemaWithoutIgnore(schemaHandler, withFinalName = true)
+              )
           )
           .map(List(_))
       }
@@ -228,7 +233,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           targetBigqueryJob.cliConfig.outputTableId
             .map { _ =>
               applyBigQuerySecondStepSQL(
-                firstStepTempTable.map(BigQueryUtils.tableIdToTableName)
+                firstStepTempTable.map(t => BigQueryUtils.tableIdToTableName(t))
               )
             }
             .getOrElse(throw new Exception("Should never happen"))
@@ -247,7 +252,8 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
   ): Try[JobResult] = {
     val task = this.secondStepSQLTask(firstStepTempTableTableNames)
     val bqTask = task.asInstanceOf[BigQueryAutoTask]
-    val incomingSparkSchema = starlakeSchema.targetSparkSchemaWithoutIgnore(schemaHandler)
+    val incomingSparkSchema =
+      starlakeSchema.sparkSchemaWithoutIgnore(schemaHandler, withFinalName = true)
     bqTask.updateBigQueryTableSchema(incomingSparkSchema)
     val jobResult = bqTask.run()
     jobResult

@@ -13,7 +13,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Settings)
     extends NativeLoader(ingestionJob, None) {
@@ -25,6 +25,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       JdbcDbUtils
         .withJDBCConnection(sinkConnection.withAccessToken(ingestionJob.accessToken).options) {
           conn =>
+            logger.info(s"path count = ${path.size}")
             if (twoSteps) {
               val tempTables =
                 path.map { p =>
@@ -35,7 +36,6 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                     tempTable,
                     schemaWithMergedMetadata,
                     List(p),
-                    temporary = true,
                     conn
                   )
                   val filenameSQL =
@@ -52,7 +52,8 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                   .map(s"SELECT * FROM ${domain.finalName}." + _)
                   .mkString("(", " UNION ALL ", ")")
               val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
-              val sqlWithTransformedFields = starlakeSchema.buildSqlSelectOnLoad(unionTempTables)
+              val sqlWithTransformedFields =
+                starlakeSchema.buildSecondStepSqlSelectOnLoad(unionTempTables)
 
               val taskDesc = AutoTaskInfo(
                 name = targetTableName,
@@ -91,9 +92,14 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                   storageHandler,
                   schemaHandler
                 )
-              job.runJDBC(df = None, sqlConnection = Some(conn))
+
+              val runResult = job.runJDBC(df = None, sqlConnection = Some(conn))
+
               job.updateJdbcTableSchema(
-                starlakeSchema.targetSparkSchemaWithIgnoreAndScript(schemaHandler),
+                starlakeSchema.sparkSchemaWithIgnoreAndScript(
+                  schemaHandler,
+                  withFinalName = true
+                ),
                 targetTableName
               )
 
@@ -101,14 +107,21 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
               tempTables.foreach { tempTable =>
                 JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
               }
+
+              runResult match {
+                case Success(_) =>
+                  logger.info(s"Table $targetTableName created successfully")
+                case Failure(exception) =>
+                  logger.error(s"Error creating table $targetTableName: ${exception.getMessage}")
+                  throw exception
+              }
             } else {
               singleStepLoad(
-                domain.finalName,
-                starlakeSchema.finalName,
-                schemaWithMergedMetadata,
-                path,
-                temporary = false,
-                conn
+                domain = domain.finalName,
+                table = starlakeSchema.finalName,
+                schema = schemaWithMergedMetadata,
+                path = path,
+                conn = conn
               )
             }
         }
@@ -312,11 +325,12 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     table: String,
     schema: SchemaInfo,
     path: List[Path],
-    temporary: Boolean,
     conn: java.sql.Connection
   ): List[Map[String, String]] = {
+    val temporary = table.startsWith("zztmp_")
     val sinkConnection = mergedMetadata.getSinkConnection()
-    val incomingSparkSchema = schema.targetSparkSchemaWithIgnoreAndScript(schemaHandler)
+    val incomingSparkSchema =
+      schema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = !temporary)
     val domainAndTableName = domain + "." + table
     val optionsWrite =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, domainAndTableName, sinkConnection.options)
