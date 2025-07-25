@@ -199,8 +199,14 @@ abstract class AutoTask(
           taskDesc.table,
           SQLUtils.extractColumnNames(sqlWithParametersTranspiledIfInTest)
         )
-        val jdbcRunEngineName: Engine = runConnection.getJdbcEngineName()
-        val jdbcRunEngine = settings.appConfig.jdbcEngines(jdbcRunEngineName.toString)
+
+        val jdbcRunEngine = runConnection
+          .getJdbcEngine()
+          .getOrElse(
+            throw new RuntimeException(
+              s"JDBC Engine ${runConnection.getJdbcEngineName()} not found in config"
+            )
+          )
 
         val tblExists =
           tableExistsForcedValue.getOrElse(
@@ -746,8 +752,15 @@ object AutoTask extends StrictLogging {
       if (summarizeOnly)
         if (connection.isDuckDb())
           s"SUMMARIZE $quote$domain$quote.$quote$table$quote"
-        else
-          s"DESCRIBE TABLE $quote$domain$quote.$quote$table$quote"
+        else {
+          connection
+            .getJdbcEngine()
+            .flatMap(
+              _.describe
+            )
+            .getOrElse(s"DESCRIBE TABLE $quote$domain$quote.$quote$table$quote")
+
+        }
       else
         sql
 

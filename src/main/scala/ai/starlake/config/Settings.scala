@@ -186,6 +186,12 @@ object Settings extends StrictLogging {
     }
 
     @JsonIgnore
+    def getJdbcEngine()(implicit settings: Settings): Option[JdbcEngine] = {
+      val engineName = this.getJdbcEngineName()
+      settings.appConfig.jdbcEngines.get(engineName.toString)
+    }
+
+    @JsonIgnore
     def getCatalog(): String = {
       val catalog = this.getJdbcEngineName().toString match {
         case "snowflake" =>
@@ -600,7 +606,8 @@ object Settings extends StrictLogging {
     clusterBy: Option[String] = None,
     columnRemarks: Option[String] = None,
     tableRemarks: Option[String] = None,
-    supportsJson: Option[Boolean] = None
+    supportsJson: Option[Boolean] = None,
+    describe: Option[String] = None
   ) {
     def quoteIdentifier(anyIdentifier: String) = {
       s"$quote$anyIdentifier$quote"
