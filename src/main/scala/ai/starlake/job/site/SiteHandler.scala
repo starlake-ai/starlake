@@ -8,13 +8,13 @@ import ai.starlake.schema.model.{AutoJobInfo, AutoTaskInfo, DomainInfo, SchemaIn
 import ai.starlake.sql.SQLUtils
 import better.files.File
 import com.manticore.jsqlformatter.JSQLFormatter
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 
 import scala.util.Try
 
 class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val settings: Settings)
-    extends StrictLogging {
+    extends LazyLogging {
   def run(): Try[Unit] = Try {
     config.outputPath.createDirectoryIfNotExists()
     buildDomains(config)

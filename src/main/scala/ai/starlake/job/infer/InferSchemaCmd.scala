@@ -6,13 +6,13 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Format, WriteMode}
 import ai.starlake.utils.{JobResult, Utils}
 import better.files.File
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import scopt.OParser
 
 import java.nio.charset.Charset
 import scala.util.{Failure, Success, Try}
 
-object InferSchemaCmd extends Cmd[InferSchemaConfig] with StrictLogging {
+object InferSchemaCmd extends Cmd[InferSchemaConfig] with LazyLogging {
 
   val command = "infer-schema"
 

@@ -4,13 +4,13 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.utils.{JarUtil, YamlSerde}
 import better.files.File
 import com.fasterxml.jackson.databind.node.ObjectNode
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
 import scala.io.Source
 import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
-object Bootstrap extends StrictLogging {
+object Bootstrap extends LazyLogging {
   val TEMPLATES_DIR = "templates/bootstrap/samples"
   private def copyToFolder(
     resources: List[String],

@@ -7,14 +7,14 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.BigQuery.{DatasetListOption, TableListOption}
 import com.google.cloud.bigquery.{BigQuery, Dataset, StandardTableDefinition, Table}
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Settings)
-    extends StrictLogging {
+    extends LazyLogging {
   val implicitSettings: Settings = settings
   val bqJob: BigQueryJobBase = new BigQueryJobBase {
     val settings = implicitSettings

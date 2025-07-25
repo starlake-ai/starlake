@@ -7,12 +7,12 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.IamPolicyTags
 import ai.starlake.utils.JobResult
 import better.files.File
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import scopt.OParser
 
 import scala.util.Try
 
-trait Xls2YmlCmd extends Cmd[Xls2YmlConfig] with StrictLogging {
+trait Xls2YmlCmd extends Cmd[Xls2YmlConfig] with LazyLogging {
 
   def command = "xls2yml"
 

@@ -2,7 +2,7 @@ package ai.starlake.utils
 
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
 import com.google.gson.Gson
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
@@ -160,7 +160,7 @@ case class PreLoadJobResult(domain: String, tables: Map[String, Int]) extends Jo
   * application.conf.
   */
 
-trait JobBase extends StrictLogging with DatasetLogging {
+trait JobBase extends LazyLogging with DatasetLogging {
   def name: String
   implicit def settings: Settings
 

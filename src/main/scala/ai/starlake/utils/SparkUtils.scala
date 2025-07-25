@@ -7,7 +7,7 @@ import ai.starlake.schema.model.TableAttribute
 import ai.starlake.sql.SQLUtils
 import better.files.File
 import com.manticore.jsqlformatter.JSQLFormatter
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.deploy.PythonRunner
 import org.apache.spark.sql.catalyst.analysis.NoSuchTableException
@@ -24,7 +24,7 @@ import java.sql.{Connection, SQLException}
 import java.util.regex.Pattern
 import scala.util.{Failure, Success, Try}
 
-object SparkUtils extends StrictLogging {
+object SparkUtils extends LazyLogging {
   def added(incoming: StructType, existing: StructType): StructType = {
     val incomingFields = incoming.fields.map(_.name).toSet
     val existingFields = existing.fields.map(_.name.toLowerCase()).toSet

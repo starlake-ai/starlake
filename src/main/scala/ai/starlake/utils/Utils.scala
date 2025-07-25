@@ -35,7 +35,7 @@ import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper, Ser
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
-import com.typesafe.scalalogging.{Logger, StrictLogging}
+import com.typesafe.scalalogging.{LazyLogging, Logger}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel._
@@ -48,7 +48,7 @@ import scala.sys.process.{Process, ProcessLogger}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-object Utils extends StrictLogging {
+object Utils extends LazyLogging {
   case class CommandOutput(exit: Int, output: String, error: String) {
     override def toString: String = {
       s"""

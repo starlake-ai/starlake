@@ -10,7 +10,7 @@ import ai.starlake.extract.JdbcDbUtils.{
   TableRemarks
 }
 import ai.starlake.schema.model.{JDBCSchema, TableAttribute}
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
 import java.sql.{DatabaseMetaData, ResultSetMetaData}
 import java.sql.Types.{
@@ -37,7 +37,7 @@ import java.sql.Types.{
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try, Using}
 
-sealed trait JdbcColumnMetadata extends StrictLogging {
+sealed trait JdbcColumnMetadata extends LazyLogging {
 
   def keepOriginalName: Boolean
 

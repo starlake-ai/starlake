@@ -35,7 +35,7 @@ import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.lang.SystemUtils
 import org.apache.hadoop.fs.Path
 import org.apache.kafka.clients.consumer.ConsumerConfig
@@ -57,7 +57,7 @@ import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
-object Settings extends StrictLogging {
+object Settings extends LazyLogging {
   val latestSchemaVersion: Int = 1
   implicit def hint[A]: ProductHint[A] = ProductHint[A](ConfigFieldMapping(CamelCase, CamelCase))
 

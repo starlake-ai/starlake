@@ -1,7 +1,7 @@
 package ai.starlake.utils
 
 import ai.starlake.schema.handlers.StorageHandler
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import java.util.concurrent.atomic.AtomicBoolean
@@ -29,7 +29,7 @@ import scala.util.{Failure, Success, Try}
   * @param storageHandler
   *   Filesystem Handler
   */
-class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging {
+class FileLock(path: Path, storageHandler: StorageHandler) extends LazyLogging {
   def checkinPeriod: Long = storageHandler.lockAcquisitionPollTime
   def refreshPeriod: Long = storageHandler.lockRefreshPollTime
 
@@ -145,7 +145,7 @@ object FileLock {
 
   private class LockWatcher(path: Path, storageHandler: StorageHandler, reportingPeriod: Long)
       extends Runnable
-      with StrictLogging {
+      with LazyLogging {
 
     private val pristine = new AtomicBoolean(true)
 

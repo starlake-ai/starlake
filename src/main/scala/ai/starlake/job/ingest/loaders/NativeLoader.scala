@@ -9,7 +9,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.{SparkUtils, Utils}
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
@@ -21,7 +21,7 @@ import scala.util.{Failure, Random, Success, Using}
 
 class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
   val settings: Settings
-) extends StrictLogging {
+) extends LazyLogging {
 
   val domain: DomainInfo = ingestionJob.domain
 

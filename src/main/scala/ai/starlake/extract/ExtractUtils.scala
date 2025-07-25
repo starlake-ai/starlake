@@ -1,7 +1,7 @@
 package ai.starlake.extract
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
-object ExtractUtils extends StrictLogging {
+object ExtractUtils extends LazyLogging {
 
   def timeIt[T](blockLabel: String)(code: => T): T = {
     val startTime = System.currentTimeMillis()

@@ -9,14 +9,14 @@ import ai.starlake.transpiler.JSQLColumResolver
 import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData, JdbcResultSetMetaData}
 import ai.starlake.utils.{JsonSerializer, ParseUtils, Utils}
 import better.files.File
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
 import scala.jdk.CollectionConverters.*
 
 class ColLineage(
   settings: Settings,
   schemaHandler: SchemaHandler
-) extends StrictLogging {
+) extends LazyLogging {
   val domains = schemaHandler.domains()
   val tasks = schemaHandler.tasks()
 

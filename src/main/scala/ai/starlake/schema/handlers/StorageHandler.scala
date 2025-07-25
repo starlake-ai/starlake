@@ -22,7 +22,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.utils.Utils
 import better.files.File
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.lang.SystemUtils
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
@@ -36,7 +36,7 @@ import scala.util.Try
 
 /** Interface required by any filesystem manager
   */
-trait StorageHandler extends StrictLogging {
+trait StorageHandler extends LazyLogging {
   val starApiIsActive: Boolean = {
     Try(Utils.loadInstance("ai.starlake.api.Application")).isSuccess
 

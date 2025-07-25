@@ -22,7 +22,7 @@ package ai.starlake.config
 
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.schema.handlers.StorageHandler
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 /** Utilities methods to reference datasets paths Datasets paths are constructed as follows :
@@ -30,7 +30,7 @@ import org.apache.hadoop.fs.Path
   *   - followed by the area name
   *   - followed by the the domain name
   */
-object DatasetArea extends StrictLogging {
+object DatasetArea extends LazyLogging {
 
   def path(domain: String, area: String)(implicit settings: Settings): Path = {
     if (

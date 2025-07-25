@@ -21,7 +21,7 @@
 package ai.starlake.config
 
 import ai.starlake.utils.Utils
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 
@@ -37,7 +37,7 @@ class SparkEnv private (
   jobConf: SparkConf,
   datasetsArea: String,
   confTransformer: SparkConf => SparkConf = identity
-) extends StrictLogging {
+) extends LazyLogging {
 
   /** Load spark.* properties from the loaded application conf file
     */

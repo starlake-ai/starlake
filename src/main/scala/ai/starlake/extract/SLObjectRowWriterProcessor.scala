@@ -1,6 +1,6 @@
 package ai.starlake.extract
 
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.common.NormalizedString
 import com.univocity.parsers.common.processor.ObjectRowWriterProcessor
 
@@ -8,7 +8,7 @@ import java.time.{Duration, Instant}
 
 class SLObjectRowWriterProcessor(context: String)
     extends ObjectRowWriterProcessor
-    with StrictLogging {
+    with LazyLogging {
 
   private var recordsCount: Long = 0
   private var lastNotifiedTime: Instant = Instant.now()

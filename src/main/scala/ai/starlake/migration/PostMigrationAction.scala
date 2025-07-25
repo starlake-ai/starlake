@@ -1,11 +1,11 @@
 package ai.starlake.migration
 import ai.starlake.schema.handlers.StorageHandler
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import scala.util.{Failure, Success, Try}
 
-sealed trait PostMigrationAction extends StrictLogging {
+sealed trait PostMigrationAction extends LazyLogging {
   def process(): Try[Unit]
 }
 

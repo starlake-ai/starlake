@@ -21,7 +21,7 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.storage.{Storage,
 import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
 import com.google.iam.v1.{Binding, Policy as IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.DataFrame
 
 import java.io.ByteArrayInputStream
@@ -35,7 +35,7 @@ import scala.util.{Failure, Success, Try}
 
 /** Base class for BigQuery jobs
   */
-trait BigQueryJobBase extends StrictLogging {
+trait BigQueryJobBase extends LazyLogging {
 
   def settings: Settings
   def cliConfig: BigQueryLoadConfig
@@ -904,7 +904,7 @@ trait BigQueryJobBase extends StrictLogging {
   }
 }
 
-object BigQueryJobBase extends StrictLogging {
+object BigQueryJobBase extends LazyLogging {
   def dictToBQSchema(dictField: Map[String, Option[String]]): BQSchema = {
     // we don't know the type of field so we put string by default
     BQSchema.of(

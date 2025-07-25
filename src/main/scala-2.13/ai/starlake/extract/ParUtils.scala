@@ -1,6 +1,6 @@
 package ai.starlake.extract
 
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
 import java.util.concurrent.{ExecutorService, Executors}
 import scala.collection.parallel.CollectionConverters._
@@ -10,7 +10,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-object ParUtils extends StrictLogging {
+object ParUtils extends LazyLogging {
   def makeParallel[T](
     collection: Iterable[T]
   )(implicit fjp: Option[ForkJoinTaskSupport]) = {

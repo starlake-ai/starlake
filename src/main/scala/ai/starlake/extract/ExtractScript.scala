@@ -4,14 +4,13 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.DomainInfo
 import better.files.File
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.fusesource.scalate._
 
 import scala.util.Try
 
-class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings)
-    extends StrictLogging {
+class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings) extends LazyLogging {
   val engine: TemplateEngine = new TemplateEngine
 
   private def formatOutputScriptName(name: String, templateParams: TemplateParams): String = {

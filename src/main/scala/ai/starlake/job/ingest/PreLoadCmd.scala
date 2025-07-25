@@ -4,13 +4,13 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.{EmptyJobResult, FailedJobResult, JobResult, PreLoadJobResult}
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import scopt.OParser
 
 import scala.util.{Success, Try}
 
-trait PreLoadCmd extends Cmd[PreLoadConfig] with StrictLogging {
+trait PreLoadCmd extends Cmd[PreLoadConfig] with LazyLogging {
 
   def command = "preload"
 

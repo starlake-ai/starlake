@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.config.Settings.{KafkaConfig, KafkaTopicConfig}
 import ai.starlake.schema.model.Mode
 import ai.starlake.utils.{FileLock, YamlSerde}
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -19,7 +19,7 @@ import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
-    extends StrictLogging
+    extends LazyLogging
     with DatasetLogging
     with AutoCloseable {
 

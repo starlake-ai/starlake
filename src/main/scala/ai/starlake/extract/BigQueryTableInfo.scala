@@ -26,7 +26,7 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import com.google.cloud.bigquery.{Dataset, DatasetInfo, Table, TableInfo}
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -78,7 +78,7 @@ case class BigQueryTableInfo(
   tenant: String
 )
 
-object BigQueryTableInfo extends StrictLogging {
+object BigQueryTableInfo extends LazyLogging {
   def apply(info: TableInfo, logTime: java.sql.Timestamp)(implicit
     settings: Settings
   ): BigQueryTableInfo =

@@ -25,7 +25,7 @@ import ai.starlake.core.utils.NamingUtils
 import ai.starlake.schema.exceptions.InvalidFieldNameException
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerde
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{Column, DataFrame}
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -221,7 +221,7 @@ object DataTypesToInt extends Enumeration {
   }
 }
 
-object InferSchemaHandler extends StrictLogging {
+object InferSchemaHandler extends LazyLogging {
 
   val identifierRegex = "^([a-zA-Z_][a-zA-Z\\d_:.-]*)$".r
 

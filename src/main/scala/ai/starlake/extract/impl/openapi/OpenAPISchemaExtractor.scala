@@ -7,7 +7,7 @@ import ai.starlake.extract.spi.SchemaExtractor
 import ai.starlake.extract.{ExtractPathHelper, OnExtract, SanitizeStrategy}
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model._
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import io.swagger.v3.oas.models.media.{
   ArraySchema,
   BinarySchema,
@@ -51,7 +51,7 @@ import scala.util.Try
   * This class extends:
   *   - `SchemaExtractor`: Provides base functionality for schema extraction processes.
   *   - `ExtractPathHelper`: Adds utilities for handling extraction paths.
-  *   - `StrictLogging`: Enables logging capabilities for debugging and monitoring.
+  *   - `LazyLogging`: Enables logging capabilities for debugging and monitoring.
   */
 class OpenAPISchemaExtractor(
   private val extractConfig: OpenAPIExtractSchema,
@@ -60,7 +60,7 @@ class OpenAPISchemaExtractor(
   applySnakeCaseOnName: Boolean
 ) extends SchemaExtractor
     with ExtractPathHelper
-    with StrictLogging {
+    with LazyLogging {
   private type SchemaName = String
   private type SchemaDescription = String
 
