@@ -1,10 +1,10 @@
 package ai.starlake.config
 
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 
-object SparkSessionBuilder extends StrictLogging {
+object SparkSessionBuilder extends LazyLogging {
 
   def build(config: SparkConf): SparkSession = {
     sys.env.get("SL_SPARK_CONNECT_URI") match {

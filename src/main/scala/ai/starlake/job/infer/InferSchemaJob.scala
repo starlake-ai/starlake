@@ -25,7 +25,7 @@ import ai.starlake.schema.handlers.{DataTypesToInt, InferSchemaHandler, StorageH
 import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model._
 import better.files.File
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
@@ -36,7 +36,7 @@ import scala.util.Try
 
 /** * Infers the schema of a given datapath, domain name, schema name.
   */
-class InferSchemaJob(implicit settings: Settings) extends StrictLogging {
+class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
 
   def name: String = "InferSchema"
 

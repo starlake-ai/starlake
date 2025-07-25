@@ -1,7 +1,7 @@
 package ai.starlake.job.metrics
 
 import ai.starlake.utils.DataTypeEx._
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
 import org.apache.spark.sql.{Column, DataFrame}
@@ -29,7 +29,7 @@ object MetricsTable {
   val metrics: Set[MetricsTable] = Set(CONTINUOUS, DISCRETE, FREQUENCIES)
 }
 
-object Metrics extends StrictLogging {
+object Metrics extends LazyLogging {
 
   case class MetricsDatasets(
     continuousDF: Option[DataFrame],

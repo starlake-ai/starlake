@@ -3,12 +3,12 @@ package ai.starlake.migration
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.utils.JobResult
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import scala.util.{Failure, Success, Try}
 
-class ProjectMigrator(implicit settings: Settings) extends StrictLogging {
+class ProjectMigrator(implicit settings: Settings) extends LazyLogging {
 
   private val metadataFolderMigrator: List[MetadataFolderMigrator] = List(
     new ExtractMetadataFolderMigrator(),
@@ -40,7 +40,7 @@ class ProjectMigrator(implicit settings: Settings) extends StrictLogging {
   }
 }
 
-sealed trait MetadataFolderMigrator extends StrictLogging {
+sealed trait MetadataFolderMigrator extends LazyLogging {
 
   protected def areaPath: Path
   protected def recursive: Boolean

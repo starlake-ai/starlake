@@ -9,11 +9,11 @@ import com.google.auth.oauth2.{
   ServiceAccountCredentials,
   UserCredentials
 }
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.{Failure, Success, Try}
 
-object GcpCredentials extends StrictLogging {
+object GcpCredentials extends LazyLogging {
   def credentials(
     connectionOptions: Map[String, String],
     accessToken: scala.Option[String] = None

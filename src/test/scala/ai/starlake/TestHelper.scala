@@ -32,7 +32,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.config._
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.types.StructType
@@ -56,7 +56,7 @@ trait TestHelper
     with Matchers
     with BeforeAndAfterAll
     with BeforeAndAfterEach
-    with StrictLogging
+    with LazyLogging
     with DatasetLogging
     with PgContainerHelper {
 
@@ -579,7 +579,7 @@ trait TestHelper
   }
 }
 
-object TestHelper extends StrictLogging {
+object TestHelper extends LazyLogging {
   lazy val mariadbContainer: MariaDBContainer = {
     val dockerImage = "mariadb"
     val dockerTag = "latest"

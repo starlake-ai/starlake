@@ -2,7 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.extract.DeltaColumnsMapping._
 import com.typesafe.config.ConfigFactory
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import pureconfig._
 import pureconfig.generic.auto._
 
@@ -16,7 +16,7 @@ object DeltaColumnsMapping {
   private type ColumnName = String
 }
 
-object ExtractScriptSettings extends StrictLogging {
+object ExtractScriptSettings extends LazyLogging {
 
   private val config = ConfigFactory.load()
 

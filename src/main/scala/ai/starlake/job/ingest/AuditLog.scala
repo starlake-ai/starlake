@@ -28,7 +28,7 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{GcpUtils, JobResult, Utils}
 import com.google.cloud.bigquery.StandardSQLTypeName
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.types._
 
 import java.sql.Timestamp
@@ -138,7 +138,7 @@ case class AuditLog(
        |""".stripMargin.split('\n').mkString(",")
 }
 
-object AuditLog extends StrictLogging {
+object AuditLog extends LazyLogging {
   def selectTemplate(engineName: Engine)(implicit settings: Settings): String = {
     val template = settings.appConfig.jdbcEngines
       .get(engineName.toString.toLowerCase())

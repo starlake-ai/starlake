@@ -4,12 +4,12 @@ import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.sink.bigquery.BigQueryNativeJob
 import ai.starlake.utils.SparkUtils
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.SparkSession
 
 import scala.util.{Failure, Success, Try}
 
-trait ExpectationAssertionHandler extends StrictLogging {
+trait ExpectationAssertionHandler extends LazyLogging {
   def handle(sql: String)(implicit settings: Settings): Int
 }
 

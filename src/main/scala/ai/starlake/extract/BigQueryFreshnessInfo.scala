@@ -7,7 +7,7 @@ import ai.starlake.schema.model.WriteMode
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import com.google.cloud.bigquery.{Dataset, Table}
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
 import java.sql.Timestamp
 import scala.annotation.nowarn
@@ -25,7 +25,7 @@ case class FreshnessStatus(
   tenant: String
 )
 
-object BigQueryFreshnessInfo extends StrictLogging {
+object BigQueryFreshnessInfo extends LazyLogging {
   def freshness(
     config: BigQueryTablesConfig,
     schemaHandler: SchemaHandler

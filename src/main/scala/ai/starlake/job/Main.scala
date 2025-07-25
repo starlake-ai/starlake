@@ -28,7 +28,7 @@ import ai.starlake.serve.MainServerCmd
 import ai.starlake.sql.StarlakeJdbcDialects
 import ai.starlake.tests.StarlakeTestCmd
 import ai.starlake.utils.*
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
 import java.io.ByteArrayOutputStream
 import java.time.format.DateTimeFormatter
@@ -44,7 +44,7 @@ import scala.util.{Failure, Success, Try}
   *     understand the CLI syntax.
   */
 
-object Main extends StrictLogging {
+object Main extends LazyLogging {
   var cliMode = false
   var currentCommand = ""
 
@@ -118,7 +118,7 @@ object Main extends StrictLogging {
   )
 }
 
-class Main extends StrictLogging {
+class Main extends LazyLogging {
   Main.cliMode = true
 
   import Main.commands

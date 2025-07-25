@@ -7,7 +7,7 @@ import com.google.cloud.MonitoredResource
 import com.google.cloud.logging.Payload.JsonPayload
 import com.google.cloud.logging.{LogEntry, LoggingException, LoggingOptions}
 import com.google.common.base.VerifyException
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
 import java.nio.charset.StandardCharsets
 import java.time.Duration
@@ -15,7 +15,7 @@ import java.util.Locale
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
-object GcpUtils extends StrictLogging {
+object GcpUtils extends LazyLogging {
   private val WELL_KNOWN_CREDENTIALS_FILE = "application_default_credentials.json"
 
   private val CLOUDSDK_CONFIG_DIRECTORY = "gcloud"

@@ -1,6 +1,6 @@
 package ai.starlake.schema.model
 
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -10,7 +10,7 @@ class DiffSpec
     with Matchers
     with BeforeAndAfterAll
     with BeforeAndAfterEach
-    with StrictLogging {
+    with LazyLogging {
 
   "Metadata diff on exact same objects" should "return empty list" in {
     val me = Metadata(

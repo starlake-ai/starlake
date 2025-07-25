@@ -7,9 +7,9 @@ import ai.starlake.schema.generator.WriteStrategyTemplateLoader
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Utils
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
-class TransformStrategiesBuilder extends StrictLogging {
+class TransformStrategiesBuilder extends LazyLogging {
 
   def buildSqlWithJ2(
     strategy: WriteStrategy,

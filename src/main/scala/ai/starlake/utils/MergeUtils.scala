@@ -1,11 +1,11 @@
 package ai.starlake.utils
 
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataType, StructField, StructType}
 import org.apache.spark.sql.{Column, DataFrame, DatasetLogging}
 
-object MergeUtils extends StrictLogging with DatasetLogging {
+object MergeUtils extends LazyLogging with DatasetLogging {
 
   /** Compute a new schema that is compatible with merge operations. Built recursively from the
     * incoming schema to retain the latest attributes, but without the columns that does not exist

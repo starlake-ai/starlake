@@ -12,7 +12,7 @@ import ai.starlake.utils._
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
@@ -876,7 +876,7 @@ class SparkAutoTask(
   override def buildRLSQueries(): List[String] = ???
 }
 
-object SparkAutoTask extends StrictLogging {
+object SparkAutoTask extends LazyLogging {
   def executeUpdate(
     sql: String,
     connectionName: String,

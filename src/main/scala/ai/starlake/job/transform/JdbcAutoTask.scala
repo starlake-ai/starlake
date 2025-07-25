@@ -7,7 +7,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{AccessControlEntry, AutoTaskInfo, Engine, WriteStrategyType}
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
@@ -472,7 +472,7 @@ class JdbcAutoTask(
   override def buildRLSQueries(): List[String] = ???
 }
 
-object JdbcAutoTask extends StrictLogging {
+object JdbcAutoTask extends LazyLogging {
   def executeUpdate(sql: String, connectionName: String, accessToken: Option[String])(implicit
     settings: Settings
   ): Try[Boolean] = {

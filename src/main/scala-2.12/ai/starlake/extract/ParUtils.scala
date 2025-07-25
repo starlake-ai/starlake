@@ -1,11 +1,11 @@
 package ai.starlake.extract
 
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
 import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
 
-object ParUtils extends StrictLogging {
+object ParUtils extends LazyLogging {
   def makeParallel[T](
     collection: List[T]
   )(implicit fjp: Option[ForkJoinTaskSupport]): GenSeq[T] = {

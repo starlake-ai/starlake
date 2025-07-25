@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
 import com.google.cloud.bigquery.{Schema => BQSchema}
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, lit, when}
 
@@ -22,7 +22,7 @@ BigQueryLoadConfig(
                 )
             ),
  */
-object BigQuerySparkWriter extends StrictLogging {
+object BigQuerySparkWriter extends LazyLogging {
   def setNullable(df: DataFrame): DataFrame = {
     val fieldNames = df.schema.fields.map(_.name)
     fieldNames.foldLeft(df) { case (df, colName) =>

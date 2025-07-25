@@ -26,7 +26,7 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{DomainInfo, JDBCSchema, SchemaInfo}
 import ai.starlake.utils.Utils
 import better.files.File
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path as StoragePath
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 
@@ -36,7 +36,7 @@ import scala.util.Try
   */
 class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
   settings: Settings
-) extends StrictLogging {
+) extends LazyLogging {
   implicit class CaseInsensitiveGetMap[V](m: Map[String, V]) {
     def iget(key: String): Option[V] = m
       .get(key.toLowerCase())

@@ -57,7 +57,7 @@ import ai.starlake.tests.{
 import ai.starlake.utils._
 import better.files.File
 import com.manticore.jsqlformatter.JSQLFormatter
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
@@ -84,7 +84,7 @@ class IngestionWorkflow(
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler
 )(implicit settings: Settings)
-    extends StrictLogging {
+    extends LazyLogging {
   private var _domains: Option[List[DomainInfo]] = None
 
   private def domains(

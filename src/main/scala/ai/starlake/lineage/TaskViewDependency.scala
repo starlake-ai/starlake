@@ -7,7 +7,7 @@ import ai.starlake.lineage.AutoTaskDependencies.{Item, Relation}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{DomainInfo, WriteStrategy}
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
 import scala.collection.mutable.ListBuffer
 
@@ -15,7 +15,7 @@ import scala.collection.mutable.ListBuffer
 https://medium.com/hibob-engineering/from-list-to-immutable-hierarchy-tree-with-scala-c9e16a63cb89
  */
 
-object TaskViewDependency extends StrictLogging {
+object TaskViewDependency extends LazyLogging {
   // TODO migrate to enum once scala 3 is here
   val TASK_TYPE: String = "task"
   val CTE_TYPE: String = "cte"

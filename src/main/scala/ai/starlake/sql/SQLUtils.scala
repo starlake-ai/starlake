@@ -7,7 +7,7 @@ import ai.starlake.schema.model._
 import ai.starlake.transpiler.{JSQLColumResolver, JSQLTranspiler}
 import ai.starlake.utils.Utils
 import com.manticore.jsqlformatter.JSQLFormatter
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import net.sf.jsqlparser.expression.Alias
 import net.sf.jsqlparser.parser.{CCJSqlParser, CCJSqlParserUtil}
 import net.sf.jsqlparser.schema.Column
@@ -28,7 +28,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
-object SQLUtils extends StrictLogging {
+object SQLUtils extends LazyLogging {
   val fromsRegex = "(?i)\\s+FROM\\s+([_\\-a-z0-9`./(]+\\s*[ _,a-z0-9`./(]*)".r
   val joinRegex = "(?i)\\s+JOIN\\s+([_\\-a-z0-9`./]+)".r
 

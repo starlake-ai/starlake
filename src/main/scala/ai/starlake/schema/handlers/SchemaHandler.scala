@@ -53,7 +53,7 @@ import ai.starlake.utils.Formatter.*
 import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.Resource
 import com.databricks.spark.xml.util.XSDToSchema
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 
@@ -102,7 +102,7 @@ object SchemaHandler {
   */
 class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.empty)(implicit
   settings: Settings
-) extends StrictLogging {
+) extends LazyLogging {
 
   private def forceJobPrefixRegex: Regex = settings.appConfig.forceJobPattern.r
   private def forceTaskPrefixRegex: Regex = settings.appConfig.forceTablePattern.r

@@ -33,7 +33,7 @@ import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.*
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.types.StructType
 
@@ -513,7 +513,7 @@ abstract class AutoTask(
   }
 }
 
-object AutoTask extends StrictLogging {
+object AutoTask extends LazyLogging {
 
   def minimal(
     domainName: String,

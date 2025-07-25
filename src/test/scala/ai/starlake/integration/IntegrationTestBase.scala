@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import better.files.File
 import better.files.File.CopyOptions
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -17,7 +17,7 @@ class IntegrationTestBase
     with Matchers
     with BeforeAndAfterAll
     with BeforeAndAfterEach
-    with StrictLogging {
+    with LazyLogging {
   implicit var settings: Settings = Settings(Settings.referenceConfig, None, None)
 
   implicit val copyOptions: CopyOptions = File.CopyOptions(overwrite = true)

@@ -5,12 +5,12 @@ import ai.starlake.job.Cmd
 import ai.starlake.job.infer.{InferSchemaCmd, InferSchemaConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.JobResult
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import scopt.OParser
 
 import scala.util.{Failure, Success, Try}
 
-trait AutoLoadCmd extends Cmd[AutoLoadConfig] with StrictLogging {
+trait AutoLoadCmd extends Cmd[AutoLoadConfig] with LazyLogging {
 
   def command = "autoload"
 

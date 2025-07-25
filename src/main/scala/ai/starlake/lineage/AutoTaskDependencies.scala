@@ -5,7 +5,7 @@ import ai.starlake.job.transform.AutoTask
 import ai.starlake.lineage.AutoTaskDependencies.Diagram
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.utils.{JsonSerializer, Utils}
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.Try
 
@@ -19,7 +19,7 @@ class AutoTaskDependencies(
   settings: Settings,
   schemaHandler: SchemaHandler,
   storageHandler: StorageHandler
-) extends StrictLogging {
+) extends LazyLogging {
 
   def run(config: AutoTaskDependenciesConfig): Try[Unit] = Try {
     val allDependencies: List[DependencyContext] = tasks(config)

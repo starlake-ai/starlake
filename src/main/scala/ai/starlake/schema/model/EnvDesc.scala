@@ -6,7 +6,7 @@ import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.Ref.anyRefPattern
 import ai.starlake.utils.{Utils, YamlSerde}
 import com.fasterxml.jackson.annotation.JsonCreator
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import java.time.LocalDateTime
@@ -178,7 +178,7 @@ case class EnvDesc(
   }
 }
 
-object EnvDesc extends StrictLogging {
+object EnvDesc extends LazyLogging {
   def apply(env: Map[String, String]): EnvDesc = EnvDesc(latestSchemaVersion, env)
   def loadEnv(path: Path)(implicit storageHandler: StorageHandler): Option[EnvDesc] =
     if (storageHandler.exists(path)) {

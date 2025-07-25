@@ -1,11 +1,11 @@
 package ai.starlake.schema.model
 
-import com.typesafe.scalalogging.StrictLogging
+import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class SqlTaskSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
+class SqlTaskSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll with LazyLogging {
   "SQL Task file with PRE, SQL AND POST sections" should "be interpreted correctly" in {
     val sqlContent =
       """

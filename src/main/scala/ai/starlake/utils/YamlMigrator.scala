@@ -3,17 +3,10 @@ import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.schema.model.WriteStrategyType
 import ai.starlake.utils.YamlSerde.mapper
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.{
-  ArrayNode,
-  BooleanNode,
-  IntNode,
-  ObjectNode,
-  TextNode,
-  ValueNode
-}
-import com.typesafe.scalalogging.{LazyLogging, StrictLogging}
+import com.fasterxml.jackson.databind.node.*
+import com.typesafe.scalalogging.LazyLogging
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 trait YamlUtils {
 
@@ -120,7 +113,7 @@ trait YamlUtils {
   }
 }
 
-trait YamlMigratorInterface extends StrictLogging with YamlUtils {
+trait YamlMigratorInterface extends LazyLogging with YamlUtils {
 
   private val versionFieldName = "version"
 
