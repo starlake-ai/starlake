@@ -25,7 +25,7 @@ import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.lineage.AutoTaskDependencies.{Column, Item, Relation}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Format.{DSV, XML}
-import ai.starlake.schema.model.Severity.*
+import ai.starlake.schema.model.Severity._
 import ai.starlake.utils.Formatter.*
 import ai.starlake.utils.{SparkUtils, Utils}
 import ai.starlake.utils.conversion.BigQueryUtils
@@ -196,9 +196,14 @@ case class SchemaInfo(
     * @return
     *   Spark Catalyst Schema
     */
-  def sourceSparkSchema(schemaHandler: SchemaHandler): StructType = {
+  def sparkSchema(schemaHandler: SchemaHandler): StructType = {
+    val temporary = this.name.startsWith("zztmp_")
     val fields = attributes.map { attr =>
-      StructField(attr.name, attr.sparkType(schemaHandler), !attr.resolveRequired())
+      StructField(
+        if (temporary) attr.name else attr.getFinalName(),
+        attr.sparkType(schemaHandler),
+        !attr.resolveRequired()
+      )
         .withComment(attr.comment.getOrElse(""))
     }
     StructType(fields)
@@ -206,9 +211,10 @@ case class SchemaInfo(
 
   private def sparkSchemaWithCondition(
     schemaHandler: SchemaHandler,
-    p: TableAttribute => Boolean
+    p: TableAttribute => Boolean,
+    withFinalName: Boolean
   ): StructType = {
-    SparkUtils.sparkSchemaWithCondition(schemaHandler, attributes, p)
+    SparkUtils.sparkSchemaWithCondition(schemaHandler, attributes, p, withFinalName)
   }
 
   /** This Schema as a Spark Catalyst Schema, without scripted fields
@@ -261,18 +267,30 @@ case class SchemaInfo(
       .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
   }
 
-  def targetSparkSchemaWithoutIgnore(schemaHandler: SchemaHandler): StructType =
-    sparkSchemaWithCondition(schemaHandler, attr => !attr.resolveIgnore())
+  def sparkSchemaWithoutIgnore(
+    schemaHandler: SchemaHandler,
+    withFinalName: Boolean
+  ): StructType =
+    sparkSchemaWithCondition(schemaHandler, attr => !attr.resolveIgnore(), withFinalName)
 
-  def targetSparkSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
-    sparkSchemaWithCondition(schemaHandler, _ => true)
+  def sparkSchemaWithIgnoreAndScript(
+    schemaHandler: SchemaHandler,
+    withFinalName: Boolean
+  ): StructType =
+    sparkSchemaWithCondition(schemaHandler, _ => true, withFinalName)
 
-  def targetBqSchemaWithoutIgnore(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(targetSparkSchemaWithoutIgnore(schemaHandler))
+  def bigquerySchemaWithoutIgnore(
+    schemaHandler: SchemaHandler,
+    withFinalName: Boolean
+  ): BQSchema = {
+    BigQueryUtils.bqSchema(sparkSchemaWithoutIgnore(schemaHandler, withFinalName))
   }
 
-  def targetBqSchemaWithIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(targetSparkSchemaWithIgnoreAndScript(schemaHandler))
+  def bigquerySchemaWithIgnoreAndScript(
+    schemaHandler: SchemaHandler,
+    withFinalName: Boolean
+  ): BQSchema = {
+    BigQueryUtils.bqSchema(sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName))
   }
 
   /** return the list of renamed attributes
@@ -686,7 +704,7 @@ case class SchemaInfo(
     * @return
     *   query
     */
-  def buildSqlSelectOnLoad(
+  def buildSecondStepSqlSelectOnLoad(
     table: String,
     jdbcEngine: Option[JdbcEngine] = None
   ): String = {
@@ -716,15 +734,19 @@ case class SchemaInfo(
     }
 
     val sqlSimple = simpleAttributes.map { field =>
+      s"$attributeQuote${field.getName()}$attributeQuote as $attributeQuote${field.getFinalName()}$attributeQuote"
+    }
+
+    val sqlFinalSimple = simpleAttributes.map { field =>
       s"$attributeQuote${field.getFinalName()}$attributeQuote"
     }
 
     val sqlIgnored = ignoredAttributes().map { field =>
-      s"$attributeQuote${field.getFinalName()}$attributeQuote"
+      s"$attributeQuote${field.getName()}$attributeQuote"
     }
 
     val allFinalAttributes =
-      (sqlSimple ++ sqlScriptsFinalName ++ sqlTransformsFinalName).mkString(", ")
+      (sqlFinalSimple ++ sqlScriptsFinalName ++ sqlTransformsFinalName).mkString(", ")
     val allAttributes = (sqlSimple ++ sqlScripts ++ sqlTransforms ++ sqlIgnored).mkString(", ")
 
     val sourceTableFilterSQL = this.filter match {

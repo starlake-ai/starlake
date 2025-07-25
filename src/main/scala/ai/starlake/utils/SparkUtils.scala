@@ -444,11 +444,12 @@ object SparkUtils extends StrictLogging {
   def sparkSchemaWithCondition(
     schemaHandler: SchemaHandler,
     attributes: List[TableAttribute],
-    p: TableAttribute => Boolean
+    p: TableAttribute => Boolean,
+    withFinalName: Boolean
   ): StructType = {
     def enrichStructField(attr: TableAttribute, structField: StructField) = {
       structField.copy(
-        name = attr.getFinalName(),
+        name = if (withFinalName) attr.getFinalName() else attr.name,
         nullable = if (attr.script.isDefined) true else !attr.resolveRequired(),
         metadata =
           if (attr.`type` == "variant")
@@ -459,7 +460,7 @@ object SparkUtils extends StrictLogging {
 
     val fields = attributes filter p map { attr =>
       val structField = StructField(
-        attr.name,
+        if (withFinalName) attr.getFinalName() else attr.name,
         attr.sparkType(schemaHandler, enrichStructField),
         if (attr.script.isDefined) true else !attr.resolveRequired(),
         if (attr.`type` == "variant")

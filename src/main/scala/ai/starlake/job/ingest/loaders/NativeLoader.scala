@@ -58,6 +58,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       .hasTransformOrIgnoreOrScriptColumns() ||
     strategy.isMerge() ||
     schema.filter.nonEmpty ||
+    schema.attributes.exists(_.rename.isDefined) ||
     settings.appConfig.archiveTable || settings.appConfig.audit.detailedLoadAudit && path.size > 1
   }
 
@@ -227,7 +228,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
     val queryEngine = settings.appConfig.jdbcEngines.get(engineName.toString)
     val sqlWithTransformedFields =
-      starlakeSchema.buildSqlSelectOnLoad(tempTable, queryEngine)
+      starlakeSchema.buildSecondStepSqlSelectOnLoad(tempTable, queryEngine)
 
     val taskDesc = AutoTaskInfo(
       name = targetTableName,
@@ -346,7 +347,6 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     val pattern = starlakeSchema.pattern.toString
     val format = mergedMetadata.resolveFormat()
 
-    val incomingSparkSchema = starlakeSchema.targetSparkSchemaWithIgnoreAndScript(schemaHandler)
     val ddlMap: Map[String, Map[String, String]] = schemaHandler.getDdlMapping(starlakeSchema)
     val options =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, targetTableName, sinkConnection.options)
@@ -354,18 +354,23 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     val connectionPreActions =
       sinkConnection.options.get("preActions").map(_.split(';')).getOrElse(Array.empty).toList
 
+    val tempSparkSchema =
+      starlakeSchema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = false)
+    val finalSparkSchema =
+      starlakeSchema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = true)
+
     val stepMap =
       if (twoSteps) {
         val (tempCreateSchemaSql, tempCreateTableSql, _) = SparkUtils.buildCreateTableSQL(
           tempTableName,
-          incomingSparkSchema,
+          tempSparkSchema,
           caseSensitive = false,
           temporaryTable = true,
           options,
           ddlMap
         )
         val schemaString = SparkUtils.schemaString(
-          incomingSparkSchema,
+          finalSparkSchema,
           caseSensitive = false,
           options.url,
           ddlMap,
@@ -405,7 +410,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       } else {
         val (createSchemaSql, createTableSql, _) = SparkUtils.buildCreateTableSQL(
           targetTableName,
-          incomingSparkSchema,
+          finalSparkSchema,
           caseSensitive = false,
           temporaryTable = false,
           options,

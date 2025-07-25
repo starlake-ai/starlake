@@ -492,6 +492,7 @@ trait IngestionJob extends SparkJob {
                     paths = cc.paths ++ paths,
                     jobid = this.applicationId() + "," + jobid
                   )
+
                 }
                 .orElse(Some(counters))
           }

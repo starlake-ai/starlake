@@ -70,7 +70,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
         val unionTempTables = tempTables.map("SELECT * FROM " + _).mkString("(", " UNION ALL ", ")")
         val targetTableName = s"${domain.finalName}.${schema.finalName}"
-        val sqlWithTransformedFields = schema.buildSqlSelectOnLoad(unionTempTables)
+        val sqlWithTransformedFields = schema.buildSecondStepSqlSelectOnLoad(unionTempTables)
 
         val taskDesc = AutoTaskInfo(
           name = targetTableName,
@@ -111,7 +111,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           )
         job.run()
         job.updateJdbcTableSchema(
-          schema.targetSparkSchemaWithIgnoreAndScript(schemaHandler),
+          schema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = true),
           targetTableName
         )
 
@@ -202,7 +202,9 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
   def singleStepLoad(domain: String, table: String, schema: SchemaInfo, path: List[Path]) = {
     val sinkConnection = mergedMetadata.getSinkConnection()
-    val incomingSparkSchema = schema.targetSparkSchemaWithIgnoreAndScript(schemaHandler)
+    val temporary = table.startsWith("zztmp_")
+    val incomingSparkSchema =
+      schema.sparkSchemaWithIgnoreAndScript(schemaHandler, !temporary)
     val domainAndTableName = domain + "." + table
     val optionsWrite =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, domainAndTableName, sinkConnection.options)

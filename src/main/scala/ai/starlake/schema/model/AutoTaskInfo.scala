@@ -515,9 +515,14 @@ case class AutoTaskInfo(
   def sparkSchema(
     schemaHandler: SchemaHandler
   ): StructType = {
-    SparkUtils.sparkSchemaWithCondition(schemaHandler, attributes, _ => true)
+    val temporary = this.name.startsWith("zztmp_")
+    SparkUtils.sparkSchemaWithCondition(
+      schemaHandler = schemaHandler,
+      attributes = attributes,
+      p = _ => true,
+      withFinalName = !temporary
+    )
   }
-
 }
 
 object AutoTaskInfo {
