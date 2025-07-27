@@ -123,15 +123,17 @@ class ColLineage(
       val jdbcColumns = table.attrs.map { case (attrName, attrType, comment) =>
         new JdbcColumn(attrName)
       }
+      logger.info(
+        s"Adding table $domainName.${table.name} with ${jdbcColumns.size} columns ${jdbcColumns.map(_.columnName).mkString(", ")}"
+      )
       jdbcMetadata = jdbcMetadata.addTable("", domainName, table.name, jdbcColumns.asJava)
     }
 
     val res: JdbcResultSetMetaData =
-      JSQLColumResolver
-        .getResultSetMetaData(
-          sql,
-          JdbcMetaData.copyOf(jdbcMetadata.setErrorMode(JdbcMetaData.ErrorMode.LENIENT))
-        )
+      JSQLColumResolver.getResultSetMetaData(
+        sql,
+        JdbcMetaData.copyOf(jdbcMetadata.setErrorMode(JdbcMetaData.ErrorMode.LENIENT))
+      )
 
     val tables = extractTables(res)
     val relations = ColLineage.extractRelations(domainName, tableName, res)
@@ -424,4 +426,5 @@ object ColLineage {
       }
     tables
   }
+
 }

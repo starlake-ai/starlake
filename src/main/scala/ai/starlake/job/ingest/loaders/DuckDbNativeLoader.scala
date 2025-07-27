@@ -111,8 +111,12 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           )
         job.run()
         job.updateJdbcTableSchema(
-          schema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = true),
-          targetTableName
+          schema.sparkSchemaWithIgnoreAndScript(
+            schemaHandler,
+            withFinalName = true
+          ),
+          targetTableName,
+          TableSync.ALL
         )
 
         // TODO archive if set

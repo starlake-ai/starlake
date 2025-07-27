@@ -452,9 +452,9 @@ class SparkAutoTask(
   ///////////////////////////////////////////////////
   private def updateSparkTableSchema(incomingSchema: StructType): Unit = {
     val incomingSchemaWithSCD2Support =
-      if (strategy.getEffectiveType() == WriteStrategyType.SCD2) {
-        val startTs = strategy.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
-        val endTs = strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
+      if (writeStrategy.getEffectiveType() == WriteStrategyType.SCD2) {
+        val startTs = writeStrategy.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val endTs = writeStrategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
 
         val scd2FieldsFound =
           incomingSchema.fields.exists(_.name.toLowerCase() == startTs.toLowerCase())
@@ -572,7 +572,7 @@ class SparkAutoTask(
   ///////////////////////////////////////////////////
 
   private def sinkToBQ(loadedDF: DataFrame, slSchema: Option[SchemaInfo] = None): Try[JobResult] = {
-    val twoSteps = strategy.isMerge()
+    val twoSteps = writeStrategy.isMerge()
     val isDirect = sinkConnection.options.getOrElse("writeMethod", "direct") == "direct"
     slSchema.foreach { schema =>
       val variantAttribute =
@@ -721,7 +721,7 @@ class SparkAutoTask(
     }
      */
 
-    val twoSteps = strategy.isMerge()
+    val twoSteps = writeStrategy.isMerge()
     if (sinkConnection.isDuckDb()) {
       JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
         // do nothing just create the database
@@ -837,7 +837,11 @@ class SparkAutoTask(
         if (
           tableExists && !sinkConnection.isDuckDb()
         ) // because DuckDB does not support standard merge statement
-          secondStepAutoTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
+          secondStepAutoTask.updateJdbcTableSchema(
+            loadedDF.schema,
+            fullTableName,
+            TableSync.ALL
+          )
 
         val jobResult = secondStepAutoTask.runJDBC(None)
         JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
@@ -866,7 +870,7 @@ class SparkAutoTask(
             resultPageNumber = resultPageNumber,
             conn = None
           )
-        secondAutoStepTask.updateJdbcTableSchema(loadedDF.schema, fullTableName)
+        secondAutoStepTask.updateJdbcTableSchema(loadedDF.schema, fullTableName, TableSync.ALL)
         val jobResult = secondAutoStepTask.runJDBC(Some(loadedDF))
         jobResult
       }

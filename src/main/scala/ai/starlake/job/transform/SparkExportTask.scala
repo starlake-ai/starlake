@@ -77,7 +77,7 @@ class SparkExportTask(
       .format
       .getOrElse(
         ""
-      ) == "csv") && !strategy
+      ) == "csv") && !writeStrategy
       .isMerge()
   }
 
@@ -88,7 +88,7 @@ class SparkExportTask(
       .getOrElse(
         ""
       )
-      .toLowerCase == "xls" && !strategy
+      .toLowerCase == "xls" && !writeStrategy
       .isMerge()
   }
 
@@ -226,7 +226,7 @@ class SparkExportTask(
         val (sheet, lastRow) =
           Option(workbook.getSheet(sheetName)) match {
             case Some(sheet) =>
-              strategy.`type`.getOrElse(WriteStrategyType.APPEND) match {
+              writeStrategy.`type`.getOrElse(WriteStrategyType.APPEND) match {
                 case WriteStrategyType.OVERWRITE =>
                   // TODO if a template has been defined, we don't want to simply create a new sheet
                   workbook.removeSheetAt(workbook.getSheetIndex(sheet))

@@ -137,7 +137,7 @@ object SQLUtils extends LazyLogging {
     result.toList
   }
 
-  private def jsqlParse(sql: String): Statement = {
+  def jsqlParse(sql: String): Statement = {
     val features = new Consumer[CCJSqlParser] {
       override def accept(t: CCJSqlParser): Unit = {
         t.withTimeOut(60 * 1000)

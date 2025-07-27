@@ -128,6 +128,24 @@
         }
       ]
     },
+    "TableSync": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Should this YAML table schema be synchronized with the source table ?",
+      "oneOf": [
+        {
+          "const": "NONE",
+          "description": "Do not synchronize this table schema with the source table"
+        },
+        {
+          "const": "ADD",
+          "description": "Add missing attributes to the table schema, but do not remove any existing attributes"
+        },
+        {
+          "const": "ALL",
+          "description": "Synchronize this table schema with the source table, removing any attributes that are not present in the source table and adding any missing attributes"
+        }
+      ]
+    },
     "TableDdlV1": {
       "description": "DDL used to create a table",
       "type": "object",
@@ -1295,6 +1313,10 @@
         },
         "connectionRef": {
           "type": "string",
+          "description": "Used when the default connection ref present in the application.sl.yml file is not the one to use to run the SQL request for this task."
+        },
+        "syncStrategy": {
+          "$ref": "#/definitions/TableSync",
           "description": "Used when the default connection ref present in the application.sl.yml file is not the one to use to run the SQL request for this task."
         }
       },

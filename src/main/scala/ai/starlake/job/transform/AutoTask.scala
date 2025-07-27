@@ -85,7 +85,8 @@ abstract class AutoTask(
     */
   def buildTableSchemaSQL(
     incomingSchema: StructType,
-    tableName: String
+    tableName: String,
+    syncStrategy: TableSync
   ): (List[String], Boolean) = (Nil, true)
 
   lazy val fullDomainName = taskDesc.database match {
@@ -142,7 +143,7 @@ abstract class AutoTask(
   protected lazy val sinkConnection: Settings.Connection =
     settings.appConfig.connections(sinkConnectionRef).withAccessToken(accessToken)
 
-  protected def strategy: WriteStrategy = taskDesc.getStrategy()
+  protected def writeStrategy: WriteStrategy = taskDesc.getStrategy()
 
   protected def isMerge(sql: String): Boolean = {
     sql.toLowerCase().contains("merge into")
@@ -213,7 +214,7 @@ abstract class AutoTask(
             tableExists
           ) // If tableExistsForcedValue is defined, use it, otherwise use tableExists
         val mainSql = TransformStrategiesBuilder().buildTransform(
-          strategy,
+          writeStrategy,
           sqlWithParametersTranspiledIfInTest,
           tableComponents,
           tblExists,
@@ -224,9 +225,13 @@ abstract class AutoTask(
         )
         if (settings.appConfig.syncSqlWithYaml && taskDesc._auditTableName.isEmpty) {
           val list = schemaHandler.syncPreviewSqlWithYaml(taskDesc.getName(), None, None)
-          schemaHandler.syncApplySqlWithYaml(taskDesc.getName(), list)
+          schemaHandler.syncApplySqlWithYaml(taskDesc, list)
         }
-        if (settings.appConfig.syncYamlWithDb && taskDesc._auditTableName.isEmpty) {
+        if (
+          this.taskDesc.readyForSync() &&
+          settings.appConfig.syncYamlWithDb &&
+          taskDesc._auditTableName.isEmpty
+        ) {
           logger.info(s"Main SQL: $mainSql")
           logger.info("Identifying new / altered columns for " + fullTableName)
           val columnStatements =
@@ -234,7 +239,8 @@ abstract class AutoTask(
               val (columnStatements, _) =
                 buildTableSchemaSQL(
                   this.taskDesc.sparkSchema(schemaHandler),
-                  this.fullTableName
+                  this.fullTableName,
+                  this.taskDesc.getSyncStrategyValue()
                 )
               logger.info(s"${columnStatements.length} Schema change(s) to apply:")
               columnStatements.foreach { stmt =>

@@ -39,13 +39,13 @@ object Versions {
   val snowflakeJDBC = "3.24.2"
   val snowflakeSpark: String = "3.1.3"
   val duckdb = "1.3.1.0"
-  val jSqlParser = "5.4-SNAPSHOT"
-  val jSqlTranspiler = "1.1-SNAPSHOT"
   val bigQueue = "0.7.0"
   val redshiftJDBC = "2.1.0.33"
   val scalaCompat = "2.12.0"
   val scalaParallelCollections = "1.0.4"
   val derbyVersion =
     "10.15.2.0" // last version compatible with Java 11, see https://db.apache.org/derby/derby_downloads.html
+  val jSqlParser = "5.4-SNAPSHOT"
+  val jSqlTranspiler = "1.1-SNAPSHOT"
   val jSqlFormatter = "5.1-SNAPSHOT"
 }
