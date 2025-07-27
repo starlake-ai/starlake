@@ -2256,20 +2256,27 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   ): Unit = {
     settings.schemaHandler().taskByName(taskName) match {
       case Success(task) =>
-        val updatedTask =
-          task
-            .updateAttributes(list.map(_._1))
-            .copy(sql = None) // do not serialize sql. It is in its own file
-        val taskPath = new Path(DatasetArea.transform, s"${task.domain}/${task.table}.sl.yml")
-
-        YamlSerde.serializeToPath(taskPath, updatedTask)(
-          settings.storageHandler()
-        )
-        logger.debug(s"Diff SQL attributes with YAML for task $taskName: $list")
+        syncApplySqlWithYaml(task, list)
       case Failure(exception) =>
-        logger.error("Failed to get task", exception)
+        logger.error(s"Failed to get task $taskName", exception)
         throw exception
     }
+  }
+
+  def syncApplySqlWithYaml(
+    task: AutoTaskInfo,
+    list: List[(TableAttribute, AttributeStatus)]
+  ): Unit = {
+    val updatedTask =
+      task
+        .updateAttributes(list.map(_._1))
+        .copy(sql = None) // do not serialize sql. It is in its own file
+    val taskPath = new Path(DatasetArea.transform, s"${task.domain}/${task.table}.sl.yml")
+
+    YamlSerde.serializeToPath(taskPath, updatedTask)(
+      settings.storageHandler()
+    )
+    logger.debug(s"Diff SQL attributes with YAML for task ${task.getName()}: $list")
   }
   def syncPreviewSqlWithYaml(
     taskName: String,

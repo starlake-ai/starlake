@@ -100,7 +100,8 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                   schemaHandler,
                   withFinalName = true
                 ),
-                targetTableName
+                targetTableName,
+                TableSync.ALL
               )
 
               // TODO archive if set

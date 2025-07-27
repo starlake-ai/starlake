@@ -32,40 +32,37 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[AttributeSyncDeserializer])
-sealed case class AttributeSync(value: String) {
+sealed case class TableSync(value: String) {
   override def toString: String = value
 }
 
-object AttributeSync {
-  def fromString(value: String): AttributeSync = {
+object TableSync {
+  def fromString(value: String): TableSync = {
     value.toUpperCase match {
-      case "NONE" => AttributeSync.ADD
-      case "AUTO" => AttributeSync.AUTO
-      case "ADD"  => AttributeSync.ADD
-      case "ALL"  => AttributeSync.ALL
+      case "NONE" => TableSync.NONE // do not sync attributes
+      case "ADD"  => TableSync.ADD // add attributes to the schema if they are not present
+      case "ALL"  => TableSync.ALL // add or remove attributes to match the source schema
     }
   }
 
-  object NONE extends AttributeSync("NONE")
-  object AUTO extends AttributeSync("AUTO")
+  object NONE extends TableSync("NONE")
 
-  object ALL extends AttributeSync("ALL")
+  object ALL extends TableSync("ALL")
 
-  object ADD extends AttributeSync("ADD")
+  object ADD extends TableSync("ADD")
 
-  val formats: Set[AttributeSync] =
+  val strategies: Set[TableSync] =
     Set(
       NONE,
-      AUTO,
       ALL,
       ADD
     )
 }
 
-class AttributeSyncDeserializer extends JsonDeserializer[AttributeSync] {
+class AttributeSyncDeserializer extends JsonDeserializer[TableSync] {
 
-  override def deserialize(jp: JsonParser, ctx: DeserializationContext): AttributeSync = {
+  override def deserialize(jp: JsonParser, ctx: DeserializationContext): TableSync = {
     val value = jp.readValueAs[String](classOf[String])
-    AttributeSync.fromString(value)
+    TableSync.fromString(value)
   }
 }

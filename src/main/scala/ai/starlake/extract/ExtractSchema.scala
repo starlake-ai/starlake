@@ -78,7 +78,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
           .withAccessToken(userConfig.accessToken)
     }
     jdbcSchemas.openAPI match {
-      case Some(openAPIConfig) =>
+      case Some(_) =>
         // TODO: temporarily doing switch case but plans to remove it once all others extractions implement Schema Extractor
         // TODO: implement templates as in jdbcSchema
         SchemaExtractorWorkflow.run(userConfig, jdbcSchemas)

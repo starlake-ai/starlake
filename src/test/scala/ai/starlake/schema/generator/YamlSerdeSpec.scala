@@ -1500,6 +1500,10 @@ object YamlConfigGenerators {
     Gen.oneOf("/tmp", "relativeFolder/subfolder", "myFolder").map(new Path(_))
   }
 
+  implicit val syncStrategyType: Arbitrary[TableSync] = Arbitrary {
+    Gen.oneOf(TableSync.strategies)
+  }
+
   implicit val autoTaskInfo: Arbitrary[AutoTaskInfo] = Arbitrary {
     for {
       name           <- arbitrary[String]
@@ -1524,6 +1528,7 @@ object YamlConfigGenerators {
       parseSQL       <- Gen.option(arbitrary[Boolean])
       streams        <- arbitrary[List[String]]
       primaryKey     <- arbitrary[List[String]]
+      syncStrategy   <- Gen.option(arbitrary[TableSync])
     } yield {
       val autoTask = AutoTaskInfo(
         name = name,
@@ -1547,7 +1552,8 @@ object YamlConfigGenerators {
         taskTimeoutMs = taskTimeoutMs,
         parseSQL = parseSQL,
         streams = streams,
-        primaryKey = primaryKey
+        primaryKey = primaryKey,
+        syncStrategy = syncStrategy
       )
       autoTask.copy(
         // fill with default value in order to match with deserialization

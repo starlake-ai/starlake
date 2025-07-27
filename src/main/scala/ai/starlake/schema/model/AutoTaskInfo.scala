@@ -5,6 +5,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Severity.Error
+import ai.starlake.schema.model.TableSync.NONE
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.diff.{Attribute as DiffAttribute, DBSchema}
 import ai.starlake.transpiler.schema.CaseInsensitiveLinkedHashMap
@@ -14,7 +15,7 @@ import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructType
 
-import scala.jdk.CollectionConverters.*
+import scala.jdk.CollectionConverters._
 
 case class TaskDesc(version: Int, task: AutoTaskInfo)
 
@@ -70,8 +71,11 @@ case class AutoTaskInfo(
   _dbComment: Option[String] = None,
   connectionRef: Option[String] = None,
   streams: List[String] = Nil,
-  primaryKey: List[String] = Nil
+  primaryKey: List[String] = Nil,
+  syncStrategy: Option[TableSync] = None
 ) extends Named {
+  @JsonIgnore
+  def getSyncStrategyValue(): TableSync = syncStrategy.getOrElse(TableSync.ADD)
 
   @JsonIgnore
   def getTableName(): String = this.table
@@ -522,6 +526,12 @@ case class AutoTaskInfo(
       p = _ => true,
       withFinalName = !temporary
     )
+  }
+
+  def readyForSync(): Boolean = {
+    this.attributes.nonEmpty &&
+    this.attributes.forall(_.`type`.nonEmpty) &&
+    this.getSyncStrategyValue() != NONE
   }
 }
 

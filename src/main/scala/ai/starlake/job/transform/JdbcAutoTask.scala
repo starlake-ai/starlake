@@ -4,7 +4,13 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractSchemaCmd, ExtractSchemaConfig, JdbcDbUtils}
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AccessControlEntry, AutoTaskInfo, Engine, WriteStrategyType}
+import ai.starlake.schema.model.{
+  AccessControlEntry,
+  AutoTaskInfo,
+  Engine,
+  TableSync,
+  WriteStrategyType
+}
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
 import com.typesafe.scalalogging.LazyLogging
@@ -167,7 +173,7 @@ class JdbcAutoTask(
                   runPreActions(conn, parsedPreActions.splitSql(";"))
                   runSqls(conn, preSql, "Pre")
                   logger.info(s"Writing dataframe to $fullTableName")
-                  val saveMode = strategy.toWriteMode().toSaveMode
+                  val saveMode = writeStrategy.toWriteMode().toSaveMode
                   if (saveMode == SaveMode.Overwrite || truncate) {
                     val jdbcUrl = sinkConnection.options("url")
                     // val dialect = SparkUtils.dialect(jdbcUrl)
@@ -347,13 +353,14 @@ class JdbcAutoTask(
     */
   override def buildTableSchemaSQL(
     incomingSchema: StructType,
-    tableName: String
+    tableName: String,
+    syncStrategy: TableSync
   ): (List[String], Boolean) = {
     // update target table schema if needed
-    val isSCD2 = strategy.getEffectiveType() == WriteStrategyType.SCD2
+    val isSCD2 = writeStrategy.getEffectiveType() == WriteStrategyType.SCD2
     val incomingSchemaWithSCD2 =
       if (isSCD2) {
-        val startTs = strategy.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val startTs = writeStrategy.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
         val incomingSchemaWithStartTs =
           if (incomingSchema.fieldNames.contains(startTs)) {
             logger.warn(
@@ -370,7 +377,7 @@ class JdbcAutoTask(
                 )
               )
           }
-        val endTs = strategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
+        val endTs = writeStrategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
         if (incomingSchemaWithStartTs.fieldNames.contains(endTs)) {
           logger.warn(
             s"Incoming schema already contains SCD2 end timestamp column '$endTs'. It will not be added again."
@@ -401,28 +408,39 @@ class JdbcAutoTask(
             incomingSchemaWithSCD2,
             existingSchema.getOrElse(incomingSchema)
           )
-        val deletedSchema =
-          SparkUtils.dropped(
-            incomingSchemaWithSCD2,
-            existingSchema.getOrElse(incomingSchema)
-          )
         val alterTableDropColumns =
-          SparkUtils.alterTableDropColumnsString(deletedSchema, tableName)
-        if (alterTableDropColumns.nonEmpty) {
-          logger.info(
-            s"alter table $tableName with ${alterTableDropColumns.size} columns to drop"
-          )
-          logger.debug(s"alter table ${alterTableDropColumns.mkString("\n")}")
-        }
-
+          if (syncStrategy == TableSync.ALL) {
+            val deletedSchema =
+              SparkUtils.dropped(
+                incomingSchemaWithSCD2,
+                existingSchema.getOrElse(incomingSchema)
+              )
+            val columnsToDrop =
+              SparkUtils.alterTableDropColumnsString(deletedSchema, tableName)
+            if (columnsToDrop.nonEmpty) {
+              logger.info(
+                s"alter table $tableName with ${columnsToDrop.size} columns to drop"
+              )
+              logger.debug(s"alter table ${columnsToDrop.mkString("\n")}")
+            }
+            columnsToDrop
+          } else {
+            Nil
+          }
         val alterTableAddColumns =
-          SparkUtils.alterTableAddColumnsString(addedSchema, tableName, Map.empty)
-        if (alterTableAddColumns.nonEmpty) {
-          logger.info(
-            s"alter table $tableName with ${alterTableAddColumns.size} columns to add"
-          )
-          logger.debug(s"alter table ${alterTableAddColumns.mkString("\n")}")
-        }
+          if (syncStrategy == TableSync.ALL || syncStrategy == TableSync.ADD) {
+            val columnsToAdd =
+              SparkUtils.alterTableAddColumnsString(addedSchema, tableName, Map.empty)
+            if (columnsToAdd.nonEmpty) {
+              logger.info(
+                s"alter table $tableName with ${columnsToAdd.size} columns to add"
+              )
+              logger.debug(s"alter table ${columnsToAdd.mkString("\n")}")
+            }
+            columnsToAdd
+          } else {
+            Nil
+          }
 
         // always drop after adding, in case all columns are dropped
         // because in case all columns are dropped, an error is raised for a table without any columns.
@@ -449,8 +467,12 @@ class JdbcAutoTask(
     }
   }
 
-  def updateJdbcTableSchema(incomingSchema: StructType, tableName: String): Unit = {
-    buildTableSchemaSQL(incomingSchema, tableName) match {
+  def updateJdbcTableSchema(
+    incomingSchema: StructType,
+    tableName: String,
+    syncStrategy: TableSync
+  ): Unit = {
+    buildTableSchemaSQL(incomingSchema, tableName, syncStrategy) match {
       case (sqls, exists) =>
         JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
           sqls.filter(_.nonEmpty).foreach { sql =>
