@@ -113,11 +113,9 @@ class ColLineage(
     outputFile: Option[File],
     domainName: String,
     tableName: String,
-    sqlSubst: String,
+    sql: String,
     tablesWithColumnNames: List[(String, TableWithNameAndType)]
   ): ColLineage.Lineage = {
-    val sql = sqlSubst.replaceAll("::[a-zA-Z0-9]+", "")
-    // remove all ::TEXT (type change in columns)
     var jdbcMetadata = new JdbcMetaData("", "")
     tablesWithColumnNames.foreach { case (domainName, table) =>
       val jdbcColumns = table.attrs.map { case (attrName, attrType, comment) =>
