@@ -114,10 +114,7 @@ object Resolvers {
   val snapshots = Resolver.sonatypeCentralSnapshots
 
   val allResolvers =
-    Seq(Resolver.mavenLocal, typeSafe, confluent, mulesoft, snapshots) ++ Resolver
-      .sonatypeOssRepos(
-        "snapshots"
-      )
+    Seq(Resolver.mavenLocal, typeSafe, confluent, mulesoft, snapshots)
 
   val googleCloudBigDataMavenRepo = "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss"
 

@@ -8,7 +8,7 @@ import ai.starlake.schema.model.{
   Format,
   Materialization,
   SchemaInfo,
-  TableInfo => SLTableInfo
+  TableInfo as SLTableInfo
 }
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.{JobBase, JobResult, Utils}
@@ -25,7 +25,7 @@ import java.net.URI
 import java.nio.channels.Channels
 import java.nio.file.Files
 import java.util.UUID
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try, Using}
 
 class BigQueryNativeJob(
