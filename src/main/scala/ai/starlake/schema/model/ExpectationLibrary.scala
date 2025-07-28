@@ -20,6 +20,6 @@ object ExpectationLibrary {
     val data = settings.storageHandler().read(catPath)
     val regex = """\{%\s*macro\s+(.*)\s*%}""".r
     val macros = regex.findAllMatchIn(data).map(_.group(1).trim).toList
-    macros
+    macros.filter(m => !m.startsWith("ignore_"))
   }
 }
