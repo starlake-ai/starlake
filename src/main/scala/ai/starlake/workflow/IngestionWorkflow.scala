@@ -1004,15 +1004,15 @@ class IngestionWorkflow(
     val result =
       (
         s"""
-         |--------------------------------
-         |-- SQL when table does not exist
-         |--------------------------------
+         |----------------------------------------
+         |-- SQL when table does not already exist
+         |----------------------------------------
          |$formattedDontExist
          |""".stripMargin,
         s"""
-         |--------------------------------
-         |-- SQL when table exists
-         |--------------------------------
+         |---------------------------------
+         |-- SQL when table already exists
+         |---------------------------------
          |$formattedExist
          |""".stripMargin
       )
