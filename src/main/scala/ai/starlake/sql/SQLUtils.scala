@@ -636,7 +636,8 @@ object SQLUtils extends LazyLogging {
         val itemAdd = new SelectItem(f)
         select.getSelectItems.add(itemAdd)
     }
-    select.toString
+    format(select.toString, JSQLFormatter.OutputFormat.PLAIN)
+
   }
   def deleteSelectItem(statement: String, columnName: String): String = {
     val select = CCJSqlParserUtil.parse(statement).asInstanceOf[PlainSelect]
@@ -649,7 +650,7 @@ object SQLUtils extends LazyLogging {
       }
     }
     itemsToRemove.foreach(select.getSelectItems.remove)
-    select.toString
+    format(select.toString, JSQLFormatter.OutputFormat.PLAIN)
   }
   def upsertSelectItem(
     statement: String,
@@ -684,7 +685,7 @@ object SQLUtils extends LazyLogging {
         // If the column does not exist, we add it
         addSelectItem(statement, columnName, columnExpr)
     }
-    select.toString
+    format(select.toString, JSQLFormatter.OutputFormat.PLAIN)
   }
 
 }
