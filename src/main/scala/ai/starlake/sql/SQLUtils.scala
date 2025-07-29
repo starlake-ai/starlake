@@ -655,17 +655,19 @@ object SQLUtils extends LazyLogging {
   def upsertSelectItem(
     statement: String,
     columnName: String,
+    maybePreviousColumnName: Option[String],
     columnExpr: Option[String] = None
   ): String = {
     val select = CCJSqlParserUtil.parse(statement).asInstanceOf[PlainSelect]
+    val previousColumnName = maybePreviousColumnName.getOrElse(columnName)
     val items = select.getSelectItems
     // update the column if it exists
     val indexToUpdate = items.asScala.indexWhere { item =>
       item.getExpression() match {
-        case col: Column => col.getColumnName == columnName
+        case col: Column => col.getColumnName == previousColumnName
         case _ =>
           val alias = item.getAlias()
-          alias != null && alias.getName == columnName
+          alias != null && alias.getName == previousColumnName
       }
     }
     indexToUpdate match {
