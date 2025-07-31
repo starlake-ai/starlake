@@ -6,7 +6,7 @@ import ai.starlake.job.ingest.{AuditLog, IngestionJob, Step}
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.{SparkUtils, Utils}
 import com.typesafe.scalalogging.LazyLogging
@@ -16,8 +16,8 @@ import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 
 import java.nio.charset.Charset
 import java.sql.Timestamp
-import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Random, Success, Using}
+import scala.jdk.CollectionConverters.*
+import scala.util.{Failure, Random, Success, Try, Using}
 
 class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
   val settings: Settings
@@ -339,11 +339,13 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
   lazy val tempStage = s"starlake_load_stage_${Random.alphanumeric.take(10).mkString("")}"
 
+  def getIncomingDir(): String = domain.resolveDirectory()
+
   def buildSQLStatements(): Map[String, Object] = {
     val twoSteps = this.twoSteps
     val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
     val tempTableName = s"${domain.finalName}.${this.tempTableName}"
-    val incomingDir = domain.resolveDirectory()
+    val incomingDir = getIncomingDir()
     val pattern = starlakeSchema.pattern.toString
     val format = mergedMetadata.resolveFormat()
 

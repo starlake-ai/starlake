@@ -414,11 +414,25 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
               case _ =>
                 dataframeToInfer.limit(20).toJSON.collect().mkString("\n")
             }
+          val isFormatVariantCompatible =
+            Set(Format.JSON, Format.JSON_FLAT, Format.XML).contains(
+              preciseFormat
+            )
+          val finalAttributes =
+            if (variant && isFormatVariantCompatible) {
+              List(
+                TableAttribute(
+                  name = "value",
+                  `type` = PrimitiveType.variant.toString,
+                  sample = Some(sample)
+                )
+              )
+            } else attributes
           InferSchemaHandler.createSchema(
             tableName,
             Pattern.compile(pattern.getOrElse(InferSchemaJob.getSchemaPattern(path.getName))),
             comment,
-            attributes,
+            finalAttributes,
             Some(metadata.copy(writeStrategy = Some(strategy))),
             sample = Some(sample)
           )

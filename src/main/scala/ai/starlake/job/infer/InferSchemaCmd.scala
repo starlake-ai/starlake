@@ -56,6 +56,11 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] with LazyLogging {
         .optional()
         .text("row tag to use if detected format is XML"),
       builder
+        .opt[Boolean]("variant")
+        .action((x, c) => c.copy(variant = Some(x)))
+        .optional()
+        .text("Infer schema as a single variant attribute"),
+      builder
         .opt[Unit]("clean")
         .action((_, c) => c.copy(clean = true))
         .optional()
