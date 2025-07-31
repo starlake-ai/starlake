@@ -123,10 +123,10 @@ class DatasetAreaSpec extends TestHelper {
     val checkFileStatus = (l: List[String]) =>
       l.map(rootFolder / _).map(f => f -> FileStatus(f.exists, f.isDirectory))
     all(checkFileStatus(expectedFiles)) should have(
-      '_2(FileStatus(exist = true, isDirectory = false))
+      Symbol("_2")(FileStatus(exist = true, isDirectory = false))
     )
     all(checkFileStatus(expectedFolders)) should have(
-      '_2(FileStatus(exist = true, isDirectory = true))
+      Symbol("_2")(FileStatus(exist = true, isDirectory = true))
     )
   }
 
@@ -142,7 +142,7 @@ class DatasetAreaSpec extends TestHelper {
         f -> !f.list.exists(_.isRegularFile)
       }
     ) should have(
-      '_2(true)
+      Symbol("_2")(true)
     )
   }
 

@@ -1990,7 +1990,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               }.toMap
             } else
               Map.empty[String, String]
-          SQLUtils.transpile(sqlWithParameters, connection, timestamps)
+
+          SQLUtils.transpile(sqlWithParameters, connection, timestamps)(settings)
         } else
           sqlWithParameters
       sqlWithParametersTranspiledIfInTest
