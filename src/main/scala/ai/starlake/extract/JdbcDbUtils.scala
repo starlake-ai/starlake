@@ -1,6 +1,6 @@
 package ai.starlake.extract
 
-import ai.starlake.config.Settings.{Connection, JdbcEngine}
+import ai.starlake.config.Settings.{ConnectionInfo, JdbcEngine}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
@@ -17,7 +17,7 @@ import org.apache.spark.sql.jdbc.JdbcType
 import org.apache.spark.sql.types._
 
 import java.sql.{
-  Connection => SQLConnection,
+  Connection,
   DatabaseMetaData,
   Date,
   DriverManager,
@@ -40,7 +40,7 @@ object JdbcDbUtils extends LazyLogging {
 
   object StarlakeConnectionPool {
     private val hikariPools = scala.collection.concurrent.TrieMap[String, HikariDataSource]()
-    private val duckDbPool = scala.collection.concurrent.TrieMap[String, SQLConnection]()
+    private val duckDbPool = scala.collection.concurrent.TrieMap[String, Connection]()
     def getConnection(connectionOptions: Map[String, String]): java.sql.Connection = {
       if (!connectionOptions.contains("driver")) {
         Try(throw new Exception("Driver class not found in JDBC connection options")) match {
@@ -146,8 +146,8 @@ object JdbcDbUtils extends LazyLogging {
   private var count = 0
   def withJDBCConnection[T](
     connectionOptions: Map[String, String],
-    existingConnection: Option[SQLConnection] = None
-  )(f: SQLConnection => T): T = {
+    existingConnection: Option[Connection] = None
+  )(f: Connection => T): T = {
     count = count + 1
     val conn =
       Try {
@@ -224,8 +224,8 @@ object JdbcDbUtils extends LazyLogging {
     }
   }
   def readOnlyConnection(
-    connection: Connection
-  )(implicit settings: Settings): Connection = {
+    connection: ConnectionInfo
+  )(implicit settings: Settings): ConnectionInfo = {
 
     val options =
       if (connection.isDuckDb()) {
@@ -252,7 +252,7 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   @throws[Exception]
-  def createSchema(conn: SQLConnection, domainName: String): Unit = {
+  def createSchema(conn: Connection, domainName: String): Unit = {
     executeUpdate(schemaCreateSQL(domainName), conn) match {
       case Success(_) =>
       case Failure(e) =>
@@ -270,7 +270,7 @@ object JdbcDbUtils extends LazyLogging {
     s"DROP TABLE IF EXISTS $tableName"
   }
   @throws[Exception]
-  def dropTable(conn: SQLConnection, tableName: String): Unit = {
+  def dropTable(conn: Connection, tableName: String): Unit = {
     executeUpdate(buildDropTableSQL(tableName), conn) match {
       case Success(_) =>
       case Failure(e) =>
@@ -279,7 +279,7 @@ object JdbcDbUtils extends LazyLogging {
     }
   }
 
-  def tableExists(conn: SQLConnection, url: String, domainAndTablename: String): Boolean = {
+  def tableExists(conn: Connection, url: String, domainAndTablename: String): Boolean = {
     val dialect = SparkUtils.dialect(url)
     Try {
       val statement = conn.prepareStatement(dialect.getTableExistsQuery(domainAndTablename))
@@ -328,7 +328,7 @@ object JdbcDbUtils extends LazyLogging {
 
   def executeQueryAsMap(
     query: String,
-    connection: SQLConnection
+    connection: Connection
   ): List[Map[String, String]] = {
     val resultTable = ListBuffer[Map[String, String]]()
     val statement = connection.createStatement()
@@ -356,7 +356,7 @@ object JdbcDbUtils extends LazyLogging {
     resultTable.toList
   }
 
-  def execute(script: String, connection: SQLConnection): Try[Boolean] = {
+  def execute(script: String, connection: Connection): Try[Boolean] = {
     val statement = connection.createStatement()
     val result = Try {
       logger.info(s"execute statement: $script")
@@ -372,7 +372,7 @@ object JdbcDbUtils extends LazyLogging {
     result
   }
 
-  def executeUpdate(script: String, connection: SQLConnection): Try[Boolean] = {
+  def executeUpdate(script: String, connection: Connection): Try[Boolean] = {
     val sqlId = java.util.UUID.randomUUID.toString
     val formattedSQL = SQLUtils
       .format(script, JSQLFormatter.OutputFormat.PLAIN)
@@ -419,7 +419,7 @@ object JdbcDbUtils extends LazyLogging {
     */
   private def extractTableRemarks(
     jdbcSchema: JDBCSchema,
-    connection: SQLConnection,
+    connection: Connection,
     table: String,
     jdbcEngine: Option[JdbcEngine]
   )(implicit
@@ -441,7 +441,7 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   private def extractCaseInsensitiveSchemaName(
-    connectionSettings: Connection,
+    connectionSettings: ConnectionInfo,
     databaseMetaData: DatabaseMetaData,
     schemaName: String
   ): Try[String] = {
@@ -475,7 +475,7 @@ object JdbcDbUtils extends LazyLogging {
     }
   }
 
-  def extractSchemasAndTableNames(connectionSettings: Connection)(implicit
+  def extractSchemasAndTableNames(connectionSettings: ConnectionInfo)(implicit
     settings: Settings,
     dbExtractEC: ExtractExecutionContext
   ): Try[List[(DomainName, List[TableName])]] = {
@@ -491,7 +491,7 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   private def extractSchemasAndTableNamesUsingInformationSchema(
-    connectionSettings: Connection
+    connectionSettings: ConnectionInfo
   )(implicit
     settings: Settings,
     dbExtractEC: ExtractExecutionContext
@@ -518,7 +518,7 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   def extractColumns(
-    connectionSettings: Connection,
+    connectionSettings: ConnectionInfo,
     tableSchema: String,
     tableName: String
   )(implicit
@@ -529,7 +529,7 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   private def extractColumnsUsingInformationSchema(
-    connectionSettings: Connection,
+    connectionSettings: ConnectionInfo,
     tableSchema: String,
     tableName: String
   )(implicit
@@ -556,7 +556,7 @@ object JdbcDbUtils extends LazyLogging {
     result.toList
   }
 
-  private def extractSchemasAndTableNamesUsingDatabaseMetadata(connectionSettings: Connection)(
+  private def extractSchemasAndTableNamesUsingDatabaseMetadata(connectionSettings: ConnectionInfo)(
     implicit
     settings: Settings,
     dbExtractEC: ExtractExecutionContext
@@ -580,7 +580,7 @@ object JdbcDbUtils extends LazyLogging {
     }
   }
 
-  def extractJDBCSchemas(connectionSettings: Connection)(implicit
+  def extractJDBCSchemas(connectionSettings: ConnectionInfo)(implicit
     settings: Settings,
     dbExtractEC: ExtractExecutionContext
   ): Try[List[String]] = {
@@ -606,11 +606,11 @@ object JdbcDbUtils extends LazyLogging {
     jdbcSchema: JDBCSchema,
     sqlDefinedTables: List[String],
     tablePredicate: String => Boolean,
-    connectionSettings: Connection,
+    connectionSettings: ConnectionInfo,
     databaseMetaData: DatabaseMetaData,
     skipRemarks: Boolean,
     jdbcEngine: Option[JdbcEngine],
-    connection: SQLConnection
+    connection: Connection
   )(implicit settings: Settings): Map[String, Option[String]] = {
     Try {
       val tableTypes =
@@ -701,7 +701,7 @@ object JdbcDbUtils extends LazyLogging {
     */
   def extractJDBCTables(
     jdbcSchema: JDBCSchema,
-    connectionSettings: Connection,
+    connectionSettings: ConnectionInfo,
     skipRemarks: Boolean,
     keepOriginalName: Boolean,
     includeColumns: Boolean
@@ -1101,8 +1101,8 @@ object LastExportUtils extends LazyLogging {
   private val MIN_DECIMAL = java.math.BigDecimal.ZERO
 
   def getBoundaries(
-    conn: SQLConnection,
-    auditConnection: SQLConnection,
+    conn: Connection,
+    auditConnection: Connection,
     extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     auditColumns: Columns
@@ -1367,7 +1367,7 @@ object LastExportUtils extends LazyLogging {
     *   directly.
     */
   private def internalBoundaries[T](
-    conn: SQLConnection,
+    conn: Connection,
     extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     hashFunc: Option[String]
@@ -1389,7 +1389,7 @@ object LastExportUtils extends LazyLogging {
   }
 
   def getMaxLongFromSuccessfulExport(
-    conn: SQLConnection,
+    conn: Connection,
     extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     columnName: String,
@@ -1404,7 +1404,7 @@ object LastExportUtils extends LazyLogging {
   )
 
   def getMaxDecimalFromSuccessfulExport(
-    conn: SQLConnection,
+    conn: Connection,
     extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     columnName: String,
@@ -1419,7 +1419,7 @@ object LastExportUtils extends LazyLogging {
   )
 
   def getMaxTimestampFromSuccessfulExport(
-    conn: SQLConnection,
+    conn: Connection,
     extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     columnName: String,
@@ -1434,7 +1434,7 @@ object LastExportUtils extends LazyLogging {
   )
 
   def getMaxDateFromSuccessfulExport(
-    conn: SQLConnection,
+    conn: Connection,
     extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     columnName: String,
@@ -1449,7 +1449,7 @@ object LastExportUtils extends LazyLogging {
   )
 
   private def getMaxValueFromSuccessfulExport[T](
-    conn: SQLConnection,
+    conn: Connection,
     extractConfig: ExtractJdbcDataConfig,
     tableExtractDataConfig: TableExtractDataConfig,
     columnName: String,
@@ -1489,10 +1489,10 @@ object LastExportUtils extends LazyLogging {
   }
 
   def insertNewLastExport(
-    conn: SQLConnection,
+    conn: Connection,
     row: DeltaRow,
     partitionColumnType: Option[PrimitiveType],
-    connectionSettings: Connection,
+    connectionSettings: ConnectionInfo,
     auditColumns: Columns
   )(implicit settings: Settings): Int = {
     conn.setAutoCommit(true)

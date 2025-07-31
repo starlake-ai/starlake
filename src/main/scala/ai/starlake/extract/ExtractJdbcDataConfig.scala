@@ -19,7 +19,7 @@
  */
 package ai.starlake.extract
 
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.schema.model.{JDBCSchema, PrimitiveType, TableAttribute}
 import org.apache.hadoop.fs.Path
 
@@ -88,8 +88,8 @@ case class ExtractJdbcDataConfig(
   includeTables: Seq[String],
   excludeTables: Seq[String],
   outputFormat: FileFormat,
-  data: Connection,
-  audit: Connection
+  data: ConnectionInfo,
+  audit: ConnectionInfo
 )
 
 /** Information related to how the table should be extracted. We've got partitionned table and
@@ -114,7 +114,7 @@ case class TableExtractDataConfig(
     formatter.format(Instant.now())
   }
 
-  def columnsProjectionQuery(connectionSettings: Connection): String = columnsProjection
+  def columnsProjectionQuery(connectionSettings: ConnectionInfo): String = columnsProjection
     .map(c =>
       c.name -> c.rename match {
         case (name, Some(newName)) =>

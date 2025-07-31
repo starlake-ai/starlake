@@ -220,7 +220,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
     new WithSettings() {
       private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       // Table definition first
-      val jdbcConnection: Settings.Connection = settings.appConfig.connections("test-pg")
+      val jdbcConnection: Settings.ConnectionInfo = settings.appConfig.connections("test-pg")
       extractDataJob.resolveTableStringPartitionFunc(
         ExtractJdbcDataConfig(
           jdbcSchema = new JDBCSchema().copy(stringPartitionFunc = Some("schemaPartitionFunc")),

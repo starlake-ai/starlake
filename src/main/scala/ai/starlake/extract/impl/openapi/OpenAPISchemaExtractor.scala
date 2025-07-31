@@ -1,7 +1,7 @@
 package ai.starlake.extract.impl.openapi
 
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.core.utils.NamingUtils
 import ai.starlake.extract.spi.SchemaExtractor
 import ai.starlake.extract.{ExtractPathHelper, OnExtract, SanitizeStrategy}
@@ -55,7 +55,7 @@ import scala.util.Try
   */
 class OpenAPISchemaExtractor(
   private val extractConfig: OpenAPIExtractSchema,
-  private val connectionSettings: Connection,
+  private val connectionSettings: ConnectionInfo,
   attributeSanitizeStrategy: SanitizeStrategy,
   applySnakeCaseOnName: Boolean
 ) extends SchemaExtractor

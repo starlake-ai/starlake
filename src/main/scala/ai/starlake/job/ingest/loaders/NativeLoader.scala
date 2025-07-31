@@ -17,7 +17,7 @@ import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 import java.nio.charset.Charset
 import java.sql.Timestamp
 import scala.jdk.CollectionConverters.*
-import scala.util.{Failure, Random, Success, Try, Using}
+import scala.util.{Failure, Random, Success, Using}
 
 class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(implicit
   val settings: Settings
@@ -45,7 +45,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
   lazy val sink = mergedMetadata.getSink()
 
-  lazy val sinkConnection: Settings.Connection =
+  lazy val sinkConnection: Settings.ConnectionInfo =
     sink
       .getConnection()
       .copy(sparkFormat = None) // we are forcing native load.

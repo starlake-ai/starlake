@@ -54,7 +54,7 @@ class JdbcAutoTask(
   def applyJdbcAcl(connection: Connection, forceApply: Boolean): Try[Unit] =
     AccessControlEntry.applyJdbcAcl(connection, aclSQL(), forceApply)
 
-  def applyJdbcAcl(jdbcConnection: Settings.Connection, forceApply: Boolean): Try[Unit] =
+  def applyJdbcAcl(jdbcConnection: Settings.ConnectionInfo, forceApply: Boolean): Try[Unit] =
     AccessControlEntry.applyJdbcAcl(jdbcConnection, aclSQL(), forceApply)
 
   override def run(): Try[JobResult] = {
@@ -117,7 +117,7 @@ class JdbcAutoTask(
     Try(runSqls(connection, alterTableSqls, "addSCE2Columns"))
   }
 
-  override protected lazy val sinkConnection: Settings.Connection = {
+  override protected lazy val sinkConnection: Settings.ConnectionInfo = {
     if (interactive.isDefined) {
       JdbcDbUtils.readOnlyConnection(
         settings.appConfig.connections(sinkConnectionRef).withAccessToken(accessToken)

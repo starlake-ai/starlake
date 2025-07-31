@@ -2,7 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.exceptions.SchemaValidationException
 import ai.starlake.schema.model.{
   DomainInfo,
@@ -249,7 +249,7 @@ class ExtractSpec extends TestHelper {
 
   private def testSchemaExtraction(
     jdbcSchema: JDBCSchema,
-    connectionSettings: Connection,
+    connectionSettings: ConnectionInfo,
     domainTemplate: Option[DomainInfo]
   )(
     assertOutput: (DomainInfo, SchemaInfo, SchemaInfo) => Unit

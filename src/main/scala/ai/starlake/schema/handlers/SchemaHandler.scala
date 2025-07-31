@@ -39,7 +39,7 @@
 
 package ai.starlake.schema.handlers
 
-import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
+import ai.starlake.config.Settings.{latestSchemaVersion, ConnectionInfo}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.ExtractSchema
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
@@ -1928,7 +1928,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def substituteRefTaskMainSQL(
     sql: String,
-    connection: Connection,
+    connection: ConnectionInfo,
     allVars: Map[String, String] = Map.empty
   ): String = {
     if (sql.trim.isEmpty)
@@ -1949,7 +1949,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def transpileAndSubstitute(
     sql: String,
-    connection: Connection,
+    connection: ConnectionInfo,
     allVars: Map[String, String] = Map.empty,
     test: Boolean
   ): String = {

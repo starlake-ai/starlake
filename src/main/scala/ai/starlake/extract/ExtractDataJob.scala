@@ -1,7 +1,7 @@
 package ai.starlake.extract
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.exceptions.DataExtractionException
 import ai.starlake.extract.JdbcDbUtils._
@@ -450,7 +450,10 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
       .headOption
   }
 
-  private def getQuotedPartitionColumn(connection: Connection, partitionColumn: String): String = {
+  private def getQuotedPartitionColumn(
+    connection: ConnectionInfo,
+    partitionColumn: String
+  ): String = {
     connection.quoteIdentifier(partitionColumn)
   }
 
@@ -877,7 +880,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
   /** Create audit export's table
     */
   private[extract] def initExportAuditTable(
-    connectionSettings: Connection
+    connectionSettings: ConnectionInfo
   )(implicit settings: Settings, dbExtractEC: ExtractExecutionContext): Columns = {
     val auditSchema = settings.appConfig.audit.domain.getOrElse("audit")
     ParUtils.runOneInExecutionContext {

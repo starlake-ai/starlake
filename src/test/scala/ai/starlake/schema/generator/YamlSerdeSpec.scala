@@ -8,7 +8,7 @@ import ai.starlake.config.Settings.{
   AppConfig,
   Area,
   Audit,
-  Connection,
+  ConnectionInfo,
   DagRef,
   ExpectationsConfig,
   Http,
@@ -1110,7 +1110,7 @@ object YamlConfigGenerators {
     )
   }
 
-  implicit val connection: Arbitrary[Connection] = Arbitrary {
+  implicit val connection: Arbitrary[ConnectionInfo] = Arbitrary {
     for {
       sparkFormat <- Gen.option(arbitrary[String])
       connectionType <- Gen.oneOf(
@@ -1135,7 +1135,7 @@ object YamlConfigGenerators {
           m + ("url" -> "jdbc:mysql://myhost")
         else m
       )
-    } yield Connection(
+    } yield ConnectionInfo(
       `type` = ConnectionType.fromString(connectionType),
       sparkFormat = sparkFormat,
       quote = quote,
@@ -1325,7 +1325,7 @@ object YamlConfigGenerators {
       scd2EndTimestamp        <- arbitrary[String]
       area                    <- arbitrary[Area]
       hadoop                  <- arbitrary[Map[String, String]]
-      connections             <- arbitrary[Map[String, Connection]]
+      connections             <- arbitrary[Map[String, ConnectionInfo]]
       jdbcEngines             <- arbitrary[Map[String, JdbcEngine]]
       privacy                 <- arbitrary[Privacy]
       root                    <- arbitrary[String]

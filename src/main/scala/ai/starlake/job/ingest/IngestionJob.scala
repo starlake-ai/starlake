@@ -199,7 +199,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  def applyJdbcAcl(connection: Settings.Connection, forceApply: Boolean = false): Try[Unit] =
+  def applyJdbcAcl(connection: Settings.ConnectionInfo, forceApply: Boolean = false): Try[Unit] =
     AccessControlEntry.applyJdbcAcl(connection, extractJdbcAcl(), forceApply)
 
   private def bqNativeJob(tableId: TableId, sql: String)(implicit settings: Settings) = {

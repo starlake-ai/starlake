@@ -140,7 +140,7 @@ abstract class AutoTask(
   protected lazy val sinkConnectionRef: String =
     sinkConfig.connectionRef.getOrElse(settings.appConfig.connectionRef)
 
-  protected lazy val sinkConnection: Settings.Connection =
+  protected lazy val sinkConnection: Settings.ConnectionInfo =
     settings.appConfig.connections(sinkConnectionRef).withAccessToken(accessToken)
 
   protected def writeStrategy: WriteStrategy = taskDesc.getStrategy()
@@ -265,7 +265,7 @@ abstract class AutoTask(
         )
         mainSql
       }
-    } else {
+    } else if (taskDesc.parseSQL.getOrElse(true)) {
       val sqlWithParametersTranspiledIfInTest =
         schemaHandler.transpileAndSubstitute(
           inputSQL,
@@ -274,6 +274,8 @@ abstract class AutoTask(
           this.test
         )
       sqlWithParametersTranspiledIfInTest
+    } else {
+      inputSQL
     }
   }
 
@@ -736,7 +738,7 @@ object AutoTask extends LazyLogging {
     table: String,
     sql: String,
     summarizeOnly: Boolean,
-    connection: Settings.Connection,
+    connection: Settings.ConnectionInfo,
     accessToken: Option[String],
     connectionName: Option[String],
     test: Boolean,
