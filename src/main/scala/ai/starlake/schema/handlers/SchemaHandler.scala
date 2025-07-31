@@ -1842,7 +1842,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
 
   def tableDeleted(domain: String, table: String): Unit = {
-    _domains.getOrElse(Nil).find(_.name.toLowerCase() == domain.toLowerCase()) match {
+    domains().find(_.name.toLowerCase() == domain.toLowerCase()) match {
       case None =>
         logger.warn(s"Domain $domain not found")
       case Some(domain) =>
@@ -1853,7 +1853,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def taskDeleted(domain: String, task: String): Unit = {
-    _jobs.find(_.name.toLowerCase() == domain.toLowerCase()) match {
+    jobs().find(_.name.toLowerCase() == domain.toLowerCase()) match {
       case None =>
         logger.warn(s"Job $domain not found")
       case Some(job) =>
@@ -1880,7 +1880,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def tableAdded(domain: String, table: String): Try[Unit] = {
-    _domains.getOrElse(Nil).find(_.name.toLowerCase() == domain.toLowerCase()) match {
+    domains().find(_.name.toLowerCase() == domain.toLowerCase()) match {
       case None =>
         _domains = Some(_domains.getOrElse(Nil) :+ DomainInfo(domain))
       case Some(_) =>
@@ -1892,7 +1892,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           case None =>
             throw new Exception(s"Should not happen: Domain $domain not found")
           case Some(domain) =>
-            val updatedDomain = domain.copy(tables = domain.tables :+ tableDesc.table)
+            val updatedTables =
+              domain.tables.filterNot(_.name.equalsIgnoreCase(tableDesc.table.name))
+            val updatedDomain = domain.copy(tables = updatedTables :+ tableDesc.table)
             _domains = Some(_domains.get.filterNot(_.name == domain.name) :+ updatedDomain)
             Success(())
         }
@@ -1903,7 +1905,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def taskAdded(domainName: String, taskName: String): Try[Unit] = {
     // Add the domain if it does not exist
-    _jobs.find(_.name.toLowerCase() == domainName.toLowerCase()) match {
+    jobs().find(_.name.toLowerCase() == domainName.toLowerCase()) match {
       case None =>
         _jobs = _jobs :+ AutoJobInfo(domainName)
       case Some(_) =>
@@ -1917,7 +1919,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           case None =>
             throw new Exception(s"Should not happen: Job $domainName not found")
           case Some(job) =>
-            val updatedJob = job.copy(tasks = job.tasks :+ taskDesc)
+            val updatedTasks = job.tasks.filterNot(_.name.equalsIgnoreCase(taskDesc.name))
+            val updatedJob = job.copy(tasks = updatedTasks :+ taskDesc)
             _jobs = _jobs.filterNot(_.name == job.name) :+ updatedJob
             Success(())
         }

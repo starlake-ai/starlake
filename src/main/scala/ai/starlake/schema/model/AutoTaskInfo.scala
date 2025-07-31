@@ -93,7 +93,7 @@ case class AutoTaskInfo(
   def getWriteMode(): WriteMode =
     writeStrategy.map(_.toWriteMode()).getOrElse(WriteMode.APPEND)
 
-  val fullName = s"${this.domain}.${this.name}"
+  def fullName = s"${this.domain}.${this.name}"
 
   def merge(child: AutoTaskInfo): AutoTaskInfo = {
     AutoTaskInfo(
