@@ -17,6 +17,7 @@ class InferSchemaInfoSpec extends TestHelper {
           |  --write <value>        One of Set(OVERWRITE,APPEND)
           |  --format <value>       Force input file format
           |  --rowTag <value>       row tag to use if detected format is XML
+          |  --variant              Infer schema as a single variant attribute
           |  --clean                Delete previous YML before writing
           |  --encoding <value>     Input file encoding. Default to UTF-8
           |""".stripMargin
