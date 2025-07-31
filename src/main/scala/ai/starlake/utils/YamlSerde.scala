@@ -32,7 +32,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
       case e: DomainInfo         => DomainDesc(latestSchemaVersion, e)
       case e: SchemaInfo         => TableDesc(latestSchemaVersion, e)
       case e: ExtractSchemasInfo => ExtractDesc(latestSchemaVersion, e)
-      case e: DagGenerationInfo  => DagDesc(latestSchemaVersion, e)
+      case e: DagInfo            => DagDesc(latestSchemaVersion, e)
       case _                     => entity
     }
   }
@@ -349,7 +349,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
     mapper.treeToValue(refsNode, classOf[TypesDesc]).types
   }
 
-  def deserializeYamlDagConfig(content: String, path: String): Try[DagGenerationInfo] = {
+  def deserializeYamlDagConfig(content: String, path: String): Try[DagInfo] = {
     Try {
       val dagSubPath = "dag"
       val dagNode = validateConfigFile(dagSubPath, content, path, List(YamlMigrator.V1.DagConfig))

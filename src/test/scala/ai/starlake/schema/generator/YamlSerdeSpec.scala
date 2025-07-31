@@ -700,13 +700,13 @@ object YamlConfigGenerators {
     } yield ExtractDesc(latestSchemaVersion, extract = extractSchemas)
   }
 
-  implicit val dagGenerationConfig: Arbitrary[DagGenerationInfo] = Arbitrary {
+  implicit val dagGenerationConfig: Arbitrary[DagInfo] = Arbitrary {
     for {
       comment  <- arbitrary[String].filter(_.nonEmpty)
       template <- arbitrary[String].filter(_.nonEmpty)
       filename <- arbitrary[String].filter(_.nonEmpty)
       options  <- arbitrary[Map[String, String]]
-    } yield DagGenerationInfo(
+    } yield DagInfo(
       comment = comment,
       template = template,
       filename = filename,
@@ -716,7 +716,7 @@ object YamlConfigGenerators {
 
   implicit val dagDesc: Arbitrary[DagDesc] = Arbitrary {
     for {
-      dagGenerationConfig <- arbitrary[DagGenerationInfo]
+      dagGenerationConfig <- arbitrary[DagInfo]
     } yield DagDesc(latestSchemaVersion, dagGenerationConfig)
   }
 
