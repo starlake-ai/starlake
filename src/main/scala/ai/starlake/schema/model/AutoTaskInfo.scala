@@ -1,6 +1,6 @@
 package ai.starlake.schema.model
 
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig}
 import ai.starlake.schema.handlers.SchemaHandler
@@ -211,7 +211,7 @@ case class AutoTaskInfo(
     getRunConnection().getEngine()
   }
 
-  def getSinkConnection()(implicit settings: Settings): Connection = {
+  def getSinkConnection()(implicit settings: Settings): ConnectionInfo = {
     val connection = settings.appConfig
       .connection(getSinkConnectionRef())
       .getOrElse(throw new Exception(s"Connection not found: $connectionRef"))
@@ -232,7 +232,7 @@ case class AutoTaskInfo(
     this.connectionRef.getOrElse(transformConnectionRef)
   }
 
-  def getRunConnection()(implicit settings: Settings): Connection = {
+  def getRunConnection()(implicit settings: Settings): ConnectionInfo = {
     val connection = settings.appConfig
       .connection(getRunConnectionRef())
       .getOrElse(throw new Exception(s"Connection not found: ${settings.appConfig.connectionRef}"))

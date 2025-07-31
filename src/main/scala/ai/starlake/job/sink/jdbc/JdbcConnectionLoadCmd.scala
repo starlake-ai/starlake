@@ -17,7 +17,7 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
   val command = "cnxload"
 
   def checkTablePresent(
-    jdbcOptions: Settings.Connection,
+    jdbcOptions: Settings.ConnectionInfo,
     jdbcEngine: Settings.JdbcEngine,
     outputDomainAndTablename: String
   )(implicit settings: Settings): Unit = {

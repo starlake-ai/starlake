@@ -83,8 +83,8 @@ case class AccessControlEntry(role: String, grants: Set[String] = Set.empty, nam
 }
 
 object AccessControlEntry {
-  def applyJdbcAcl(connection: Settings.Connection, sqls: Seq[String], forceApply: Boolean)(implicit
-    settings: Settings
+  def applyJdbcAcl(connection: Settings.ConnectionInfo, sqls: Seq[String], forceApply: Boolean)(
+    implicit settings: Settings
   ): Try[Unit] =
     Try {
       JdbcDbUtils.withJDBCConnection(connection.options) { conn =>

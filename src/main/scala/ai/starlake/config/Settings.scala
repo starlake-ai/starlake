@@ -138,7 +138,7 @@ object Settings extends LazyLogging {
     def getConnectionRef()(implicit settings: Settings): String =
       this.sink.connectionRef.getOrElse(settings.appConfig.connectionRef)
 
-    def getConnection()(implicit settings: Settings): Connection =
+    def getConnection()(implicit settings: Settings): ConnectionInfo =
       settings.appConfig.connections(this.getConnectionRef())
 
     def getSink()(implicit settings: Settings) =
@@ -167,7 +167,7 @@ object Settings extends LazyLogging {
     *   "jdbc:" user the username under which to connect to the database engine password the
     *   password to use in order to connect to the database engine
     */
-  final case class Connection(
+  final case class ConnectionInfo(
     `type`: ConnectionType,
     loader: Option[String] = None,
     sparkFormat: Option[String] = None,
@@ -177,7 +177,7 @@ object Settings extends LazyLogging {
     _transpileDialect: Option[String] = None
   ) {
     def asMap(): Map[String, String] = this.options
-    def withAccessToken(accessToken: Option[String]): Connection = {
+    def withAccessToken(accessToken: Option[String]): ConnectionInfo = {
       accessToken
         .map(accessToken =>
           this.copy(options = this.options.updated("sl_access_token", accessToken))
@@ -461,11 +461,11 @@ object Settings extends LazyLogging {
 
     @nowarn
     def datawareOptions(): Map[String, String] =
-      options.filterKeys(!Connection.allstorageOptions.contains(_)).toMap
+      options.filterKeys(!ConnectionInfo.allstorageOptions.contains(_)).toMap
 
     @nowarn
     def authOptions(): Map[String, String] =
-      options.filterKeys(Connection.allstorageOptions.contains(_)).toMap
+      options.filterKeys(ConnectionInfo.allstorageOptions.contains(_)).toMap
 
     @JsonIgnore
     def getJdbcEngineName(): Engine = {
@@ -554,7 +554,7 @@ object Settings extends LazyLogging {
 
     def quoteIdentifier(identifier: String): String = dialect.quoteIdentifier(identifier)
 
-    def mergeOptionsWith(additionalConnectionOptions: Map[String, String]): Connection = {
+    def mergeOptionsWith(additionalConnectionOptions: Map[String, String]): ConnectionInfo = {
       this.copy(options = options ++ additionalConnectionOptions)
     }
 
@@ -569,7 +569,7 @@ object Settings extends LazyLogging {
     }
   }
 
-  object Connection {
+  object ConnectionInfo {
     val gcsOptions = List(
       "gcsBucket",
       "temporaryGcsBucket",
@@ -588,7 +588,7 @@ object Settings extends LazyLogging {
 
     val allstorageOptions = gcsOptions ++ azureOptions ++ s3Options
   }
-  final case class Connections(connections: Map[String, Connection] = Map.empty)
+  final case class Connections(connections: Map[String, ConnectionInfo] = Map.empty)
 
   /** Describes how to use a specific type of JDBC-accessible database engine
     *
@@ -775,7 +775,7 @@ object Settings extends LazyLogging {
     scd2EndTimestamp: String,
     area: Area,
     hadoop: Map[String, String],
-    connections: Map[String, Connection],
+    connections: Map[String, ConnectionInfo],
     jdbcEngines: Map[String, JdbcEngine],
     privacy: Privacy,
     root: String,
@@ -867,7 +867,7 @@ object Settings extends LazyLogging {
     }
 
     @JsonIgnore
-    def getConnection(connectionRef: String): Connection = {
+    def getConnection(connectionRef: String): ConnectionInfo = {
       connections.getOrElse(
         connectionRef,
         throw new Exception(
@@ -876,7 +876,7 @@ object Settings extends LazyLogging {
       )
     }
     @JsonIgnore
-    def getDefaultConnection(): Connection = {
+    def getDefaultConnection(): ConnectionInfo = {
       connections.getOrElse(
         this.connectionRef,
         throw new Exception(
@@ -903,7 +903,7 @@ object Settings extends LazyLogging {
     }
 
     @JsonIgnore
-    def connection(name: String): Option[Connection] = connections.get(name)
+    def connection(name: String): Option[ConnectionInfo] = connections.get(name)
 
     @JsonIgnore
     def connectionOptions(name: String): Map[String, String] =
@@ -1477,7 +1477,7 @@ object Settings extends LazyLogging {
   def duckDBMode(settings: Settings): Settings = {
     val duckdbPath = DatasetArea.duckdbPath()(settings)
     val pathAsString = duckdbPath.toUri.getPath
-    val duckDBConnection = Connection(
+    val duckDBConnection = ConnectionInfo(
       `type` = ConnectionType.JDBC,
       sparkFormat = None,
       options = Map(

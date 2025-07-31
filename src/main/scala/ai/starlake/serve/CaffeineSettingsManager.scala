@@ -1,6 +1,6 @@
 package ai.starlake.serve
 
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.config.{PrivacyLevels, Settings}
 import ai.starlake.schema.model.ConnectionType
 import ai.starlake.utils.Utils
@@ -59,7 +59,7 @@ class CaffeineSettingsManager extends SettingsManager {
       connections.get("sl_duckdb") match {
         case Some(_) => connections
         case None =>
-          val connectionsWithDuckDB = new Connection(
+          val connectionsWithDuckDB = new ConnectionInfo(
             `type` = ConnectionType.JDBC,
             options = Map(
               "url"    -> s"jdbc:duckdb:$root/datasets/duckdb.db",

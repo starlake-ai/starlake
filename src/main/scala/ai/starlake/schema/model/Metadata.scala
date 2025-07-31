@@ -308,7 +308,7 @@ case class Metadata(
   }
 
   @JsonIgnore
-  def getSinkConnection()(implicit settings: Settings): Settings.Connection =
+  def getSinkConnection()(implicit settings: Settings): Settings.ConnectionInfo =
     settings.appConfig.connections(this.getSinkConnectionRef())
 
   private def getFinalValue[T](param: Option[T], defaultValue: => T)(implicit ev: Null <:< T): T = {

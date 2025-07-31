@@ -43,7 +43,7 @@ trait BigQueryJobBase extends LazyLogging {
   lazy val connectionName: scala.Option[String] = cliConfig.connectionRef
     .orElse(Some(settings.appConfig.connectionRef))
 
-  lazy val connection: scala.Option[Settings.Connection] =
+  lazy val connection: scala.Option[Settings.ConnectionInfo] =
     connectionName.flatMap(name => settings.appConfig.connections.get(name))
 
   lazy val connectionOptions: Map[String, String] =
@@ -1123,7 +1123,7 @@ object BigQueryJobBase extends LazyLogging {
     val connectionName: scala.Option[String] = connectionRef
       .orElse(Some(settings.appConfig.connectionRef))
 
-    val connection: scala.Option[Settings.Connection] =
+    val connection: scala.Option[Settings.ConnectionInfo] =
       connectionName.flatMap(name => settings.appConfig.connections.get(name))
 
     val connectionOptions: Map[String, String] =

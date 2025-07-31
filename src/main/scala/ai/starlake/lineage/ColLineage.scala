@@ -1,7 +1,7 @@
 package ai.starlake.lineage
 
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.lineage.ColLineage.Table
 import ai.starlake.schema.handlers.{SchemaHandler, TableWithNameAndType}
 import ai.starlake.sql.SQLUtils
@@ -83,7 +83,7 @@ class ColLineage(
     sql: String,
     domain: String,
     table: String,
-    connection: Connection
+    connection: ConnectionInfo
   ): Option[ColLineage.Lineage] = {
     val sqlSubst = schemaHandler.substituteRefTaskMainSQL(sql, connection)
     if (sqlSubst.isEmpty) {

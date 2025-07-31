@@ -18,7 +18,7 @@ class KryoSerialization extends KryoRegistrator {
     kryo.register(classOf[Elasticsearch])
     kryo.register(classOf[Internal])
     kryo.register(classOf[Lock])
-    kryo.register(classOf[Connection])
+    kryo.register(classOf[ConnectionInfo])
     kryo.register(classOf[AccessPolicies])
     kryo.register(classOf[KafkaConfig])
     kryo.register(classOf[ExpectationsConfig])

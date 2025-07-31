@@ -21,7 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.{Connection, JdbcEngine}
+import ai.starlake.config.Settings.{ConnectionInfo, JdbcEngine}
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonTypeName}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -104,7 +104,7 @@ sealed abstract class Sink {
 
   def getConnection()(implicit
     settings: Settings
-  ): Connection = {
+  ): ConnectionInfo = {
     val ref = connectionRef.getOrElse(settings.appConfig.connectionRef)
     settings.appConfig.connections(ref)
   }

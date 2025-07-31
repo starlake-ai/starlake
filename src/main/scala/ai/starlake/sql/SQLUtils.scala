@@ -1,7 +1,7 @@
 package ai.starlake.sql
 
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.schema.handlers.TableWithNameAndType
 import ai.starlake.schema.model._
 import ai.starlake.transpiler.{JSQLColumResolver, JSQLTranspiler}
@@ -157,7 +157,7 @@ object SQLUtils extends LazyLogging {
     refs: RefDesc,
     domains: List[DomainInfo],
     tasks: List[AutoTaskInfo],
-    connection: Connection
+    connection: ConnectionInfo
   )(implicit
     settings: Settings
   ): String = {
@@ -194,7 +194,7 @@ object SQLUtils extends LazyLogging {
     tasks: List[AutoTaskInfo],
     fromOrJoinRegex: Regex,
     keyword: String,
-    connection: Connection
+    connection: ConnectionInfo
   )(implicit
     settings: Settings
   ): String = {
@@ -248,7 +248,7 @@ object SQLUtils extends LazyLogging {
     domains: List[DomainInfo],
     tasks: List[AutoTaskInfo],
     ctes: List[String],
-    connection: Connection
+    connection: ConnectionInfo
   )(implicit
     settings: Settings
   ): String = {
@@ -479,7 +479,7 @@ object SQLUtils extends LazyLogging {
     }
   }
 
-  def transpilerDialect(conn: Connection): JSQLTranspiler.Dialect =
+  def transpilerDialect(conn: ConnectionInfo): JSQLTranspiler.Dialect =
     conn._transpileDialect match {
       case Some(dialect) => JSQLTranspiler.Dialect.valueOf(dialect)
       case None =>
@@ -530,7 +530,7 @@ object SQLUtils extends LazyLogging {
     resolved.getOrElse(sql)
   }
 
-  def transpile(sql: String, conn: Connection, timestamps: Map[String, AnyRef]): String = {
+  def transpile(sql: String, conn: ConnectionInfo, timestamps: Map[String, AnyRef]): String = {
     if (timestamps.nonEmpty) {
       logger.info(s"Transpiling SQL with timestamps: $timestamps")
     }

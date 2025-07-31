@@ -1,7 +1,7 @@
 package ai.starlake.sql
 
 import ai.starlake.TestHelper
-import ai.starlake.config.Settings.{latestSchemaVersion, Connection}
+import ai.starlake.config.Settings.{latestSchemaVersion, ConnectionInfo}
 import ai.starlake.job.strategies.TransformStrategiesBuilder
 import ai.starlake.schema.model.ConnectionType.FS
 import ai.starlake.schema.model._
@@ -146,7 +146,7 @@ class SQLUtilsSpec extends TestHelper {
           Nil,
           SQLUtils.fromsRegex,
           "FROM",
-          new Connection(FS, None, Some("parquet"), None, None, Map.empty)
+          new ConnectionInfo(FS, None, Some("parquet"), None, None, Map.empty)
         )
       resultSQL should equal(
         """with mycte as (

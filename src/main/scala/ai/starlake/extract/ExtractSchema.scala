@@ -1,6 +1,6 @@
 package ai.starlake.extract
 
-import ai.starlake.config.Settings.Connection
+import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.extract.spi.SchemaExtractorWorkflow
@@ -68,7 +68,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     settings: Settings
   ): Option[List[DomainInfo]] = {
     val jdbcSchemas = fromConfig(userConfig)
-    val connectionSettings: Connection = jdbcSchemas.connectionRef match {
+    val connectionSettings: ConnectionInfo = jdbcSchemas.connectionRef match {
       case Some(connectionRef) =>
         settings.appConfig.getConnection(connectionRef).withAccessToken(userConfig.accessToken)
       case None =>
@@ -262,7 +262,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
 
   def extractSchema(
     jdbcSchema: JDBCSchema,
-    connectionSettings: Connection,
+    connectionSettings: ConnectionInfo,
     baseOutputDir: Path,
     domainTemplate: Option[DomainInfo],
     currentDomain: Option[DomainInfo],
@@ -349,7 +349,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     */
   private def extractDomain(
     jdbcSchema: JDBCSchema,
-    connectionSettings: Connection,
+    connectionSettings: ConnectionInfo,
     domainTemplate: Option[DomainInfo]
   )(implicit
     settings: Settings,

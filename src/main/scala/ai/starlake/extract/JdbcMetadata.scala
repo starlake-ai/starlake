@@ -1,6 +1,6 @@
 package ai.starlake.extract
 import ai.starlake.config.Settings
-import ai.starlake.config.Settings.{Connection, JdbcEngine}
+import ai.starlake.config.Settings.{ConnectionInfo, JdbcEngine}
 import ai.starlake.extract.JdbcDbUtils.{
   formatRemarksSQL,
   ColumnName,
@@ -184,7 +184,7 @@ sealed trait JdbcColumnMetadata extends LazyLogging {
 }
 
 final class JdbcColumnDatabaseMetadata(
-  connectionSettings: Connection,
+  connectionSettings: ConnectionInfo,
   databaseMetaData: DatabaseMetaData,
   val jdbcSchema: JDBCSchema,
   schemaName: String,
