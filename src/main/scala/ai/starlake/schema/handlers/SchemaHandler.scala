@@ -2298,5 +2298,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
 
   }
+  // todo
+  def upsertAttribute(
+    domainName: String,
+    tableName: String,
+    columnName: String,
+    columnType: String,
+    columnDesc: Option[String]
+  ) = {}
 
 }
