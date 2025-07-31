@@ -18,6 +18,9 @@ import scala.util.{Failure, Success, Try}
 class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Settings)
     extends NativeLoader(ingestionJob, None) {
 
+  // We do not use this in snowflake. return whatever
+  override def getIncomingDir(): String = Try(domain.resolveDirectory()).getOrElse("incoming")
+
   def run(): Try[List[IngestionCounters]] = {
     Try {
       val sinkConnection = mergedMetadata.getSinkConnection()
@@ -237,10 +240,14 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
   }
 
   private def buildCopyXML(domainAndTableName: String): String = {
-    val stripOuterArray =
-      getOption("STRIP_OUTER_ARRAY").getOrElse(mergedMetadata.resolveArray().toString.toUpperCase())
     val commonOptions = List("STRIP_OUTER_ARRAY", "NULL_IF")
     val extraOptions = copyExtraOptions(commonOptions)
+    val stripOuterElement =
+      if (extraOptions.toLowerCase().contains("strip_outer_element"))
+        ""
+      else
+        "STRIP_OUTER_ELEMENT=TRUE"
+
     val sql =
       s"""
          |COPY INTO $domainAndTableName
@@ -250,6 +257,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
          |FILE_FORMAT = (
          |  TYPE = XML
          |  $extraOptions
+         |  $stripOuterElement
          |  $compressionFormat
          |)
          |""".stripMargin

@@ -899,7 +899,8 @@ class IngestionWorkflow(
       writeMode = config.write.getOrElse(write),
       rowTag = config.rowTag,
       clean = config.clean,
-      encoding = config.encoding
+      encoding = config.encoding,
+      variant = config.variant.getOrElse(false)
     )(settings.storageHandler())
     Utils.logFailure(result, logger)
     result
