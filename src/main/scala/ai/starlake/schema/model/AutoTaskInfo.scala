@@ -74,6 +74,7 @@ case class AutoTaskInfo(
   primaryKey: List[String] = Nil,
   syncStrategy: Option[TableSync] = None
 ) extends Named {
+
   @JsonIgnore
   def getSyncStrategyValue(): TableSync = syncStrategy.getOrElse(TableSync.ADD)
 
@@ -91,6 +92,8 @@ case class AutoTaskInfo(
   @JsonIgnore
   def getWriteMode(): WriteMode =
     writeStrategy.map(_.toWriteMode()).getOrElse(WriteMode.APPEND)
+
+  val fullName = s"${this.domain}.${this.name}"
 
   def merge(child: AutoTaskInfo): AutoTaskInfo = {
     AutoTaskInfo(
@@ -164,6 +167,7 @@ case class AutoTaskInfo(
         .getOrElse(Right(true))
 
     val fullTableName = s"${this.domain}_${this.table}"
+
     val streamsErrors = streams.map { stream =>
       if (!stream.startsWith(fullTableName)) {
         Left(
@@ -510,8 +514,8 @@ case class AutoTaskInfo(
   @JsonIgnore
   def getPath()(implicit settings: Settings): Path = {
     assert(
-      this.name.split('.').length == 2,
-      s"Invalid task name: ${this.name}. Expected format: domainName.tableName"
+      this.fullName.split('.').length == 2,
+      s"Invalid full task name: ${this.fullName}. Expected format: domainName.tableName"
     )
     new Path(DatasetArea.transform, this.getName().replace('.', '/') + ".sl.yml")
   }

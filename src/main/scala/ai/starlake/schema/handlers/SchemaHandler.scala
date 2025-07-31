@@ -1166,7 +1166,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val taskWithName = taskDesc.copy(
       domain = domainName,
       table = tableName,
-      name = s"${domainName}.${taskName}",
+      name = taskName,
       _filenamePrefix = filenamePrefix
     )
 
