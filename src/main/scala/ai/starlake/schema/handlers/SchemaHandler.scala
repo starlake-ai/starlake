@@ -204,15 +204,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           )
         else {
           val dagConfig = dagConfigs(dagConfigName)
-          val index = dagConfig.template.lastIndexOf("/")
+          val filenamePartStartIndex = dagConfig.template.lastIndexOf("/")
           val dagConfigTemplate =
-            if (index >= 0)
-              dagConfig.template.substring(index + 1)
+            if (filenamePartStartIndex >= 0)
+              dagConfig.template.substring(filenamePartStartIndex + 1)
             else
               dagConfig.template
 
-          val endIndex = dagConfigTemplate.indexOf("__")
-          if (endIndex < 0) {
+          val firstSeparatorIndex = dagConfigTemplate.indexOf("__")
+          if (firstSeparatorIndex < 0) {
             Some(
               ValidationMessage(
                 severity = Error,
@@ -222,7 +222,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               )
             )
           } else {
-            val usedOrchestrator = dagConfigTemplate.substring(0, endIndex)
+            val usedOrchestrator = dagConfigTemplate.substring(0, firstSeparatorIndex)
             // usedOrchestrator should be the same for all DAGs
             targetOrchestrator match {
               case None =>
