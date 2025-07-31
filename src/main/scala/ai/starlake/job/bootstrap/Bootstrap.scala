@@ -92,25 +92,6 @@ object Bootstrap extends LazyLogging {
 
     val dagLibDir = File(File(DatasetArea.build.toString), "dags")
     dagLibDir.createDirectories()
-    /*
-    import scala.sys.process._
-    println("Installing starlake-airflow")
-    val pipCmd = s"pip install --target $dagLibDir starlake-airflow"
-    Try {
-      val pipResult = pipCmd.!!
-      println(pipResult)
-    } match {
-      case scala.util.Failure(exception) =>
-        // println(s"Failed to install starlake-airflow using: $pipCmd")
-        println("installing orchestration files from resources")
-        val resPath = "python/orchestration"
-        val files = JarUtil.getResourceFiles(resPath)
-        copyToFolder(files, resPath, dagLibDir)
-
-      case _ =>
-
-    }
-     */
 
     template
       .foreach { template =>
