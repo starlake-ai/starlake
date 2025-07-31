@@ -32,14 +32,22 @@ class ColLineage(
   }
 
   private def extractTables(column: JdbcColumn): List[Table] = {
-    val thisTable = getTableWithColumnNames(column.tableSchema, column.tableName)
+    val thisTable = Option(column.tableSchema).map { schema =>
+      getTableWithColumnNames(schema, column.tableName)
+    }.toList
 
-    val scopeTable = getTableWithColumnNames(column.scopeSchema, column.scopeTable)
+    val scopeTable =
+      Option(column.scopeSchema)
+        .map(schema => getTableWithColumnNames(schema, column.scopeTable))
+        .toList
+
     val childTables = column.getChildren.asScala.flatMap { child =>
       extractTables(child)
     }.toList
-    val alTables = thisTable :: scopeTable :: childTables
+
+    val alTables = thisTable ++ scopeTable ++ childTables
     alTables.filter(it => it.table != null && it.table.nonEmpty)
+
   }
   private def extractTables(resultSetMetaData: JdbcResultSetMetaData): List[Table] = {
     val allTables = resultSetMetaData.getColumns.asScala
