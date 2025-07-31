@@ -15,7 +15,7 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
     "Parse Jinja" should "should be able to extract template file and access all variables" in {
       val templateContent = new Yml2DagTemplateLoader().loadTemplate("sample.py.j2")
       val context = LoadDagGenerationContext(
-        config = DagGenerationInfo(
+        config = DagInfo(
           template = "sample.py.j2",
           comment = "This is a comment",
           filename = "sample.py",

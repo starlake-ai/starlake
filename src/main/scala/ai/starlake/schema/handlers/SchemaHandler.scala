@@ -859,7 +859,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationInfo] = {
+  def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagInfo] = {
     val dagsConfigsPaths =
       storage
         .list(path = dagPath, extension = ".sl.yml", recursive = false)
@@ -889,12 +889,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     * Override of dag generation config can be done inside domain config file at domain or table
     * level.
     */
-  def loadDagGenerationConfigs(): Map[String, DagGenerationInfo] = {
+  def loadDagGenerationConfigs(): Map[String, DagInfo] = {
     if (storage.exists(DatasetArea.dags)) {
       deserializedDagGenerationConfigs(DatasetArea.dags)
     } else {
       logger.info("No dags config provided. Use only configuration defined in domain config files.")
-      Map.empty[String, DagGenerationInfo]
+      Map.empty[String, DagInfo]
     }
   }
 
