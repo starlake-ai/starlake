@@ -68,8 +68,8 @@ class ColLineage(
           sqlColLineage(
             config.outputFile,
             sql,
-            task.name.split('.')(0),
-            task.name.split('.')(1),
+            task.fullName.split('.')(0),
+            task.fullName.split('.')(1),
             task.getRunConnection()(settings)
           )
         }
