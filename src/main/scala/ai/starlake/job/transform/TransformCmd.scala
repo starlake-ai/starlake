@@ -137,7 +137,7 @@ trait TransformCmd extends Cmd[TransformConfig] {
 
     } else if (config.syncApply) {
       val list = schemaHandler.syncPreviewSqlWithYaml(config.name, config.query, config.accessToken)
-      Try(schemaHandler.syncApplySqlWithYaml(config.name, list)) map { _ =>
+      Try(schemaHandler.syncApplySqlWithYaml(config.name, list, None)) map { _ =>
         JobResult.empty
       }
     } else if (config.compile) {

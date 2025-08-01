@@ -2256,11 +2256,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def syncApplySqlWithYaml(
     taskName: String,
-    list: List[(TableAttribute, AttributeStatus)]
+    list: List[(TableAttribute, AttributeStatus)],
+    optSql: Option[String]
   ): Unit = {
     settings.schemaHandler().taskByName(taskName) match {
       case Success(task) =>
-        syncApplySqlWithYaml(task, list)
+        syncApplySqlWithYaml(task, list, optSql)
       case Failure(exception) =>
         logger.error(s"Failed to get task $taskName", exception)
         throw exception
@@ -2269,17 +2270,23 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def syncApplySqlWithYaml(
     task: AutoTaskInfo,
-    list: List[(TableAttribute, AttributeStatus)]
+    list: List[(TableAttribute, AttributeStatus)],
+    optSql: Option[String]
   ): Unit = {
     val updatedTask =
       task
         .updateAttributes(list.map(_._1))
         .copy(sql = None) // do not serialize sql. It is in its own file
-    val taskPath = new Path(DatasetArea.transform, s"${task.domain}/${task.table}.sl.yml")
+    val taskPath = new Path(DatasetArea.transform, s"${task.domain}/${task.name}.sl.yml")
 
     YamlSerde.serializeToPath(taskPath, updatedTask)(
       settings.storageHandler()
     )
+    val sqlPath = new Path(DatasetArea.transform, s"${task.domain}/${task.name}.sql")
+    optSql.foreach { sql =>
+      storage.write(sql, sqlPath)
+    }
+
     logger.debug(s"Diff SQL attributes with YAML for task ${task.getName()}: $list")
   }
   def syncPreviewSqlWithYaml(
