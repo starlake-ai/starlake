@@ -533,38 +533,34 @@ object SQLUtils extends LazyLogging {
   def transpile(sql: String, conn: ConnectionInfo, timestamps: Map[String, AnyRef])(implicit
     settings: Settings
   ): String = {
-    if (settings.appConfig.sqlTranspile) {
-      if (timestamps.nonEmpty) {
-        logger.info(s"Transpiling SQL with timestamps: $timestamps")
-      }
+    if (timestamps.nonEmpty) {
+      logger.info(s"Transpiling SQL with timestamps: $timestamps")
+    }
 
-      val dialect = transpilerDialect(conn)
-      val unpipedQuery = Try {
-        if (dialect != JSQLTranspiler.Dialect.GOOGLE_BIG_QUERY) {
-          JSQLTranspiler.unpipe(sql)
-        } else {
-          sql
-        }
-      } match {
-        case Success(unpiped) =>
-          unpiped
-        case Failure(e) =>
-          logger.error(s"Failed to unpipe SQL, sending as is to the dataware: $sql")
-          Utils.logException(logger, e)
-          sql
+    val dialect = transpilerDialect(conn)
+    val unpipedQuery = Try {
+      if (dialect != JSQLTranspiler.Dialect.GOOGLE_BIG_QUERY) {
+        JSQLTranspiler.unpipe(sql)
+      } else {
+        sql
       }
-      Try(
-        JSQLTranspiler.transpileQuery(unpipedQuery, dialect, timestamps.asJava)
-      ) match {
-        case Success(transpiled) =>
-          SQLUtils.format(transpiled, JSQLFormatter.OutputFormat.PLAIN)
-        case Failure(e) =>
-          logger.error(s"Failed to transpile SQL with dialect $dialect: $sql")
-          Utils.logException(logger, e)
-          sql
-      }
-    } else {
-      sql
+    } match {
+      case Success(unpiped) =>
+        unpiped
+      case Failure(e) =>
+        logger.error(s"Failed to unpipe SQL, sending as is to the dataware: $sql")
+        Utils.logException(logger, e)
+        sql
+    }
+    Try(
+      JSQLTranspiler.transpileQuery(unpipedQuery, dialect, timestamps.asJava)
+    ) match {
+      case Success(transpiled) =>
+        SQLUtils.format(transpiled, JSQLFormatter.OutputFormat.PLAIN)
+      case Failure(e) =>
+        logger.error(s"Failed to transpile SQL with dialect $dialect: $sql")
+        Utils.logException(logger, e)
+        sql
     }
   }
   def getSelectStatementIndex(sql: String): Int = {

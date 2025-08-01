@@ -225,7 +225,7 @@ abstract class AutoTask(
         )
         if (settings.appConfig.syncSqlWithYaml && taskDesc._auditTableName.isEmpty) {
           val list = schemaHandler.syncPreviewSqlWithYaml(taskDesc.getName(), None, None)
-          schemaHandler.syncApplySqlWithYaml(taskDesc, list)
+          schemaHandler.syncApplySqlWithYaml(taskDesc, list, None)
         }
         if (
           this.taskDesc.readyForSync() &&

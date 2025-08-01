@@ -151,7 +151,7 @@ class DatasetAreaSpec extends TestHelper {
     folders: List[String]
   ): Unit = {
     val rootFolder = File(settings.appConfig.metadata).parent
-    all(folders.map(rootFolder / _).map { f => f -> f.exists }) should have('_2(true))
+    all(folders.map(rootFolder / _).map { f => f -> f.exists }) should have(Symbol("2")(true))
   }
 
   private case class FileStatus(exist: Boolean, isDirectory: Boolean)
