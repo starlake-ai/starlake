@@ -70,7 +70,9 @@ class CaffeineSettingsManager extends SettingsManager {
       }
     val apiConfigWithTenant =
       settings.appConfig.copy(tenant = tenant, connections = connectionsWithSlDuckDB)
-    (settings.copy(appConfig = apiConfigWithTenant), fromCache)
+    val updatedSettings = settings.copy(appConfig = apiConfigWithTenant)
+    cache.put(sessionId, updatedSettings)
+    (updatedSettings, fromCache)
   }
 
   override def set(
