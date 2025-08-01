@@ -2275,7 +2275,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   ): Unit = {
     val updatedTask =
       task
-        .updateAttributes(list.map(_._1))
+        .updateAttributes(list.filterNot(_._2 == AttributeStatus.REMOVED).map(_._1))
         .copy(sql = None) // do not serialize sql. It is in its own file
     val taskPath = new Path(DatasetArea.transform, s"${task.domain}/${task.name}.sl.yml")
 
@@ -2286,8 +2286,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     optSql.foreach { sql =>
       storage.write(sql, sqlPath)
     }
-
     logger.debug(s"Diff SQL attributes with YAML for task ${task.getName()}: $list")
+    taskUpdated(task.domain, task.name)
   }
   def syncPreviewSqlWithYaml(
     taskName: String,
