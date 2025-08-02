@@ -424,5 +424,12 @@ class InferSchemaInfoJobSpec extends TestHelper {
       }
     }
   }
-
+  "Infer Table name" should "succeed" in {
+    InferSchemaJob.inferTableName("hello world") shouldBe "hello"
+    InferSchemaJob.inferTableName("hello-world") shouldBe "hello"
+    InferSchemaJob.inferTableName("hello_world") shouldBe "hello_world"
+    InferSchemaJob.inferTableName("123world") shouldBe ""
+    InferSchemaJob.inferTableName("-123world") shouldBe ""
+    InferSchemaJob.inferTableName("hello123_world-1221") shouldBe "hello123_world"
+  }
 }
