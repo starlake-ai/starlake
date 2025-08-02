@@ -49,14 +49,16 @@ class ColLineage(
     alTables.filter(it => it.table != null && it.table.nonEmpty)
 
   }
-  private def extractTables(resultSetMetaData: JdbcResultSetMetaData): List[Table] = {
+  private def extractTables(
+    resultSetMetaData: JdbcResultSetMetaData,
+    allTaskNames: List[String]
+  ): List[Table] = {
     val allTables = resultSetMetaData.getColumns.asScala
       .flatMap { column =>
         extractTables(column)
       }
       .toList
       .distinct
-    val allTaskNames = schemaHandler.taskTableNames().map(_.toLowerCase)
     allTables.map { table =>
       val isTask = allTaskNames.contains(table.fullName.toLowerCase)
       table.copy(
@@ -141,9 +143,10 @@ class ColLineage(
         JdbcMetaData.copyOf(jdbcMetadata.setErrorMode(JdbcMetaData.ErrorMode.LENIENT))
       )
 
-    val tables = extractTables(res)
+    val allTaskNames = schemaHandler.taskTableNames().map(_.toLowerCase)
+    val tables = extractTables(res, allTaskNames)
     val relations = ColLineage.extractRelations(domainName, tableName, res)
-    val allTables = ColLineage.tablesInRelations(relations) ++ tables
+    val allTables = ColLineage.tablesInRelations(relations, allTaskNames) ++ tables
 
     val finalTables = allTables
       .groupBy(t => (ColLineage.toLowerCase(t.domain), ColLineage.toLowerCase(t.table)))
@@ -227,6 +230,12 @@ object ColLineage {
       JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(lineage)
     println(diagramAsStr)
   }
+
+  /** Extract lineage from a query with input tables and columns. Used in SQlTranspilerService only
+    * @param inputTables
+    * @param query
+    * @return
+    */
   def lineageFromQuery(
     inputTables: Array[(String, Array[(String, String)])],
     query: String
@@ -252,7 +261,9 @@ object ColLineage {
 
     val relations =
       extractRelations("domain", "table", res)
-    val allTables = ColLineage.tablesInRelations(relations) ++ tables.toList
+    // allTaskNames ignored since we are getting the tables from a query only (no starlake context)
+    val allTables =
+      ColLineage.tablesInRelations(relations, allTaskNames = Nil) ++ tables.toList
     val finalTables = allTables
       .groupBy(t => (t.domain, t.table))
       .map { case ((domainName, tableName), table) =>
@@ -300,6 +311,7 @@ object ColLineage {
     expression: Option[String],
     column: JdbcColumn
   ): List[Relation] = {
+    val unquotedExpression = expression.getOrElse("").replaceAll("'[^']*'", "")
     val colName = Option(columnName).getOrElse(column.columnName)
     val currentColumn =
       Column(toLowerCase(domainName), toLowerCase(tableName), toLowerCase(colName))
@@ -308,7 +320,8 @@ object ColLineage {
         Option(column.tableName).isDefined &&
         column.tableName.nonEmpty &&
         Option(column.columnName).isDefined &&
-        column.columnName.nonEmpty
+        column.columnName.nonEmpty &&
+        !unquotedExpression.contains("(")
       ) { // this is a not a function
         val parentColumn =
           Column(
@@ -331,7 +344,7 @@ object ColLineage {
                 Relation(scopeColumn, parentColumn, expression)
               )
             }
-          } else if (expression.getOrElse("").contains("(")) {
+          } else if (unquotedExpression.contains("(")) {
             // This is a function, let's get all referenced table names
             val finalCols = finalColumns(column)
             val columnList =
@@ -367,9 +380,25 @@ object ColLineage {
 
         immediateRelations ++ relations
       } else if (
-        (Option(column.tableName).isEmpty || column.tableName.isEmpty) &&
-        (Option(column.columnName).isDefined && column.columnName.nonEmpty)
+        (Option(column.columnName).isDefined && column.columnName.nonEmpty) &&
+        unquotedExpression.contains("(")
       ) { // this is a function
+
+        val parentColumn =
+          Column(
+            toLowerCase(column.tableSchema),
+            toLowerCase(column.tableName),
+            toLowerCase(column.columnName)
+          )
+        val finalCols = finalColumns(column)
+        val childRelations =
+          finalCols
+            .filter(it => it.tableName != null && it.tableName.nonEmpty)
+            .map { it =>
+              val col = Column(it.tableSchema, it.tableName, it.columnName)
+              Relation(col, parentColumn, expression)
+            }
+        /*
         val relations =
           column.getChildren.asScala.flatMap { child =>
             extractRelations(
@@ -380,7 +409,8 @@ object ColLineage {
               child
             )
           }.toList
-        relations
+         */
+        childRelations :+ Relation(parentColumn, currentColumn, None)
       } else {
         Nil
       }
@@ -411,22 +441,26 @@ object ColLineage {
         .toList
     relations.distinct
   }
-  def tablesInRelations(relations: List[Relation]): List[Table] = {
+  def tablesInRelations(relations: List[Relation], allTaskNames: List[String]): List[Table] = {
     val tables =
       relations.flatMap { relation =>
+        val fromFullName = s"${relation.from.domain}.${relation.from.table}"
+        val isFromTask = allTaskNames.contains(fromFullName.toLowerCase)
         val table1 =
           Table(
             ColLineage.toLowerCase(relation.from.domain),
             ColLineage.toLowerCase(relation.from.table),
             List(ColLineage.toLowerCase(relation.from.column)),
-            isTask = false
+            isTask = isFromTask
           )
+        val toFullName = s"${relation.to.domain}.${relation.to.table}"
+        val isToTask = allTaskNames.contains(toFullName.toLowerCase)
         val table2 =
           Table(
             ColLineage.toLowerCase(relation.to.domain),
             ColLineage.toLowerCase(relation.to.table),
             List(ColLineage.toLowerCase(relation.to.column)),
-            isTask = false
+            isTask = isToTask
           )
         List(table1, table2)
       }
