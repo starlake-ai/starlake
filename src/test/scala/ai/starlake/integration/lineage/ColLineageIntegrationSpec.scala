@@ -56,8 +56,8 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |  }, {
                        |    "domain" : "starbake_analytics",
                        |    "table" : "order_items_analysis",
-                       |    "columns" : [ "order_id", "order_date", "customer_id" ],
-                       |    "isTask" : false
+                       |    "columns" : [ "order_id", "order_date", "customer_id", "purchased_items", "total_order_value" ],
+                       |    "isTask" : true
                        |  }, {
                        |    "domain" : "starbake",
                        |    "table" : "orders",
@@ -158,6 +158,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |    "expression" : "List(p.name || ' (' || o.quantity || ')')"
                        |  }, {
                        |    "from" : {
+                       |      "table" : "order_details",
+                       |      "column" : "purchased_items"
+                       |    },
+                       |    "to" : {
+                       |      "domain" : "starbake_analytics",
+                       |      "table" : "order_items_analysis",
+                       |      "column" : "purchased_items"
+                       |    }
+                       |  }, {
+                       |    "from" : {
                        |      "domain" : "starbake",
                        |      "table" : "orders",
                        |      "column" : "quantity"
@@ -178,8 +188,19 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "total_order_value"
                        |    },
                        |    "expression" : "Sum(o.quantity * p.price)"
+                       |  }, {
+                       |    "from" : {
+                       |      "table" : "order_details",
+                       |      "column" : "total_order_value"
+                       |    },
+                       |    "to" : {
+                       |      "domain" : "starbake_analytics",
+                       |      "table" : "order_items_analysis",
+                       |      "column" : "total_order_value"
+                       |    }
                        |  } ]
-                       |}""".stripMargin
+                       |}
+                       |""".stripMargin
       val res = tmpFile.contentAsString
       tmpFile.delete(swallowIOExceptions = true)
       println(res)
@@ -202,8 +223,8 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |  "tables" : [ {
                        |    "domain" : "starbake_analytics",
                        |    "table" : "customer_purchase_history",
-                       |    "columns" : [ "customer_id", "customer_name", "email" ],
-                       |    "isTask" : false
+                       |    "columns" : [ "customer_id", "customer_name", "email", "total_orders", "total_spent", "first_order_date", "last_order_date", "purchased_categories", "days_since_first_order" ],
+                       |    "isTask" : true
                        |  }, {
                        |    "domain" : "starbake",
                        |    "table" : "products",
@@ -215,13 +236,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |    "columns" : [ "first_name", "last_name", "email", "id", "join_date" ],
                        |    "isTask" : false
                        |  }, {
-                       |    "table" : "customer_orders",
-                       |    "columns" : [ "customer_id", "total_orders", "total_spent", "first_order_date", "last_order_date", "purchased_categories" ],
-                       |    "isTask" : false
-                       |  }, {
                        |    "domain" : "starbake",
                        |    "table" : "orders",
                        |    "columns" : [ "customer_id", "order_id", "quantity", "order_date", "product_id" ],
+                       |    "isTask" : false
+                       |  }, {
+                       |    "columns" : [ "concat", "datediff" ],
+                       |    "isTask" : false
+                       |  }, {
+                       |    "table" : "customer_orders",
+                       |    "columns" : [ "customer_id", "total_orders", "total_spent", "first_order_date", "last_order_date", "purchased_categories" ],
                        |    "isTask" : false
                        |  } ],
                        |  "relations" : [ {
@@ -253,9 +277,7 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "first_name"
                        |    },
                        |    "to" : {
-                       |      "domain" : "starbake_analytics",
-                       |      "table" : "customer_purchase_history",
-                       |      "column" : "customer_name"
+                       |      "column" : "concat"
                        |    },
                        |    "expression" : "concat(c.first_name, ' ', c.last_name)"
                        |  }, {
@@ -265,11 +287,18 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "last_name"
                        |    },
                        |    "to" : {
+                       |      "column" : "concat"
+                       |    },
+                       |    "expression" : "concat(c.first_name, ' ', c.last_name)"
+                       |  }, {
+                       |    "from" : {
+                       |      "column" : "concat"
+                       |    },
+                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "customer_purchase_history",
                        |      "column" : "customer_name"
-                       |    },
-                       |    "expression" : "concat(c.first_name, ' ', c.last_name)"
+                       |    }
                        |  }, {
                        |    "from" : {
                        |      "domain" : "starbake",
@@ -295,6 +324,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |    "expression" : "COUNT(DISTINCT o.order_id)"
                        |  }, {
                        |    "from" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "total_orders"
+                       |    },
+                       |    "to" : {
+                       |      "domain" : "starbake_analytics",
+                       |      "table" : "customer_purchase_history",
+                       |      "column" : "total_orders"
+                       |    }
+                       |  }, {
+                       |    "from" : {
                        |      "domain" : "starbake",
                        |      "table" : "orders",
                        |      "column" : "quantity"
@@ -317,6 +356,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |    "expression" : "SUM(o.quantity * p.price)"
                        |  }, {
                        |    "from" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "total_spent"
+                       |    },
+                       |    "to" : {
+                       |      "domain" : "starbake_analytics",
+                       |      "table" : "customer_purchase_history",
+                       |      "column" : "total_spent"
+                       |    }
+                       |  }, {
+                       |    "from" : {
                        |      "domain" : "starbake",
                        |      "table" : "orders",
                        |      "column" : "order_date"
@@ -326,6 +375,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "first_order_date"
                        |    },
                        |    "expression" : "MIN(o.order_date)"
+                       |  }, {
+                       |    "from" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "first_order_date"
+                       |    },
+                       |    "to" : {
+                       |      "domain" : "starbake_analytics",
+                       |      "table" : "customer_purchase_history",
+                       |      "column" : "first_order_date"
+                       |    }
                        |  }, {
                        |    "from" : {
                        |      "domain" : "starbake",
@@ -339,6 +398,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |    "expression" : "MAX(o.order_date)"
                        |  }, {
                        |    "from" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "last_order_date"
+                       |    },
+                       |    "to" : {
+                       |      "domain" : "starbake_analytics",
+                       |      "table" : "customer_purchase_history",
+                       |      "column" : "last_order_date"
+                       |    }
+                       |  }, {
+                       |    "from" : {
                        |      "domain" : "starbake",
                        |      "table" : "products",
                        |      "column" : "category"
@@ -347,7 +416,17 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "table" : "customer_orders",
                        |      "column" : "purchased_categories"
                        |    },
-                       |    "expression" : "LIST(DISTINCT p.category)"
+                       |    "expression" : "array_agg(DISTINCT p.category)"
+                       |  }, {
+                       |    "from" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "purchased_categories"
+                       |    },
+                       |    "to" : {
+                       |      "domain" : "starbake_analytics",
+                       |      "table" : "customer_purchase_history",
+                       |      "column" : "purchased_categories"
+                       |    }
                        |  }, {
                        |    "from" : {
                        |      "domain" : "starbake",
@@ -355,24 +434,20 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "order_date"
                        |    },
                        |    "to" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "first_order_date"
+                       |      "column" : "datediff"
                        |    },
                        |    "expression" : "DATEDIFF('day', co.first_order_date, co.last_order_date)"
                        |  }, {
                        |    "from" : {
-                       |      "domain" : "starbake",
-                       |      "table" : "orders",
-                       |      "column" : "order_date"
+                       |      "column" : "datediff"
                        |    },
                        |    "to" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "last_order_date"
-                       |    },
-                       |    "expression" : "DATEDIFF('day', co.first_order_date, co.last_order_date)"
+                       |      "domain" : "starbake_analytics",
+                       |      "table" : "customer_purchase_history",
+                       |      "column" : "days_since_first_order"
+                       |    }
                        |  } ]
-                       |}
-                       |""".stripMargin
+                       |}""".stripMargin
       val res = tmpFile.contentAsString
       tmpFile.delete(swallowIOExceptions = true)
       println(res)
