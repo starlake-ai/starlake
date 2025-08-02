@@ -7,5 +7,6 @@ case class LoadConfig(
   accessToken: Option[String],
   test: Boolean,
   files: Option[List[String]] = None,
-  variant: Option[Boolean] = None
+  variant: Option[Boolean] = None,
+  primaryKey: List[String] = List.empty
 )

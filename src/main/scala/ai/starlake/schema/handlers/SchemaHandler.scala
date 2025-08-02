@@ -761,7 +761,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val domainName = components(0)
       val tablePartName = components(1)
 
-      var folder = new Path(DatasetArea.load, domainName)
+      var folder = DomainInfo.path(domainName)
       loadTableRef(tablePartName + ".sl.yml", raw = false, folder)
     }
 
@@ -2009,7 +2009,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     tableName: String,
     pk: List[String]
   ): Try[Unit] = Try {
-    val path = new Path(DatasetArea.load, domainName + "/" + tableName + ".sl.yml")
+    val path = SchemaInfo.path(domainName, tableName)
     val content = storage.read(path)
     val tableDesc = YamlSerde.deserializeYamlTables(content, path.toString).head
     val table = tableDesc.table
@@ -2047,7 +2047,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     columnName: String,
     fk: Option[String]
   ): Try[Unit] = Try {
-    val path = new Path(DatasetArea.load, domainName + "/" + tableName + ".sl.yml")
+    val path = SchemaInfo.path(domainName, tableName)
     val content = storage.read(path)
     val tableDesc = YamlSerde.deserializeYamlTables(content, path.toString).head
     val table = tableDesc.table
@@ -2170,7 +2170,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val updatedTable = table.copy(metadata = Some(updatedMetadata))
 
     YamlSerde.serializeToPath(
-      new Path(DatasetArea.load, s"${domain.name}/${table.name}.sl.yml"),
+      SchemaInfo.path(domain.name, table.name),
       updatedTable
     )(settings.storageHandler())
 

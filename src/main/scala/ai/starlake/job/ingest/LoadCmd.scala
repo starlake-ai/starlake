@@ -62,7 +62,12 @@ trait LoadCmd extends Cmd[LoadConfig] {
         .opt[Seq[String]]("files")
         .optional()
         .action((x, c) => c.copy(files = Some(x.toList)))
-        .text("load this file only")
+        .text("load this file only"),
+      builder
+        .opt[Seq[String]]("primaryKeys")
+        .optional()
+        .action((x, c) => c.copy(primaryKey = x.toList))
+        .text("primary keys to set on the table schema")
     )
   }
 
