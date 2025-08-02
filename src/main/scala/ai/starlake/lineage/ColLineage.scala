@@ -283,20 +283,39 @@ object ColLineage {
     lineage
   }
 
-  private def finalColumns(column: JdbcColumn): List[JdbcColumn] = {
+  private def nestedRelations(
+    column: JdbcColumn,
+    targetColumn: Column,
+    expression: Option[String]
+  ): List[Relation] = {
     val children = column.getChildren.asScala.toList
+    val thisCol = Column(
+      toLowerCase(column.tableSchema),
+      toLowerCase(column.tableName),
+      toLowerCase(column.columnName)
+    )
     if (children.isEmpty) {
       if (
         Option(column.columnName).isDefined && column.columnName.nonEmpty &&
         Option(column.tableName).isDefined && column.tableName.nonEmpty
       ) {
-        List(column)
+        List(Relation(thisCol, targetColumn, expression))
       } else {
         Nil
       }
     } else {
-      val finalCols = children.flatMap(finalColumns)
-      finalCols
+      val childRelations = children.flatMap { child =>
+        if (Option(thisCol.table).getOrElse("").isEmpty)
+          nestedRelations(child, targetColumn, expression)
+        else {
+          nestedRelations(child, thisCol, Option(column.getExpression).map(_.toString)) :+ Relation(
+            thisCol,
+            targetColumn,
+            expression
+          )
+        }
+      }
+      childRelations
     }
   }
 
@@ -348,17 +367,6 @@ object ColLineage {
                 Relation(columnInSelect, targetColumn, expression)
               )
             }
-          } else if (unquotedExpression.contains("(")) {
-            // This is a function, let's get all referenced table names
-            val finalCols = finalColumns(column)
-            val columnList =
-              finalCols
-                .filter(it => it.tableName != null && it.tableName.nonEmpty)
-                .map { it =>
-                  val col = Column(it.tableSchema, it.tableName, it.columnName)
-                  Relation(col, columnInSelect, expression)
-                }
-            columnList
           } else {
             List(Relation(columnInSelect, targetColumn, expression))
           }
@@ -395,17 +403,12 @@ object ColLineage {
             toLowerCase(column.columnName)
           )
         val functionNameInSelectIsColumn = functionNameInSelect.hasTableName()
-        val finalCols = finalColumns(column)
-        val childRelations =
-          finalCols
-            .filter(it => it.tableName != null && it.tableName.nonEmpty)
-            .map { it =>
-              val col = Column(it.tableSchema, it.tableName, it.columnName)
-              if (functionNameInSelectIsColumn)
-                Relation(col, functionNameInSelect, expression)
-              else
-                Relation(col, targetColumn, expression)
-            }
+        val currentTargetColumn =
+          if (functionNameInSelectIsColumn)
+            functionNameInSelect
+          else
+            targetColumn
+        val childRelations = nestedRelations(column, currentTargetColumn, expression)
         val finalRelation =
           if (functionNameInSelectIsColumn)
             List(Relation(functionNameInSelect, targetColumn, None))
