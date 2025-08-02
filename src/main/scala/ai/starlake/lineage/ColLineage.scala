@@ -175,7 +175,11 @@ class ColLineage(
 }
 
 object ColLineage {
-  case class Column(domain: String, table: String, column: String)
+  case class Column(domain: String, table: String, column: String) {
+    def hasTableName(): Boolean = {
+      Option(table).isDefined && table.nonEmpty
+    }
+  }
   case class Relation(from: Column, to: Column, expression: Option[String])
   case class Table(domain: String, table: String, columns: List[String], isTask: Boolean) {
     def fullName: String = s"$domain.$table"
@@ -313,7 +317,7 @@ object ColLineage {
   ): List[Relation] = {
     val unquotedExpression = expression.getOrElse("").replaceAll("'[^']*'", "")
     val colName = Option(columnName).getOrElse(column.columnName)
-    val currentColumn =
+    val targetColumn =
       Column(toLowerCase(domainName), toLowerCase(tableName), toLowerCase(colName))
     val relations =
       if (
@@ -323,7 +327,7 @@ object ColLineage {
         column.columnName.nonEmpty &&
         !unquotedExpression.contains("(")
       ) { // this is a not a function
-        val parentColumn =
+        val columnInSelect =
           Column(
             toLowerCase(column.tableSchema),
             toLowerCase(column.tableName),
@@ -331,17 +335,17 @@ object ColLineage {
           )
         val immediateRelations =
           if (Option(column.scopeTable).isDefined && column.scopeTable.nonEmpty) {
-            val scopeColumn = Column(
+            val sourceColumn = Column(
               toLowerCase(column.scopeSchema),
               toLowerCase(column.scopeTable),
               toLowerCase(column.columnName)
             )
-            if (scopeColumn == parentColumn) {
-              List(Relation(parentColumn, currentColumn, expression))
+            if (sourceColumn == columnInSelect) {
+              List(Relation(columnInSelect, targetColumn, expression))
             } else {
               List(
-                Relation(parentColumn, currentColumn, expression),
-                Relation(scopeColumn, parentColumn, expression)
+                Relation(sourceColumn, columnInSelect, expression),
+                Relation(columnInSelect, targetColumn, expression)
               )
             }
           } else if (unquotedExpression.contains("(")) {
@@ -352,11 +356,11 @@ object ColLineage {
                 .filter(it => it.tableName != null && it.tableName.nonEmpty)
                 .map { it =>
                   val col = Column(it.tableSchema, it.tableName, it.columnName)
-                  Relation(col, parentColumn, expression)
+                  Relation(col, columnInSelect, expression)
                 }
             columnList
           } else {
-            List(Relation(parentColumn, currentColumn, expression))
+            List(Relation(columnInSelect, targetColumn, expression))
           }
         val relations =
           column.getChildren.asScala.flatMap { child =>
@@ -384,33 +388,30 @@ object ColLineage {
         unquotedExpression.contains("(")
       ) { // this is a function
 
-        val parentColumn =
+        val functionNameInSelect =
           Column(
             toLowerCase(column.tableSchema),
             toLowerCase(column.tableName),
             toLowerCase(column.columnName)
           )
+        val functionNameInSelectIsColumn = functionNameInSelect.hasTableName()
         val finalCols = finalColumns(column)
         val childRelations =
           finalCols
             .filter(it => it.tableName != null && it.tableName.nonEmpty)
             .map { it =>
               val col = Column(it.tableSchema, it.tableName, it.columnName)
-              Relation(col, parentColumn, expression)
+              if (functionNameInSelectIsColumn)
+                Relation(col, functionNameInSelect, expression)
+              else
+                Relation(col, targetColumn, expression)
             }
-        /*
-        val relations =
-          column.getChildren.asScala.flatMap { child =>
-            extractRelations(
-              domainName,
-              tableName,
-              colName,
-              Option(column.getExpression).map(_.toString),
-              child
-            )
-          }.toList
-         */
-        childRelations :+ Relation(parentColumn, currentColumn, None)
+        val finalRelation =
+          if (functionNameInSelectIsColumn)
+            List(Relation(functionNameInSelect, targetColumn, None))
+          else
+            Nil
+        childRelations ++ finalRelation
       } else {
         Nil
       }
