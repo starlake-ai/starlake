@@ -487,7 +487,7 @@ class SchemaInfo2HandlerSpec extends TestHelper {
         case Success(job) =>
           val tasks = job.tasks
           tasks.length shouldBe 3
-          tasks.map(_.name) should contain theSameElementsAs (List(
+          tasks.map(_.fullName) should contain theSameElementsAs (List(
             "dream2.client2", // tasks are handled before task refs
             "myjob.task1",
             "myjob.task2"
