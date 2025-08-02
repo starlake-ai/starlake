@@ -124,7 +124,7 @@ class IngestionWorkflow(
   ): List[(String, String)] = {
     (domain, table) match {
       case (Some(domain), Some(table)) =>
-        val path = new Path(new Path(DatasetArea.load, domain), table + ".sl.yml")
+        val path = SchemaInfo.path(domain, table)
         val exists = settings.storageHandler().exists(path)
         if (exists) {
           val tableContent = settings
@@ -377,13 +377,22 @@ class IngestionWorkflow(
               val schema = dom.tables.find(_.name == config.tables.head)
               schema match {
                 case Some(sch) =>
+                  val withPrimaryKeySchema = sch.copy(primaryKey = config.primaryKey)
+                  if (config.primaryKey.nonEmpty) {
+                    YamlSerde.serializeToPath(
+                      withPrimaryKeySchema.pathIn(dom.name),
+                      withPrimaryKeySchema
+                    )(
+                      settings.storageHandler()
+                    )
+                  }
                   val paths = config.files.getOrElse(Nil).map(new Path(_)).sortBy(_.getName)
                   val fileInfos = paths.map(p =>
                     FileInfo(p, 0, Instant.now())
                   ) // dummy file infos for calling AdaptiveWriteStrategy
                   val updatedSchema =
                     AdaptiveWriteStrategy
-                      .adaptThenGroup(sch, fileInfos)
+                      .adaptThenGroup(withPrimaryKeySchema, fileInfos)
                       .head
                       ._1 // get the schema only
                   ingest(dom, updatedSchema, paths, config.options, config.accessToken, config.test)

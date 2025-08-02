@@ -25,13 +25,14 @@ import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.lineage.AutoTaskDependencies.{Column, Item, Relation}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Format.{DSV, XML}
-import ai.starlake.schema.model.Severity._
+import ai.starlake.schema.model.Severity.*
 import ai.starlake.utils.Formatter.*
-import ai.starlake.utils.{SparkUtils, Utils}
 import ai.starlake.utils.conversion.BigQueryUtils
+import ai.starlake.utils.{SparkUtils, Utils}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.google.cloud.bigquery.Schema as BQSchema
 import com.google.cloud.spark.bigquery.SparkBigQueryUtil
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{Metadata as SparkMetadata, *}
 
 import java.util.regex.Pattern
@@ -807,6 +808,9 @@ case class SchemaInfo(
     val intersection = this.acl.flatMap(_.grants).intersect(grantees)
     intersection
   }
+
+  def pathIn(domainName: String)(implicit settings: Settings): Path =
+    SchemaInfo.path(domainName, this.name)
 }
 
 object SchemaInfo {
@@ -959,6 +963,9 @@ object SchemaInfo {
       )
     }
   }
+
+  def path(domainName: String, schemaName: String)(implicit settings: Settings): Path =
+    new Path(DomainInfo.path(domainName), schemaName + ".sl.yml")
 }
 
 case class TableDesc(version: Int, table: SchemaInfo)

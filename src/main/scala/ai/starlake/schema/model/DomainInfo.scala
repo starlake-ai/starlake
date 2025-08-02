@@ -333,6 +333,8 @@ case class DomainDesc(version: Int, load: DomainInfo)
     val domainDataOnly = this.copy(tables = Nil)
     serializeToPath(new Path(folder, "_config.sl.yml"), domainDataOnly)
   }
+  def path()(implicit settings: Settings): Path =
+    new Path(DatasetArea.load, this.name)
 
 }
 
@@ -441,4 +443,8 @@ object DomainInfo {
         throw new Exception(s"No $mustache or $ssp found for datawarehouse $datawarehouse")
     template -> settings.storageHandler().read(template)
   }
+
+  def path(domainName: String)(implicit settings: Settings): Path =
+    new Path(DatasetArea.load, domainName)
+
 }
