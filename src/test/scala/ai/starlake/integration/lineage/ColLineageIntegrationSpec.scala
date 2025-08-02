@@ -70,6 +70,17 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |  } ],
                        |  "relations" : [ {
                        |    "from" : {
+                       |      "domain" : "starbake",
+                       |      "table" : "orders",
+                       |      "column" : "order_id"
+                       |    },
+                       |    "to" : {
+                       |      "table" : "order_details",
+                       |      "column" : "order_id"
+                       |    },
+                       |    "expression" : "order_id"
+                       |  }, {
+                       |    "from" : {
                        |      "table" : "order_details",
                        |      "column" : "order_id"
                        |    },
@@ -83,13 +94,13 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |    "from" : {
                        |      "domain" : "starbake",
                        |      "table" : "orders",
-                       |      "column" : "order_id"
+                       |      "column" : "order_date"
                        |    },
                        |    "to" : {
                        |      "table" : "order_details",
-                       |      "column" : "order_id"
+                       |      "column" : "order_date"
                        |    },
-                       |    "expression" : "order_id"
+                       |    "expression" : "order_date"
                        |  }, {
                        |    "from" : {
                        |      "table" : "order_details",
@@ -105,32 +116,21 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |    "from" : {
                        |      "domain" : "starbake",
                        |      "table" : "orders",
-                       |      "column" : "order_date"
-                       |    },
-                       |    "to" : {
-                       |      "table" : "order_details",
-                       |      "column" : "order_date"
-                       |    },
-                       |    "expression" : "order_date"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "order_details",
                        |      "column" : "customer_id"
                        |    },
                        |    "to" : {
-                       |      "domain" : "starbake_analytics",
-                       |      "table" : "order_items_analysis",
+                       |      "table" : "order_details",
                        |      "column" : "customer_id"
                        |    },
                        |    "expression" : "customer_id"
                        |  }, {
                        |    "from" : {
-                       |      "domain" : "starbake",
-                       |      "table" : "orders",
+                       |      "table" : "order_details",
                        |      "column" : "customer_id"
                        |    },
                        |    "to" : {
-                       |      "table" : "order_details",
+                       |      "domain" : "starbake_analytics",
+                       |      "table" : "order_items_analysis",
                        |      "column" : "customer_id"
                        |    },
                        |    "expression" : "customer_id"
@@ -150,6 +150,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "domain" : "starbake",
                        |      "table" : "orders",
                        |      "column" : "quantity"
+                       |    },
+                       |    "to" : {
+                       |      "table" : "order_details",
+                       |      "column" : "purchased_items"
+                       |    },
+                       |    "expression" : "List(p.name || ' (' || o.quantity || ')')"
+                       |  }, {
+                       |    "from" : {
+                       |      "table" : "order_details",
+                       |      "column" : "purchased_items"
                        |    },
                        |    "to" : {
                        |      "table" : "order_details",
@@ -182,6 +192,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "domain" : "starbake",
                        |      "table" : "products",
                        |      "column" : "price"
+                       |    },
+                       |    "to" : {
+                       |      "table" : "order_details",
+                       |      "column" : "total_order_value"
+                       |    },
+                       |    "expression" : "Sum(o.quantity * p.price)"
+                       |  }, {
+                       |    "from" : {
+                       |      "table" : "order_details",
+                       |      "column" : "total_order_value"
                        |    },
                        |    "to" : {
                        |      "table" : "order_details",
@@ -236,30 +256,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |    "columns" : [ "first_name", "last_name", "email", "id", "join_date" ],
                        |    "isTask" : false
                        |  }, {
+                       |    "table" : "customer_orders",
+                       |    "columns" : [ "customer_id", "total_orders", "total_spent", "first_order_date", "last_order_date", "purchased_categories" ],
+                       |    "isTask" : false
+                       |  }, {
                        |    "domain" : "starbake",
                        |    "table" : "orders",
                        |    "columns" : [ "customer_id", "order_id", "quantity", "order_date", "product_id" ],
                        |    "isTask" : false
-                       |  }, {
-                       |    "columns" : [ "concat", "datediff" ],
-                       |    "isTask" : false
-                       |  }, {
-                       |    "table" : "customer_orders",
-                       |    "columns" : [ "customer_id", "total_orders", "total_spent", "first_order_date", "last_order_date", "purchased_categories" ],
-                       |    "isTask" : false
                        |  } ],
                        |  "relations" : [ {
-                       |    "from" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "customer_id"
-                       |    },
-                       |    "to" : {
-                       |      "domain" : "starbake_analytics",
-                       |      "table" : "customer_purchase_history",
-                       |      "column" : "customer_id"
-                       |    },
-                       |    "expression" : "customer_id"
-                       |  }, {
                        |    "from" : {
                        |      "domain" : "starbake",
                        |      "table" : "orders",
@@ -272,12 +278,25 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |    "expression" : "customer_id"
                        |  }, {
                        |    "from" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "customer_id"
+                       |    },
+                       |    "to" : {
+                       |      "domain" : "starbake_analytics",
+                       |      "table" : "customer_purchase_history",
+                       |      "column" : "customer_id"
+                       |    },
+                       |    "expression" : "customer_id"
+                       |  }, {
+                       |    "from" : {
                        |      "domain" : "starbake",
                        |      "table" : "customers",
                        |      "column" : "first_name"
                        |    },
                        |    "to" : {
-                       |      "column" : "concat"
+                       |      "domain" : "starbake_analytics",
+                       |      "table" : "customer_purchase_history",
+                       |      "column" : "customer_name"
                        |    },
                        |    "expression" : "concat(c.first_name, ' ', c.last_name)"
                        |  }, {
@@ -287,18 +306,11 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "last_name"
                        |    },
                        |    "to" : {
-                       |      "column" : "concat"
-                       |    },
-                       |    "expression" : "concat(c.first_name, ' ', c.last_name)"
-                       |  }, {
-                       |    "from" : {
-                       |      "column" : "concat"
-                       |    },
-                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "customer_purchase_history",
                        |      "column" : "customer_name"
-                       |    }
+                       |    },
+                       |    "expression" : "concat(c.first_name, ' ', c.last_name)"
                        |  }, {
                        |    "from" : {
                        |      "domain" : "starbake",
@@ -316,6 +328,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "domain" : "starbake",
                        |      "table" : "orders",
                        |      "column" : "order_id"
+                       |    },
+                       |    "to" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "total_orders"
+                       |    },
+                       |    "expression" : "COUNT(DISTINCT o.order_id)"
+                       |  }, {
+                       |    "from" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "total_orders"
                        |    },
                        |    "to" : {
                        |      "table" : "customer_orders",
@@ -360,6 +382,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "total_spent"
                        |    },
                        |    "to" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "total_spent"
+                       |    },
+                       |    "expression" : "SUM(o.quantity * p.price)"
+                       |  }, {
+                       |    "from" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "total_spent"
+                       |    },
+                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "customer_purchase_history",
                        |      "column" : "total_spent"
@@ -369,6 +401,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "domain" : "starbake",
                        |      "table" : "orders",
                        |      "column" : "order_date"
+                       |    },
+                       |    "to" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "first_order_date"
+                       |    },
+                       |    "expression" : "MIN(o.order_date)"
+                       |  }, {
+                       |    "from" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "first_order_date"
                        |    },
                        |    "to" : {
                        |      "table" : "customer_orders",
@@ -402,6 +444,16 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "last_order_date"
                        |    },
                        |    "to" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "last_order_date"
+                       |    },
+                       |    "expression" : "MAX(o.order_date)"
+                       |  }, {
+                       |    "from" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "last_order_date"
+                       |    },
+                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "customer_purchase_history",
                        |      "column" : "last_order_date"
@@ -423,31 +475,45 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "purchased_categories"
                        |    },
                        |    "to" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "purchased_categories"
+                       |    },
+                       |    "expression" : "array_agg(DISTINCT p.category)"
+                       |  }, {
+                       |    "from" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "purchased_categories"
+                       |    },
+                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "customer_purchase_history",
                        |      "column" : "purchased_categories"
                        |    }
                        |  }, {
                        |    "from" : {
-                       |      "domain" : "starbake",
-                       |      "table" : "orders",
-                       |      "column" : "order_date"
-                       |    },
-                       |    "to" : {
-                       |      "column" : "datediff"
-                       |    },
-                       |    "expression" : "DATEDIFF('day', co.first_order_date, co.last_order_date)"
-                       |  }, {
-                       |    "from" : {
-                       |      "column" : "datediff"
+                       |      "table" : "customer_orders",
+                       |      "column" : "first_order_date"
                        |    },
                        |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "customer_purchase_history",
                        |      "column" : "days_since_first_order"
-                       |    }
+                       |    },
+                       |    "expression" : "DATEDIFF('day', co.first_order_date, co.last_order_date)"
+                       |  }, {
+                       |    "from" : {
+                       |      "table" : "customer_orders",
+                       |      "column" : "last_order_date"
+                       |    },
+                       |    "to" : {
+                       |      "domain" : "starbake_analytics",
+                       |      "table" : "customer_purchase_history",
+                       |      "column" : "days_since_first_order"
+                       |    },
+                       |    "expression" : "DATEDIFF('day', co.first_order_date, co.last_order_date)"
                        |  } ]
-                       |}""".stripMargin
+                       |}
+                       |""".stripMargin
       val res = tmpFile.contentAsString
       tmpFile.delete(swallowIOExceptions = true)
       println(res)
