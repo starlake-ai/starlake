@@ -320,7 +320,7 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
 
           InferSchemaHandler.createSchema(
             tableName,
-            Pattern.compile(pattern.getOrElse(InferSchemaJob.getSchemaPattern(path.getName))),
+            Pattern.compile(pattern.getOrElse(InferSchemaJob.inferPattern(path.getName))),
             comment,
             attributes,
             Some(metadata),
@@ -430,7 +430,7 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
             } else attributes
           InferSchemaHandler.createSchema(
             tableName,
-            Pattern.compile(pattern.getOrElse(InferSchemaJob.getSchemaPattern(path.getName))),
+            Pattern.compile(pattern.getOrElse(InferSchemaJob.inferPattern(path.getName))),
             comment,
             finalAttributes,
             Some(metadata.copy(writeStrategy = Some(strategy))),
@@ -455,7 +455,7 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
 }
 
 object InferSchemaJob {
-  def getSchemaPattern(filename: String): String = {
+  def inferPattern(filename: String): String = {
     val parts = filename.split("\\.")
     if (parts.length < 2)
       filename
@@ -501,5 +501,11 @@ object InferSchemaJob {
       else
         s"$prefixWithoutNonAlpha.*.$extension"
     }
+  }
+  def inferTableName(filename: String): String = {
+    val LeadingAlnum = "^[_A-Za-z0-9]+".r
+    val result = LeadingAlnum.findFirstIn(filename).getOrElse("")
+    // we do not allow table name to start with anything else than a letter
+    if (result.nonEmpty && !result(0).isLetter) "" else result
   }
 }
