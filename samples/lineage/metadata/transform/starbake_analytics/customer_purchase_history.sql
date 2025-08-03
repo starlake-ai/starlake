@@ -5,7 +5,7 @@ WITH customer_orders AS (
         SUM(o.quantity * p.price) AS total_spent,
         MIN(o.order_date) AS first_order_date,
         MAX(o.order_date) AS last_order_date,
-        LIST(DISTINCT p.category) AS purchased_categories
+        array_agg(DISTINCT p.category) AS purchased_categories
     FROM
         starbake.orders o
             JOIN
