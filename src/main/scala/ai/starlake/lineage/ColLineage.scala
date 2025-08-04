@@ -60,7 +60,7 @@ class ColLineage(
       .toList
       .distinct
     allTables.map { table =>
-      val isTask = allTaskNames.contains(table.fullName.toLowerCase)
+      val isTask = allTaskNames.contains(table.fullName().toLowerCase)
       table.copy(
         isTask = isTask,
         table = ColLineage.toLowerCase(table.table),
@@ -78,8 +78,8 @@ class ColLineage(
           sqlColLineage(
             config.outputFile,
             sql,
-            task.fullName.split('.')(0),
-            task.fullName.split('.')(1),
+            task.fullName().split('.')(0),
+            task.fullName().split('.')(1),
             task.getRunConnection()(settings)
           )
         }
@@ -142,7 +142,6 @@ class ColLineage(
         sql,
         JdbcMetaData.copyOf(jdbcMetadata.setErrorMode(JdbcMetaData.ErrorMode.LENIENT))
       )
-
     val allTaskNames = schemaHandler.taskTableNames().map(_.toLowerCase)
     val tables = extractTables(res, allTaskNames)
     val relations = ColLineage.extractRelations(domainName, tableName, res)
@@ -182,7 +181,7 @@ object ColLineage {
   }
   case class Relation(from: Column, to: Column, expression: Option[String])
   case class Table(domain: String, table: String, columns: List[String], isTask: Boolean) {
-    def fullName: String = s"$domain.$table"
+    def fullName(): String = s"$domain.$table"
   }
   case class Lineage(tables: List[Table], relations: List[Relation]) {
     def diff(other: Lineage) = {

@@ -512,6 +512,7 @@ abstract class AutoTask(
       postSqls.map(_.pyFormat()),
       addSCD2ColumnsSqls.map(_.pyFormat()),
       sqlSchema,
+      taskDesc.syncStrategy,
       taskDesc.getSinkConnectionType()
     )
   }
