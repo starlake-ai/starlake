@@ -58,9 +58,10 @@ object TaskViewDependency extends LazyLogging {
   def dependencies(
     tasks: List[AutoTask]
   )(implicit settings: Settings, schemaHandler: SchemaHandler): List[TaskViewDependency] = {
-    val jobs: Map[String, AutoTask] = tasks.groupBy(_.taskDesc.fullName).map { case (name, tasks) =>
-      (name, tasks.head)
-    }
+    val jobs: Map[String, AutoTask] =
+      tasks.groupBy(_.taskDesc.fullName()).map { case (name, tasks) =>
+        (name, tasks.head)
+      }
     val streamsMap = schemaHandler.streams()
 
     val jobDependencies: List[SimpleEntry] =

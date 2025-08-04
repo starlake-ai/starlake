@@ -1393,7 +1393,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def taskByName(taskName: String): Try[AutoTaskInfo] = Try {
     val allTasks = tasks()
     allTasks
-      .find(t => t.fullName.equalsIgnoreCase(taskName))
+      .find(t => t.fullName().equalsIgnoreCase(taskName))
       .getOrElse(throw new Exception(s"Task $taskName not found"))
   }
   def taskByTableName(domain: String, table: String): Option[AutoTaskInfo] = {
@@ -1410,15 +1410,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def taskOnly(
-    taskName: String,
+    fullTaskName: String,
     reload: Boolean = false
   ): Try[AutoTaskInfo] = {
     val refs = loadRefs()
     if (refs.refs.isEmpty) {
-      val components = taskName.split('.')
+      val components = fullTaskName.split('.')
       assert(
         components.length == 2,
-        s"Task name $taskName should be composed of domain and task name separated by a dot"
+        s"Task name $fullTaskName should be composed of domain and task name separated by a dot"
       )
       val domainName = components(0)
       val taskPartName = components(1)
@@ -1428,13 +1428,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           theJob match {
             case None =>
             case Some(job) =>
-              val tasks = job.tasks.filterNot(_.fullName.equalsIgnoreCase(taskName))
+              val tasks = job.tasks.filterNot(_.fullName().equalsIgnoreCase(fullTaskName))
               val newJob = job.copy(tasks = tasks)
               _jobs = _jobs.filterNot(_.getName().equalsIgnoreCase(domainName)) :+ newJob
           }
           None
         } else {
-          _jobs.flatMap(_.tasks).find(_.fullName.equalsIgnoreCase(taskName))
+          _jobs.flatMap(_.tasks).find(_.fullName().equalsIgnoreCase(fullTaskName))
         }
       loadedTask match {
         case Some(task) =>
@@ -1451,9 +1451,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               configPath = new Path(directory, "_config.sl.yml")
               jobDesc <- loadJobTasksFromFile(configPath, List(taskPartName))
               taskDesc = jobDesc.tasks
-                .find(_.fullName.equalsIgnoreCase(taskName))
+                .find(_.fullName().equalsIgnoreCase(fullTaskName))
                 .getOrElse(
-                  throw new Exception(s"Task $taskName not found in $directory")
+                  throw new Exception(s"Task $fullTaskName not found in $directory")
                 )
             } yield {
               val mergedTask = jobDesc.default match {
@@ -1478,11 +1478,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           }
 
           taskDesc.orElse(
-            taskByName(taskName)
+            taskByName(fullTaskName)
           ) // because taskOnly can only handle task named after folder and file names
       }
     } else {
-      taskByName(taskName)
+      taskByName(fullTaskName)
     }
   }
 
@@ -1526,7 +1526,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
 
       val taskNamePatternErrors =
-        validJobs.flatMap(_.tasks.filter(_.name.nonEmpty).map(_.fullName)).flatMap { name =>
+        validJobs.flatMap(_.tasks.filter(_.name.nonEmpty).map(_.fullName())).flatMap { name =>
           val components = name.split('.')
           if (components.length != 2) {
             Some(

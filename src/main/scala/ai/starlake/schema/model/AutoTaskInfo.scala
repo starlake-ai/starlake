@@ -93,7 +93,7 @@ case class AutoTaskInfo(
   def getWriteMode(): WriteMode =
     writeStrategy.map(_.toWriteMode()).getOrElse(WriteMode.APPEND)
 
-  def fullName = s"${this.domain}.${this.name}"
+  def fullName() = s"${this.domain}.${this.name}"
 
   def merge(child: AutoTaskInfo): AutoTaskInfo = {
     AutoTaskInfo(
@@ -514,7 +514,7 @@ case class AutoTaskInfo(
   @JsonIgnore
   def getPath()(implicit settings: Settings): Path = {
     assert(
-      this.fullName.split('.').length == 2,
+      this.fullName().split('.').length == 2,
       s"Invalid full task name: ${this.fullName}. Expected format: domainName.tableName"
     )
     new Path(DatasetArea.transform, this.getName().replace('.', '/') + ".sl.yml")

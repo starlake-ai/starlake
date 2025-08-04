@@ -129,8 +129,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val envVars = schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
           "table"    -> taskConfig.taskDesc.table,
           "domain"   -> taskConfig.taskDesc.domain,
-          "name"     -> taskConfig.taskDesc.fullName, // deprecated
-          "task"     -> taskConfig.taskDesc.fullName,
+          "name"     -> taskConfig.taskDesc.fullName(), // deprecated
+          "task"     -> taskConfig.taskDesc.fullName(),
           "schedule" -> taskConfig.schedule.getOrElse("None")
         )
         val filename = Utils.parseJinja(
@@ -161,7 +161,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           headConfig.schedule.getOrElse("None")
         )
         val cronIfNone = if (cron == "None") null else cron
-        val configs = taskConfigs.map { case (_, config) => config.taskDesc.fullName }
+        val configs = taskConfigs.map { case (_, config) => config.taskDesc.fullName() }
         val autoTaskDepsConfig = AutoTaskDependenciesConfig(tasks = Some(configs))
         val deps = depsEngine.jobsDependencyTree(autoTaskDepsConfig)
         val orchestratorName = orchestratorFromTemplate(dagConfig.template).toLowerCase()

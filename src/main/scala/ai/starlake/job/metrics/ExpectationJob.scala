@@ -345,7 +345,8 @@ object ExpectationJob {
           mainSqlIfNotExists = null,
           postSqls = Nil,
           addSCD2ColumnsSqls = Nil,
-          Nil, // We do not update the expectations schema
+          targetSchema = Nil, // We do not update the expectations schema
+          syncStrategy = TableSync.NONE,
           settings.appConfig.audit.getSink().getConnection().`type`
         )
       )
