@@ -323,9 +323,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (allErrorsAndWarnings, errorCount, warningCount)
   }
 
-  def getDdlMapping(schema: SchemaInfo): Map[String, Map[String, String]] = {
-
-    schema.attributes.flatMap { attr =>
+  def getDdlMapping(attributes: List[TableAttribute]): Map[String, Map[String, String]] = {
+    attributes.flatMap { attr =>
       val ddlMapping = types().find(_.name == attr.`type`).map(_.ddlMapping)
       ddlMapping match {
         case Some(Some(mapping)) =>
