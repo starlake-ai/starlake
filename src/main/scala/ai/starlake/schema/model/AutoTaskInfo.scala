@@ -515,7 +515,7 @@ case class AutoTaskInfo(
   def getPath()(implicit settings: Settings): Path = {
     assert(
       this.fullName().split('.').length == 2,
-      s"Invalid full task name: ${this.fullName}. Expected format: domainName.tableName"
+      s"Invalid full task name: ${this.fullName()}. Expected format: domainName.tableName"
     )
     new Path(DatasetArea.transform, this.getName().replace('.', '/') + ".sl.yml")
   }
