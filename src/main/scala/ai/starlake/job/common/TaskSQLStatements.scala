@@ -15,6 +15,7 @@ case class TaskSQLStatements(
   mainSqlIfNotExists: List[String],
   postSqls: List[String],
   addSCD2ColumnsSqls: List[String],
+  targetSchema: List[String],
   connectionType: ConnectionType
 ) {
 

@@ -224,7 +224,7 @@ object SparkUtils extends LazyLogging {
     attrDdlMapping: Map[String, Map[String, String]]
   )(implicit settings: Settings): (String, String, Option[String]) = {
     val strSchema =
-      schemaString(
+      sqlSchemaString(
         schema,
         caseSensitive,
         options.url,
@@ -284,15 +284,31 @@ object SparkUtils extends LazyLogging {
     comment
   }
 
-  def schemaString(
+  def sqlSchemaString(
     schema: StructType,
     caseSensitive: Boolean,
     url: String,
     createTableColumnTypes: Map[String, Map[String, String]] = Map.empty,
     level: Int
   )(implicit settings: Settings): String = {
-    logger.debug(s"SchemaString of $schema")
-    createTableColumnTypes.foreach { case (k, v) =>
+    val columns = sqlSchema(
+      schema,
+      caseSensitive,
+      url,
+      createTableColumnTypes,
+      level
+    )
+    columns.mkString(", ")
+  }
+  def sqlSchema(
+    schema: StructType,
+    caseSensitive: Boolean,
+    url: String,
+    sparkToSqlTypeMappings: Map[String, Map[String, String]] = Map.empty,
+    level: Int
+  )(implicit settings: Settings): List[String] = {
+    logger.debug(s"sqlSchema of $schema")
+    sparkToSqlTypeMappings.foreach { case (k, v) =>
       logger.debug(s"Column $k has DDL types $v")
     }
     val dialectPattern = Pattern
@@ -309,9 +325,9 @@ object SparkUtils extends LazyLogging {
 
     val dialect = JdbcDialects.get(urlForRedshiftAndDuckDb)
     val typMap =
-      if (caseSensitive) createTableColumnTypes
+      if (caseSensitive) sparkToSqlTypeMappings
       else
-        CaseInsensitiveMap(createTableColumnTypes)
+        CaseInsensitiveMap(sparkToSqlTypeMappings)
     val columns =
       schema.fields.flatMap { field =>
         val nullable = if (!field.nullable && level == 0) "NOT NULL" else ""
@@ -320,10 +336,7 @@ object SparkUtils extends LazyLogging {
           else ""
         val ddlTyp = typMap.get(field.name).flatMap(_.get(dialectName))
         val quotedFieldName = dialect.quoteIdentifier(field.name)
-        /*
-      val typ = userSpecifiedColTypesMap
-        .getOrElse(field.name, getJdbcType(field.dataType, dialect).databaseTypeDefinition)
-         */
+
         val dataType = field.dataType
         val name = field.name
         val column =
@@ -339,7 +352,7 @@ object SparkUtils extends LazyLogging {
               elementType match {
                 case struct: StructType =>
                   val fields =
-                    schemaString(struct, caseSensitive, url, createTableColumnTypes, level + 1)
+                    sqlSchema(struct, caseSensitive, url, sparkToSqlTypeMappings, level + 1)
                   if (repeated) {
                     s"$name STRUCT($fields)[]"
                   } else {
@@ -375,7 +388,7 @@ object SparkUtils extends LazyLogging {
           }
         column
       }
-    columns.mkString(", ")
+    columns.toList
   }
 
   def sql(session: SparkSession, sql: String): DataFrame = {

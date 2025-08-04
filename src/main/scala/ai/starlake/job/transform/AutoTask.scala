@@ -112,7 +112,7 @@ abstract class AutoTask(
       .domains()
       .find(_.finalName == taskDesc.domain)
       .flatMap(_.tables.find(_.finalName == taskDesc.table))
-      .map(schemaHandler.getDdlMapping)
+      .map(schema => schemaHandler.getDdlMapping(schema.attributes))
       .getOrElse(Map.empty)
 
   val sparkSinkFormat =
@@ -484,6 +484,22 @@ abstract class AutoTask(
     val addSCD2ColumnsSqls =
       buildAddSCD2ColumnsSqls(sinkConnection.getJdbcEngineName())
 
+    val ddlMap: Map[String, Map[String, String]] = schemaHandler.getDdlMapping(taskDesc.attributes)
+    val sparkSchema =
+      SparkUtils.sparkSchemaWithCondition(
+        schemaHandler,
+        taskDesc.attributes,
+        _ => true,
+        withFinalName = false // no rename in the task schema
+      )
+    val sqlSchema = SparkUtils.sqlSchema(
+      sparkSchema,
+      caseSensitive = false,
+      sinkConnection.jdbcUrl,
+      ddlMap,
+      0
+    )
+
     TaskSQLStatements(
       taskDesc.name,
       taskDesc.domain,
@@ -495,6 +511,7 @@ abstract class AutoTask(
       mainSqlIfNotExists.map(_.pyFormat()),
       postSqls.map(_.pyFormat()),
       addSCD2ColumnsSqls.map(_.pyFormat()),
+      sqlSchema,
       taskDesc.getSinkConnectionType()
     )
   }

@@ -212,7 +212,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     val domainAndTableName = domain + "." + table
     val optionsWrite =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, domainAndTableName, sinkConnection.options)
-    val ddlMap = schemaHandler.getDdlMapping(schema)
+    val ddlMap = schemaHandler.getDdlMapping(schema.attributes)
     val attrsWithDDLTypes = schemaHandler.getAttributesWithDDLType(schema, "duckdb")
 
     // Create or update table schema first

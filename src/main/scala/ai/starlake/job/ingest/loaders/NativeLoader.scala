@@ -349,7 +349,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     val pattern = starlakeSchema.pattern.toString
     val format = mergedMetadata.resolveFormat()
 
-    val ddlMap: Map[String, Map[String, String]] = schemaHandler.getDdlMapping(starlakeSchema)
+    val ddlMap: Map[String, Map[String, String]] =
+      schemaHandler.getDdlMapping(starlakeSchema.attributes)
     val options =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, targetTableName, sinkConnection.options)
 
@@ -371,7 +372,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           options,
           ddlMap
         )
-        val schemaString = SparkUtils.schemaString(
+        val schemaString = SparkUtils.sqlSchemaString(
           finalSparkSchema,
           caseSensitive = false,
           options.url,
