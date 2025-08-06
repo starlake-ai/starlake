@@ -80,7 +80,8 @@ class ColLineage(
             sql,
             task.fullName().split('.')(0),
             task.fullName().split('.')(1),
-            task.getRunConnection()(settings)
+            task.getRunConnection()(settings),
+            config.accessToken
           )
         }
       case None =>
@@ -93,7 +94,8 @@ class ColLineage(
     sql: String,
     domain: String,
     table: String,
-    connection: ConnectionInfo
+    connection: ConnectionInfo,
+    accessToken: Option[String]
   ): Option[ColLineage.Lineage] = {
     val sqlSubst = schemaHandler.substituteRefTaskMainSQL(sql, connection)
     if (sqlSubst.isEmpty) {
@@ -102,7 +104,8 @@ class ColLineage(
     } else {
       val tableNames = SQLUtils.extractTableNames(sqlSubst)
       val quoteFreeTables = tableNames.map(SQLUtils.quoteFreeTableName)
-      val tablesWithColumnNames = schemaHandler.getTablesWithColumnNames(quoteFreeTables)
+      val tablesWithColumnNames =
+        schemaHandler.getTablesWithColumnNames(quoteFreeTables, accessToken)
       Some(
         colLineage(
           outputFile,

@@ -3,8 +3,12 @@ package ai.starlake.integration.lineage
 import ai.starlake.integration.IntegrationTestBase
 import ai.starlake.job.Main
 import ai.starlake.transpiler.JSQLColumResolver
+import ai.starlake.transpiler.diff.DBSchema
 import ai.starlake.transpiler.schema.JdbcMetaData
 import better.files.File
+
+import java.util
+import scala.jdk.CollectionConverters.*
 
 class ColLineageIntegrationSpec extends IntegrationTestBase {
   "Lineage Generation1" should "succeed" in {
@@ -226,6 +230,65 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
       println(res)
       assert(res.replaceAll("\\s", "") == expected.replaceAll("\\s", ""))
     }
+  }
+
+  def getStarlakeSchemas(): util.Collection[DBSchema] = {
+
+    val schema1 = new DBSchema("", "starbake", "orders")
+    val schema2 = new DBSchema("", "starbake", "products")
+    val schema3 = new DBSchema(
+      "",
+      "starbake",
+      "customers"
+    )
+    List(schema1, schema2, schema3).asJavaCollection
+  }
+
+  "Lineage with functions" should "succeed" in {
+    val sqlStr =
+      """
+        |WITH customer_orders AS (
+        |    SELECT
+        |        o.customer_id,
+        |        COUNT(DISTINCT o.order_id) AS total_orders,
+        |        SUM(o.quantity * p.price) AS total_spent,
+        |        MIN(o.order_date) AS first_order_date,
+        |        MAX(o.order_date) AS last_order_date,
+        |        ARRAY_AGG(DISTINCT p.category) AS purchased_categories
+        |--        LIST(DISTINCT p.category) AS purchased_categories
+        |    FROM
+        |        starbake.orders o
+        |            JOIN
+        |        starbake.products p ON o.product_id = p.product_id
+        |    GROUP BY
+        |        o.customer_id
+        |)
+        |SELECT
+        |    co.customer_id,
+        |    concat(c.first_name,' ', c.last_name) AS customer_name,
+        |    c.email,
+        |    co.total_orders,
+        |    co.total_spent,
+        |    co.first_order_date,
+        |    co.last_order_date,
+        |    co.purchased_categories,
+        |    (CAST(co.last_order_date as DATE) - CAST(co.first_order_date as DATE)) as days_since_first_order
+        |--    DATEDIFF('day', co.first_order_date, co.last_order_date) AS days_since_first_order
+        |FROM
+        |    starbake.customers c
+        |        LEFT JOIN
+        |    customer_orders co ON c.id = co.customer_id
+        |ORDER BY
+        |    co.total_spent DESC NULLS LAST;
+        |
+        |""".stripMargin
+    val meta = new JdbcMetaData(getStarlakeSchemas())
+    val res = JSQLColumResolver.getResultSetMetaData(
+      sqlStr,
+      meta.setErrorMode(JdbcMetaData.ErrorMode.LENIENT)
+    )
+    val tbl = res.getScopeTable(3)
+    assert("customers" == tbl)
   }
   "Lineage with multiple input cols2" should "succeed" in {
     withEnvs("SL_ROOT" -> (theSampleFolder.parent / "lineage").pathAsString) {

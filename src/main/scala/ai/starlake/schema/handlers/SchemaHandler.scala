@@ -714,7 +714,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     tablesFromDomainOrTasks
   }
 
-  def getTablesWithColumnNames(tableNames: List[String]): List[(String, TableWithNameAndType)] = {
+  def getTablesWithColumnNames(
+    tableNames: List[String],
+    accessToken: Option[String]
+  ): List[(String, TableWithNameAndType)] = {
     val objects = objectNames()
     tableNames.flatMap { tableFullName =>
       val tableComponents = tableFullName.split('.')
@@ -747,7 +750,23 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 (domainName, t)
               }
               .orElse {
-                Some((domainName, TableWithNameAndType(tableName, Nil)))
+                val attrs =
+                  new ExtractSchema(this)
+                    .extractTable(domainName, tableName, accessToken)
+                    .toOption
+                    .filter(_.tables.nonEmpty)
+                    .map { it =>
+                      logger.info(s"Extracted schema for $domainName.$tableName from DB source")
+                      val attrs =
+                        it.tables.head.attributes.map(attr => (attr.name, attr.`type`, None))
+                      attrs
+                    }
+                    .getOrElse {
+                      logger.warn(s"Table $domainName.$tableNames not found in external schemas")
+                      Nil
+                    }
+
+                Some((domainName, TableWithNameAndType(tableName, attrs)))
               }
         }
       domainNameAndTable
