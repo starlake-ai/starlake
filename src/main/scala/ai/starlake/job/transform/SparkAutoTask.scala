@@ -76,7 +76,7 @@ class SparkAutoTask(
     result
   }
 
-  def applyHiveTableAcl(forceApply: Boolean = false): Try[Unit] =
+  def applyHiveTableAcl(): Try[Unit] =
     Try {
       val isGrantSupported = Try(
         session.sessionState.sqlParser.parseExpression(
@@ -84,7 +84,7 @@ class SparkAutoTask(
         )
       ).isSuccess
       if (isGrantSupported) {
-        if (forceApply || settings.appConfig.accessPolicies.apply) {
+        if (settings.appConfig.accessPolicies.apply) {
           val sqls = this.aclSQL()
           sqls.foreach { sql =>
             logger.info(sql)

@@ -1303,34 +1303,34 @@ class IngestionWorkflow(
   }
 
   def secure(config: LoadConfig): Try[Boolean] = {
-    val includedDomains = domainsToWatch(config)
-    val result = includedDomains.flatMap { domain =>
-      domain.tables.map { schema =>
-        val metadata = schema.mergedMetadata(domain.metadata)
-        val dummyIngestionJob = new DummyIngestionJob(
-          domain,
-          schema,
-          schemaHandler.types(),
-          Nil,
-          storageHandler,
-          schemaHandler,
-          Map.empty,
-          config.accessToken,
-          config.test
-        )
-        if (settings.appConfig.isHiveCompatible()) {
-          dummyIngestionJob.applyHiveTableAcl()
-        } else {
+    if (settings.appConfig.accessPolicies.apply) {
+      val includedDomains = domainsToWatch(config)
+      val result = includedDomains.flatMap { domain =>
+        domain.tables.map { schema =>
+          val metadata = schema.mergedMetadata(domain.metadata)
+          val dummyIngestionJob = new DummyIngestionJob(
+            domain,
+            schema,
+            schemaHandler.types(),
+            Nil,
+            storageHandler,
+            schemaHandler,
+            Map.empty,
+            config.accessToken,
+            config.test
+          )
           val sink = metadata.sink
             .map(_.getSink())
             .getOrElse(throw new Exception("Sink required"))
 
+          val connectionName = sink.connectionRef
+            .getOrElse(throw new Exception("JdbcSink requires a connectionRef"))
+          val connection =
+            settings.appConfig.connections(connectionName).withAccessToken(config.accessToken)
           sink match {
+            case _: FsSink =>
+              dummyIngestionJob.applyHiveTableAcl()
             case jdbcSink: JdbcSink =>
-              val connectionName = jdbcSink.connectionRef
-                .getOrElse(throw new Exception("JdbcSink requires a connectionRef"))
-              val connection =
-                settings.appConfig.connections(connectionName).withAccessToken(config.accessToken)
               dummyIngestionJob.applyJdbcAcl(connection)
             case _: BigQuerySink =>
               val database = schemaHandler.getDatabase(domain)
@@ -1366,10 +1366,13 @@ class IngestionWorkflow(
           }
         }
       }
-    }
-    if (result.exists(_.isFailure))
-      Failure(new Exception("Some errors occurred during secure"))
-    else
+      if (result.exists(_.isFailure))
+        Failure(new Exception("Some errors occurred during secure"))
+      else
+        Success(true)
+    } else {
+      logger.info("Access policies are not applied, skipping secure step")
       Success(true)
+    }
   }
 }
