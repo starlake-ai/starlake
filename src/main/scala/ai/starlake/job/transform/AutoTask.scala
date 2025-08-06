@@ -95,13 +95,9 @@ abstract class AutoTask(
   }
 
   def aclSQL(): List[String] = {
-    val sinkEngine = sinkConnection.getJdbcEngineName()
+    val sinkEngineName = sinkConnection.getJdbcEngineName()
     taskDesc.acl.flatMap { ace =>
-      /*
-        https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
-        https://hevodata.com/learn/snowflake-grant-role-to-user/
-       */
-      ace.asSql(fullTableName, sinkEngine)
+      ace.asSql(fullTableName, sinkEngineName)
     }
   }
 
