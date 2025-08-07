@@ -54,12 +54,12 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                 tempTables
                   .map(s"SELECT * FROM ${domain.finalName}." + _)
                   .mkString("(", " UNION ALL ", ")")
-              val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
               val sqlWithTransformedFields =
                 starlakeSchema.buildSecondStepSqlSelectOnLoad(unionTempTables)
+              val targetTableFullName = s"${domain.finalName}.${starlakeSchema.finalName}"
 
               val taskDesc = AutoTaskInfo(
-                name = targetTableName,
+                name = starlakeSchema.finalName,
                 sql = Some(sqlWithTransformedFields),
                 database = schemaHandler.getDatabase(domain),
                 domain = domain.finalName,
@@ -103,7 +103,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                   schemaHandler,
                   withFinalName = true
                 ),
-                targetTableName,
+                targetTableFullName,
                 TableSync.ALL
               )
 
@@ -114,9 +114,11 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
 
               runResult match {
                 case Success(_) =>
-                  logger.info(s"Table $targetTableName created successfully")
+                  logger.info(s"Table $targetTableFullName created successfully")
                 case Failure(exception) =>
-                  logger.error(s"Error creating table $targetTableName: ${exception.getMessage}")
+                  logger.error(
+                    s"Error creating table $targetTableFullName: ${exception.getMessage}"
+                  )
                   throw exception
               }
             } else {

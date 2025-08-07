@@ -69,11 +69,11 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           }
 
         val unionTempTables = tempTables.map("SELECT * FROM " + _).mkString("(", " UNION ALL ", ")")
-        val targetTableName = s"${domain.finalName}.${schema.finalName}"
+        val targetFullTableName = s"${domain.finalName}.${schema.finalName}"
         val sqlWithTransformedFields = schema.buildSecondStepSqlSelectOnLoad(unionTempTables)
 
         val taskDesc = AutoTaskInfo(
-          name = targetTableName,
+          name = schema.finalName,
           sql = Some(sqlWithTransformedFields),
           database = schemaHandler.getDatabase(domain),
           domain = domain.finalName,
@@ -115,7 +115,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             schemaHandler,
             withFinalName = true
           ),
-          targetTableName,
+          targetFullTableName,
           TableSync.ALL
         )
 

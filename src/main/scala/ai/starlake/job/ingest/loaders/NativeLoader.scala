@@ -41,7 +41,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
   lazy val database: Option[String] = schemaHandler.getDatabase(domain)
 
-  val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
+  val targetFullTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
 
   lazy val sink = mergedMetadata.getSink()
 
@@ -231,7 +231,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       starlakeSchema.buildSecondStepSqlSelectOnLoad(tempTable, queryEngine)
 
     val taskDesc = AutoTaskInfo(
-      name = targetTableName,
+      name = starlakeSchema.finalName,
       sql = Some(sqlWithTransformedFields),
       database = schemaHandler.getDatabase(domain),
       domain = domain.finalName,
@@ -308,7 +308,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
   val now = new Timestamp(System.currentTimeMillis())
   val auditLog = AuditLog(
     jobid = "ignore",
-    paths = Some(targetTableName),
+    paths = Some(targetFullTableName),
     domain = domain.finalName,
     schema = starlakeSchema.finalName,
     success = true,
@@ -343,7 +343,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
   def buildSQLStatements(): Map[String, Object] = {
     val twoSteps = this.twoSteps
-    val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
+    val targetFullTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
     val tempTableName = s"${domain.finalName}.${this.tempTableName}"
     val incomingDir = getIncomingDir()
     val pattern = starlakeSchema.pattern.toString
@@ -352,7 +352,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     val ddlMap: Map[String, Map[String, String]] =
       schemaHandler.getDdlMapping(starlakeSchema.attributes)
     val options =
-      new JdbcOptionsInWrite(sinkConnection.jdbcUrl, targetTableName, sinkConnection.options)
+      new JdbcOptionsInWrite(sinkConnection.jdbcUrl, targetFullTableName, sinkConnection.options)
 
     val connectionPreActions =
       sinkConnection.options.get("preActions").map(_.split(';')).getOrElse(Array.empty).toList
@@ -396,7 +396,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           "secondStep"          -> workflowStatements.task.asMap().asJava,
           "dropFirstStep"       -> dropFirstStepTableSql,
           "tempTableName"       -> tempTableName,
-          "targetTableName"     -> targetTableName,
+          "targetTableName"     -> targetFullTableName,
           "domain"              -> domain.finalName,
           "table"               -> starlakeSchema.finalName,
           "writeStrategy"       -> writeDisposition,
@@ -412,7 +412,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           )
       } else {
         val (createSchemaSql, createTableSql, _) = SparkUtils.buildCreateTableSQL(
-          targetTableName,
+          targetFullTableName,
           finalSparkSchema,
           caseSensitive = false,
           temporaryTable = false,
@@ -420,7 +420,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           ddlMap
         )
         val createTableSqls = List(createSchemaSql, createTableSql)
-        val workflowStatements = this.secondStepSQL(List(targetTableName))
+        val workflowStatements = this.secondStepSQL(List(targetFullTableName))
         val loadTaskSQL =
           Map(
             "steps"           -> "1",
@@ -428,7 +428,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
             "pattern"         -> pattern,
             "format"          -> format.toString,
             "createTable"     -> createTableSqls.asJava,
-            "targetTableName" -> targetTableName,
+            "targetTableName" -> targetFullTableName,
             "domain"          -> domain.finalName,
             "table"           -> starlakeSchema.finalName,
             "writeStrategy"   -> writeDisposition,
