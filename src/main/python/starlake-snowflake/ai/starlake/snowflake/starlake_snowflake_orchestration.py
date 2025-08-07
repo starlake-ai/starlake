@@ -45,6 +45,7 @@ class SnowflakeDag(DAG):
         not_scheduled_datasets: Optional[List[StarlakeDataset]] = None,
         least_frequent_datasets: Optional[List[StarlakeDataset]] = None,
         most_frequent_datasets: Optional[List[StarlakeDataset]] = None,
+        scheduled_datasets: dict = None,
     ) -> None:
         import logging
         logging.basicConfig(level=logging.INFO)
@@ -217,7 +218,7 @@ class SnowflakeDag(DAG):
             if computed_cron:
                 schedule = computed_cron
             elif changes:
-                sorted_crons_by_frequency: Tuple[Dict[int, List[str]], List[str]] = sort_crons_by_frequency(set(self.scheduled_datasets.values()))
+                sorted_crons_by_frequency: Tuple[Dict[int, List[str]], List[str]] = sort_crons_by_frequency(set(scheduled_datasets.values()))
                 most_frequent_cron = sorted_crons_by_frequency[1][0]
                 from datetime import datetime
                 from croniter import croniter
@@ -344,6 +345,7 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             task_auto_retry_attempts=job.retries,
             allow_overlapping_execution=job.allow_overlapping_execution,
             config=config,
+            scheduled_datasets = self.scheduled_datasets,
         )
 
     def __enter__(self):
@@ -387,9 +389,7 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
         if database is None or schema is None:
             raise StarlakeSnowflakeError("Database and schema must be provided to deploy the pipeline")
         stage_name = f"{database}.{schema}.{self.stage_location}".upper()
-        result = session.sql(f"SHOW STAGES LIKE '{stage_name.split('.')[-1]}'").collect()
-        if not result:
-            session.sql(f"CREATE STAGE {stage_name}").collect()
+        session.sql(f"CREATE STAGE IF NOT EXISTS {stage_name}").collect()
         session.custom_package_usage_config = {"enabled": True, "force_push": True}
         op = self.get_dag_operation(session, database, schema)
         # op.delete(pipeline_id)
@@ -622,8 +622,11 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             super().backfill(timeout=timeout, start_date=start_date, end_date=end_date, **kwargs)
 
     def get_dag_operation(self, session: Session, database: str, schema: str) -> DAGOperation:
+        session.sql(f"CREATE DATABASE IF NOT EXISTS {database}").collect()
         session.sql(f"USE DATABASE {database}").collect()
+        session.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}").collect()
         session.sql(f"USE SCHEMA {schema}").collect()
+        session.sql(f"CREATE WAREHOUSE IF NOT EXISTS {self.warehouse.upper()}").collect()
         session.sql(f"USE WAREHOUSE {self.warehouse.upper()}").collect()
         root = Root(session)
         schema = root.databases[database].schemas[schema]
