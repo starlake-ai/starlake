@@ -208,7 +208,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
                 job_details["job"] = job
 
             if config.dry_run:
-                output = f"Starlake command {" ".join(arguments)} execution skipped due to dry run mode."
+                output = f"Starlake command {' '.join(arguments)} execution skipped due to dry run mode."
                 context.log.info(output)
                 result = {"status": {"state": "DONE"}}
             else:
@@ -224,7 +224,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
                 if failure:
                     yield Output(value=value, output_name=failure)
                 elif skip_or_start:
-                    context.log.info(f"Skipping Starlake command {" ".join(arguments)} execution due to skip_or_start flag.")
+                    context.log.info(f"Skipping Starlake command {' '.join(arguments)} execution due to skip_or_start flag.")
                     return
                 else:
                     raise Failure(description=value)
