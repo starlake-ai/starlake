@@ -288,7 +288,7 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
       meta.setErrorMode(JdbcMetaData.ErrorMode.LENIENT)
     )
     val tbl = res.getScopeTable(3)
-    assert("customers" == tbl)
+    assert("c" == tbl)
   }
   "Lineage with multiple input cols2" should "succeed" in {
     withEnvs("SL_ROOT" -> (theSampleFolder.parent / "lineage").pathAsString) {

@@ -445,7 +445,11 @@ object ColLineage {
           )
         }
         .toList
-    relations.distinct
+    relations.distinct.filter { relation =>
+      // Filter out relations where from and to are the same
+      relation.from.domain != relation.to.domain ||
+      relation.from.table != relation.to.table || relation.from.column != relation.to.column
+    }
   }
   def tablesInRelations(relations: List[Relation], allTaskNames: List[String]): List[Table] = {
     val tables =
