@@ -497,7 +497,7 @@ abstract class AutoTask(
     )
 
     TaskSQLStatements(
-      taskDesc.name,
+      taskDesc.fullName(),
       taskDesc.domain,
       taskDesc.table,
       createSchemaAndTableSql.map(_.pyFormat()),
