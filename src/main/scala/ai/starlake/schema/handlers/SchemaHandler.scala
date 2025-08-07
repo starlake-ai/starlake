@@ -790,13 +790,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     raw: Boolean = false
   ): List[DomainInfo] = {
     _domains match {
-      case Some(domains) =>
+      case Some(domains) if domains.nonEmpty =>
         if (reload || raw) { // raw is used only for special use cases so we force it to reload
           val (_, domains) = initDomains(domainNames, tableNames, raw)
           domains
         } else
           domains
-      case None =>
+      case _ =>
         val (_, domains) = initDomains(domainNames, tableNames, raw)
         domains
     }
