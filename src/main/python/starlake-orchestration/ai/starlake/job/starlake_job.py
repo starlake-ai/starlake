@@ -30,6 +30,7 @@ from enum import Enum
 
 class StarlakeOrchestrator(str, Enum):
     AIRFLOW = "airflow"
+    COMPOSER = "airflow"
     DAGSTER = "dagster"
     SNOWFLAKE = "snowflake"
     STARLAKE = "starlake"

@@ -35,7 +35,8 @@ class JdbcAutoTask(
   accessToken: Option[String] = None,
   resultPageSize: Int,
   resultPageNumber: Int,
-  conn: Option[java.sql.Connection]
+  conn: Option[java.sql.Connection],
+  scheduledDate: Option[String]
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,
@@ -48,7 +49,8 @@ class JdbcAutoTask(
       resultPageSize,
       resultPageNumber,
       accessToken,
-      conn
+      conn,
+      scheduledDate
     ) {
 
   def applyJdbcAcl(connection: Connection, forceApply: Boolean): Try[Unit] =

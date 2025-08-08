@@ -70,7 +70,8 @@ case class AuditLog(
   step: String,
   database: Option[String],
   tenant: String,
-  test: Boolean
+  test: Boolean,
+  scheduledDate: Option[String]
 ) {
 
   def asMap(): Map[String, Any] = {
@@ -89,7 +90,8 @@ case class AuditLog(
       "tenant"        -> tenant
     ) ++ List(
       paths.map("paths" -> _),
-      database.map("database" -> _)
+      database.map("database" -> _),
+      scheduledDate.map("scheduledDate" -> _)
     ).flatten
   }
 
@@ -112,7 +114,8 @@ case class AuditLog(
         "message"       -> message.replaceAll("'", "-").replaceAll("\n", " "),
         "step"          -> step,
         "database"      -> database.getOrElse(""),
-        "tenant"        -> tenant.replaceAll("'", "-")
+        "tenant"        -> tenant.replaceAll("'", "-"),
+        "scheduledDate" -> scheduledDate.getOrElse(timestamp.toString)
       ),
       Map.empty
     )
@@ -135,6 +138,7 @@ case class AuditLog(
        |step=$step
        |database=$database
        |tenant=$tenant
+       |scheduledDate=${scheduledDate.getOrElse("null")}
        |""".stripMargin.split('\n').mkString(",")
 }
 
@@ -158,7 +162,8 @@ object AuditLog extends LazyLogging {
                '{{message}}' as MESSAGE,
                '{{step}}' as STEP,
                '{{database}}' as DATABASE,
-               '{{tenant}}' as TENANT
+               '{{tenant}}' as TENANT,
+                TO_TIMESTAMP('{{scheduledDate}}') as SCHEDULEDDATE
            """)
     template
   }
@@ -177,7 +182,8 @@ object AuditLog extends LazyLogging {
     ("message", StandardSQLTypeName.STRING, StringType),
     ("step", StandardSQLTypeName.STRING, StringType),
     ("database", StandardSQLTypeName.STRING, StringType),
-    ("tenant", StandardSQLTypeName.STRING, StringType)
+    ("tenant", StandardSQLTypeName.STRING, StringType),
+    ("scheduledDate", StandardSQLTypeName.TIMESTAMP, TimestampType)
   )
 
   val starlakeSchema = SchemaInfo(
@@ -269,6 +275,7 @@ object AuditLog extends LazyLogging {
                 Engine.JDBC
               case false => auditTaskDesc.getSinkConnection().getEngine()
             }
+          val scheduledDate = productionLog.headOption.flatMap(_.scheduledDate)
           val task = AutoTask
             .task(
               appId = Option(jobId),
@@ -282,7 +289,8 @@ object AuditLog extends LazyLogging {
               accessToken = accessToken,
               resultPageSize = 200,
               resultPageNumber = 1,
-              dryRun = false
+              dryRun = false,
+              scheduledDate = scheduledDate
             )
           Some(task)
       }

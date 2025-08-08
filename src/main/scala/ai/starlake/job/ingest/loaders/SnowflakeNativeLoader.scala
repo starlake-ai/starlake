@@ -89,7 +89,8 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                   accessToken = ingestionJob.accessToken,
                   resultPageSize = 200,
                   resultPageNumber = 1,
-                  Some(conn)
+                  Some(conn),
+                  scheduledDate = scheduledDate
                 )(
                   settings,
                   storageHandler,

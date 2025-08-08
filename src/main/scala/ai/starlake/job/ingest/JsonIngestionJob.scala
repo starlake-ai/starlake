@@ -53,7 +53,8 @@ class JsonIngestionJob(
   val schemaHandler: SchemaHandler,
   val options: Map[String, String],
   val accessToken: Option[String],
-  val test: Boolean
+  val test: Boolean,
+  val scheduledDate: Option[String]
 )(implicit val settings: Settings)
     extends IngestionJob {
 
