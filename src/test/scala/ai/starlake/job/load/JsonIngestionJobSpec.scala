@@ -190,7 +190,8 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
       Step.LOAD.toString,
       settings.appConfig.getDefaultDatabase().orElse(Some("")),
       settings.appConfig.tenant,
-      test = false
+      test = false,
+      scheduledDate = None
     ) :: Nil
 
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] =
@@ -249,7 +250,8 @@ class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
       Step.LOAD.toString,
       settings.appConfig.getDefaultDatabase().orElse(Some("")),
       settings.appConfig.tenant,
-      test = false
+      test = false,
+      scheduledDate = None
     ) :: Nil
 
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] =

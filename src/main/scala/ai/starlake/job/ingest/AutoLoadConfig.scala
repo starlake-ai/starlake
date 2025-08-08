@@ -5,5 +5,6 @@ case class AutoLoadConfig(
   tables: Seq[String] = Seq.empty,
   options: Map[String, String] = Map.empty,
   clean: Boolean = false,
-  accessToken: Option[String]
+  accessToken: Option[String],
+  scheduledDate: Option[String]
 )

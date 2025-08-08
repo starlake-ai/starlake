@@ -32,6 +32,7 @@ import scala.util.{Failure, Success, Try}
 trait IngestionJob extends SparkJob {
   val accessToken: Option[String]
   val test: Boolean
+  val scheduledDate: Option[String]
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
     val validatorClassName = loader.toLowerCase() match {
       case "native" =>
@@ -317,7 +318,8 @@ trait IngestionJob extends SparkJob {
           Step.LOAD.toString,
           schemaHandler.getDatabase(domain),
           settings.appConfig.tenant,
-          false
+          test = false,
+          scheduledDate
         )
       }
     } else {
@@ -337,7 +339,8 @@ trait IngestionJob extends SparkJob {
           Step.LOAD.toString,
           schemaHandler.getDatabase(domain),
           settings.appConfig.tenant,
-          false
+          test = false,
+          scheduledDate
         )
       )
     }
@@ -372,7 +375,8 @@ trait IngestionJob extends SparkJob {
         Step.LOAD.toString,
         schemaHandler.getDatabase(domain),
         settings.appConfig.tenant,
-        test = false
+        test = false,
+        scheduledDate
       )
     }
     AuditLog.sink(logs, accessToken)(settings, storageHandler, schemaHandler).map(_ => logs)
@@ -841,7 +845,8 @@ trait IngestionJob extends SparkJob {
               test = test,
               logExecution = false,
               resultPageSize = 200,
-              resultPageNumber = 1
+              resultPageNumber = 1,
+              scheduledDate = scheduledDate
             )(
               settings,
               storageHandler,
@@ -859,7 +864,8 @@ trait IngestionJob extends SparkJob {
               schema = Some(schema),
               accessToken = accessToken,
               resultPageSize = 200,
-              resultPageNumber = 1
+              resultPageNumber = 1,
+              scheduledDate = scheduledDate
             )(
               settings,
               storageHandler,
@@ -921,7 +927,8 @@ trait IngestionJob extends SparkJob {
       domainName,
       schemaName,
       now,
-      path
+      path,
+      scheduledDate
     ) match {
       case Success((rejectedDF, rejectedPath)) =>
         Success(rejectedPath)

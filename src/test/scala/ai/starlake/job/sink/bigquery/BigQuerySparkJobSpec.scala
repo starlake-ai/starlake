@@ -141,7 +141,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           schemaHandler.jobs(true).foreach(it => logger.info(it.toString))
           val validator = new IngestionWorkflow(storageHandler, schemaHandler)
           validator
-            .autoJob(TransformConfig("SL_BQ_TEST_DS.tableWithPartitions"))
+            .autoJob(TransformConfig("SL_BQ_TEST_DS.tableWithPartitions", scheduledDate = None))
             .isSuccess shouldBe true
           // check that table is created correctly with the right number of lines
           private val createdTable: Table =
@@ -154,7 +154,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             .shouldBe("DOB")
           validator
             .autoJob(
-              TransformConfig("SL_BQ_TEST_DS.addPartitionsWithOverwrite")
+              TransformConfig("SL_BQ_TEST_DS.addPartitionsWithOverwrite", scheduledDate = None)
             )
             .isSuccess shouldBe true
           private val updatedTable: Table =

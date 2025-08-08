@@ -67,12 +67,21 @@ trait LoadCmd extends Cmd[LoadConfig] {
         .opt[Seq[String]]("primaryKeys")
         .optional()
         .action((x, c) => c.copy(primaryKey = x.toList))
-        .text("primary keys to set on the table schema")
+        .text("primary keys to set on the table schema"),
+      builder
+        .opt[String]("scheduledDate")
+        .optional()
+        .action((x, c) => c.copy(scheduledDate = Some(x)))
+        .text("Scheduled date for the job, in format yyyy-MM-dd'T'HH:mm:ss.SSSZ")
     )
   }
 
   def parse(args: Seq[String]): Option[LoadConfig] =
-    OParser.parse(parser, args, LoadConfig(accessToken = None, test = false, files = None))
+    OParser.parse(
+      parser,
+      args,
+      LoadConfig(accessToken = None, test = false, files = None, scheduledDate = None)
+    )
 
   override def run(config: LoadConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
