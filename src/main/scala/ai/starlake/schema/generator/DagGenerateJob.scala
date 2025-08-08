@@ -323,16 +323,17 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 domain.finalName,
                 java.util.List.of[TableDomain](TableDomain(table.name, table.finalName))
               )
-              val (scheduleValue, nextScheduleIndex) = getScheduleName(schedule, scheduleIndex)
-              val cron = settings.appConfig.schedulePresets.getOrElse(
-                schedule,
-                scheduleValue
+              val (scheduleName, nextScheduleIndex) = getScheduleName(schedule, scheduleIndex)
+              scheduleIndex = nextScheduleIndex
+              val cronValue = settings.appConfig.schedulePresets.getOrElse(
+                scheduleName,
+                schedule
               )
-              val cronIfNone = if (cron == "None") null else cron
+              val cronIfNone = if (cronValue == "None") null else cronValue
               val schedules =
                 List(
                   DagSchedule(
-                    schedule,
+                    scheduleName,
                     cronIfNone,
                     java.util.List.of[DagDomain](dagDomain),
                     java.util.List.of(rawDomains)
@@ -341,7 +342,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
               val envVars =
                 schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
-                  "schedule"      -> scheduleValue,
+                  "schedule"      -> scheduleName,
                   "domain"        -> domain.name,
                   "finalDomain"   -> domain.finalName,
                   "renamedDomain" -> domain.finalName,
@@ -354,7 +355,6 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 k -> Utils.parseJinja(v, envVars)
               }
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
-              scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
               val orchestratorName = orchestratorFromTemplate(dagConfig.template).toLowerCase()
               val nativeOrchestrator = Set("snowflake", "databricks").contains(orchestratorName)
@@ -410,6 +410,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           }
           .toList
           .sortBy(_.name)
+        var scheduleIndex = 1
         domains.foreach { domain =>
           val schedules = groupedBySchedule
             .flatMap { case (schedule, groupedByDomain) =>
@@ -421,13 +422,15 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                   domain.finalName,
                   tables.map(t => TableDomain(t.name, t.finalName)).asJava
                 )
-                val cron = settings.appConfig.schedulePresets.getOrElse(
-                  schedule,
+                val (scheduleName, nextScheduleIndex) = getScheduleName(schedule, scheduleIndex)
+                scheduleIndex = nextScheduleIndex
+                val cronValue = settings.appConfig.schedulePresets.getOrElse(
+                  scheduleName,
                   schedule
                 )
-                val cronIfNone = if (cron == "None") null else cron
+                val cronIfNone = if (cronValue == "None") null else cronValue
                 DagSchedule(
-                  schedule,
+                  scheduleName,
                   cronIfNone,
                   java.util.List.of[DagDomain](dagDomain),
                   java.util.List.of(rawDomains)
@@ -504,7 +507,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
           val dagSchedules = groupedBySchedule
             .map { case (schedule, groupedByDomain) =>
-              val (scheduleValue, nextScheduleIndex) =
+              val (scheduleName, nextScheduleIndex) =
                 getScheduleName(schedule, scheduleIndex)
               scheduleIndex = nextScheduleIndex
               val (dagDomains, rawDomains) = groupedByDomain
@@ -518,12 +521,12 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 .toList
                 .sortBy { case (d, r) => d.name }
                 .unzip
-              val cron = settings.appConfig.schedulePresets.getOrElse(
-                schedule,
-                scheduleValue
+              val cronValue = settings.appConfig.schedulePresets.getOrElse(
+                scheduleName,
+                schedule
               )
-              val cronIfNone = if (cron == "None") null else cron
-              DagSchedule(scheduleValue, cronIfNone, dagDomains.asJava, rawDomains.asJava)
+              val cronIfNone = if (cronValue == "None") null else cronValue
+              DagSchedule(scheduleName, cronIfNone, dagDomains.asJava, rawDomains.asJava)
             }
             .toList
             .sortBy(_.schedule)
