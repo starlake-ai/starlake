@@ -163,7 +163,7 @@ object AuditLog extends LazyLogging {
                '{{step}}' as STEP,
                '{{database}}' as DATABASE,
                '{{tenant}}' as TENANT,
-                TO_TIMESTAMP('{{scheduledDate}}') as SCHEDULEDDATE
+                TO_TIMESTAMP('{{scheduledDate}}') as SCHEDULED_DATE
            """)
     template
   }
