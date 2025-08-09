@@ -17,7 +17,8 @@ case class TransformConfig(
   dryRun: Boolean = false,
   query: Option[String] = None,
   pageSize: Int = 1000,
-  pageNumber: Int = 1
+  pageNumber: Int = 1,
+  scheduledDate: Option[String]
 ) {
   def optionsAsString: String = options.map { case (k, v) => s"$k=$v" }.mkString(",")
   override def toString: String = {

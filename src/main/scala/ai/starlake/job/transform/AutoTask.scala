@@ -66,7 +66,8 @@ abstract class AutoTask(
   val resultPageSize: Int,
   val resultPageNumber: Int,
   val accessToken: Option[String],
-  conn: Option[java.sql.Connection]
+  conn: Option[java.sql.Connection],
+  val scheduledDate: Option[String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
@@ -342,7 +343,8 @@ abstract class AutoTask(
         Step.TRANSFORM.toString,
         taskDesc.getDatabase(),
         settings.appConfig.tenant,
-        test
+        test = test,
+        scheduledDate = scheduledDate
       )
       Some(log)
     } else {
@@ -542,7 +544,8 @@ object AutoTask extends LazyLogging {
     tableName: String,
     connectionRef: String,
     accessToken: Option[String] = None,
-    _auditTableName: Option[String] = None
+    _auditTableName: Option[String] = None,
+    scheduledDate: Option[String] = None
   )(implicit
     settings: Settings
   ): AutoTask = {
@@ -569,11 +572,12 @@ object AutoTask extends LazyLogging {
         engine = settings.appConfig.getConnection(connectionRef).getEngine(),
         resultPageSize = 1000,
         resultPageNumber = 1,
-        dryRun = false
+        dryRun = false,
+        scheduledDate = scheduledDate
       )(settings, settings.storageHandler(), settings.schemaHandler())
   }
 
-  /** Used for linegae only
+  /** Used for lineage only
     */
   def unauthenticatedTasks(reload: Boolean)(implicit
     settings: Settings,
@@ -594,7 +598,8 @@ object AutoTask extends LazyLogging {
           logExecution = true,
           resultPageSize = 200,
           resultPageNumber = 1,
-          dryRun = false
+          dryRun = false,
+          scheduledDate = None // No scheduled date for unauthenticated tasks
         )
       )
   }
@@ -630,7 +635,8 @@ object AutoTask extends LazyLogging {
     accessToken: Option[String] = None,
     resultPageSize: Int,
     resultPageNumber: Int,
-    dryRun: Boolean
+    dryRun: Boolean,
+    scheduledDate: Option[String]
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -651,7 +657,8 @@ object AutoTask extends LazyLogging {
           accessToken = accessToken,
           resultPageSize = resultPageSize,
           resultPageNumber = resultPageNumber,
-          dryRun = dryRun
+          dryRun = dryRun,
+          scheduledDate = scheduledDate
         )
       case Engine.JDBC
           if sinkConfig
@@ -668,7 +675,8 @@ object AutoTask extends LazyLogging {
           accessToken = accessToken,
           resultPageSize = resultPageSize,
           resultPageNumber = resultPageNumber,
-          conn = None
+          conn = None,
+          scheduledDate = scheduledDate
         )
       case _ =>
         sinkConfig match {
@@ -684,7 +692,8 @@ object AutoTask extends LazyLogging {
               accessToken = accessToken,
               resultPageSize = resultPageSize,
               logExecution = logExecution,
-              resultPageNumber = resultPageNumber
+              resultPageNumber = resultPageNumber,
+              scheduledDate = scheduledDate
             )
 
           case _ =>
@@ -698,7 +707,8 @@ object AutoTask extends LazyLogging {
               accessToken = accessToken,
               resultPageSize = resultPageSize,
               resultPageNumber = resultPageNumber,
-              logExecution = logExecution
+              logExecution = logExecution,
+              scheduledDate = scheduledDate
             )
         }
     }
@@ -713,7 +723,8 @@ object AutoTask extends LazyLogging {
     test: Boolean,
     parseSQL: Boolean,
     pageSize: Int,
-    pageNumber: Int
+    pageNumber: Int,
+    scheduledDate: Option[String]
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -739,7 +750,8 @@ object AutoTask extends LazyLogging {
           test,
           parseSQL,
           pageSize,
-          pageNumber
+          pageNumber,
+          scheduledDate
         )
       case Failure(e) =>
         Failure(e)
@@ -758,7 +770,8 @@ object AutoTask extends LazyLogging {
     test: Boolean,
     parseSQL: Boolean,
     pageSize: Int,
-    pageNumber: Int
+    pageNumber: Int,
+    scheduledDate: Option[String]
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -818,7 +831,8 @@ object AutoTask extends LazyLogging {
       accessToken = accessToken,
       resultPageSize = pageSize,
       resultPageNumber = pageNumber,
-      dryRun = false
+      dryRun = false,
+      scheduledDate = scheduledDate
     )
     t.run() match {
       case Success(jobResult) =>

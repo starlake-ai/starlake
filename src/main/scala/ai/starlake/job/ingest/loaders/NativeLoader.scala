@@ -52,6 +52,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
   lazy val tempTableName: String = SQLUtils.temporaryTableName(starlakeSchema.finalName)
 
+  lazy val scheduledDate: Option[String] = ingestionJob.scheduledDate
+
   protected def requireTwoSteps(schema: SchemaInfo): Boolean = {
     // renamed attribute can be loaded directly so it's not in the condition
     schema
@@ -124,7 +126,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
         accessToken = accessToken,
         resultPageSize = 200,
         resultPageNumber = 1,
-        dryRun = false
+        dryRun = false,
+        scheduledDate = scheduledDate
       )(
         settings,
         storageHandler,
@@ -261,7 +264,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           logExecution = true,
           resultPageSize = 200,
           resultPageNumber = 1,
-          dryRun = false
+          dryRun = false,
+          scheduledDate = scheduledDate
         )(
           settings,
           storageHandler,
@@ -321,7 +325,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     step = Step.LOAD.toString,
     database = database,
     tenant = settings.appConfig.tenant,
-    test = false
+    test = false,
+    scheduledDate = scheduledDate
   )
   def auditStatements(): Option[TaskSQLStatements] = {
     if (settings.appConfig.audit.active.getOrElse(true)) {

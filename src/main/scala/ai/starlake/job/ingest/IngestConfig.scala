@@ -34,5 +34,6 @@ case class IngestConfig(
   schema: String = "",
   paths: List[Path] = Nil,
   options: Map[String, String] = Map.empty,
-  accessToken: Option[String]
+  accessToken: Option[String],
+  scheduledDate: Option[String]
 )

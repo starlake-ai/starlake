@@ -43,7 +43,8 @@ class BigQueryAutoTask(
   accessToken: Option[String] = None,
   resultPageSize: Int,
   resultPageNumber: Int,
-  dryRun: Boolean
+  dryRun: Boolean,
+  scheduledDate: Option[String]
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,
@@ -56,7 +57,8 @@ class BigQueryAutoTask(
       resultPageSize,
       resultPageNumber,
       accessToken,
-      None
+      None,
+      scheduledDate
     ) {
 
   private lazy val bqSink = taskDesc.sink

@@ -8,5 +8,6 @@ case class LoadConfig(
   test: Boolean,
   files: Option[List[String]] = None,
   variant: Option[Boolean] = None,
-  primaryKey: List[String] = List.empty
+  primaryKey: List[String] = List.empty,
+  scheduledDate: Option[String]
 )

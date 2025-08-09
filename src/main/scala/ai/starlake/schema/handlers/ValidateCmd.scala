@@ -73,7 +73,8 @@ object ValidateCmd extends Cmd[ValidateConfig] {
           test = false,
           parseSQL = false,
           pageSize = 200,
-          pageNumber = 1
+          pageNumber = 1,
+          scheduledDate = None // No scheduled date for validate command
         )(
           settings,
           settings.storageHandler(),

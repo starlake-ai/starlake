@@ -36,7 +36,8 @@ class SparkAutoTask(
   accessToken: Option[String] = None,
   resultPageSize: Int,
   resultPageNumber: Int,
-  schema: Option[SchemaInfo] = None
+  schema: Option[SchemaInfo] = None,
+  scheduledDate: Option[String]
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,
@@ -49,7 +50,8 @@ class SparkAutoTask(
       resultPageSize,
       resultPageNumber,
       accessToken,
-      None
+      None,
+      scheduledDate
     ) {
 
   override def run(): Try[JobResult] = {
@@ -405,7 +407,8 @@ class SparkAutoTask(
                 accessToken = this.accessToken,
                 resultPageSize = resultPageSize,
                 resultPageNumber = resultPageNumber,
-                dryRun = false
+                dryRun = false,
+                scheduledDate = scheduledDate
               )(
                 settings,
                 storageHandler,
@@ -425,7 +428,8 @@ class SparkAutoTask(
                 accessToken = this.accessToken,
                 resultPageSize = resultPageSize,
                 resultPageNumber = resultPageNumber,
-                None
+                None,
+                scheduledDate = scheduledDate
               )(
                 settings,
                 storageHandler,
@@ -644,7 +648,8 @@ class SparkAutoTask(
             accessToken = accessToken,
             resultPageSize = resultPageSize,
             resultPageNumber = resultPageNumber,
-            dryRun = false
+            dryRun = false,
+            scheduledDate = scheduledDate
           )
           val secondStepJobResult = secondStepTask.runNative(loadedDF.schema)
           sparkBigQueryJob.dropTable(firstStepTemplateTableId)
@@ -670,7 +675,8 @@ class SparkAutoTask(
           accessToken = accessToken,
           resultPageSize = resultPageSize,
           resultPageNumber = resultPageNumber,
-          dryRun = false
+          dryRun = false,
+          scheduledDate = scheduledDate
         )
 
       val sparkSchema = loadedDF.schema
@@ -828,7 +834,8 @@ class SparkAutoTask(
             accessToken = this.accessToken,
             resultPageSize = resultPageSize,
             resultPageNumber = resultPageNumber,
-            conn = None
+            conn = None,
+            scheduledDate = scheduledDate
           )(
             settings,
             storageHandler,
@@ -868,7 +875,8 @@ class SparkAutoTask(
             accessToken = this.accessToken,
             resultPageSize = resultPageSize,
             resultPageNumber = resultPageNumber,
-            conn = None
+            conn = None,
+            scheduledDate = scheduledDate
           )
         secondAutoStepTask.updateJdbcTableSchema(loadedDF.schema, fullTableName, TableSync.ALL)
         val jobResult = secondAutoStepTask.runJDBC(Some(loadedDF))

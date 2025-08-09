@@ -292,7 +292,9 @@ class SchemaInfo1HandlerSpec extends TestHelper {
         }
 
         private val validator = loadWorkflow("DOMAIN", "/sample/Players.csv")
-        validator.load(LoadConfig(accessToken = None, test = false, files = None))
+        validator.load(
+          LoadConfig(accessToken = None, test = false, files = None, scheduledDate = None)
+        )
 
         deleteSourceDomains()
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-timestamp.sl.yml")
@@ -302,7 +304,9 @@ class SchemaInfo1HandlerSpec extends TestHelper {
           Some("Players.sl.yml")
         )
         private val validator2 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
-        validator2.load(LoadConfig(accessToken = None, test = false, files = None))
+        validator2.load(
+          LoadConfig(accessToken = None, test = false, files = None, scheduledDate = None)
+        )
 
         /*
         val accepted: Array[Row] = sparkSession.read
@@ -333,7 +337,9 @@ class SchemaInfo1HandlerSpec extends TestHelper {
         deliverSourceTable("DOMAIN", "/sample/merge/PlayersSimple.sl.yml", Some("Players.sl.yml"))
 
         private val validator3 = loadWorkflow("DOMAIN", "/sample/Players-merge.csv")
-        validator3.load(LoadConfig(accessToken = None, test = false, files = None))
+        validator3.load(
+          LoadConfig(accessToken = None, test = false, files = None, scheduledDate = None)
+        )
 
         /*        val accepted2: Array[Row] = sparkSession.read
           .parquet(starlakeDatasetsPath + s"/accepted/$datasetDomainName/Players")
@@ -377,7 +383,9 @@ class SchemaInfo1HandlerSpec extends TestHelper {
         deliverSourceDomain("DOMAIN", "/sample/merge/merge-with-new-schema.sl.yml")
         deliverSourceTable("DOMAIN", "/sample/merge/Players.sl.yml")
         private val validator = loadWorkflow("DOMAIN", "/sample/merge/Players-Entitled.csv")
-        validator.load(LoadConfig(accessToken = None, test = false, files = None))
+        validator.load(
+          LoadConfig(accessToken = None, test = false, files = None, scheduledDate = None)
+        )
 
         val accepted: Array[Row] = sparkSession
           .sql(s"select PK, firstName, lastName, DOB, YEAR, MONTH from $datasetDomainName.Players")

@@ -182,7 +182,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 accessToken = None,
                 resultPageSize = 1,
                 resultPageNumber = 1,
-                dryRun = false
+                dryRun = false,
+                scheduledDate = None // No scheduled date for task dags
               )(settings, settings.storageHandler(), schemaHandler)
               Try {
                 AutoTaskQueries(task)
@@ -369,7 +370,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                     schemaHandler = schemaHandler,
                     options = options,
                     accessToken = None,
-                    test = false
+                    test = false,
+                    scheduledDate = None // No scheduled date for domain dags
                   ).buildListOfSQLStatementsAsMap(orchestratorName)
                 val context = LoadDagGenerationContext(
                   config = dagConfig.copy(options = options, comment = comment),
