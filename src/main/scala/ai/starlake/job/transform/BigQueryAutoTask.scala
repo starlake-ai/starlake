@@ -3,10 +3,10 @@ package ai.starlake.job.transform
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.extract.{
-  BigQueryTablesConfig,
   ExtractBigQuerySchema,
   ExtractSchemaCmd,
-  ExtractSchemaConfig
+  ExtractSchemaConfig,
+  TablesExtractConfig
 }
 import ai.starlake.job.metrics.{BigQueryExpectationAssertionHandler, ExpectationJob}
 import ai.starlake.job.sink.bigquery._
@@ -417,7 +417,7 @@ class BigQueryAutoTask(
                         new Path(new Path(DatasetArea.external, domainName), s"$tableName.sl.yml")
                       if (!storageHandler.exists(slFile)) {
                         val config =
-                          BigQueryTablesConfig(tables = Map(domainName -> List(tableName)))
+                          TablesExtractConfig(tables = Map(domainName -> List(tableName)))
                         ExtractBigQuerySchema.extractAndSaveToExternal(config, schemaHandler)
                       }
                     }

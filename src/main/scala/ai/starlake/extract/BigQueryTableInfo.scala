@@ -22,7 +22,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.BigQuerySparkWriter
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import com.google.cloud.bigquery.{Dataset, DatasetInfo, Table, TableInfo}
@@ -97,7 +97,7 @@ object BigQueryTableInfo extends LazyLogging {
       logTime,
       settings.appConfig.tenant
     )
-  def sink(config: BigQueryTablesConfig)(implicit iSettings: Settings): Unit = {
+  def sink(config: TablesExtractConfig)(implicit iSettings: Settings): Unit = {
     val logTime = java.sql.Timestamp.from(Instant.now)
     val selectedInfos: List[(Dataset, List[Table])] =
       extractTableInfos(config)
@@ -148,7 +148,7 @@ object BigQueryTableInfo extends LazyLogging {
     }
   }
 
-  def extractTableInfos(config: BigQueryTablesConfig)(implicit
+  def extractTableInfos(config: TablesExtractConfig)(implicit
     settings: Settings
   ): List[(Dataset, List[Table])] = {
     val infos = BigQueryInfo.extractInfo(config)
@@ -171,6 +171,28 @@ object BigQueryTableInfo extends LazyLogging {
     selectedInfos
   }
 
+  /** Extracts the last modified time of each table in the specified BigQuery datasets.
+    * @param config
+    * @param settings
+    * @return
+    *   A list of tuples, where each tuple contains the dataset name and a list of tuples containing
+    *   the table name and its last modified time.
+    */
+  def extractLastModifiedTime(config: TablesExtractConfig)(implicit
+    settings: Settings
+  ): List[(String, List[(String, Long)])] = {
+    extractTableInfos(config).map { case (dsInfo, tableInfos) =>
+      val list = tableInfos.map { tableInfo =>
+        val item =
+          (
+            tableInfo.getTableId.getTable,
+            tableInfo.getLastModifiedTime.longValue()
+          )
+        item
+      }
+      (dsInfo.getDatasetId.getDataset, list)
+    }
+  }
   @nowarn
   def run(args: Array[String]): Try[Unit] = {
     implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)

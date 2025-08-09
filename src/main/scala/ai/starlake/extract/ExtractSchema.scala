@@ -401,7 +401,7 @@ object ExtractSchema {
         result
       case ConnectionType.BQ =>
         val extractor = new ExtractBigQuerySchema(
-          BigQueryTablesConfig(
+          TablesExtractConfig(
             connectionRef = Some(connectionName),
             accessToken = accessToken,
             tables = tables

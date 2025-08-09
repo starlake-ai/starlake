@@ -8,7 +8,7 @@ import scala.jdk.CollectionConverters._
 
 object BigQueryInfo {
   def extractInfo(
-    config: BigQueryTablesConfig
+    config: TablesExtractConfig
   )(implicit settings: Settings): List[(Dataset, List[Table])] = {
     val implicitSettings = settings
     val bqJob = new BigQueryJobBase {

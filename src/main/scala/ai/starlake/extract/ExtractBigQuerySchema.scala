@@ -13,7 +13,7 @@ import org.apache.spark.sql.types.{StructField, StructType}
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
-class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Settings)
+class ExtractBigQuerySchema(config: TablesExtractConfig)(implicit settings: Settings)
     extends LazyLogging {
   val implicitSettings: Settings = settings
   val bqJob: BigQueryJobBase = new BigQueryJobBase {
@@ -148,7 +148,7 @@ object ExtractBigQuerySchema {
   }
 
   def extractAndSaveToExternal(
-    config: BigQueryTablesConfig,
+    config: TablesExtractConfig,
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): List[DomainInfo] = {
     val domains =

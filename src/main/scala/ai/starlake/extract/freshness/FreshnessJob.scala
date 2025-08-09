@@ -1,12 +1,13 @@
-package ai.starlake.extract
+package ai.starlake.extract.freshness
 
 import ai.starlake.config.Settings
+import ai.starlake.config.Settings.ConnectionInfo
+import ai.starlake.extract.{BigQueryTableInfo, JdbcTableInfo, TablesExtractConfig}
 import ai.starlake.job.sink.bigquery.BigQuerySparkWriter
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.WriteMode
+import ai.starlake.schema.model.{Engine, WriteMode}
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
-import com.google.cloud.bigquery.{Dataset, Table}
 import com.typesafe.scalalogging.LazyLogging
 
 import java.sql.Timestamp
@@ -25,21 +26,32 @@ case class FreshnessStatus(
   tenant: String
 )
 
-object BigQueryFreshnessInfo extends LazyLogging {
+object FreshnessJob extends LazyLogging {
   def freshness(
-    config: BigQueryTablesConfig,
+    config: TablesExtractConfig,
     schemaHandler: SchemaHandler
-  )(implicit isettings: Settings): List[FreshnessStatus] = {
-    val tables: List[(Dataset, List[Table])] =
-      BigQueryTableInfo.extractTableInfos(config)
+  )(implicit settings: Settings): List[FreshnessStatus] = {
+    val conn = ConnectionInfo.getConnectionOrDefault(config.connectionRef)
+    val tables: List[(String, List[(String, Long)])] = {
+      conn.getJdbcEngineName() match {
+        case Engine.BQ =>
+          BigQueryTableInfo.extractLastModifiedTime(config)
+        case Engine.SNOWFLAKE =>
+          new JdbcTableInfo().extractLastModifiedTime(config)
+        case _ =>
+          throw new IllegalArgumentException(
+            s"Unsupported connection type: ${conn.getJdbcEngineName()}. Only 'bigquery' is supported."
+          )
+      }
+
+    }
     val domains = schemaHandler.domains()
     val tablesFreshnessStatuses = tables.flatMap { case (dsInfo, tableInfos) =>
-      val domain = domains.find(_.finalName.equalsIgnoreCase(dsInfo.getDatasetId.getDataset))
+      val domain = domains.find(_.finalName.equalsIgnoreCase(dsInfo))
       domain match {
         case None => Nil
         case Some(domain) =>
-          tableInfos.flatMap { tableInfo =>
-            val tableName = tableInfo.getTableId.getTable
+          tableInfos.flatMap { case (tableName, lastModifiedTime) =>
             val table = domain.tables.find(_.finalName.equalsIgnoreCase(tableName))
             table match {
               case None => Nil
@@ -53,8 +65,8 @@ object BigQueryFreshnessInfo extends LazyLogging {
                       getFreshnessStatus(
                         schemaHandler.getDatabase(domain).getOrElse(""),
                         domain.finalName,
-                        tableInfo,
                         table.finalName,
+                        lastModifiedTime,
                         freshness.error,
                         "ERROR",
                         "TABLE"
@@ -64,8 +76,8 @@ object BigQueryFreshnessInfo extends LazyLogging {
                       getFreshnessStatus(
                         schemaHandler.getDatabase(domain).getOrElse(""),
                         domain.finalName,
-                        tableInfo,
                         table.finalName,
+                        lastModifiedTime,
                         freshness.warn,
                         "WARN",
                         "TABLE"
@@ -79,34 +91,34 @@ object BigQueryFreshnessInfo extends LazyLogging {
     val tasks = schemaHandler.tasks()
     val jobsFreshnessStatuses = tables.flatMap { case (dsInfo, tableInfos) =>
       val task = tasks
-        .find(_.domain.equalsIgnoreCase(dsInfo.getDatasetId.getDataset))
+        .find(_.domain.equalsIgnoreCase(dsInfo))
       task match {
         case None => Nil
         case Some(task) =>
-          val tableInfo = tableInfos.find(_.getTableId.getTable.equalsIgnoreCase(task.table))
+          val tableInfo = tableInfos.find(_._1.equalsIgnoreCase(task.table))
           tableInfo match {
             case None => Nil
-            case Some(tableInfo) =>
+            case Some((tableName, lastModifiedTime)) =>
               val freshness = task.freshness
               freshness match {
                 case None => Nil
                 case Some(freshness) =>
                   val errorStatus =
                     getFreshnessStatus(
-                      task.database.getOrElse(isettings.appConfig.database),
+                      task.database.getOrElse(settings.appConfig.database),
                       task.domain,
-                      tableInfo,
                       task.table,
+                      lastModifiedTime,
                       freshness.error,
                       "ERROR",
                       "JOB"
                     )
                   errorStatus.orElse {
                     getFreshnessStatus(
-                      task.database.getOrElse(isettings.appConfig.database),
+                      task.database.getOrElse(settings.appConfig.database),
                       task.domain,
-                      tableInfo,
                       task.table,
+                      lastModifiedTime,
                       freshness.warn,
                       "WARN",
                       "JOB"
@@ -123,7 +135,7 @@ object BigQueryFreshnessInfo extends LazyLogging {
       val job = new SparkJob {
         override def name: String = "BigQueryFreshnessInfo"
 
-        override implicit def settings: Settings = isettings
+        override implicit def settings: Settings = settings
 
         /** Just to force any job to implement its entry point using within the "run" method
           *
@@ -160,8 +172,8 @@ object BigQueryFreshnessInfo extends LazyLogging {
   private def getFreshnessStatus(
     domainDatabaseName: String,
     domainName: String,
-    tableInfo: Table,
     tableName: String,
+    lastModifiedTime: Long,
     duration: Option[String],
     level: String,
     typ: String
@@ -171,7 +183,6 @@ object BigQueryFreshnessInfo extends LazyLogging {
       case Some(duration) =>
         val warnOrErrorDuration = Duration(duration).toMillis
         val now = System.currentTimeMillis()
-        val lastModifiedTime = tableInfo.getLastModifiedTime
         if (now - warnOrErrorDuration > lastModifiedTime)
           Some(
             FreshnessStatus(
@@ -192,12 +203,12 @@ object BigQueryFreshnessInfo extends LazyLogging {
 
   @nowarn
   def run(args: Array[String], schemaHandler: SchemaHandler): Try[Unit] = {
-    BigQueryFreshnessInfoCmd.parse(args) match {
+    FreshnessExtractCmd.parse(args) match {
       case Some(config) =>
         implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
-        BigQueryFreshnessInfoCmd.run(config, schemaHandler).map(_ => ())
+        FreshnessExtractCmd.run(config, schemaHandler).map(_ => ())
       case None =>
-        Try(throw new IllegalArgumentException(BigQueryFreshnessInfoCmd.usage()))
+        Try(throw new IllegalArgumentException(FreshnessExtractCmd.usage()))
     }
   }
 }

@@ -34,10 +34,11 @@ import com.fasterxml.jackson.databind.{
 sealed abstract class Engine(value: String) {
   override def toString: String =
     value match {
-      case "BQ"    => "bigquery"
-      case "JDBC"  => "jdbc"
-      case "SPARK" => "spark"
-      case _       => value
+      case "BQ"        => "bigquery"
+      case "JDBC"      => "jdbc"
+      case "SPARK"     => "spark"
+      case "SNOWFLAKE" => "snowflake"
+      case _           => value
     }
 }
 
@@ -48,6 +49,7 @@ object Engine {
       case "BQ" | "BIGQUERY"                  => Engine.BQ
       case "PYSPARK" | "SPARK" | "DATABRICKS" => Engine.SPARK
       case "JDBC"                             => Engine.JDBC
+      case "SNOWFLAKE"                        => Engine.SNOWFLAKE
       case _                                  => Engine.Custom(value)
     }
   }
@@ -59,6 +61,8 @@ object Engine {
   final object JDBC extends Engine("JDBC")
 
   final object SPARK extends Engine("SPARK")
+
+  final object SNOWFLAKE extends Engine("SNOWFLAKE")
 
 }
 

@@ -24,12 +24,12 @@ import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
-import ai.starlake.schema.handlers._
-import ai.starlake.schema.model._
+import ai.starlake.schema.handlers.*
+import ai.starlake.schema.model.*
 import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
-import ai.starlake.utils._
+import ai.starlake.utils.*
 import better.files.File
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -176,6 +176,26 @@ object Settings extends LazyLogging {
     options: Map[String, String] = Map.empty,
     _transpileDialect: Option[String] = None
   ) {
+    def testQuery(): String = {
+      val engine = this.getJdbcEngineName()
+      engine match {
+        case Engine.SNOWFLAKE =>
+          val db = this.options
+            .get("sfDatabase")
+            .orElse(this.options.get("db"))
+            .orElse(this.options.get("database"))
+            .getOrElse(throw new RuntimeException("Missing sfDatabase or db in connection options"))
+          val schema = this.options
+            .get("sfSchema")
+            .orElse(this.options.get("schema"))
+            .getOrElse(
+              throw new RuntimeException("Missing sfSchema or schema in connection options")
+            )
+          s"DESCRIBE SCHEMA $db.$schema"
+        case _ =>
+          "SELECT 1"
+      }
+    }
     def asMap(): Map[String, String] = this.options
     def withAccessToken(accessToken: Option[String]): ConnectionInfo = {
       accessToken
@@ -587,6 +607,30 @@ object Settings extends LazyLogging {
     val s3Options = Nil
 
     val allstorageOptions = gcsOptions ++ azureOptions ++ s3Options
+
+    def getConnectionOrDefault(
+      connectionRef: Option[String]
+    )(implicit settings: Settings): ConnectionInfo = {
+      val conn =
+        connectionRef
+          .map { ref =>
+            settings.appConfig.connections.getOrElse(
+              ref,
+              throw new IllegalArgumentException(
+                s"Connection reference '${connectionRef}' not found in the configuration"
+              )
+            )
+          }
+          .orElse {
+            settings.appConfig.connections.get(settings.appConfig.connectionRef)
+          }
+          .getOrElse(
+            throw new IllegalArgumentException(
+              s"Connection reference '${settings.appConfig.connectionRef}' not found in the configuration"
+            )
+          )
+      conn
+    }
   }
   final case class Connections(connections: Map[String, ConnectionInfo] = Map.empty)
 
@@ -607,7 +651,8 @@ object Settings extends LazyLogging {
     columnRemarks: Option[String] = None,
     tableRemarks: Option[String] = None,
     supportsJson: Option[Boolean] = None,
-    describe: Option[String] = None
+    describe: Option[String] = None,
+    lastModifiedQuery: Option[String] = None
   ) {
     def quoteIdentifier(anyIdentifier: String) = {
       s"$quote$anyIdentifier$quote"
