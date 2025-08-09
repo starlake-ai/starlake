@@ -54,12 +54,25 @@ object FreshnessJob extends LazyLogging {
           tableInfos.flatMap { case (tableName, lastModifiedTime) =>
             val table = domain.tables.find(_.finalName.equalsIgnoreCase(tableName))
             table match {
-              case None => Nil
+              case None => None
               case Some(table) =>
                 val freshness =
                   table.metadata.flatMap(_.freshness).orElse(domain.metadata.flatMap(_.freshness))
                 freshness match {
-                  case None => Nil
+                  case None =>
+                    Some(
+                      FreshnessStatus(
+                        domain.finalName,
+                        table.finalName,
+                        new Timestamp(lastModifiedTime),
+                        new Timestamp(System.currentTimeMillis()),
+                        0L,
+                        "INFO",
+                        schemaHandler.getDatabase(domain).getOrElse(""),
+                        settings.appConfig.tenant
+                      )
+                    )
+
                   case Some(freshness) =>
                     val errorStatus =
                       getFreshnessStatus(
@@ -97,11 +110,25 @@ object FreshnessJob extends LazyLogging {
         case Some(task) =>
           val tableInfo = tableInfos.find(_._1.equalsIgnoreCase(task.table))
           tableInfo match {
-            case None => Nil
+            case None =>
+              None
             case Some((tableName, lastModifiedTime)) =>
               val freshness = task.freshness
               freshness match {
-                case None => Nil
+                case None =>
+                  Some(
+                    FreshnessStatus(
+                      task.domain,
+                      task.table,
+                      new Timestamp(lastModifiedTime),
+                      new Timestamp(System.currentTimeMillis()),
+                      0L,
+                      "INFO",
+                      task.database.getOrElse(settings.appConfig.database),
+                      settings.appConfig.tenant
+                    )
+                  )
+
                 case Some(freshness) =>
                   val errorStatus =
                     getFreshnessStatus(
@@ -111,7 +138,7 @@ object FreshnessJob extends LazyLogging {
                       lastModifiedTime,
                       freshness.error,
                       "ERROR",
-                      "JOB"
+                      "TASK"
                     )
                   errorStatus.orElse {
                     getFreshnessStatus(
@@ -121,7 +148,7 @@ object FreshnessJob extends LazyLogging {
                       lastModifiedTime,
                       freshness.warn,
                       "WARN",
-                      "JOB"
+                      "TASK"
                     )
 
                   }
