@@ -52,7 +52,8 @@ class PositionIngestionJob(
   schemaHandler: SchemaHandler,
   options: Map[String, String],
   accessToken: Option[String],
-  test: Boolean
+  test: Boolean,
+  scheduledDate: Option[String]
 )(implicit settings: Settings)
     extends DsvIngestionJob(
       domain,
@@ -63,7 +64,8 @@ class PositionIngestionJob(
       schemaHandler,
       options,
       accessToken,
-      test
+      test,
+      scheduledDate
     ) {
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not

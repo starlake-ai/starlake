@@ -32,7 +32,8 @@ object IngestionUtil {
     domainName: String,
     schemaName: String,
     now: Timestamp,
-    paths: List[Path]
+    paths: List[Path],
+    scheduledDate: Option[String]
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -91,7 +92,8 @@ object IngestionUtil {
           test = false,
           logExecution = false,
           resultPageSize = 200,
-          resultPageNumber = 1
+          resultPageNumber = 1,
+          scheduledDate = scheduledDate
         )
         val res = autoTask.sink(rejectedDF)
         if (res) {

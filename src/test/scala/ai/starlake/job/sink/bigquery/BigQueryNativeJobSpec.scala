@@ -92,7 +92,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           deliverSourceDomain()
           deliverSourceTable("/sample/position/account.sl.yml")
           logger.info(settings.appConfig.datasets)
-          secure(LoadConfig(accessToken = None, test = false, files = None))
+          secure(LoadConfig(accessToken = None, test = false, files = None, scheduledDate = None))
         }
         val tableFound =
           Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
@@ -147,7 +147,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
 
           val workflow =
             new IngestionWorkflow(storageHandler, schemaHandler)
-          val config = TransformConfig("bqtest.bqjobtest")
+          val config = TransformConfig("bqtest.bqjobtest", scheduledDate = None)
           workflow.autoJob(config).isSuccess should be(true)
           workflow.autoJob(config.copy(interactive = Some("json"))).isSuccess should be(true)
           workflow.autoJob(config.copy(interactive = Some("csv"))).isSuccess should be(true)

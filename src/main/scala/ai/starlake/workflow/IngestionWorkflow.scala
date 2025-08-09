@@ -395,7 +395,15 @@ class IngestionWorkflow(
                       .adaptThenGroup(withPrimaryKeySchema, fileInfos)
                       .head
                       ._1 // get the schema only
-                  ingest(dom, updatedSchema, paths, config.options, config.accessToken, config.test)
+                  ingest(
+                    dom,
+                    updatedSchema,
+                    paths,
+                    config.options,
+                    config.accessToken,
+                    config.test,
+                    config.scheduledDate
+                  )
                 case None =>
                   throw new Exception(s"Schema ${config.tables.head} not found")
               }
@@ -535,7 +543,8 @@ class IngestionWorkflow(
                           jobContext.paths,
                           jobContext.options,
                           jobContext.accessToken,
-                          config.test
+                          config.test,
+                          config.scheduledDate
                         )
                       }
                     res
@@ -673,7 +682,8 @@ class IngestionWorkflow(
           options = config.options,
           accessToken = config.accessToken,
           test = false,
-          files = None
+          files = None,
+          scheduledDate = config.scheduledDate
         )
       )
     } else {
@@ -696,7 +706,8 @@ class IngestionWorkflow(
             ingestingPaths,
             config.options,
             config.accessToken,
-            test = false
+            test = false,
+            scheduledDate = config.scheduledDate
           )
         result match {
           case None =>
@@ -717,7 +728,8 @@ class IngestionWorkflow(
     ingestingPaths: List[Path],
     options: Map[String, String],
     accessToken: Option[String],
-    test: Boolean
+    test: Boolean,
+    scheduledDate: Option[String]
   ): Try[JobResult] = {
     val metadata = schema.mergedMetadata(domain.metadata)
     Utils.printOut(
@@ -743,7 +755,8 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars,
             accessToken,
-            test
+            test,
+            scheduledDate
           ).run()
         case Format.GENERIC =>
           new GenericIngestionJob(
@@ -755,7 +768,8 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars,
             accessToken,
-            test
+            test,
+            scheduledDate
           ).run()
         case Format.DSV =>
           new DsvIngestionJob(
@@ -767,7 +781,8 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars,
             accessToken,
-            test
+            test,
+            scheduledDate
           ).run()
         case Format.JSON_FLAT | Format.JSON =>
           new JsonIngestionJob(
@@ -779,7 +794,8 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars,
             accessToken,
-            test
+            test,
+            scheduledDate
           ).run()
         case Format.XML =>
           new XmlIngestionJob(
@@ -791,7 +807,8 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars,
             accessToken,
-            test
+            test,
+            scheduledDate
           ).run()
         case Format.TEXT_XML =>
           new XmlSimplePrivacyJob(
@@ -803,7 +820,8 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars,
             accessToken,
-            test
+            test,
+            scheduledDate
           ).run()
         case Format.POSITION =>
           new PositionIngestionJob(
@@ -815,7 +833,8 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars,
             accessToken,
-            test
+            test,
+            scheduledDate
           ).run()
         case Format.KAFKA =>
           new KafkaIngestionJob(
@@ -828,7 +847,8 @@ class IngestionWorkflow(
             optionsAndEnvVars,
             FILE,
             accessToken,
-            test
+            test,
+            scheduledDate
           ).run()
         case Format.KAFKASTREAM =>
           new KafkaIngestionJob(
@@ -841,7 +861,8 @@ class IngestionWorkflow(
             optionsAndEnvVars,
             STREAM,
             accessToken,
-            test
+            test,
+            scheduledDate
           ).run()
         case _ =>
           throw new Exception("Should never happen")
@@ -958,7 +979,8 @@ class IngestionWorkflow(
       config.accessToken,
       resultPageSize = config.pageSize,
       resultPageNumber = config.pageNumber,
-      dryRun = config.dryRun
+      dryRun = config.dryRun,
+      scheduledDate = config.scheduledDate
     )(
       settings,
       storageHandler,
@@ -1033,7 +1055,8 @@ class IngestionWorkflow(
 
   def transform(
     dependencyTree: List[TaskViewDependencyNode],
-    options: Map[String, String]
+    options: Map[String, String],
+    scheduledDate: Option[String]
   ): Try[String] = {
     implicit val forkJoinTaskSupport =
       ParUtils.createForkSupport(Some(settings.appConfig.maxParTask))
@@ -1042,10 +1065,11 @@ class IngestionWorkflow(
       ParUtils.makeParallel(dependencyTree)
     val res = parJobs.map { jobContext =>
       logger.info(s"Transforming ${jobContext.data.name}")
-      val ok = transform(jobContext.children, options)
+      val ok = transform(jobContext.children, options, scheduledDate)
       if (ok.isSuccess) {
         if (jobContext.isTask()) {
-          val res = transform(TransformConfig(jobContext.data.name, options))
+          val res =
+            transform(TransformConfig(jobContext.data.name, options, scheduledDate = scheduledDate))
           res
         } else
           Success("")
@@ -1151,7 +1175,7 @@ class IngestionWorkflow(
           .jobsDependencyTree(taskConfig)
         Utils.printOut(s"Dependency tree built for task ${config.name}")
         dependencyTree.foreach(_.print())
-        transform(dependencyTree, config.options)
+        transform(dependencyTree, config.options, scheduledDate = config.scheduledDate)
       } else if (config.tags.nonEmpty) {
         val jobs =
           schemaHandler.jobs().flatMap { job =>
@@ -1317,7 +1341,8 @@ class IngestionWorkflow(
             schemaHandler,
             Map.empty,
             config.accessToken,
-            config.test
+            config.test,
+            config.scheduledDate
           )
           val sink = metadata.sink
             .map(_.getSink())

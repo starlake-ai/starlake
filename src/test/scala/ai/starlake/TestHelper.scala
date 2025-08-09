@@ -484,7 +484,9 @@ trait TestHelper
 
     def loadPending(implicit codec: Codec): Try[SparkJobResult] = {
       val validator = loadWorkflow()
-      validator.load(LoadConfig(accessToken = None, test = false, files = None))
+      validator.load(
+        LoadConfig(accessToken = None, test = false, files = None, scheduledDate = None)
+      )
     }
 
     def secure(config: LoadConfig): Try[Boolean] = {

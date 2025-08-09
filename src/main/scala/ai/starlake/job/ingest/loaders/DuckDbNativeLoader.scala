@@ -36,6 +36,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
   lazy val mergedMetadata: Metadata = ingestionJob.mergedMetadata
 
+  lazy val scheduledDate: Option[String] = ingestionJob.scheduledDate
+
   private def requireTwoSteps(schema: SchemaInfo): Boolean = {
     // renamed attribute can be loaded directly so it's not in the condition
     schema
@@ -103,7 +105,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             accessToken = ingestionJob.accessToken,
             resultPageSize = 200,
             resultPageNumber = 1,
-            conn = None
+            conn = None,
+            scheduledDate = scheduledDate
           )(
             settings,
             storageHandler,

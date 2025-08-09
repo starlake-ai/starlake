@@ -115,12 +115,17 @@ trait TransformCmd extends Cmd[TransformConfig] {
         .valueName("k1=v1,k2=v2...")
         .action((x, c) => c.copy(options = c.options ++ x))
         .unbounded()
-        .text("Job arguments to be used as substitutions")
+        .text("Job arguments to be used as substitutions"),
+      builder
+        .opt[String]("scheduledDate")
+        .optional()
+        .action((x, c) => c.copy(scheduledDate = Some(x)))
+        .text("Scheduled date for the job, in format yyyy-MM-dd'T'HH:mm:ss.SSSZ")
     )
   }
 
   def parse(args: Seq[String]): Option[TransformConfig] = {
-    val result = OParser.parse(parser, args, TransformConfig(), setup)
+    val result = OParser.parse(parser, args, TransformConfig(scheduledDate = None), setup)
     result.foreach { config =>
       assert(config.name.isEmpty || config.tags.isEmpty, "Cannot specify both tags and task name")
     }
