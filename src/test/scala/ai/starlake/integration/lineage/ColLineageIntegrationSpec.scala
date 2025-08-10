@@ -403,16 +403,6 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "total_orders"
                        |    },
                        |    "to" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "total_orders"
-                       |    },
-                       |    "expression" : "COUNT(DISTINCT o.order_id)"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "total_orders"
-                       |    },
-                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "customer_purchase_history",
                        |      "column" : "total_orders"
@@ -445,16 +435,6 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "total_spent"
                        |    },
                        |    "to" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "total_spent"
-                       |    },
-                       |    "expression" : "SUM(o.quantity * p.price)"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "total_spent"
-                       |    },
-                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "customer_purchase_history",
                        |      "column" : "total_spent"
@@ -476,16 +456,6 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "first_order_date"
                        |    },
                        |    "to" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "first_order_date"
-                       |    },
-                       |    "expression" : "MIN(o.order_date)"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "first_order_date"
-                       |    },
-                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "customer_purchase_history",
                        |      "column" : "first_order_date"
@@ -495,16 +465,6 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "domain" : "starbake",
                        |      "table" : "orders",
                        |      "column" : "order_date"
-                       |    },
-                       |    "to" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "last_order_date"
-                       |    },
-                       |    "expression" : "MAX(o.order_date)"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "last_order_date"
                        |    },
                        |    "to" : {
                        |      "table" : "customer_orders",
@@ -526,16 +486,6 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "domain" : "starbake",
                        |      "table" : "products",
                        |      "column" : "category"
-                       |    },
-                       |    "to" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "purchased_categories"
-                       |    },
-                       |    "expression" : "array_agg(DISTINCT p.category)"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "purchased_categories"
                        |    },
                        |    "to" : {
                        |      "table" : "customer_orders",
