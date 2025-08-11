@@ -25,7 +25,7 @@ class JdbcTableInfo {
 
     val finalQueries =
       config.tables.toList.map { case (schema, tables) =>
-        val tablesInSet = tables.map(_.toLowerCase).mkString("'", ",", "'")
+        val tablesInSet = tables.map(_.toLowerCase).mkString("'", "','", "'")
         val query = lastModifiedQuery.richFormat(
           Map(
             "table"  -> tablesInSet,

@@ -217,11 +217,7 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
 
     val schema1 = new DBSchema("", "starbake", "orders")
     val schema2 = new DBSchema("", "starbake", "products")
-    val schema3 = new DBSchema(
-      "",
-      "starbake",
-      "customers"
-    )
+    val schema3 = new DBSchema("", "starbake", "customers")
     List(schema1, schema2, schema3).asJavaCollection
   }
 
