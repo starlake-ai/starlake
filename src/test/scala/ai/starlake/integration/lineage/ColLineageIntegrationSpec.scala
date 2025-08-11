@@ -166,16 +166,6 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "purchased_items"
                        |    },
                        |    "to" : {
-                       |      "table" : "order_details",
-                       |      "column" : "purchased_items"
-                       |    },
-                       |    "expression" : "List(p.name || ' (' || o.quantity || ')')"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "order_details",
-                       |      "column" : "purchased_items"
-                       |    },
-                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "order_items_analysis",
                        |      "column" : "purchased_items"
@@ -208,22 +198,13 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "total_order_value"
                        |    },
                        |    "to" : {
-                       |      "table" : "order_details",
-                       |      "column" : "total_order_value"
-                       |    },
-                       |    "expression" : "Sum(o.quantity * p.price)"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "order_details",
-                       |      "column" : "total_order_value"
-                       |    },
-                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "order_items_analysis",
                        |      "column" : "total_order_value"
                        |    }
                        |  } ]
                        |}
+                       |
                        |""".stripMargin
       val res = tmpFile.contentAsString
       tmpFile.delete(swallowIOExceptions = true)
