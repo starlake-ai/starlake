@@ -64,7 +64,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     settings.appConfig.archiveTable || settings.appConfig.audit.detailedLoadAudit && path.size > 1
   }
 
-  val twoSteps: Boolean = requireTwoSteps(starlakeSchema)
+  lazy val twoSteps: Boolean = requireTwoSteps(effectiveSchema)
 
   lazy val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
     strategy.toWriteMode()
