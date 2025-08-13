@@ -85,17 +85,32 @@ object FreshnessJob extends LazyLogging {
                         "TABLE"
                       )
 
-                    errorStatus.orElse {
-                      getFreshnessStatus(
-                        schemaHandler.getDatabase(domain).getOrElse(""),
-                        domain.finalName,
-                        table.finalName,
-                        lastModifiedTime,
-                        freshness.warn,
-                        "WARN",
-                        "TABLE"
+                    errorStatus
+                      .orElse {
+                        getFreshnessStatus(
+                          schemaHandler.getDatabase(domain).getOrElse(""),
+                          domain.finalName,
+                          table.finalName,
+                          lastModifiedTime,
+                          freshness.warn,
+                          "WARN",
+                          "TABLE"
+                        )
+                      }
+                      .orElse(
+                        Some(
+                          FreshnessStatus(
+                            domain.finalName,
+                            table.finalName,
+                            new Timestamp(lastModifiedTime),
+                            new Timestamp(System.currentTimeMillis()),
+                            0L,
+                            "INFO",
+                            schemaHandler.getDatabase(domain).getOrElse(""),
+                            settings.appConfig.tenant
+                          )
+                        )
                       )
-                    }
                 }
             }
           }
@@ -140,18 +155,32 @@ object FreshnessJob extends LazyLogging {
                       "ERROR",
                       "TASK"
                     )
-                  errorStatus.orElse {
-                    getFreshnessStatus(
-                      task.database.getOrElse(settings.appConfig.database),
-                      task.domain,
-                      task.table,
-                      lastModifiedTime,
-                      freshness.warn,
-                      "WARN",
-                      "TASK"
+                  errorStatus
+                    .orElse {
+                      getFreshnessStatus(
+                        task.database.getOrElse(settings.appConfig.database),
+                        task.domain,
+                        task.table,
+                        lastModifiedTime,
+                        freshness.warn,
+                        "WARN",
+                        "TASK"
+                      )
+                    }
+                    .orElse(
+                      Some(
+                        FreshnessStatus(
+                          task.domain,
+                          task.table,
+                          new Timestamp(lastModifiedTime),
+                          new Timestamp(System.currentTimeMillis()),
+                          0L,
+                          "INFO",
+                          task.database.getOrElse(settings.appConfig.database),
+                          settings.appConfig.tenant
+                        )
+                      )
                     )
-
-                  }
               }
           }
       }
