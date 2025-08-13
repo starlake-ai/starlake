@@ -5,7 +5,6 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Severity.Error
-import ai.starlake.schema.model.TableSync.NONE
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.diff.{Attribute as DiffAttribute, DBSchema}
 import ai.starlake.transpiler.schema.CaseInsensitiveLinkedHashMap
@@ -535,7 +534,7 @@ case class AutoTaskInfo(
   def readyForSync(): Boolean = {
     this.attributes.nonEmpty &&
     this.attributes.forall(_.`type`.nonEmpty) &&
-    this.getSyncStrategyValue() != NONE
+    this.getSyncStrategyValue() != TableSync.NONE
   }
 }
 
