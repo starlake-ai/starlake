@@ -24,7 +24,7 @@ import ai.starlake.config.Settings.AppConfig
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
-import ai.starlake.schema.handlers.*
+import ai.starlake.schema.handlers._
 import ai.starlake.schema.model.*
 import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.sql.SQLUtils
