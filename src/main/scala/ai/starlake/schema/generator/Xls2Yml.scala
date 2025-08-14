@@ -41,7 +41,7 @@ object Xls2Yml extends LazyLogging {
   }
 
   def run(args: Array[String]): Try[Boolean] = {
-    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
+    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None, None)
     Xls2YmlCmd.run(args.toIndexedSeq, settings.schemaHandler()).map(_ => true)
   }
 
