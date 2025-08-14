@@ -32,7 +32,7 @@ object SingleUserMainServer {
     duckDbMode: Boolean
   ): String = {
     val (settings, reload) =
-      CaffeineSettingsManager.getUpdatedSettings("", root, env, duckDbMode)
+      CaffeineSettingsManager.getUpdatedSettings("", root, env, duckDbMode, None)
     if (args.head != "quit" && autoReload) {
       SingleUserMainServer.mapper.writeValueAsString(
         SingleUserServices.reset(reload = true)(settings)
@@ -53,7 +53,10 @@ object SingleUserMainServer {
           if (args.last == "set") {
             autoReload = true
           }
-          SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.reset(reload)(settings))
+          SingleUserMainServer.mapper.writeValueAsString(
+            SingleUserServices.reset(reload)(settings),
+            None
+          )
         }
       case "heartbeat" => SingleUserMainServer.mapper.writeValueAsString("OK")
       case "domains" =>

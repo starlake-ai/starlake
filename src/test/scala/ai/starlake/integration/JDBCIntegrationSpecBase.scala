@@ -21,7 +21,7 @@ class JDBCIntegrationSpecBase extends IntegrationTestBase with PgContainerHelper
   override protected def cleanup(): Unit = {
     super.cleanup()
     if (sys.env.getOrElse("SL_JDBC_TEST", "false").toBoolean) {
-      implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
+      implicit val settings: Settings = Settings(Settings.referenceConfig, None, None, None)
       val connectionRef = settings.appConfig.connectionRef
       val connection = settings.appConfig.connections(connectionRef)
       val jdbcOptions =
