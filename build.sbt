@@ -256,7 +256,7 @@ releaseProcess := Seq(
   commitReleaseVersion, // forces to push dirty files
   tagRelease,
   releaseStepCommandAndRemaining("publishSigned"),
-  releaseStepCommand("sonatypeBundleRelease"),
+  releaseStepCommand("sonaRelease"),
   setNextVersion,
   commitNextVersion,
   pushChanges
