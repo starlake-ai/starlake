@@ -1,7 +1,7 @@
 package ai.starlake.utils
 
-import ai.starlake.config.Settings.latestSchemaVersion
-import ai.starlake.config.{CometColumns, Settings}
+import ai.starlake.config.Settings.{latestSchemaVersion, AppConfig}
+import ai.starlake.config.{ApplicationDesc, CometColumns, Settings}
 import ai.starlake.exceptions.SchemaValidationException
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.*
@@ -33,6 +33,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
       case e: SchemaInfo         => TableDesc(latestSchemaVersion, e)
       case e: ExtractSchemasInfo => ExtractDesc(latestSchemaVersion, e)
       case e: DagInfo            => DagDesc(latestSchemaVersion, e)
+      case e: AppConfig          => ApplicationDesc(latestSchemaVersion, e)
       case _                     => entity
     }
   }

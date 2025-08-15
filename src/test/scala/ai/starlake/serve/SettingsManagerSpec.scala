@@ -17,7 +17,8 @@ class SettingsManagerSpec extends TestHelper {
           "",
           "/tmp/my/settings/home",
           Some("test"),
-          false
+          false,
+          None
         )
       settings2.appConfig.env shouldBe "test"
       settings2.appConfig.root shouldBe "/tmp/my/settings/home"
@@ -26,7 +27,8 @@ class SettingsManagerSpec extends TestHelper {
         "",
         oldRoot,
         Option(oldEnv),
-        false
+        false,
+        None
       )
 
     }

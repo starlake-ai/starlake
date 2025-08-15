@@ -27,6 +27,7 @@ import ai.starlake.job.validator.GenericRowValidator
 import ai.starlake.schema.handlers.*
 import ai.starlake.schema.model.*
 import ai.starlake.schema.model.ConnectionType.JDBC
+import ai.starlake.serve.CaffeineSettingsManager
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.*
@@ -176,6 +177,28 @@ object Settings extends LazyLogging {
     options: Map[String, String] = Map.empty,
     _transpileDialect: Option[String] = None
   ) {
+    def withEncryptedPassword(
+      secretKey: String
+    ): ConnectionInfo = {
+      val updatedOptions = this.options.map {
+        case (key, value) if Set("password", "sfPassword").contains(key) =>
+          key -> AESEncryption.encrypt(value, secretKey)
+        case other => other
+      }
+      this.copy(options = updatedOptions)
+    }
+
+    def withDecryptedPassword(
+      secretKey: String
+    ): ConnectionInfo = {
+      val updatedOptions = this.options.map {
+        case (key, value) if Set("password", "sfPassword").contains(key) =>
+          key -> AESEncryption.decrypt(value, secretKey)
+        case other => other
+      }
+      this.copy(options = updatedOptions)
+    }
+
     def testQuery(): String = {
       val engine = this.getJdbcEngineName()
       engine match {
@@ -1195,7 +1218,8 @@ object Settings extends LazyLogging {
   def apply(
     config: Config,
     env: Option[String],
-    root: Option[String]
+    root: Option[String],
+    aesSecretKey: Option[String]
   ): Settings = {
     val jobId = UUID.randomUUID().toString
     val effectiveConfig =
@@ -1290,14 +1314,34 @@ object Settings extends LazyLogging {
         .orElse(loadApplicationConf(withUpdatedEnvConfig, settings, env))
         .getOrElse(settings)
 
+    val decryptedLoadedSettings =
+      aesSecretKey.orElse(Option(System.getenv("SL_AES_SECRET_KEY"))) match {
+        case None =>
+          loadedSettings
+        case Some(key) if key.isEmpty =>
+          loadedSettings
+        case Some(key) =>
+          val decryptedConnections =
+            loadedSettings.appConfig.connections.view.mapValues { connectionInfo =>
+              connectionInfo.withDecryptedPassword(key)
+            }.toMap
+          loadedSettings.copy(
+            appConfig = loadedSettings.appConfig.copy(
+              connections = decryptedConnections
+            )
+          )
+      }
     val applicationConfSettings =
-      if (settings.appConfig.duckdbMode) duckDBMode(loadedSettings)
+      if (settings.appConfig.duckdbMode) duckDBMode(decryptedLoadedSettings)
       else {
-        adjustDuckDBProperties(loadedSettings)
+        adjustDuckDBProperties(decryptedLoadedSettings)
       }
 
     // Reload Storage Handler with the authentication settings
     applicationConfSettings.storageHandler(reload = true)
+
+    // Reload Schema Handler to ensure it has the latest environment variables
+    applicationConfSettings.schemaHandler(reload = true)
 
     // Load fairscheduler.xml
     val jobConf = initSparkConfig(applicationConfSettings)
@@ -1422,7 +1466,13 @@ object Settings extends LazyLogging {
       case None =>
         None
     }
-    applicationSettings.foreach(_.storageHandler(true)) // Reload with the authentication settings
+
+    // Reload with the authentication settings
+    applicationSettings.foreach(_.storageHandler(reload = true))
+
+    // Reload schema handler to ensure it has the latest environment variables
+    applicationSettings.foreach(_.schemaHandler(reload = true))
+
     applicationSettings
   }
 
@@ -1586,22 +1636,28 @@ final case class Settings(
 ) {
 
   var _schemaHandler: Option[SchemaHandler] = None
+
   @transient
   def schemaHandler(
     cliEnv: Map[String, String] = Map.empty,
     reload: Boolean = false
   ): SchemaHandler = {
-    _schemaHandler match {
-      case Some(handler) if !reload => handler
+    val root = appConfig.root
+    val env = Option(appConfig.env)
+    val schemaHandler = CaffeineSettingsManager.getSchemaHandler(root, env)
+    schemaHandler match {
+      case Some(handler) if !reload && cliEnv.isEmpty =>
+        println("+++++++++ Loading existing schema handler")
+        handler
       case _ =>
+        println("---------- Creating new schema handler")
         implicit val self: Settings = this
         val handler = new SchemaHandler(this.storageHandler(), cliEnv)
-        _schemaHandler = Some(handler)
+        CaffeineSettingsManager.setSchemaHandler(root, env, handler)
         handler
     }
   }
 
-  var _storageHandler: Option[StorageHandler] = None
   @transient
   def getWarehouseDir(): Option[String] = if (this.sparkConfig.hasPath("sql.warehouse.dir"))
     Some(this.sparkConfig.getString("sql.warehouse.dir"))
@@ -1609,7 +1665,10 @@ final case class Settings(
 
   @transient
   def storageHandler(reload: Boolean = false): StorageHandler = {
-    _storageHandler match {
+    val root = appConfig.root
+    val env = Option(appConfig.env)
+    val storageHandler = CaffeineSettingsManager.getStorageHandler(root, env)
+    storageHandler match {
       case Some(handler) if !reload => handler
       case _ =>
         implicit val self: Settings = this
@@ -1618,7 +1677,7 @@ final case class Settings(
             new LocalStorageHandler()
           else
             new HdfsStorageHandler(appConfig.fileSystem)
-        _storageHandler = Some(handler)
+        CaffeineSettingsManager.setStorageHandler(root, env, handler)
         handler
     }
   }

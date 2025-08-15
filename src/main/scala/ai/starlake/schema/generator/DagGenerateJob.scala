@@ -4,16 +4,20 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.core.utils.CaseClassToPojoConverter
 import ai.starlake.job.ingest.DummyIngestionJob
 import ai.starlake.job.transform.{AutoTask, AutoTaskQueries}
-import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
+import ai.starlake.lineage.{
+  AutoTaskDependencies,
+  AutoTaskDependenciesConfig,
+  TaskViewDependencyNode
+}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.utils.{JsonSerializer, Utils}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import java.nio.charset.StandardCharsets
 import java.util
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
 class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
@@ -110,6 +114,15 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       "unknown"
   }
 
+  private def allTaskDepsFullNames(deps: List[TaskViewDependencyNode]): List[String] = {
+    val immediateDeps = deps.flatMap { dep =>
+      if (dep.isTask()) List(dep.data.name) else Nil
+    }
+    immediateDeps ++
+    deps.flatMap { dep =>
+      allTaskDepsFullNames(dep.children)
+    }.distinct // avoid duplicates
+  }
   def generateTaskDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
@@ -167,17 +180,28 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val orchestratorName = orchestratorFromTemplate(dagConfig.template).toLowerCase()
         val nativeOrchestrator = Set("snowflake", "databricks").contains(orchestratorName)
 
+        val depsFullNames = allTaskDepsFullNames(deps)
+        val configFullNames = taskConfigs.map { case (_, config) => config.taskDesc.fullName() }
+
+        val allTaskFullNames = depsFullNames ++ configFullNames
+        val allTaskDeps = allTaskFullNames
+          .map(_.toLowerCase())
+          .distinct
+          .flatMap { taskFullName =>
+            schemaHandler.taskOnly(taskFullName).toOption
+          }
+
         val taskStatements: List[AutoTaskQueries] =
           if (nativeOrchestrator) {
-            taskConfigs.map { case (_, config) =>
+            allTaskDeps.map { taskDep =>
               val task = AutoTask.task(
                 appId = None,
-                taskDesc = config.taskDesc,
+                taskDesc = taskDep,
                 configOptions = Map.empty,
                 interactive = None,
                 truncate = false,
                 test = false,
-                config.taskDesc.getRunEngine(),
+                taskDep.getRunEngine(),
                 logExecution = false,
                 accessToken = None,
                 resultPageSize = 1,
