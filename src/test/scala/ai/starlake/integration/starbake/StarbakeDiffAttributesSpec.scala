@@ -15,7 +15,7 @@ class StarbakeDiffAttributesSpecextends extends IntegrationTestBase {
   "Diff Attributes" should "succeed" in {
     withEnvs("SL_ROOT" -> theLinageFolder.pathAsString, "SL_ENV" -> "DUCKDB") {
       val currentEnv = Option(System.getenv("SL_ENV"))
-      implicit val settings: Settings = Settings(Settings.referenceConfig, currentEnv, None)
+      implicit val settings: Settings = Settings(Settings.referenceConfig, currentEnv, None, None)
       val taskName = "starbake_analytics.customer_purchase_history"
       val res = settings.schemaHandler().syncPreviewSqlWithYaml(taskName, None, None)
       res.foreach { case (tableAttribute, attributeStatus) =>

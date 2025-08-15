@@ -599,7 +599,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     *   Unique type referenced by this name.
     */
   def getType(tpe: String): Option[Type] = types().find(_.name == tpe)
-
   def deserializedDomains(
     domainPath: Path,
     domainNames: List[String] = Nil,

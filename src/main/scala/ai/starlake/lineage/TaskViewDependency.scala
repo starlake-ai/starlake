@@ -131,31 +131,31 @@ object TaskViewDependency extends LazyLogging {
               val tablePart = parts.last // == 0
               val refs =
                 allTasks.filter(task =>
-                  task.name.endsWith(s".$tablePart") ||
+                  task.fullName().endsWith(s".$tablePart") ||
                   task.table.toLowerCase() == tablePart.toLowerCase()
                 )
               if (refs.size > 1) {
                 throw new Exception(
                   s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName': Too many tasks found ${refs
-                      .map(_.name)
+                      .map(_.fullName())
                       .mkString(",")}.
                      |Make sure references in your SQL are unambiguous or fully qualified.
                      |""".stripMargin
                 )
 
               } else
-                refs.headOption.map(_.name)
+                refs.headOption.map(_.fullName())
 
             case 2 | 3 =>
               val domainPart = parts.dropRight(1).last
               val tablePart = parts.last
               allTasks
                 .find(task =>
-                  task.name.toLowerCase() == s"$domainPart.$tablePart".toLowerCase() ||
+                  task.fullName().toLowerCase() == s"$domainPart.$tablePart".toLowerCase() ||
                   (task.table.toLowerCase() == tablePart.toLowerCase() &&
                   task.domain.toLowerCase() == domainPart.toLowerCase())
                 )
-                .map(_.name)
+                .map(_.fullName())
             case _ =>
               val errors = schemaHandler.checkJobsVars().mkString("\n")
 
@@ -299,7 +299,8 @@ object TaskViewDependency extends LazyLogging {
         // TODO We just handle one task per job which is always the case till now.
         val task = jobs(dep.name)
         val sink = task.taskDesc.domain + "." + task.taskDesc.table
-        val schedule = allTasks.find(_.name.toLowerCase == dep.name.toLowerCase).flatMap(_.schedule)
+        val schedule =
+          allTasks.find(_.fullName().toLowerCase == dep.name.toLowerCase).flatMap(_.schedule)
         val cron =
           Some(
             settings.appConfig.schedulePresets.getOrElse(

@@ -41,7 +41,7 @@ object SlackerDuckSample {
 
     while (rs.next) {
       print(rs.getString(1) + "|")
-      print(rs.getInt(2) + "|")
+      print(rs.getInt(2).toString + "|")
       print(rs.getString(3) + "|")
       println(rs.getString(4))
     }

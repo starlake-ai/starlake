@@ -1,6 +1,7 @@
 package ai.starlake.serve
 
 import ai.starlake.config.Settings
+import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 
 trait SettingsManager {
   def reset(): Boolean
@@ -14,7 +15,8 @@ trait SettingsManager {
     tenant: String,
     root: String,
     env: Option[String],
-    refresh: Boolean = false
+    refresh: Boolean,
+    aesSecretKey: Option[String]
   ): (Settings, Boolean)
 
   def remove(
@@ -22,9 +24,31 @@ trait SettingsManager {
     env: Option[String]
   ): Unit
 
-  def set(
+  def setSettings(
     root: String,
     env: Option[String],
     settings: Settings
   ): Unit
+
+  def getSchemaHandler(
+    root: String,
+    env: Option[String]
+  ): Option[SchemaHandler]
+
+  def setSchemaHandler(
+    root: String,
+    env: Option[String],
+    schemaHandler: SchemaHandler
+  ): Unit
+  def getStorageHandler(
+    root: String,
+    env: Option[String]
+  ): Option[StorageHandler]
+
+  def setStorageHandler(
+    root: String,
+    env: Option[String],
+    storageHandler: StorageHandler
+  ): Unit
+
 }

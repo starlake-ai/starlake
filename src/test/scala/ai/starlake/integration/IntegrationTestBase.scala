@@ -18,7 +18,7 @@ class IntegrationTestBase
     with BeforeAndAfterAll
     with BeforeAndAfterEach
     with LazyLogging {
-  implicit var settings: Settings = Settings(Settings.referenceConfig, None, None)
+  implicit var settings: Settings = Settings(Settings.referenceConfig, None, None, None)
 
   implicit val copyOptions: CopyOptions = File.CopyOptions(overwrite = true)
 
@@ -54,7 +54,7 @@ class IntegrationTestBase
     envList.foreach { case (k, v) => setEnv(k, v) }
     setEnv("SL_INTERNAL_WITH_ENVS_SET", "true")
     Settings.invalidateCaches()
-    settings = Settings(Settings.referenceConfig, None, None)
+    settings = Settings(Settings.referenceConfig, None, None, None)
     val result = Try {
       fun
     }
