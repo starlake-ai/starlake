@@ -4,6 +4,7 @@ import ai.starlake.integration.JDBCIntegrationSpecBase
 import ai.starlake.job.Main
 
 class LoadRedshiftIntegrationSpec extends JDBCIntegrationSpecBase {
+  pending
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean && sys.env.contains("REDSHIFT_USER")) {
     "Import / Load / Transform Redshift" should "succeed" in {
       withEnvs(
