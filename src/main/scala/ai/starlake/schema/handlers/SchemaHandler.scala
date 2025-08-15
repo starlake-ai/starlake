@@ -599,7 +599,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     *   Unique type referenced by this name.
     */
   def getType(tpe: String): Option[Type] = types().find(_.name == tpe)
-  deserializedDomains
   def deserializedDomains(
     domainPath: Path,
     domainNames: List[String] = Nil,
@@ -981,7 +980,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     lastUpdated: LocalDateTime = LocalDateTime.MIN
   ): (List[Try[DomainInfo]], List[Try[DomainInfo]]) = {
     val (validDomainsFile, invalidDomainsFiles) =
-      (area, domainNames, raw)
+      deserializedDomains(area, domainNames, raw)
         .map {
           case (path, Success(domain)) =>
             logger.info(s"Loading domain from $path")
