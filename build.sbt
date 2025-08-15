@@ -83,7 +83,6 @@ dependencyOverrides := Seq(
 
 name := "starlake-core"
 
-assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
 
 Common.enableStarlakeAliases
 
@@ -118,9 +117,10 @@ commands += Command.command("assemblyWithSpark") { state =>
   """set assembly / fullClasspath := (Compile / fullClasspath).value""" :: "assembly" :: state
 }
 
+assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
 
 Compile / assembly / artifact := {
-  val art: Artifact = (Compile / assembly / artifact).value
+  val art: Artifact = (Compile / packageBin / artifact).value
   art.withClassifier(Some("assembly"))
 }
 
@@ -255,7 +255,7 @@ releaseProcess := Seq(
   setReleaseVersion,
   commitReleaseVersion, // forces to push dirty files
   tagRelease,
-  releaseStepCommandAndRemaining("+publishSigned"),
+  releaseStepCommandAndRemaining("publishSigned"),
   releaseStepCommand("sonatypeBundleRelease"),
   setNextVersion,
   commitNextVersion,
