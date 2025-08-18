@@ -6,10 +6,11 @@ import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.ConnectionType
 import ai.starlake.utils.Utils
 import com.github.benmanes.caffeine.cache.{Cache, Caffeine}
+import com.typesafe.scalalogging.LazyLogging
 
 import java.util.concurrent.TimeUnit
 
-class CaffeineSettingsManager extends SettingsManager {
+class CaffeineSettingsManager extends SettingsManager with LazyLogging {
   val settingsCache: Cache[String, Settings] = Caffeine
     .newBuilder()
     .expireAfterAccess(10, TimeUnit.MINUTES)
@@ -61,10 +62,10 @@ class CaffeineSettingsManager extends SettingsManager {
     val (settings, fromCache) =
       Option(settingsCache.getIfPresent(sessionId)) match {
         case Some(settings) =>
-          println(s"XXXX++++++++++++++ Loaded cached settings for env $env in $root")
+          logger.info(s"++++++++++++++ Loaded cached settings for env $env in $root")
           (settings, false)
         case None =>
-          println(s"XXXX--------------- new settings(tenant=$tenant, root=$root, env=$env)]")
+          logger.info(s"--------------- new settings(tenant=$tenant, root=$root, env=$env)]")
           val updatedSession =
             Settings(Settings.referenceConfig, env, Some(root), aesSecretKey)
 

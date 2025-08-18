@@ -1647,10 +1647,8 @@ final case class Settings(
     val schemaHandler = CaffeineSettingsManager.getSchemaHandler(root, env)
     schemaHandler match {
       case Some(handler) if !reload && cliEnv.isEmpty =>
-        println("+++++++++ Loading existing schema handler")
         handler
       case _ =>
-        println("---------- Creating new schema handler")
         implicit val self: Settings = this
         val handler = new SchemaHandler(this.storageHandler(), cliEnv)
         CaffeineSettingsManager.setSchemaHandler(root, env, handler)
