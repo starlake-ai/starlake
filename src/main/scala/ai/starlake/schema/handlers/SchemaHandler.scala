@@ -751,7 +751,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               .orElse {
                 val attrs =
                   new ExtractSchema(this)
-                    .extractTable(domainName, tableName, accessToken)
+                    .extractTable(domainName, tableName, None, accessToken)
                     .toOption
                     .filter(_.tables.nonEmpty)
                     .map { it =>
@@ -2255,7 +2255,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 externalSchema.attributes.map(_.toDiffAttribute())
               case None =>
                 new ExtractSchema(this)
-                  .extractTable(domain, table, accessToken)
+                  .extractTable(domain, table, None, accessToken)
                   .toOption
                   .filter(_.tables.nonEmpty)
                   .map { it =>
