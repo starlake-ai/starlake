@@ -2,8 +2,8 @@ package ai.starlake.integration.lineage
 
 import ai.starlake.integration.IntegrationTestBase
 import ai.starlake.job.Main
-import ai.starlake.transpiler.JSQLColumResolver
-import ai.starlake.transpiler.diff.DBSchema
+import ai.starlake.transpiler.{JSQLColumResolver, JSQLSchemaDiff}
+import ai.starlake.transpiler.diff.{Attribute, DBSchema}
 import ai.starlake.transpiler.schema.JdbcMetaData
 import better.files.File
 
@@ -623,4 +623,43 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
 
     //@formatter:on
   }
+  "Infer col from sum" should "succeed" in {
+
+    val dbSchemas: util.Collection[DBSchema] = {
+      val schema1 = new DBSchema(
+        "",
+        "starbake",
+        "orders",
+        new Attribute("customer_id", "long"),
+        new Attribute("order_id", "long"),
+        new Attribute("status", "string"),
+        new Attribute("timestamp", "iso_date_time")
+      )
+      val schema2 = new DBSchema(
+        "",
+        "starbake",
+        "order_lines",
+        new Attribute("order_id", "long"),
+        new Attribute("product_id", "long"),
+        new Attribute("quantity", "int"),
+        new Attribute("sale_price", "double")
+      )
+      List(schema1, schema2).asJavaCollection
+    }
+    val sql =
+      """
+        |select starbake.orders.order_id, sum(quantity) as qty
+        |from starbake.orders, starbake.order_lines
+        |where starbake.orders.order_id = starbake.order_lines.order_id
+        |group by 1
+        |
+        |
+        |
+        |""".stripMargin
+    val statementColumns =
+      new JSQLSchemaDiff(dbSchemas)
+        .getDiff(sql, s"kpis.all")
+    println(statementColumns)
+  }
+
 }

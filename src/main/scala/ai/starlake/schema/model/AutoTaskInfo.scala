@@ -321,7 +321,7 @@ case class AutoTaskInfo(
             }
             .orElse {
               new ExtractSchema(schemaHandler)
-                .extractTable(fullTableName, accessToken)
+                .extractTable(fullTableName, None, accessToken)
                 .toOption
                 .filter(_.tables.nonEmpty)
                 .map { it =>

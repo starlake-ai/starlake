@@ -31,16 +31,25 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
     }
   }
 
-  def extractTable(domain: String, table: String, accessToken: Option[String])(implicit
+  def extractTable(
+    domain: String,
+    table: String,
+    connectionName: Option[String],
+    accessToken: Option[String]
+  )(implicit
     settings: Settings
   ): Try[DomainInfo] =
-    extractTable(s"$domain.$table", accessToken)
+    extractTable(s"$domain.$table", connectionName, accessToken)
 
-  def extractTable(domainAndTableName: String, accessToken: Option[String])(implicit
+  def extractTable(
+    domainAndTableName: String,
+    connectionName: Option[String],
+    accessToken: Option[String]
+  )(implicit
     settings: Settings
   ): Try[DomainInfo] = Try {
     val userConfig = ExtractSchemaConfig(
-      connectionRef = Some(settings.appConfig.connectionRef),
+      connectionRef = connectionName.orElse(Some(settings.appConfig.connectionRef)),
       tables = List(domainAndTableName),
       external = true,
       accessToken = accessToken
@@ -199,7 +208,7 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
           .getOrElse(settings.appConfig.connectionRef)
       val schemaNames = ParUtils.withExecutor() { ec =>
         implicit val extractEC: ExtractExecutionContext = new ExtractExecutionContext(ec)
-        ExtractSchema.extractSchemaNames(connectionRef, config.accessToken)
+        ExtractSchema.extractSchemaNames(Some(connectionRef), config.accessToken)
       }
       val result =
         schemaNames match {
@@ -386,13 +395,15 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
 object ExtractSchema {
 
   def extractSchemaNames(
-    connectionName: String,
+    connectionNameOpt: Option[String],
     accessToken: Option[String],
     tables: Map[String, List[String]] = Map.empty
   )(implicit
     settings: Settings,
     dbExtractEC: ExtractExecutionContext
   ): Try[List[(String, List[String])]] = {
+    val connectionName = connectionNameOpt
+      .getOrElse(settings.appConfig.connectionRef)
     val connection = settings.appConfig.connections(connectionName).withAccessToken(accessToken)
     val connType = connection.`type`
     connType match {
