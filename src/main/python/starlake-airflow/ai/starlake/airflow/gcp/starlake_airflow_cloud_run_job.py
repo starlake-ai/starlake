@@ -135,16 +135,16 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                             bash_command=f"""
                             set -e
                             bash -c '
-                            {bash_command}
+                            {bash_command.replace("'", '"')}
                             return_code=$?
 
                             # Push the return code to XCom
                             echo $return_code
 
                             # Exit with the captured return code if non-zero
-                            if [ $return_code -ne 0 ]; then
-                                exit $return_code
-                            fi
+                            # if [ $return_code -ne 0 ]; then
+                            #     exit $return_code
+                            # fi
                             '
                             """
                         job_status = StarlakeBashOperator(
@@ -202,16 +202,16 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
                     bash_command=f"""
                     set -e
                     bash -c '
-                    {bash_command}
+                    {bash_command.replace("'", '"')}
                     return_code=$?
 
                     # Push the return code to XCom
                     echo $return_code
 
                     # Exit with the captured return code if non-zero
-                    if [ $return_code -ne 0 ]; then
-                        exit $return_code
-                    fi
+                    # if [ $return_code -ne 0 ]; then
+                    #     exit $return_code
+                    # fi
                     '
                     """
                 kwargs.pop('do_xcom_push', None)
@@ -285,16 +285,16 @@ class GCloudRunJobCompletionSensor(StarlakeDatasetMixin, BashSensor):
             bash_command=f"""
             set -e
             bash -c '
-            {bash_command}
+            {bash_command.replace("'", '"')}
             return_code=$?
 
             # Push the return code to XCom
             echo $return_code
 
             # Exit with the captured return code if non-zero
-            if [ $return_code -ne 0 ]; then
-                exit $return_code
-            fi
+            # if [ $return_code -ne 0 ]; then
+            #     exit $return_code
+            # fi
             '
             """
         super().__init__(

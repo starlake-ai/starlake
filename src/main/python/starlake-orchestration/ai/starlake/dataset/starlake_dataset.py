@@ -6,10 +6,20 @@ from ai.starlake.common import asQueryParameters, sanitize_id, sl_schedule, sl_s
 
 from datetime import datetime
 
+from enum import Enum
+
 from typing import Generic, List, Optional, TypeVar, Union
 
+class StarlakeDatasetType(str, Enum):
+    LOAD = "load"
+    TRANSFORM = "transform"
+
+    def __str__(self):
+        return self.value
+
+
 class StarlakeDataset():
-    def __init__(self, name: str, parameters: Optional[dict] = None, cron: Optional[str] = None, sink: Optional[str] = None, stream: Optional[str] = None, start_time: Optional[Union[str, datetime]] = None, freshness: int = 0, **kwargs):
+    def __init__(self, name: str, parameters: Optional[dict] = None, cron: Optional[str] = None, sink: Optional[str] = None, stream: Optional[str] = None, start_time: Optional[Union[str, datetime]] = None, freshness: int = 0, datasetType: Optional[StarlakeDatasetType] = None, **kwargs):
         """Initializes a new StarlakeDataset instance.
 
         Args:
@@ -20,6 +30,7 @@ class StarlakeDataset():
             stream (str, optional): The optional stream. Defaults to None.
             start_time (Optional[Union[str, datetime]], optional): The optional start time. Defaults to None.
             freshness (int): The freshness in seconds. Defaults to 0.
+            datasetType (Optional[StarlakeDatasetType], optional): The type of the dataset (LOAD or TRANSFORM). Defaults to None.
         """
         self.__name = name
         self.__sink = sink
@@ -61,6 +72,7 @@ class StarlakeDataset():
         self.__url = self.uri + self.queryParameters
         self.__stream = stream
         self.__freshness = freshness
+        self.__datasetType = datasetType
 
     @property
     def name(self) -> str:
@@ -118,8 +130,12 @@ class StarlakeDataset():
     def freshness(self) -> int:
         return self.__freshness
 
+    @property
+    def datasetType(self) -> Optional[StarlakeDatasetType]:
+        return self.__datasetType
+
     def refresh(self, start_time: Optional[Union[str, datetime]] = None) -> StarlakeDataset:
-        return StarlakeDataset(self.name, self.parameters, self.cron, self.sink, self.stream, freshness=self.freshness, start_time=start_time or self.start_time, sl_schedule_parameter_name=self.sl_schedule_parameter_name, sl_schedule_format=self.sl_schedule_format)
+        return StarlakeDataset(self.name, self.parameters, self.cron, self.sink, self.stream, freshness=self.freshness, start_time=start_time or self.start_time, sl_schedule_parameter_name=self.sl_schedule_parameter_name, sl_schedule_format=self.sl_schedule_format, datasetType=self.datasetType)
 
     @staticmethod
     def refresh_datasets(datasets: Optional[List[StarlakeDataset]]) -> Optional[List[StarlakeDataset]]:
