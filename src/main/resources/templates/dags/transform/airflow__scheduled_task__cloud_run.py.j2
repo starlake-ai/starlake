@@ -10,7 +10,7 @@
 # - retry_delay_in_seconds(10): the delay in seconds to wait before retrying the job [OPTIONAL]
 # - use_gcloud(True): whether to use the gcloud command or the google cloud run python operator [OPTIONAL]
 # - sl_env_var: starlake variables specified as a map in json format - at least the root project path SL_ROOT should be specified [OPTIONAL]
-# - load_dependencies(False): whereas the dependencies should be added for each transformation that has to be performed within the dag (if not set, the dependencies are not added) [OPTIONAL]
+# - run_dependencies_first(False): whereas the dependencies should be added and executed before each transformation that has to be performed within the dag (if not set, the dependencies will not be added) [OPTIONAL]
 # - tags: a list of tags to be applied to the dag [OPTIONAL]
 # Naming rule: scheduled or sensor, global or domain or table, cloudrun or bash or dataproc or serverless with free-text
 # - catchup(False): whether to catch up the missed runs or not [OPTIONAL]

@@ -18,7 +18,8 @@ import os
 
 import sys
 
-from datetime import timedelta
+from datetime import datetime, timedelta
+import pytz
 
 from typing import final, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
@@ -135,6 +136,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         self.caller_module_name = module_name
         
         # Access the caller's global variables
+        import sys
         self.caller_globals = sys.modules[self.caller_module_name].__dict__ if module_name else {}
 
         def default_spark_config(*args, **kwargs) -> StarlakeSparkConfig:
@@ -166,9 +168,97 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
 
         self.__dataset_triggering_strategy: DatasetTriggeringStrategy = dataset_triggering_strategy
 
+        self.__timezone = kwargs.get('timezone', __class__.get_context_var(var_name='timezone', default_value='UTC', options=self.options))
+        # set start_date
+        module = sys.modules.get(module_name) if module_name else None
+        if module and hasattr(module, '__file__'):
+            import os
+            file_path = module.__file__
+            stat = os.stat(file_path)
+            default_start_date = datetime.fromtimestamp(stat.st_mtime, tz=pytz.timezone(self.timezone)).strftime('%Y-%m-%d')
+        else:
+            default_start_date = datetime.now().astimezone(pytz.timezone(self.timezone)).strftime('%Y-%m-%d')
+        sd = __class__.get_context_var(var_name='start_date', default_value=default_start_date, options=self.options)
+        import re
+        pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
+        if pattern.fullmatch(sd):
+            self.__start_date = datetime.strptime(sd, '%Y-%m-%d').astimezone(pytz.timezone(self.timezone))
+        else:
+            self.__start_date = datetime.strptime(default_start_date, '%Y-%m-%d').astimezone(pytz.timezone(self.timezone))
+
+        self.__optional_dataset_enabled = str(__class__.get_context_var(var_name='optional_dataset_enabled', default_value="false", options=self.options)).strip().lower() == "true"
+        self.__data_cycle_enabled = str(__class__.get_context_var(var_name='data_cycle_enabled', default_value="false", options=self.options)).strip().lower() == "true"
+        self.__data_cycle = str(__class__.get_context_var(var_name='data_cycle', default_value="none", options=self.options))
+        self.__beyond_data_cycle_enabled = str(__class__.get_context_var(var_name='beyond_data_cycle_enabled', default_value="true", options=self.options)).strip().lower() == "true"
+        self.__min_timedelta_between_runs = int(__class__.get_context_var(var_name='min_timedelta_between_runs', default_value=15*60, options=self.options))
+        self.__run_dependencies_first = __class__.get_context_var(var_name='run_dependencies_first', default_value='False', options=self.options).lower() == 'true'
+
     @property
     def dataset_triggering_strategy(self) -> DatasetTriggeringStrategy:
         return self.__dataset_triggering_strategy
+
+    @property
+    def timezone(self) -> str:
+        return self.__timezone
+
+    @property
+    def start_date(self) -> datetime:
+        """Get the start date of the job"""
+        return self.__start_date
+
+    @property
+    def optional_dataset_enabled(self) -> bool:
+        """whether a dataset can be optional or not."""
+        return self.__optional_dataset_enabled
+
+    @property
+    def data_cycle_enabled(self) -> bool:
+        """Get whether data cycle is enabled or not"""
+        return self.__data_cycle_enabled
+
+    @property
+    def data_cycle(self) -> str:
+        """Get the data cycle of the job"""
+        return self.__data_cycle
+
+    @data_cycle.setter
+    def data_cycle(self, value: Optional[str]) -> None:
+        """Set the data cycle value."""
+        if self.data_cycle_enabled and value:
+            data_cycle = value.strip().lower()
+            if data_cycle == "none":
+                self.__data_cycle = None
+            elif data_cycle == "hourly":
+                self.__data_cycle = "0 * * * *"
+            elif data_cycle == "daily":
+                self.__data_cycle = "0 0 * * *"
+            elif data_cycle == "weekly":
+                self.__data_cycle = "0 0 * * 0"
+            elif data_cycle == "monthly":
+                self.__data_cycle = "0 0 1 * *"
+            elif data_cycle == "yearly":
+                self.__data_cycle = "0 0 1 1 *"
+            elif is_valid_cron(data_cycle):
+                self.__data_cycle = data_cycle
+            else:
+                raise ValueError(f"Invalid data cycle value: {data_cycle}")
+        else:
+            self.__data_cycle = None
+
+    @property
+    def beyond_data_cycle_enabled(self) -> bool:
+        """whether the beyond data cycle feature is enabled or not."""
+        return self.__beyond_data_cycle_enabled
+
+    @property
+    def min_timedelta_between_runs(self) -> int:
+        """Get minimum time delta in seconds between two consecutive runs"""
+        return self.__min_timedelta_between_runs
+
+    @property
+    def run_dependencies_first(self) -> bool:
+        """whether to run dependencies first or not."""
+        return self.__run_dependencies_first
 
     @classmethod
     def sl_orchestrator(cls) -> Union[StarlakeOrchestrator, str, None]:
