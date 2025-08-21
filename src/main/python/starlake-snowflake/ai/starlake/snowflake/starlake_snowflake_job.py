@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple, Union
 
-from ai.starlake.common import is_valid_cron, MissingEnvironmentVariable
+from ai.starlake.common import MissingEnvironmentVariable
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOptions, StarlakeOrchestrator, StarlakeExecutionEnvironment, TaskType
 
@@ -34,7 +34,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
         try:
             self.__sl_incoming_file_stage = kwargs.get('sl_incoming_file_stage', __class__.get_context_var(var_name='sl_incoming_file_stage', options=self.options))
         except MissingEnvironmentVariable:
-            self.__sl_incoming_file_stage = None
+            raise ValueError("sl_incoming_file_stage is required, please set it in the options or as an environment variable.")
         allow_overlapping_execution: bool = kwargs.get('allow_overlapping_execution', __class__.get_context_var(var_name='allow_overlapping_execution', default_value='False', options=self.options).lower() == 'true')
         self.__allow_overlapping_execution = allow_overlapping_execution
 
@@ -789,13 +789,13 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                 return as_datetime(logical_date)
 
             params = kwargs.get('params', {})
-            cron_expr = params.get('cron_expr', None)
+            cron_expr = params.get('cron', params.get('cronExpr', None))
             kwargs.pop('params', None)
+
+            allow_overlapping_execution = self.allow_overlapping_execution
 
             if task_type == TaskType.TRANSFORM:
                 if statements:
-
-                    allow_overlapping_execution = self.allow_overlapping_execution
 
                     # create the function that will execute the transform
                     def fun(session: Session, dry_run: bool, logical_date: Optional[str] = None) -> None:
@@ -927,9 +927,9 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                     import json
                     context = json.loads(json_context).get(sink, None)
                     if context:
-                        temp_stage = self.sl_incoming_file_stage or context.get('tempStage', None)
-                        if not temp_stage:
-                            raise ValueError(f"Temp stage for {sink} not found")
+                        sl_incoming_file_stage = self.sl_incoming_file_stage
+                        if not sl_incoming_file_stage:
+                            raise ValueError(f"sl_incoming_file_stage for {sink} not found")
                         temp_table_name = context.get('tempTableName', None)
                         context_schema: dict = context.get('schema', dict())
                         pattern: str = context_schema.get('pattern', None)
@@ -943,19 +943,19 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             format = format.upper()
                         metadata_options: dict = metadata.get("options", dict())
 
-                        def get_option(key: str, metadata_key: Optional[str]) -> Optional[str]:
+                        def get_option(key: str, metadata_key: Optional[str] = None, default_value: Optional[str] = None) -> Optional[str]:
                             if metadata_options and key.lower() in metadata_options:
                                 return metadata_options.get(key.lower(), None)
                             elif metadata_key and metadata.get(metadata_key, None):
                                 return metadata[metadata_key].replace('\\', '\\\\')
-                            return None
+                            return default_value
 
                         def is_true(value: str, default: bool) -> bool:
                             if value is None:
                                 return default
                             return value.lower() == "true"
 
-                        def get_audit_info(rows: List[Row]) -> Tuple[str, str, str, int, int, int]:
+                        def get_audit_info(rows: List[Row], dry_run: bool) -> Tuple[str, str, str, int, int, int]:
                             if rows.__len__() == 0:
                                 return '', '', '', -1, -1, -1
                             else:
@@ -966,6 +966,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                 rows_loaded = 0
                                 errors_seen = 0
                                 for row in rows:
+                                    info(f"Row: {row}", dry_run=dry_run)
                                     row_dict = row.as_dict()
                                     file = row_dict.get('file', None)
                                     if file:
@@ -991,13 +992,13 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                             extra_options += f"{newKey} = {v}\n"
                             return extra_options
 
-                        compression = is_true(get_option("compression", None), True)
+                        compression = is_true(get_option("compression"), False)
                         if compression:
                             compression_format = "COMPRESSION = GZIP" 
                         else:
                             compression_format = "COMPRESSION = NONE"
 
-                        null_if = get_option('NULL_IF', None)
+                        null_if = get_option('NULL_IF')
                         if not null_if and is_true(metadata.get('emptyIsNull', "true"), False):
                             null_if = "NULL_IF = ('')"
                         elif null_if:
@@ -1005,14 +1006,14 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                         else:
                             null_if = ""
 
-                        purge = get_option("PURGE", None)
+                        purge = get_option("PURGE")
                         if not purge:
                             purge = "FALSE"
                         else:
                             purge = purge.upper()
 
                         def build_copy_csv() -> str:
-                            skipCount = get_option("SKIP_HEADER", None)
+                            skipCount = get_option("SKIP_HEADER")
 
                             if not skipCount and is_true(metadata.get('withHeader', 'true'), False):
                                 skipCount = '1'
@@ -1031,27 +1032,26 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             else:
                                 extension = ""
                             sql = f'''
-                                COPY INTO {temp_table_name or sink} 
-                                FROM @{temp_stage}/{domain}/
-                                PATTERN = '{pattern}{extension}'
-                                PURGE = {purge}
-                                FILE_FORMAT = (
-                                    TYPE = CSV
-                                    ERROR_ON_COLUMN_COUNT_MISMATCH = false
-                                    SKIP_HEADER = {skipCount} 
-                                    FIELD_OPTIONALLY_ENCLOSED_BY = '{get_option('FIELD_OPTIONALLY_ENCLOSED_BY', 'quote')}' 
-                                    FIELD_DELIMITER = '{get_option('FIELD_DELIMITER', 'separator')}' 
-                                    ESCAPE_UNENCLOSED_FIELD = '{get_option('ESCAPE_UNENCLOSED_FIELD', 'escape')}' 
-                                    ENCODING = '{get_option('ENCODING', 'encoding')}'
-                                    {null_if}
-                                    {extra_options}
-                                    {compression_format}
-                                )
-                            '''
+COPY INTO {temp_table_name or sink} 
+FROM @{sl_incoming_file_stage}/{domain}/
+PATTERN = '{pattern}{extension}'
+PURGE = {purge}
+FILE_FORMAT = (
+    TYPE = CSV
+    ERROR_ON_COLUMN_COUNT_MISMATCH = false
+    SKIP_HEADER = {skipCount} 
+    FIELD_OPTIONALLY_ENCLOSED_BY = '{get_option('FIELD_OPTIONALLY_ENCLOSED_BY', 'quote')}' 
+    FIELD_DELIMITER = '{get_option('FIELD_DELIMITER', 'separator')}' 
+    ESCAPE_UNENCLOSED_FIELD = '{get_option('ESCAPE_UNENCLOSED_FIELD', 'escape')}' 
+    ENCODING = '{get_option('ENCODING', 'encoding')}'
+    {null_if}
+    {extra_options}
+    {compression_format}
+)'''
                             return sql
 
                         def build_copy_json() -> str:
-                            strip_outer_array = get_option("STRIP_OUTER_ARRAY", 'true')
+                            strip_outer_array = get_option("STRIP_OUTER_ARRAY", default_value='true')
                             common_options = [
                                 'STRIP_OUTER_ARRAY', 
                                 'NULL_IF'
@@ -1063,19 +1063,18 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             else:
                                 ''
                             sql = f'''
-                                COPY INTO {temp_table_name or sink} 
-                                FROM @{temp_stage}/{domain}
-                                PATTERN = '{pattern}'
-                                PURGE = {purge}
-                                FILE_FORMAT = (
-                                    TYPE = JSON
-                                    STRIP_OUTER_ARRAY = {strip_outer_array}
-                                    {null_if}
-                                    {extra_options}
-                                    {compression_format}
-                                )
-                                {match_by_columnName}
-                            '''
+COPY INTO {temp_table_name or sink} 
+FROM @{sl_incoming_file_stage}/{domain}
+PATTERN = '{pattern}'
+PURGE = {purge}
+FILE_FORMAT = (
+    TYPE = JSON
+    STRIP_OUTER_ARRAY = {strip_outer_array}
+    {null_if}
+    {extra_options}
+    {compression_format}
+)
+{match_by_columnName}'''
                             return sql
                             
                         def build_copy_other(format: str) -> str:
@@ -1084,17 +1083,16 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             ]
                             extra_options = copy_extra_options(common_options)
                             sql = f'''
-                                COPY INTO {temp_table_name or sink} 
-                                FROM @{temp_stage}/{domain} 
-                                PATTERN = '{pattern}'
-                                PURGE = {purge}
-                                FILE_FORMAT = (
-                                    TYPE = {format}
-                                    {null_if}
-                                    {extra_options}
-                                    {compression_format}
-                                )
-                            '''
+COPY INTO {temp_table_name or sink} 
+FROM @{sl_incoming_file_stage}/{domain} 
+PATTERN = '{pattern}'
+PURGE = {purge}
+FILE_FORMAT = (
+    TYPE = {format}
+    {null_if}
+    {extra_options}
+    {compression_format}
+)'''
                             return sql
 
                         def build_copy() -> str:
@@ -1130,7 +1128,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                 logical_date = get_logical_date(session, backfill, dry_run=dry_run)
                             logical_date = as_datetime(logical_date)
 
-                            if not backfill and cron_expr:
+                            if cron_expr and not backfill:
                                 # if a cron expression has been provided, the scheduled date corresponds to the end date determined by applying the cron expression to the logical date
                                 (_, scheduled_date) = get_start_end_dates(cron_expr, logical_date)
                             else:
@@ -1158,8 +1156,6 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                     if write_strategy == 'WRITE_TRUNCATE':
                                         # truncate table
                                         execute_sql(session, f"TRUNCATE TABLE {sink}", "Truncate table", dry_run)
-                                    # create stage if not exists
-                                    execute_sql(session, f"CREATE STAGE IF NOT EXISTS {temp_stage}", "Create stage", dry_run)
                                     # copy data
                                     copy_results = execute_sql(session, build_copy(), "Copy data", dry_run)
                                     if not exists:
@@ -1172,8 +1168,6 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                     if write_strategy == 'WRITE_TRUNCATE':
                                         # truncate table
                                         execute_sql(session, f"TRUNCATE TABLE {sink}", "Truncate table", dry_run)
-                                    # create stage if not exists
-                                    execute_sql(session, f"CREATE STAGE IF NOT EXISTS {temp_stage}", "Create stage", dry_run)
                                     # copy data
                                     copy_results = execute_sql(session, build_copy(), "Copy data", dry_run)
                                     second_step = statements.get('secondStep', dict())
@@ -1211,7 +1205,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                 end = datetime.now()
                                 duration = (end - start).total_seconds()
                                 info(f"Duration in seconds: {duration}", dry_run=dry_run)
-                                files, first_error_line, first_error_column_name, rows_parsed, rows_loaded, errors_seen = get_audit_info(copy_results)
+                                files, first_error_line, first_error_column_name, rows_parsed, rows_loaded, errors_seen = get_audit_info(copy_results, dry_run=dry_run)
                                 message = first_error_line + '\n' + first_error_column_name
                                 success = errors_seen == 0
                                 log_audit(session, files, rows_parsed, rows_loaded, errors_seen, success, duration, message, end, jobid, "LOAD", dry_run, scheduled_date)
