@@ -222,10 +222,29 @@ class SnowflakeDag(DAG):
             except CroniterBadCronError:
                 raise ValueError(f"Invalid cron expression: {cron_expr}")
 
-        def get_logical_date(session: Session, backfill: bool = False, dry_run: bool = False) -> datetime:
+        def get_execution_date(session: Session, dry_run: bool = False) -> datetime:
+            """Get the execution date of the current DAG run.
+            Args:
+                session (Session): The Snowflake session.
+                dry_run (bool, optional): Whether to run in dry run mode. Defaults to False.
+            Returns:
+                datetime: The execution date.
+            """
+            query = "SELECT SYSTEM$TASK_RUNTIME_INFO('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP')::timestamp_ltz"
+            rows = execute_sql(session, query, "Get the original scheduled timestamp of the initial graph run", dry_run)
+            if rows.__len__() == 1:
+                execution_date = as_datetime(rows[0][0])
+                info(f"Execution date set to the original scheduled timestamp of the initial graph run: {execution_date}", dry_run=dry_run)
+            else:
+                execution_date = datetime.fromtimestamp(datetime.now().timestamp()).astimezone(pytz.timezone(timezone))
+                info(f"Execution date set to the current system date: {execution_date}", dry_run=dry_run)
+            return execution_date
+
+        def get_logical_date(session: Session, ts: datetime, backfill: bool = False, dry_run: bool = False) -> datetime:
             """Get the logical date of the running dag.
             Args:
                 session (Session): The Snowflake session.
+                ts (datetime): The timestamp of the current DAG run.
                 backfill (bool, optional): Whether the current Dag run is a backfill. Defaults to False.
                 dry_run (bool, optional): Whether to run in dry run mode. Defaults to False.
             Returns:
@@ -253,16 +272,7 @@ class SnowflakeDag(DAG):
                     logical_date = rows[0][0]
                     info(f"Logical date set to the partition end date: {logical_date}", dry_run=dry_run)
             if not logical_date:
-                # the current date is the original scheduled timestamp of the initial graph run in the current group
-                query = "SELECT SYSTEM$TASK_RUNTIME_INFO('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP')::timestamp_ltz"
-                rows = execute_sql(session, query, "Get the original scheduled timestamp of the initial graph run", dry_run)
-                if rows.__len__() == 1:
-                    logical_date = rows[0][0]
-                    info(f"Logical date set to the original scheduled timestamp of the initial graph run: {logical_date}", dry_run=dry_run)
-                else:
-                    # ... or the current system date
-                    logical_date = datetime.fromtimestamp(datetime.now().timestamp()).astimezone(pytz.timezone(timezone))
-                    info(f"Logical date set to the current system date: {logical_date}", dry_run=dry_run)
+                return ts
             return as_datetime(logical_date)
 
         def get_previous_dag_run(session: Session, logical_date: datetime, dry_run: bool, at_scheduled_date: bool = False) -> Optional[tuple[datetime, datetime]]:
@@ -377,6 +387,8 @@ ORDER BY SCHEDULED_DATE DESC, TIMESTAMP DESC
             query = "ALTER SESSION SET TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ'"
             execute_sql(session, query, "Set session timestamp type mapping", False)
 
+            ts = get_execution_date(session, dry_run=dry_run)
+
             backfill: bool = False
             if allow_overlapping_execution:
                 query = "SELECT SYSTEM$TASK_RUNTIME_INFO('IS_BACKFILL')::boolean"
@@ -385,7 +397,7 @@ ORDER BY SCHEDULED_DATE DESC, TIMESTAMP DESC
                     backfill = rows[0][0]
 
             if not logical_date:
-                logical_date = get_logical_date(session, backfill, dry_run=dry_run)
+                logical_date = get_logical_date(session, ts, backfill, dry_run=dry_run)
             logical_date = as_datetime(logical_date)
 
             if computed_cron_expr and not backfill:
@@ -427,10 +439,13 @@ ORDER BY SCHEDULED_DATE DESC, TIMESTAMP DESC
                     (_, last_dag_checked) = get_start_end_dates(computed_cron_expr, last_dag_checked)
                     info(f"Computed scheduled date for last DAG run: {last_dag_checked}", dry_run=dry_run)
                 if not backfill and last_dag_checked.strftime(datetime_format) == scheduled_date.strftime(datetime_format):
-                    # we run successfuly this dag for the same scheduled date, we should skip the current execution
-                    warning(f"The last succeeded dag run has been executed at {last_dag_ts} with the same scheduled date {last_dag_checked}... The current DAG execution will be skipped", dry_run=dry_run)
-                    if not dry_run:
-                        skipped = True
+                    # if the last DAG run has the same scheduled date as the current one, we check if it was run less than min_timedelta_between_runs seconds ago
+                    diff: timedelta = ts - last_dag_ts
+                    if diff.total_seconds() <= min_timedelta_between_runs:
+                        # we run successfuly this dag for the same scheduled date, we should skip the current execution
+                        warning(f"The last succeeded dag run has been executed at {last_dag_ts} with the same scheduled date {last_dag_checked} less than {min_timedelta_between_runs} seconds ago ({diff.seconds} seconds)... The current DAG execution will be skipped", dry_run=dry_run)
+                        if not dry_run:
+                            skipped = True
 
             if not skipped:
                 missing_datasets = []
@@ -496,8 +511,10 @@ ORDER BY SCHEDULED_DATE DESC, TIMESTAMP DESC
                 if missing_datasets:
                     warning(f"The following datasets are missing: {', '.join(missing_datasets)}, the current DAG execution will be skipped", dry_run=dry_run)
                     skipped = True
-                else:
+                elif datasets:
                     info(f"All datasets are present: {', '.join(datasets.keys())}, the current DAG will continue its execution", dry_run=dry_run)
+                else:
+                    info("No datasets to check, the current DAG will continue its execution", dry_run=dry_run)
 
             if not skipped:
                 # if the dag has to be run, we set the return value to the logical date of the running dag
