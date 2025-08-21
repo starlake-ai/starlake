@@ -7,7 +7,7 @@ dag:
   options:
     sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
     tags: "{{domain}}"
-    load_dependencies: "False"
+    load_dependencies: "True"
     stage_location: staging
     warehouse: COMPUTE_WH
     timezone: UTC
