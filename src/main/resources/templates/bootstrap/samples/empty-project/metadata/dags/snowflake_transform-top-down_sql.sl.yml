@@ -1,0 +1,14 @@
+---
+version: 1
+dag:
+  comment: "dag for transforming all {{domain}} tasks"
+  template: "transform/snowflake__scheduled_task__sql.py.j2"
+  filename: "snowflake_{{domain}}_tasks.py"
+  options:
+    sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
+    tags: "{{domain}}"
+    load_dependencies: "True"
+    stage_location: staging
+    warehouse: COMPUTE_WH
+    timezone: UTC
+    packages: croniter,python-dateutil
