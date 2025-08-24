@@ -53,8 +53,9 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
             kwargs.update({'params': params})
             tmp_arguments = []
             tmp_arguments.append("--scheduledDate")
-            tmp_arguments.append("{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts), params.previous)}}")
-            arguments = tmp_arguments + arguments
+            tmp_arguments.append("\'{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts), params.previous)}}\'")
+            command = arguments.pop(0)
+            arguments = [command] + tmp_arguments + arguments
 
         for index, arg in enumerate(arguments):
             if arg == "--options" and arguments.__len__() > index + 1:
@@ -162,4 +163,3 @@ class StarlakeBashOperator(StarlakeDatasetMixin, BashOperator):
             bash_command=bash_command, 
             **kwargs
         )
-

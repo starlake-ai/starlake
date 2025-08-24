@@ -202,8 +202,9 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             from datetime import datetime
             from ai.starlake.common import sl_timestamp_format
             logical_datetime: datetime = StarlakeDagsterUtils.get_logical_datetime(context, config).strftime(sl_timestamp_format)
-            tmp_arguments.append(logical_datetime)
-            arguments = tmp_arguments + arguments
+            tmp_arguments.append(f"\'{logical_datetime}\'")
+            command = arguments.pop(0)
+            arguments = [command] + tmp_arguments + arguments
 
             if transform:
                 opts = arguments[-1].split(",")
