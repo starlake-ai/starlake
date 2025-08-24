@@ -51,8 +51,9 @@ class StarlakeAirflowFargateJob(StarlakeAirflowJob):
             kwargs.update({'params': params})
             tmp_arguments = []
             tmp_arguments.append("--scheduledDate")
-            tmp_arguments.append("{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts), params.previous)}}")
-            arguments = tmp_arguments + arguments
+            tmp_arguments.append("\'{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts), params.previous)}}\'")
+            command = arguments.pop(0)
+            arguments = [command] + tmp_arguments + arguments
 
         fargate = StarlakeFargateHelper(job=self, arguments=arguments, **kwargs)
 

@@ -211,8 +211,9 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
             kwargs.update({'params': params})
             tmp_arguments = []
             tmp_arguments.append("--scheduledDate")
-            tmp_arguments.append("{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts), params.previous)}}")
-            arguments = tmp_arguments + arguments
+            tmp_arguments.append("\'{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts), params.previous)}}\'")
+            command = arguments.pop(0)
+            arguments = [command] + tmp_arguments + arguments
         jar_list = __class__.get_context_var(var_name="spark_jar_list", options=self.options).split(",") if not jar_list else jar_list
         main_class = __class__.get_context_var("spark_job_main_class", "ai.starlake.job.Main", self.options) if not main_class else main_class
 
