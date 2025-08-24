@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta, datetime
 
-from typing import Dict, Optional, List, Tuple, Union
+from typing import Optional, List, Union
 
 from ai.starlake.job import StarlakePreLoadStrategy, IStarlakeJob, StarlakeSparkConfig, StarlakeOrchestrator, TaskType
 
@@ -100,6 +100,8 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
         self.pool = str(__class__.get_context_var(var_name='default_pool', default_value=DEFAULT_POOL, options=self.options))
         self.outlets: List[Dataset] = kwargs.get('outlets', [])
         # set end_date
+        import re
+        pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
         try:
             ed = __class__.get_context_var(var_name='end_date', options=self.options)
         except MissingEnvironmentVariable:

@@ -11,7 +11,7 @@ from ai.starlake.common import StarlakeCronPeriod, sl_cron_start_end_dates, sort
 
 from ai.starlake.job import StarlakeSparkConfig, IStarlakeJob, StarlakePreLoadStrategy, StarlakeExecutionMode
 
-from ai.starlake.dataset import StarlakeDataset, AbstractEvent
+from ai.starlake.dataset import StarlakeDataset, AbstractEvent, StarlakeDatasetType
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies, StarlakeDependency, StarlakeDependencyType, DependencyMixin, TreeNodeMixin
 
@@ -825,9 +825,10 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         kwargs.pop('spark_config', None)
         kwargs.pop('dataset', None)
         asset = StarlakeDataset(
-            name=name, 
-            sink=f"{domain}.{table}", 
-            cron = self.cron, 
+            name        = name,
+            sink        = f"{domain}.{table}",
+            cron        = self.cron,
+            datasetType = StarlakeDatasetType.LOAD,
             **kwargs
         )
         if asset not in self.assets:
@@ -859,9 +860,10 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         kwargs.pop('spark_config', None)
         kwargs.pop('dataset', None)
         asset = StarlakeDataset(
-            name = transform_name, 
-            cron = self.cron,
-            sink = sink,
+            name        = transform_name, 
+            cron        = self.cron, #TODO check if it should not be self.computed_cron_expr
+            sink        = sink,
+            datasetType = StarlakeDatasetType.TRANSFORM,
             **kwargs
         )
         if asset not in self.assets:

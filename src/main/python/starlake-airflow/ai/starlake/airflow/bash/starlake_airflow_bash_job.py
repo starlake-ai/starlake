@@ -44,6 +44,18 @@ class StarlakeAirflowBashJob(StarlakeAirflowJob):
 
         env = self.sl_env_vars.copy() # Copy the current sl env variables
 
+        if task_type is not None and (task_type == TaskType.LOAD or task_type == TaskType.TRANSFORM):
+            arguments = [] if not arguments else arguments
+            params: dict = kwargs.get('params', dict())
+            cron = params.get('cron', None)
+            previous = params.get('previous', False)
+            params.update({'cron': cron, 'previous': previous})
+            kwargs.update({'params': params})
+            tmp_arguments = []
+            tmp_arguments.append("--scheduledDate")
+            tmp_arguments.append("{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts), params.previous)}}")
+            arguments = tmp_arguments + arguments
+
         for index, arg in enumerate(arguments):
             if arg == "--options" and arguments.__len__() > index + 1:
                 opts = arguments[index+1]

@@ -193,6 +193,7 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
         arguments: list=None,
         dataset: Optional[Union[StarlakeDataset, str]]=None,
         source: Optional[str]=None,
+        task_type: Optional[TaskType] = None,
         **kwargs) -> BaseOperator:
         """Create a dataproc job on the specified cluster"""
         cluster_id = self.cluster_config.cluster_id if not cluster_id else cluster_id
@@ -202,6 +203,16 @@ class StarlakeAirflowDataprocCluster(StarlakeAirflowOptions):
             cluster_name = cluster_name[0:-1] + 'Z'
         task_id = f"{cluster_id}_submit" if not task_id else task_id
         arguments = [] if not arguments else arguments
+        if task_type is not None and (task_type == TaskType.LOAD or task_type == TaskType.TRANSFORM):
+            params: dict = kwargs.get('params', dict())
+            cron = params.get('cron', None)
+            previous = params.get('previous', False)
+            params.update({'cron': cron, 'previous': previous})
+            kwargs.update({'params': params})
+            tmp_arguments = []
+            tmp_arguments.append("--scheduledDate")
+            tmp_arguments.append("{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts), params.previous)}}")
+            arguments = tmp_arguments + arguments
         jar_list = __class__.get_context_var(var_name="spark_jar_list", options=self.options).split(",") if not jar_list else jar_list
         main_class = __class__.get_context_var("spark_job_main_class", "ai.starlake.job.Main", self.options) if not main_class else main_class
 
@@ -279,6 +290,7 @@ class StarlakeAirflowDataprocJob(StarlakeAirflowJob):
             spark_config=spark_config,
             dataset=dataset,
             source=self.source,
+            task_type=task_type,
             **kwargs
         )
 
