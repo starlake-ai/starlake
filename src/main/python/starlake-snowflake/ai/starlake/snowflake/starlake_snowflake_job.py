@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 from ai.starlake.common import MissingEnvironmentVariable
 
@@ -39,7 +39,6 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
         allow_overlapping_execution: bool = kwargs.get('allow_overlapping_execution', __class__.get_context_var(var_name='allow_overlapping_execution', default_value='False', options=self.options).lower() == 'true')
         self.__allow_overlapping_execution = allow_overlapping_execution
         self.__ai_zip = zip_selected_packages()
-        self.pipeline_id = self.caller_filename.replace(".py", "").replace(".pyc", "").upper() #TODO add to generic starlake job
 
     @property
     def stage_location(self) -> Optional[str]:
