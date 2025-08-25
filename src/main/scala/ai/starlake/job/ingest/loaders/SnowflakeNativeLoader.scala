@@ -258,7 +258,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       s"""
          |COPY INTO $domainAndTableName
          |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern$
+         |PATTERN = '$pattern
          |PURGE = ${purge}
          |FILE_FORMAT = (
          |  TYPE = XML
