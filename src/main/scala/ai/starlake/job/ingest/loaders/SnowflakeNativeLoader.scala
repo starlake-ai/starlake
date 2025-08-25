@@ -180,7 +180,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     val compression =
       getOption("COMPRESSION").getOrElse("true").equalsIgnoreCase("true")
     if (compression)
-      ("COMPRESSION = GZIP", ".gz")
+      ("COMPRESSION = AUTO", ".gz")
     else
       ("COMPRESSION = NONE", "")
   }
@@ -224,11 +224,13 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
         "MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE"
 
     val extraOptions = copyExtraOptions(commonOptions)
+
+    // $extension is unused here because snowflake auto-detects compression and user is in charge of defining the right pattern
     val sql =
       s"""
          |COPY INTO $domainAndTableName
          |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern$extension'
+         |PATTERN = '$pattern'
          |PURGE = ${purge}
          |FILE_FORMAT = (
          |  TYPE = JSON
@@ -251,11 +253,12 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       else
         "STRIP_OUTER_ELEMENT=TRUE"
 
+    // $extension is unused here because snowflake auto-detects compression and user is in charge of defining the right pattern'
     val sql =
       s"""
          |COPY INTO $domainAndTableName
          |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern$extension'
+         |PATTERN = '$pattern$
          |PURGE = ${purge}
          |FILE_FORMAT = (
          |  TYPE = XML
@@ -270,11 +273,13 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
   private def buildCopyOther(domainAndTableName: String, format: String) = {
     val commonOptions = List("NULL_IF")
     val extraOptions = copyExtraOptions(commonOptions)
+
+    // $extension is unused here because snowflake auto-detects compression and user is in charge of defining the right pattern
     val sql =
       s"""
          |COPY INTO $domainAndTableName
          |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern$extension'
+         |PATTERN = '$pattern'
          |PURGE = $purge
          |FILE_FORMAT = (
          |  TYPE = $format
@@ -311,11 +316,12 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
         .getOrElse(mergedMetadata.resolveEscape())
         .replaceAll("\\\\", "\\\\\\\\")
 
+    // $extension is unused here because snowflake auto-detects compression and user is in charge of defining the right pattern
     val sql =
       s"""
          |COPY INTO $domainAndTableName
          |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern$extension'
+         |PATTERN = '$pattern'
          |PURGE = $purge
          |FILE_FORMAT = (
          |  TYPE = CSV
