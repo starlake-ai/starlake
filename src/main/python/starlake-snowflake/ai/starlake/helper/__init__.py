@@ -799,7 +799,7 @@ class SnowflakeLoadTaskHelper(SnowflakeTaskHelper):
         self.purge = purge
 
     # Copy data
-    def get_option(self, metadata_key: Optional[str] = None, default_value: Optional[str] = None) -> Optional[str]:
+    def get_option(self, key: str, metadata_key: Optional[str] = None, default_value: Optional[str] = None) -> Optional[str]:
         if self.metadata_options and key.lower() in self.metadata_options:
             return self.metadata_options.get(key.lower(), None)
         elif metadata_key and self.metadata.get(metadata_key, None):
@@ -837,7 +837,7 @@ class SnowflakeLoadTaskHelper(SnowflakeTaskHelper):
         sql = f'''
 COPY INTO {self.table_name} 
 FROM @{self.sl_incoming_file_stage}/{self.domain}/
-PATTERN = '{self.pattern}{extension}'
+PATTERN = '.*\/{self.pattern}{extension}'
 PURGE = {self.purge}
 FILE_FORMAT = (
     TYPE = CSV
@@ -867,7 +867,7 @@ FILE_FORMAT = (
         sql = f'''
 COPY INTO {self.table_name} 
 FROM @{self.sl_incoming_file_stage}/{self.domain}
-PATTERN = '{self.pattern}'
+PATTERN = '.*\/{self.pattern}'
 PURGE = {self.purge}
 FILE_FORMAT = (
     TYPE = JSON
@@ -887,7 +887,7 @@ FILE_FORMAT = (
         sql = f'''
 COPY INTO {self.table_name} 
 FROM @{self.sl_incoming_file_stage}/{self.domain} 
-PATTERN = '{self.pattern}'
+PATTERN = '.*\/{self.pattern}'
 PURGE = {self.purge}
 FILE_FORMAT = (
     TYPE = {self.format}
