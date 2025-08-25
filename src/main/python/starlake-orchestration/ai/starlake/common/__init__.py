@@ -4,6 +4,10 @@ from croniter import croniter
 from croniter.croniter import CroniterBadCronError
 
 from datetime import datetime, timedelta
+from dateutil import parser
+
+import pytz
+
 from typing import Dict, List, Optional, Tuple, Union
 
 def keep_ascii_only(text):
@@ -62,20 +66,16 @@ def asQueryParameters(parameters: Union[dict,None]=None) -> str:
     else:
         return ''
 
-def cron_start_time() -> datetime:
-    import pytz
-    return datetime.fromtimestamp(datetime.now().timestamp()).astimezone(pytz.timezone('UTC'))
+def cron_start_time(timezone: str = 'UTC') -> datetime:
+    return datetime.fromtimestamp(datetime.now().timestamp()).astimezone(pytz.timezone(timezone))
 
 sl_schedule_format = '%Y%m%dT%H%M'
 
-def sl_schedule(cron: str, start_time: Optional[Union[str, datetime]] = None, format: str = sl_schedule_format) -> str:
-    from croniter import croniter
+def sl_schedule(cron: str, start_time: Optional[Union[str, datetime]] = None, format: str = sl_schedule_format, timezone: str = 'UTC') -> str:
     if start_time is None:
-        start_time = cron_start_time()
+        start_time = cron_start_time(timezone)
     elif isinstance(start_time, str):
-        from dateutil import parser
-        import pytz
-        start_time = parser.isoparse(start_time).astimezone(pytz.timezone('UTC'))
+        start_time = parser.isoparse(start_time).astimezone(pytz.timezone(timezone))
     return croniter(cron, start_time).get_prev(datetime).strftime(format)
 
 def get_cron_frequency(cron_expression) -> timedelta:
@@ -85,7 +85,6 @@ def get_cron_frequency(cron_expression) -> timedelta:
     :raise ValueError: If the cron expression is invalid.
     :return: The timedelta between 2 executions of the cron expression.
     """
-    from croniter import croniter
     if not is_valid_cron(cron_expression):
         raise ValueError(f"Invalid cron expression: {cron_expression}")
     iter = croniter(cron_expression)
@@ -104,7 +103,6 @@ def sort_crons_by_frequency(cron_expressions, reference_time: Optional[datetime]
     """
     if reference_time is None:
         from datetime import date, time
-        import pytz
         # Today at midnight UTC
         today_utc_midnight = datetime.combine(
             date.today(),
@@ -152,48 +150,37 @@ def sl_cron_start_end_dates(cron_expr: str, start_time: datetime = cron_start_ti
     :param start_time: The start time.
     :param format: The format to return the dates in.
     """
-    from croniter import croniter
-    iter = croniter(cron_expr, start_time)
-    curr = iter.get_current(datetime)
-    previous = iter.get_prev(datetime)
-    next = croniter(cron_expr, previous).get_next(datetime)
-    if curr == next :
-        sl_end_date = curr
-    else:
-        sl_end_date = previous
-    sl_start_date: datetime = croniter(cron_expr, sl_end_date).get_prev(datetime)
+    (sl_start_date, sl_end_date) = scheduled_dates_range(cron_expr, start_time)
     return f"{StarlakeParameters.DATA_INTERVAL_START_PARAMETER.value}='{sl_start_date.strftime(format)}',{StarlakeParameters.DATA_INTERVAL_END_PARAMETER.value}='{sl_end_date.strftime(format)}'"
 
-def sl_scheduled_date(cron: Optional[str], ts: Union[datetime, str], previous: bool=False) -> datetime:
+def sl_scheduled_date(cron: Optional[str], ts: Union[datetime, str], timezone: str = 'UTC') -> datetime:
     """
     Returns the scheduled date for a cron expression and timestamp or the timestamp itself if no cron expression is provided.
     Args:
         cron (str): The optional cron expression.
         ts (Union[datetime, str]): The timestamp.
-        previous (bool): If True, returns the previous scheduled date. Defaults to False.
+        timezone (str): The timezone to use if ts is a string. Defaults to 'UTC'.
+    Returns:
+        datetime: The scheduled date.
     """
     try:
         if isinstance(ts, str):
             # Convert ts to a datetime object
-            from dateutil import parser
-            import pytz
-            start_time = parser.isoparse(ts).astimezone(pytz.timezone('UTC'))
-        elif isinstance(ts, datetime):
+            start_time = parser.isoparse(ts).astimezone(pytz.timezone(timezone))
+        else:
             start_time = ts
         if cron and not is_valid_cron(cron):
             raise ValueError(f"Invalid cron expression: {cron}")
         elif cron:
-            if previous:
-                return croniter(cron, start_time).get_prev(datetime)
-            else:
-                return croniter(cron, start_time).get_current(datetime)
+            (_, en_date) = scheduled_dates_range(cron, start_time)
+            return en_date
         else:
             return start_time
     except Exception as e:
         print(f"Error converting timestamp to datetime: {e}")
         raise e
 
-def sl_scheduled_dataset(dataset: str, cron: Optional[str], ts:  Union[datetime, str], parameter_name: str = StarlakeParameters.SCHEDULED_DATE_PARAMETER.value, format: str = sl_timestamp_format, previous: bool=False) -> str:
+def sl_scheduled_dataset(dataset: str, cron: Optional[str], ts:  Union[datetime, str], parameter_name: str = StarlakeParameters.SCHEDULED_DATE_PARAMETER.value, format: str = sl_timestamp_format, timezone: str = 'UTC') -> str:
     """
     Returns the dataset url with the schedule parameter added if a cron expression has been provided.
     Args:
@@ -202,9 +189,12 @@ def sl_scheduled_dataset(dataset: str, cron: Optional[str], ts:  Union[datetime,
         ts (Union[datetime, str]): The timestamp.
         parameter_name (str): The parameter name. Defaults to StarlakeParameters.SCHEDULED_DATE_PARAMETER.
         format (str): The format to return the schedule in. Defaults to '%Y%m%dT%H%M'.
+        timezone (str): The timezone to use if ts is a string. Defaults to 'UTC'.
+    Returns:
+        str: The dataset url with the schedule parameter added if a cron expression has been provided.
     """
     if cron:
-        scheduled_date = sl_scheduled_date(cron, ts, previous)
+        scheduled_date = sl_scheduled_date(cron, ts, timezone=timezone)
         parameters = dict()
         parameters[parameter_name] = scheduled_date.strftime(format)
         return f"{sanitize_id(dataset).lower()}{asQueryParameters(parameters)}"

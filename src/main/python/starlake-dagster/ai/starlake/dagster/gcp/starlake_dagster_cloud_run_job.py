@@ -106,8 +106,17 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
             if dataset:
                 assets.append(StarlakeDagsterUtils.get_asset(context, config, dataset))
 
+            tmp_arguments = []
+            tmp_arguments.append("--scheduledDate")
+            from datetime import datetime
+            from ai.starlake.common import sl_timestamp_format
+            logical_datetime: datetime = StarlakeDagsterUtils.get_logical_datetime(context, config).strftime(sl_timestamp_format)
+            tmp_arguments.append(f"\'{logical_datetime}\'")
+            command = arguments.pop(0)
+            command_with_arguments = [command] + tmp_arguments + arguments
+
             if transform:
-                opts = arguments[-1].split(",")
+                opts = command_with_arguments[-1].split(",")
                 transform_opts = StarlakeDagsterUtils.get_transform_options(context, config, params).split(',')
                 env.update({
                     key: value
@@ -116,9 +125,9 @@ class StarlakeDagsterCloudRunJob(StarlakeDagsterJob):
                     for key, value in [opt.split("=")]
                 })
                 opts.extend(transform_opts)
-                arguments[-1] = ",".join(opts)
+                command_with_arguments[-1] = ",".join(opts)
 
-            args = f'^{separator}^' + separator.join(arguments)
+            args = f'^{separator}^' + separator.join(command_with_arguments)
 
             command = (
                 f"{sl_command}"
