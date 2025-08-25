@@ -3,12 +3,10 @@ from snowflake.snowpark.dataframe import DataFrame
 
 from typing import List, Optional, Tuple, Union
 
-from types import ModuleType
-
 from croniter import croniter
 from croniter.croniter import CroniterBadCronError
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytz
 
@@ -754,17 +752,48 @@ class SnowflakeTaskHelper(SnowflakeHelper):
             for expectation in self.expectation_items:
                 self.run_expectation(session, expectation.get("name", None), expectation.get("params", None), expectation.get("query", None), self.str_to_bool(expectation.get('failOnError', 'no')), jobid, dry_run)
 
+from enum import Enum
+
+class SnowflakeArea(str, Enum):
+    INCOMING = "incoming"
+    INGESTING = "ingesting"
+    ARCHIVE = "archive"
+    REJECTED = "rejected"
+
+    def __str__(self):
+        return self.value
+
+    @classmethod
+    def from_str(cls, value: str):
+        """Returns an instance of SnowflakeArea if the value is valid, otherwise raise a ValueError exception."""
+        try:
+            return cls(value.lower())
+        except ValueError:
+            raise ValueError(f"Unsupported snowflake area: {value}")
+
 class SnowflakeLoadTaskHelper(SnowflakeTaskHelper):
     def __init__(self, sl_incoming_file_stage: str, pattern: str, table_name: str, metadata: dict, variant: str, sink: str, domain: str, table: str, audit: dict, expectations: dict, expectation_items: list, name: str, timezone: Optional[str] = None) -> None:
         super().__init__(sink, domain, table, audit, expectations, expectation_items, name, timezone)
         if not sl_incoming_file_stage:
-            raise ValueError("sl_incoming_file_stage option is required")
-        self.sl_incoming_file_stage = sl_incoming_file_stage
+            raise ValueError("sl_incoming_file_stage dag option is required")
+        if not pattern:
+            raise ValueError("pattern file is required")
         self.pattern = pattern
         self.table_name = table_name
         self.metadata = metadata
         self.metadata_options: dict = metadata.get("options", dict())
         self.variant = variant
+        # Staging areas
+        sl_incoming_area = sl_incoming_file_stage
+        tmp = sl_incoming_area.split('/')
+        if len(tmp) > 1:
+            self.sl_datasets = '/'.join(tmp[0:-1])
+        else:
+            self.sl_datasets = sl_incoming_area
+        self.sl_incoming_area = f"{sl_incoming_area}/{self.domain}"
+        self.sl_ingesting_area = f"{self.sl_datasets}/ingesting/{self.domain}"
+        self.sl_archive_area = f"{self.sl_datasets}/archive/{self.domain}"
+        self.sl_rejected_area = f"{self.sl_datasets}/rejected/{self.domain}"
 
         format: str = metadata.get('format', None)
         if not format:
@@ -777,7 +806,7 @@ class SnowflakeLoadTaskHelper(SnowflakeTaskHelper):
         self.compression = compression
 
         if compression:
-            compression_format = "COMPRESSION = GZIP" 
+            compression_format = "COMPRESSION = AUTO" # the pattern should contain the compression extension
         else:
             compression_format = "COMPRESSION = NONE"
         self.compression_format = compression_format
@@ -791,12 +820,12 @@ class SnowflakeLoadTaskHelper(SnowflakeTaskHelper):
             null_if = ""
         self.null_if = null_if
 
-        purge = self.get_option("PURGE")
-        if not purge:
-            purge = "FALSE"
-        else:
-            purge = purge.upper()
-        self.purge = purge
+        # purge = self.get_option("PURGE")
+        # if not purge:
+        #     purge = "FALSE"
+        # else:
+        #     purge = purge.upper()
+        # self.purge = purge
 
     # Copy data
     def get_option(self, key: str, metadata_key: Optional[str] = None, default_value: Optional[str] = None) -> Optional[str]:
@@ -817,6 +846,10 @@ class SnowflakeLoadTaskHelper(SnowflakeTaskHelper):
         return extra_options
 
     def build_copy_csv(self) -> str:
+        """Build the copy command for CSV format.
+        Returns:
+            str: The copy command.
+        """
         skipCount = self.get_option("SKIP_HEADER")
         if not skipCount and self.is_true(self.metadata.get('withHeader', 'true'), False):
             skipCount = '1'
@@ -830,15 +863,12 @@ class SnowflakeLoadTaskHelper(SnowflakeTaskHelper):
             'ENCODING'
         ]
         extra_options = self.copy_extra_options(common_options)
-        if self.compression:
-            extension = ".gz"
-        else:
-            extension = ""
         sql = f'''
 COPY INTO {self.table_name} 
-FROM @{self.sl_incoming_file_stage}/{self.domain}/
-PATTERN = '.*\/{self.pattern}{extension}'
-PURGE = {self.purge}
+FROM @{self.sl_ingesting_area}
+PATTERN = '.*\/{self.pattern}'
+PURGE = FALSE
+FORCE = TRUE
 FILE_FORMAT = (
     TYPE = CSV
     ERROR_ON_COLUMN_COUNT_MISMATCH = false
@@ -854,6 +884,10 @@ FILE_FORMAT = (
         return sql
 
     def build_copy_json(self) -> str:
+        """Build the copy command for JSON format.
+        Returns:
+            str: The copy command.
+        """
         strip_outer_array = self.get_option("STRIP_OUTER_ARRAY", default_value='true')
         common_options = [
             'STRIP_OUTER_ARRAY', 
@@ -866,9 +900,10 @@ FILE_FORMAT = (
             match_by_columnName = ''
         sql = f'''
 COPY INTO {self.table_name} 
-FROM @{self.sl_incoming_file_stage}/{self.domain}
+FROM @{self.sl_ingesting_area}
 PATTERN = '.*\/{self.pattern}'
-PURGE = {self.purge}
+PURGE = FALSE
+FORCE = TRUE
 FILE_FORMAT = (
     TYPE = JSON
     STRIP_OUTER_ARRAY = {strip_outer_array}
@@ -880,15 +915,19 @@ FILE_FORMAT = (
         return sql
 
     def build_copy_other(self) -> str:
+        """Build the copy command for other formats (PARQUET, XML).
+        Returns:
+            str: The copy command."""
         common_options = [
             'NULL_IF'
         ]
         extra_options = self.copy_extra_options(common_options)
         sql = f'''
 COPY INTO {self.table_name} 
-FROM @{self.sl_incoming_file_stage}/{self.domain} 
+FROM @{self.sl_ingesting_area}
 PATTERN = '.*\/{self.pattern}'
-PURGE = {self.purge}
+PURGE = FALSE
+FORCE = TRUE
 FILE_FORMAT = (
     TYPE = {self.format}
     {self.null_if}
@@ -898,6 +937,10 @@ FILE_FORMAT = (
         return sql
 
     def build_copy(self) -> str:
+        """Build the copy command.
+        Returns:
+            str: The copy command.
+        """
         if self.format == 'DSV':
             return self.build_copy_csv()
         elif self.format == 'JSON' or self.format == 'JSON_FLAT':
@@ -909,3 +952,35 @@ FILE_FORMAT = (
         else:
             raise ValueError(f"Unsupported format {self.format}")
 
+    def get_datasets_area(self, area: SnowflakeArea) -> str:
+        """Get the datasets area.
+        Args:
+            area (SnowflakeArea): The area.
+        Returns:
+            str: The datasets area.
+        """
+        if area == SnowflakeArea.INCOMING:
+            return self.sl_incoming_area
+        elif area == SnowflakeArea.INGESTING:
+            return self.sl_ingesting_area
+        elif area == SnowflakeArea.ARCHIVE:
+            return self.sl_archive_area
+        elif area == SnowflakeArea.REJECTED:
+            return self.sl_rejected_area
+        else:
+            raise ValueError(f"Unsupported snowflake area: {area}")
+
+    def copy_files(self, session: Session, from_area: SnowflakeArea, to_area: SnowflakeArea, remove: bool, dry_run: bool) -> None:
+        """Copy files from one area to another.
+        Args:
+            session (Session): The Snowflake session.
+            from_area (SnowflakeArea): The source area.
+            to_area (SnowflakeArea): The destination area.
+            remove (bool): Whether to remove the files from the source area after copying.
+            dry_run (bool): Whether to run in dry run mode.
+        """
+        sql = f"COPY FILES INTO @{self.get_datasets_area(to_area)} FROM @{self.get_datasets_area(from_area)} PATTERN = '.*\/{self.pattern}'"
+        self.execute_sql(session, sql, f"Copy files from {from_area} to {to_area} with pattern {self.pattern}", dry_run)
+        if remove:
+            sql = f"REMOVE @{self.get_datasets_area(from_area)} PATTERN = '.*\/{self.pattern}'"
+            self.execute_sql(session, sql, f"Remove files from {from_area} with pattern {self.pattern}", dry_run)
