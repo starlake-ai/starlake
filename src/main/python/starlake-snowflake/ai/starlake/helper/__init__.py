@@ -638,7 +638,7 @@ class SnowflakeTaskHelper(SnowflakeHelper):
             return ','.join(files), ','.join(first_error_lines), ','.join(first_error_column_names), rows_parsed, rows_loaded, errors_seen
 
     # Expectations
-    def check_if_expectations_table_exists(session: Session, dry_run: bool = False) -> bool:
+    def check_if_expectations_table_exists(self, session: Session, dry_run: bool = False) -> bool:
         """Check if the expectations table exists.
         Args:
             session (Session): The Snowflake session.
@@ -685,13 +685,13 @@ class SnowflakeTaskHelper(SnowflakeHelper):
             expectation_sqls = self.expectations.get('mainSqlIfExists', None)
             if expectation_sqls:
                 try:
-                    ts = ts.astimezone(pytz.timezone(timezone))
+                    ts = ts.astimezone(pytz.timezone(self.timezone))
                     expectation_sql = expectation_sqls[0]
                     formatted_sql = expectation_sql.format(
-                        jobid = jobid or f'{domain}.{table}',
+                        jobid = jobid or f'{self.domain}.{self.table}',
                         database = "",
-                        domain = domain,
-                        schema = table,
+                        domain = self.domain,
+                        schema = self.table,
                         count = count,
                         exception = exception,
                         timestamp = ts.strftime(datetime_format),
@@ -728,15 +728,15 @@ class SnowflakeTaskHelper(SnowflakeHelper):
                 rows = self.execute_sql(session, query, f"Run expectation {name}:", dry_run)
                 if rows.__len__() != 1:
                     if not dry_run:
-                        raise Exception(f'Expectation failed for {sink}: {query}. Expected 1 row but got {rows.__len__()}')
+                        raise Exception(f'Expectation failed for {self.sink}: {query}. Expected 1 row but got {rows.__len__()}')
                 else:
                     count = rows[0][0]
                 #  log expectations as audit in expectation table here
                 if count != 0:
-                    raise Exception(f'Expectation failed for {sink}: {query}. Expected count to be equal to 0 but got {count}')
+                    raise Exception(f'Expectation failed for {self.sink}: {query}. Expected count to be equal to 0 but got {count}')
                 self.log_expectation(session, True, name, params, query, count, "", datetime.now(), jobid, dry_run)
             else:
-                raise Exception(f'Expectation failed for {sink}: {name}. Query not found')
+                raise Exception(f'Expectation failed for {self.sink}: {name}. Query not found')
         except Exception as e:
             self.error(f"Error running expectation {name}: {str(e)}")
             self.log_expectation(session, False, name, params, query, count, str(e), datetime.now(), jobid, dry_run)
