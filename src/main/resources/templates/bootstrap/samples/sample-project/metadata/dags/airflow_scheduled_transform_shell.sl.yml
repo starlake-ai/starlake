@@ -8,4 +8,4 @@ dag:
         sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
         SL_STARLAKE_PATH: "starlake"
         tags: "{{domain}}"
-        load_dependencies: "False"
+        run_dependencies_first: "False"

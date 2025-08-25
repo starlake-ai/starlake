@@ -5,4 +5,4 @@ dag:
     options:
         sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
         SL_STARLAKE_PATH: "{{SL_ROOT}}/starlake"
-        load_dependencies: "True" # load all dependencies for each transform job, 'False' by default
+        run_dependencies_first: "True" # load all dependencies for each transform job, 'False' by default
