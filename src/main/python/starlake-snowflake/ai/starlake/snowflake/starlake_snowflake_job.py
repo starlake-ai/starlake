@@ -469,7 +469,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                             raise ValueError(f"Pattern for {sink} not found")
                         metadata: dict = context_schema.get('metadata', dict())
 
-                        from ai.starlake.helper import SnowflakeLoadTaskHelper
+                        from ai.starlake.helper import SnowflakeArea, SnowflakeLoadTaskHelper
                         helper = SnowflakeLoadTaskHelper(sl_incoming_file_stage=sl_incoming_file_stage, pattern=pattern, table_name=table_name, metadata=metadata, variant=variant, sink=sink, domain=domain, table=table, audit=audit, expectations=expectations, expectation_items=expectation_items, name=self.pipeline_id, timezone=self.timezone)
 
                         info = helper.info
@@ -496,6 +496,7 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
 
                         update_table_schema = helper.update_table_schema
 
+                        copy_files = helper.copy_files
                         build_copy = helper.build_copy
 
                         # create the function that will execute the load
@@ -547,6 +548,8 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                     if write_strategy == 'WRITE_TRUNCATE':
                                         # truncate table
                                         execute_sql(session, f"TRUNCATE TABLE {sink}", "Truncate table", dry_run)
+                                    # copy files
+                                    copy_files(session, from_area=SnowflakeArea.INCOMING, to_area=SnowflakeArea.INGESTING, remove=True, dry_run=dry_run)
                                     # copy data
                                     copy_results = execute_sql(session, build_copy(), "Copy data", dry_run)
                                     if not exists:
@@ -559,6 +562,8 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                     if write_strategy == 'WRITE_TRUNCATE':
                                         # truncate table
                                         execute_sql(session, f"TRUNCATE TABLE {sink}", "Truncate table", dry_run)
+                                    # copy files
+                                    copy_files(session, from_area=SnowflakeArea.INCOMING, to_area=SnowflakeArea.INGESTING, remove=True, dry_run=dry_run)
                                     # copy data
                                     copy_results = execute_sql(session, build_copy(), "Copy data", dry_run)
                                     second_step = statements.get('secondStep', dict())
@@ -600,7 +605,8 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                 message = first_error_line + '\n' + first_error_column_name
                                 success = errors_seen == 0
                                 log_audit(session, files, rows_parsed, rows_loaded, errors_seen, success, duration, message, end, jobid, "LOAD", dry_run, scheduled_date)
-                                
+                                # archive files
+                                copy_files(session, from_area=SnowflakeArea.INGESTING, to_area=SnowflakeArea.ARCHIVE, remove=True, dry_run=dry_run)                                
                             except Exception as e:
                                 # ROLLBACK transaction
                                 error_message = str(e)
@@ -610,6 +616,8 @@ class StarlakeSnowflakeJob(IStarlakeJob[DAGTask, StarlakeDataset], StarlakeOptio
                                 duration = (end - start).total_seconds()
                                 info(f"Duration in seconds: {duration}", dry_run=dry_run)
                                 log_audit(session, None, -1, -1, -1, False, duration, error_message, end, jobid, "LOAD", dry_run, scheduled_date)
+                                # reject files
+                                copy_files(session, from_area=SnowflakeArea.INGESTING, to_area=SnowflakeArea.REJECTED, remove=True, dry_run=dry_run)                                
                                 raise e
 
                         kwargs.pop('params', None)
