@@ -192,6 +192,7 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
         self.__beyond_data_cycle_enabled = str(__class__.get_context_var(var_name='beyond_data_cycle_enabled', default_value="true", options=self.options)).strip().lower() == "true"
         self.__min_timedelta_between_runs = int(__class__.get_context_var(var_name='min_timedelta_between_runs', default_value=15*60, options=self.options))
         self.__run_dependencies_first = __class__.get_context_var(var_name='run_dependencies_first', default_value='False', options=self.options).lower() == 'true'
+        self.__pipeline_id = self.caller_filename.replace(".py", "").replace(".pyc", "").upper()
 
     @property
     def dataset_triggering_strategy(self) -> DatasetTriggeringStrategy:
@@ -259,6 +260,11 @@ class IStarlakeJob(Generic[T, E], StarlakeOptions, AbstractEvent[E]):
     def run_dependencies_first(self) -> bool:
         """whether to run dependencies first or not."""
         return self.__run_dependencies_first
+
+    @property
+    def pipeline_id(self) -> str:
+        """Get the pipeline id."""
+        return self.__pipeline_id
 
     @classmethod
     def sl_orchestrator(cls) -> Union[StarlakeOrchestrator, str, None]:

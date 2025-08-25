@@ -162,7 +162,6 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                          StarlakeEmptyOperator(
                              task_id=f"trigger_{dataset.uri}",
                              dataset=dataset,
-                             previous=True,
                              source=self.source,
                              **kwargs.copy())
             return start 
@@ -424,13 +423,13 @@ class StarlakeAirflowJob(IStarlakeJob[BaseOperator, Dataset], StarlakeAirflowOpt
                             dates_range = scheduled_dates_range(cron, scheduled_date)
                         else:
                             dates_range = scheduled_dates_range(cron, croniter(cron, scheduled_date.replace(hour=0, minute=0, second=0, microsecond=0)).get_next(datetime))
-                        scheduled_date_to_check_min = dates_range[0]
-                        scheduled_date_to_check_max = dates_range[1]
+                        (scheduled_date_to_check_min, scheduled_date_to_check_max) = dates_range
                         if not original_cron and previous_dag_checked > scheduled_date_to_check_min:
                             scheduled_date_to_check_min = previous_dag_checked
                         if beyond_data_cycle_allowed:
                             scheduled_date_to_check_min = scheduled_date_to_check_min - timedelta(seconds=freshness)
                             scheduled_date_to_check_max = scheduled_date_to_check_max + timedelta(seconds=freshness)
+                        # TODO check it - scheduled_date_to_check_max = max(scheduled_date_to_check_max, scheduled_date)
                         scheduled_datetime = get_scheduled_datetime(dataset)
                         if scheduled_datetime:
                             # we check if the scheduled datetime is between the scheduled date to check min and max
@@ -729,7 +728,6 @@ class StarlakeDatasetMixin:
     def __init__(self, 
                  task_id: str, 
                  dataset: Optional[Union[str, StarlakeDataset]] = None, 
-                 previous:bool= False, 
                  source: Optional[str] = None, 
                  **kwargs
                  ) -> None:
@@ -745,8 +743,7 @@ class StarlakeDatasetMixin:
                     'uri': dataset.uri,
                     'cron': dataset.cron, # cron or dataset.cron
                     'sl_schedule_parameter_name': dataset.sl_schedule_parameter_name, 
-                    'sl_schedule_format': dataset.sl_schedule_format,
-                    'previous': previous
+                    'sl_schedule_format': dataset.sl_schedule_format
                 })
                 kwargs['params'] = params
                 extra.update({
@@ -756,10 +753,10 @@ class StarlakeDatasetMixin:
                     StarlakeParameters.FRESHNESS_PARAMETER.value: dataset.freshness,
                 })
                 if dataset.cron: # if the dataset is scheduled
-                    self.scheduled_dataset = "{{sl_scheduled_dataset(params.uri, params.cron, ts_as_datetime(data_interval_end | ts), params.sl_schedule_parameter_name, params.sl_schedule_format, params.previous)}}"
+                    self.scheduled_dataset = "{{sl_scheduled_dataset(params.uri, params.cron, ts_as_datetime(data_interval_end | ts), params.sl_schedule_parameter_name, params.sl_schedule_format)}}"
                 else:
                     self.scheduled_dataset = None
-                self.scheduled_date = "{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts), params.previous)}}"
+                self.scheduled_date = "{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts))}}"
                 uri = dataset.uri
             else:
                 self.scheduled_dataset = None
@@ -768,11 +765,10 @@ class StarlakeDatasetMixin:
                     'uri': uri,
                     'cron': None,
                     'sl_schedule_parameter_name': None,
-                    'sl_schedule_format': None,
-                    'previous': previous
+                    'sl_schedule_format': None
                 })
                 kwargs['params'] = params
-                self.scheduled_date = "{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts), params.previous)}}"
+                self.scheduled_date = "{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts))}}"
             outlets.append(Dataset(uri=uri, extra=extra))
             kwargs["outlets"] = outlets
             self.template_fields = getattr(self, "template_fields", tuple()) + ("scheduled_dataset", "scheduled_date",)
@@ -830,7 +826,7 @@ class StarlakeDatasetMixin:
             context = get_current_context()
 
         ti: TaskInstance = context.get('ti')
-        ts: datetime = ti.start_date
+        ts: datetime = ti.start_date or datetime.fromtimestamp(datetime.now().timestamp()).astimezone(pytz.timezone('UTC'))
 
         self.extra.update({"ts": ts.strftime(sl_timestamp_format)})
         if self.scheduled_date:

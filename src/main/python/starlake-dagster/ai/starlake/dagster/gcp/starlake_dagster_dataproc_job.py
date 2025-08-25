@@ -196,7 +196,6 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             if dataset:
                 assets.append(StarlakeDagsterUtils.get_asset(context, config, dataset))
 
-            arguments = [] if not arguments else arguments
             tmp_arguments = []
             tmp_arguments.append("--scheduledDate")
             from datetime import datetime
@@ -204,21 +203,21 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
             logical_datetime: datetime = StarlakeDagsterUtils.get_logical_datetime(context, config).strftime(sl_timestamp_format)
             tmp_arguments.append(f"\'{logical_datetime}\'")
             command = arguments.pop(0)
-            arguments = [command] + tmp_arguments + arguments
+            command_with_arguments = [command] + tmp_arguments + arguments
 
             if transform:
-                opts = arguments[-1].split(",")
+                opts = command_with_arguments[-1].split(",")
                 transform_opts = StarlakeDagsterUtils.get_transform_options(context, config, params).split(',')
                 opts.extend(transform_opts)
-                arguments[-1] = ",".join(opts)
+                command_with_arguments[-1] = ",".join(opts)
                 job = job_details.get("job", {})
                 spark_job = job.get("spark_job", {})
-                spark_job["args"] = arguments
+                spark_job["args"] = command_with_arguments
                 job["spark_job"] = spark_job
                 job_details["job"] = job
 
             if config.dry_run:
-                output = f"Starlake command {' '.join(arguments)} execution skipped due to dry run mode."
+                output = f"Starlake command {' '.join(command_with_arguments)} execution skipped due to dry run mode."
                 context.log.info(output)
                 result = {"status": {"state": "DONE"}}
             else:
@@ -234,7 +233,7 @@ class StarlakeDagsterDataprocJob(StarlakeDagsterJob):
                 if failure:
                     yield Output(value=value, output_name=failure)
                 elif skip_or_start:
-                    context.log.info(f"Skipping Starlake command {' '.join(arguments)} execution due to skip_or_start flag.")
+                    context.log.info(f"Skipping Starlake command {' '.join(command_with_arguments)} execution due to skip_or_start flag.")
                     return
                 else:
                     raise Failure(description=value)
