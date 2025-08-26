@@ -410,7 +410,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
 
   it should "round-trip any Yaml Types Config" in {
     import YamlConfigGenerators.*
-    forAll { (yamlTypesConfig: TypesDesc) =>
+    forAll { (yamlTypesConfig: TypesInfo) =>
       val mapperWithEmptyString =
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
       val config = mapperWithEmptyString.writeValueAsString(yamlTypesConfig)
@@ -1620,10 +1620,10 @@ object YamlConfigGenerators {
     }
   }
 
-  implicit val typeDesc: Arbitrary[TypesDesc] = Arbitrary {
+  implicit val typeDesc: Arbitrary[TypesInfo] = Arbitrary {
     for {
       types <- arbitrary[List[Type]].map(_.take(maxElementInCollections))
-    } yield TypesDesc(latestSchemaVersion, types = types)
+    } yield TypesInfo(latestSchemaVersion, types = types)
   }
 
   implicit val envDesc: Arbitrary[EnvDesc] = Arbitrary {

@@ -38,7 +38,7 @@ import ai.starlake.schema.model.Severity._
   * @param types
   *   : Type list
   */
-case class TypesDesc(version: Int, types: List[Type]) {
+case class TypesInfo(version: Int, types: List[Type]) {
   def this() =
     this(latestSchemaVersion, Nil) // Should never be called. Here for Jackson deserialization only
 

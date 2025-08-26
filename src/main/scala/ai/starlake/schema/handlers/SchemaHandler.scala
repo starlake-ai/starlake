@@ -41,7 +41,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings.{latestSchemaVersion, ConnectionInfo}
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extract.ExtractSchema
+import ai.starlake.extract.{ExtractSchema, JdbcDbUtils}
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
 import ai.starlake.schema.model.*
@@ -749,23 +749,45 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 (domainName, t)
               }
               .orElse {
-                val attrs =
-                  new ExtractSchema(this)
-                    .extractTable(domainName, tableName, None, accessToken)
+                val connectionInfo =
+                  settings.appConfig.getConnection(settings.appConfig.connectionRef)
+                // getting metadata from snowflake is definitely too slow
+                if (connectionInfo.isSnowflake()) {
+                  JdbcDbUtils
+                    .extractColumnsUsingInformationSchema(
+                      connectionInfo,
+                      domainName,
+                      tableName
+                    )
                     .toOption
-                    .filter(_.tables.nonEmpty)
-                    .map { it =>
-                      logger.info(s"Extracted schema for $domainName.$tableName from DB source")
-                      val attrs =
-                        it.tables.head.attributes.map(attr => (attr.name, attr.`type`, None))
-                      attrs
+                    .map { colsAndTypes =>
+                      val t = TableWithNameAndType(
+                        tableName,
+                        colsAndTypes
+                          .map(it => (it._1, PrimitiveType.fromSQLType(it._2).toString, None))
+                      )
+                      (domainName, t)
                     }
-                    .getOrElse {
-                      logger.warn(s"Table $domainName.$tableNames not found in external schemas")
-                      Nil
-                    }
+                } else {
 
-                Some((domainName, TableWithNameAndType(tableName, attrs)))
+                  val attrs =
+                    new ExtractSchema(this)
+                      .extractTable(domainName, tableName, None, accessToken)
+                      .toOption
+                      .filter(_.tables.nonEmpty)
+                      .map { it =>
+                        logger.info(s"Extracted schema for $domainName.$tableName from DB source")
+                        val attrs =
+                          it.tables.head.attributes.map(attr => (attr.name, attr.`type`, None))
+                        attrs
+                      }
+                      .getOrElse {
+                        logger.warn(s"Table $domainName.$tableNames not found in external schemas")
+                        Nil
+                      }
+
+                  Some((domainName, TableWithNameAndType(tableName, attrs)))
+                }
               }
         }
       domainNameAndTable
@@ -2254,18 +2276,48 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 logger.info(s"Found external schema for $domain.$table from external")
                 externalSchema.attributes.map(_.toDiffAttribute())
               case None =>
-                new ExtractSchema(this)
-                  .extractTable(domain, table, None, accessToken)
-                  .toOption
-                  .filter(_.tables.nonEmpty)
-                  .map { it =>
-                    logger.info(s"Extracted schema for $domain.$table from DB source")
-                    it.tables.head.attributes.map(_.toDiffAttribute())
+                val connectionInfo =
+                  settings.appConfig.getConnection(settings.appConfig.connectionRef)
+                if (
+                  connectionInfo.isSnowflake()
+                ) // getting metadata from snowflake is definitely too slow
+                  JdbcDbUtils.extractColumnsUsingInformationSchema(
+                    connectionInfo,
+                    domain,
+                    table
+                  ) match {
+                    case Success(cols) =>
+                      logger.info(s"Extracted schema for $domain.$table from Snowflake source")
+                      cols
+                        .map { case (colName, colType) =>
+                          TableAttribute(
+                            name = colName,
+                            `type` = PrimitiveType.fromSQLType(colType).toString
+                          )
+
+                        }
+                        .map(_.toDiffAttribute())
+                    case Failure(exception) =>
+                      logger.warn(
+                        s"Table $domain.$table not found in Snowflake source",
+                        exception
+                      )
+                      Nil
                   }
-                  .getOrElse {
-                    logger.warn(s"Table $domain.$table not found in external schemas")
-                    Nil
-                  }
+                else {
+                  new ExtractSchema(this)
+                    .extractTable(domain, table, None, accessToken)
+                    .toOption
+                    .filter(_.tables.nonEmpty)
+                    .map { it =>
+                      logger.info(s"Extracted schema for $domain.$table from DB source")
+                      it.tables.head.attributes.map(_.toDiffAttribute())
+                    }
+                    .getOrElse {
+                      logger.warn(s"Table $domain.$table not found in external schemas")
+                      Nil
+                    }
+                }
             }
         }
     }
