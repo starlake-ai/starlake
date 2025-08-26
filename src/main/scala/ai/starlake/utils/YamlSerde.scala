@@ -347,7 +347,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
   def deserializeYamlTypes(content: String, path: String): List[Type] = {
     val refsSubPath = "types"
     val refsNode = validateConfigFile(refsSubPath, content, path, List(YamlMigrator.V1.TypesConfig))
-    mapper.treeToValue(refsNode, classOf[TypesDesc]).types
+    mapper.treeToValue(refsNode, classOf[TypesInfo]).types
   }
 
   def deserializeYamlDagConfig(content: String, path: String): Try[DagInfo] = {
