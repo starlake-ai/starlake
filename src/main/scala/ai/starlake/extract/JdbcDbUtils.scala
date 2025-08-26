@@ -38,6 +38,13 @@ object JdbcDbUtils extends LazyLogging {
   type Columns = List[TableAttribute]
   type PrimaryKeys = List[String]
 
+  case class SqlColumn(
+    name: String,
+    dataType: String,
+    precision: Option[String],
+    scale: Option[String]
+  )
+
   object StarlakeConnectionPool {
     private val hikariPools = scala.collection.concurrent.TrieMap[String, HikariDataSource]()
     private val duckDbPool = scala.collection.concurrent.TrieMap[String, Connection]()
@@ -517,43 +524,53 @@ object JdbcDbUtils extends LazyLogging {
     result.groupBy(_._1).toList.map { case (schema, tables) => schema -> tables.map(_._2).toList }
   }
 
-  def extractColumns(
+  def extractColumnsUsingInformationSchema(
     connectionSettings: ConnectionInfo,
     tableSchema: String,
     tableName: String
   )(implicit
-    settings: Settings,
-    dbExtractEC: ExtractExecutionContext
-  ): Try[List[(String, String)]] = {
-    extractColumnsUsingInformationSchema(connectionSettings, tableSchema, tableName)
-  }
-
-  private def extractColumnsUsingInformationSchema(
-    connectionSettings: ConnectionInfo,
-    tableSchema: String,
-    tableName: String
-  )(implicit
-    settings: Settings,
-    dbExtractEC: ExtractExecutionContext
-  ): Try[List[(String, String)]] = Try {
-    val result = ListBuffer[(String, String)]()
-    ParUtils.runOneInExecutionContext {
-      withJDBCConnection(readOnlyConnection(connectionSettings).options) { connection =>
-        val statement = connection.prepareStatement(s"""
-            |SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.TABLES
-            |WHERE LOWERCASE(TABLE_SCHEMA) LIKE LOWERCASE('$tableSchema') AND LOWERCASE(TABLE_NAME) LIKE LOWERCASE('$tableName')
-            |""".stripMargin)
-        JdbcDbUtils.executeQuery(statement) { rs =>
-          while (rs.next()) {
-            val columnName = rs.getString(1)
-            val dataType = rs.getString(2)
-            logger.info(s"Column: $columnName, Data Type: $dataType")
-            result.append(columnName -> dataType)
-          }
+    settings: Settings
+  ): Try[List[(String, SqlColumn)]] = Try {
+    val result = ListBuffer[(String, SqlColumn)]()
+    withJDBCConnection(readOnlyConnection(connectionSettings).options) { connection =>
+      val statement = connection.prepareStatement(s"""
+                                                     |SELECT COLUMN_NAME, DATA_TYPE, NUMERIC_PRECISION, NUMERIC_SCALE FROM INFORMATION_SCHEMA.COLUMNS
+                                                     |WHERE LOWER(TABLE_SCHEMA) LIKE LOWER('$tableSchema') AND LOWER(TABLE_NAME) LIKE LOWER('$tableName')
+                                                     |ORDER BY ORDINAL_POSITION
+                                                     |""".stripMargin)
+      JdbcDbUtils.executeQuery(statement) { rs =>
+        while (rs.next()) {
+          val columnName = rs.getString(1)
+          val dataType = rs.getString(2)
+          val precision = Option(rs.getObject(3)).map(_.toString)
+          val scale = Option(rs.getObject(4)).map(_.toString)
+          logger.info(
+            s"Column: $columnName, Data Type: $dataType, Precision: $precision, Scale: $scale"
+          )
+          val col = SqlColumn(columnName, dataType, precision, scale)
+          result.append(columnName -> col)
         }
       }
-    }(dbExtractEC.executionContext)
+    }
     result.toList
+  }
+
+  def existsTableUsingInformationSchema(
+    connectionSettings: ConnectionInfo,
+    tableSchema: String,
+    tableName: String
+  )(implicit
+    settings: Settings
+  ): Try[Boolean] = Try {
+    withJDBCConnection(readOnlyConnection(connectionSettings).options) { connection =>
+      val statement = connection.prepareStatement(s"""
+                                                     |SELECT COUNT(*) as CNT FROM INFORMATION_SCHEMA.TABLES
+                                                     |WHERE LOWER(TABLE_SCHEMA) LIKE LOWER('$tableSchema') AND LOWER(TABLE_NAME) LIKE LOWER('$tableName')
+                                                     |""".stripMargin)
+      JdbcDbUtils.executeQuery(statement) { rs =>
+        rs.next()
+      }
+    }
   }
 
   private def extractSchemasAndTableNamesUsingDatabaseMetadata(connectionSettings: ConnectionInfo)(

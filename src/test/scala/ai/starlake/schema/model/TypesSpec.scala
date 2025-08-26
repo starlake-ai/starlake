@@ -32,7 +32,7 @@ class TypesDescSpec extends TestHelper {
         getClass.getResourceAsStream("/quickstart/metadata/types/default.sl.yml")
       val lines =
         scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-      val types = mapper.readValue(lines, classOf[TypesDesc])
+      val types = mapper.readValue(lines, classOf[TypesInfo])
       types.checkValidity() shouldBe Right(true)
     }
 
@@ -50,7 +50,7 @@ class TypesDescSpec extends TestHelper {
           |    sample: "-64564"
       """.stripMargin
 
-      val types = mapper.readValue(lines, classOf[TypesDesc])
+      val types = mapper.readValue(lines, classOf[TypesInfo])
       types.checkValidity() shouldBe Left(
         List(
           ValidationMessage(
@@ -76,7 +76,7 @@ class TypesDescSpec extends TestHelper {
           |    zone: fr_FR
           |    sample: "-64564,21"
       """.stripMargin
-      val types = mapper.readValue(lines, classOf[TypesDesc])
+      val types = mapper.readValue(lines, classOf[TypesInfo])
       "-123.45" shouldBe types.types
         .find(_.name == "double")
         .get
@@ -118,7 +118,7 @@ class TypesDescSpec extends TestHelper {
           |    sample: "2021-05-20T09:30:39.000000Z"
           |    comment: "Iso instant"
           |      """.stripMargin
-      val types = mapper.readValue(lines, classOf[TypesDesc])
+      val types = mapper.readValue(lines, classOf[TypesInfo])
 
       types.checkValidity() shouldBe Right(true)
 
@@ -167,7 +167,7 @@ class TypesDescSpec extends TestHelper {
         |    zone: Fr_fr
         |    comment: "Floating value with a sign prefix and french decimal point"
         |""".stripMargin
-      val types = mapper.readValue(lines, classOf[TypesDesc])
+      val types = mapper.readValue(lines, classOf[TypesInfo])
       val doubleType = types.types
         .find(_.name == "double")
         .get

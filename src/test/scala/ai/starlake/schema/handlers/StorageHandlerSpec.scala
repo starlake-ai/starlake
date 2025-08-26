@@ -161,7 +161,7 @@ class StorageHandlerSpec extends TestHelper {
     }
 
     "Types Case Class" should "be written as yaml and read correctly" in {
-      val types = TypesDesc(
+      val types = TypesInfo(
         latestSchemaVersion,
         List(
           Type("string", ".+", PrimitiveType.string),
@@ -187,7 +187,7 @@ class StorageHandlerSpec extends TestHelper {
       val fileContent = readFileContent(pathType)
       val expectedFileContent = loadTextFile(s"/expected/yml/types.sl.yml")
       fileContent shouldBe expectedFileContent
-      val resultType: TypesDesc = mapper.readValue[TypesDesc](storageHandler.read(pathType))
+      val resultType: TypesInfo = mapper.readValue[TypesInfo](storageHandler.read(pathType))
       resultType shouldBe types
 
     }
