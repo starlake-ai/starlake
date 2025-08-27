@@ -9,7 +9,7 @@ import ai.starlake.utils.ImplicitRichPath.*
 import ai.starlake.utils.YamlMigrator.V1.TableForExtractConfig
 import com.fasterxml.jackson.databind.node.{ArrayNode, BooleanNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
-import com.networknt.schema.*
+import com.networknt.schema._
 import com.networknt.schema.SpecVersion.VersionFlag
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
