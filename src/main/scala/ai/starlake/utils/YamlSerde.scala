@@ -15,7 +15,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import java.util.Locale
-import scala.jdk.CollectionConverters.*
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 object YamlSerde extends LazyLogging with YamlUtils {

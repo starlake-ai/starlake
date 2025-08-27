@@ -60,7 +60,7 @@ import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
@@ -1814,10 +1814,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           DomainWithNameOnly(
             job.name,
             job.tasks
-              .map(_.table)
-              .distinctBy(_.toLowerCase())
-              .sorted
-              .map(TableWithNameAndType(_, List.empty))
+              .distinctBy(_.table.toLowerCase())
+              .sortBy(_.table)
+              .map { t =>
+                val attrs = t.attributes.map { attr =>
+                  (attr.getFinalName(), attr.`type`, attr.comment)
+                }
+                TableWithNameAndType(t.table, attrs)
+              }
           )
         }
     val externalNames = this.externals().map { domain =>
