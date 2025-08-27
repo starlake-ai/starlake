@@ -764,7 +764,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                       val t = TableWithNameAndType(
                         tableName,
                         colsAndTypes
-                          .map(it => (it._1, PrimitiveType.fromSQLType(it._2).toString, None))
+                          .map(it =>
+                            (
+                              it._1,
+                              PrimitiveType
+                                .fromSQLType(
+                                  connectionInfo.getJdbcEngineName().toString,
+                                  it._2,
+                                  this
+                                )
+                                .toString,
+                              None
+                            )
+                          )
                       )
                       (domainName, t)
                     }
@@ -2296,7 +2308,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                         .map { case (colName, colType) =>
                           TableAttribute(
                             name = colName,
-                            `type` = PrimitiveType.fromSQLType(colType).toString
+                            `type` = PrimitiveType
+                              .fromSQLType(
+                                connectionInfo.getJdbcEngineName().toString,
+                                colType,
+                                this
+                              )
+                              .toString
                           )
 
                         }

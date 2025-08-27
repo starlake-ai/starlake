@@ -43,7 +43,15 @@ object JdbcDbUtils extends LazyLogging {
     dataType: String,
     precision: Option[String],
     scale: Option[String]
-  )
+  ) {
+    def sqlTypeAsString(): String = {
+      (precision, scale) match {
+        case (Some(p), Some(s)) => s"$dataType($p,$s)"
+        case (Some(p), None)    => s"$dataType($p,0)"
+        case _                  => dataType
+      }
+    }
+  }
 
   object StarlakeConnectionPool {
     private val hikariPools = scala.collection.concurrent.TrieMap[String, HikariDataSource]()

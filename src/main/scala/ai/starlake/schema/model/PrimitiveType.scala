@@ -21,6 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.extract.JdbcDbUtils.SqlColumn
+import ai.starlake.schema.handlers.SchemaHandler
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
@@ -456,15 +457,14 @@ object PrimitiveType {
     "RFC_1123_DATE_TIME"   -> RFC_1123_DATE_TIME
   )
 
-  def fromSQLType(sqlCol: SqlColumn): PrimitiveType = {
-    sqlCol.dataType.indexOf('(') match {
-      case i if i > 0 => fromSQLType(sqlCol.copy(dataType = sqlCol.dataType.substring(0, i)))
-      case _ =>
+  // fail to compile here because we need to get the type from the ddlMapping
+  def fromSQLType(db: String, sqlCol: SqlColumn, schemaHandler: SchemaHandler): PrimitiveType = {
+    val typesInfo = TypesInfo(1, schemaHandler.types())
+    typesInfo.getApproximateTypeForSqlType(db, sqlCol.sqlTypeAsString()) match {
+      case Some(typeInfo) => typeInfo.primitiveType
+      case None =>
         val sqlTypePrefix = sqlCol.dataType.takeWhile(it => it.isLetter)
-
         sqlTypePrefix.toLowerCase match {
-          case _ if sqlCol.precision.isDefined && sqlCol.scale.isDefined =>
-            PrimitiveType.long
           case "varchar" | "char" | "text" | "string" | "uuid" => PrimitiveType.string
           case "int" | "integer"                               => PrimitiveType.int
           case "smallint"                                      => PrimitiveType.int
@@ -479,6 +479,7 @@ object PrimitiveType {
         }
     }
   }
+
   def from(elementType: DataType): PrimitiveType = {
     elementType match {
       case _: BinaryType    => PrimitiveType.string
