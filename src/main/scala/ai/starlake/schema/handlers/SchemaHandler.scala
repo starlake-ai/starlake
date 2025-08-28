@@ -199,7 +199,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             ValidationMessage(
               severity = Error,
               target = dagConfigName,
-              message = s"DAG config $dagConfigName in model ${dom}.${tbl} is not found"
+              message = s"DAG config $dagConfigName in model ${dom}.${tbl} not found"
             )
           )
         else {
