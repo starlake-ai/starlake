@@ -1,4 +1,5 @@
-{% macro expect_column_values_to_be_null(table_name, column_name, mostly) %}
+TODO:(bq) change FLOAT to FLOAT64 to run
+{% macro expect_column_to_be_null(table_name = SL_THIS, column_name, mostly) %}
 -- This macro generates a SQL query that checks if the percentage of null values in a column meets a threshold.
 --
 -- Parameters:
@@ -32,7 +33,7 @@ SELECT
 FROM null_count, total_count;
 {% endmacro %}
 
-{% macro expect_column_values_to_not_be_null(table_name, column_name) %}
+{% macro expect_column_to_be_not_null(table_name = SL_THIS, column_name) %}
 -- This macro generates a SQL query that checks if the values in a specified column are not null.
 --
 -- Parameters:
