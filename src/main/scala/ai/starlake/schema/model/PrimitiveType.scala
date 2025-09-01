@@ -20,17 +20,19 @@
 
 package ai.starlake.schema.model
 
+import ai.starlake.extract.JdbcDbUtils.SqlColumn
+import ai.starlake.schema.handlers.SchemaHandler
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 import org.apache.spark.sql.functions.udf
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.*
 
 import java.sql.{Date, Timestamp}
 import java.text.{DecimalFormat, NumberFormat, SimpleDateFormat}
-import java.time._
-import java.time.format.DateTimeFormatter._
+import java.time.*
+import java.time.format.DateTimeFormatter.*
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import java.time.temporal.TemporalAccessor
 import java.util.regex.Pattern
@@ -454,6 +456,29 @@ object PrimitiveType {
     "ISO_INSTANT"          -> ISO_INSTANT,
     "RFC_1123_DATE_TIME"   -> RFC_1123_DATE_TIME
   )
+
+  // fail to compile here because we need to get the type from the ddlMapping
+  def fromSQLType(db: String, sqlCol: SqlColumn, schemaHandler: SchemaHandler): PrimitiveType = {
+    val typesInfo = TypesInfo(1, schemaHandler.types())
+    typesInfo.getApproximateTypeForSqlType(db, sqlCol.sqlTypeAsString()) match {
+      case Some(typeInfo) => typeInfo.primitiveType
+      case None =>
+        val sqlTypePrefix = sqlCol.dataType.takeWhile(it => it.isLetter)
+        sqlTypePrefix.toLowerCase match {
+          case "varchar" | "char" | "text" | "string" | "uuid" => PrimitiveType.string
+          case "int" | "integer"                               => PrimitiveType.int
+          case "smallint"                                      => PrimitiveType.int
+          case "bigint" | "number"                             => PrimitiveType.long
+          case "float" | "double" | "real"                     => PrimitiveType.double
+          case "decimal" | "numeric"                           => PrimitiveType.decimal
+          case "boolean" | "bool"                              => PrimitiveType.boolean
+          case "tinyint"                                       => PrimitiveType.int
+          case "date"                                          => PrimitiveType.date
+          case "timestamp" | "datetime"                        => PrimitiveType.timestamp
+          case _                                               => PrimitiveType.string
+        }
+    }
+  }
 
   def from(elementType: DataType): PrimitiveType = {
     elementType match {

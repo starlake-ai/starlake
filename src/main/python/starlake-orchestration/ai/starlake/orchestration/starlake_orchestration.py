@@ -7,11 +7,11 @@ import os
 import importlib
 import inspect
 
-from ai.starlake.common import StarlakeCronPeriod, sl_cron_start_end_dates, sort_crons_by_frequency, is_valid_cron, sanitize_id
+from ai.starlake.common import StarlakeCronPeriod, sl_cron_start_end_dates, sort_crons_by_frequency, is_valid_cron, sanitize_id, scheduled_dates_range
 
 from ai.starlake.job import StarlakeSparkConfig, IStarlakeJob, StarlakePreLoadStrategy, StarlakeExecutionMode
 
-from ai.starlake.dataset import StarlakeDataset, AbstractEvent
+from ai.starlake.dataset import StarlakeDataset, AbstractEvent, StarlakeDatasetType
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies, StarlakeDependency, StarlakeDependencyType, DependencyMixin, TreeNodeMixin
 
@@ -825,9 +825,10 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         kwargs.pop('spark_config', None)
         kwargs.pop('dataset', None)
         asset = StarlakeDataset(
-            name=name, 
-            sink=f"{domain}.{table}", 
-            cron = self.cron, 
+            name        = name,
+            sink        = f"{domain}.{table}",
+            cron        = self.cron,
+            datasetType = StarlakeDatasetType.LOAD,
             **kwargs
         )
         if asset not in self.assets:
@@ -859,9 +860,10 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         kwargs.pop('spark_config', None)
         kwargs.pop('dataset', None)
         asset = StarlakeDataset(
-            name = transform_name, 
-            cron = self.cron,
-            sink = sink,
+            name        = transform_name, 
+            cron        = self.computed_cron_expr,
+            sink        = sink,
+            datasetType = StarlakeDatasetType.TRANSFORM,
             **kwargs
         )
         if asset not in self.assets:
@@ -960,16 +962,8 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         end_time = datetime.fromisoformat(end_date).astimezone(pytz.UTC)
         if start_time > end_time:
             raise ValueError("The start date must be before the end date")
-        iter = croniter(cron, start_time)
         # get the start and end date of the current cron iteration
-        curr: datetime = iter.get_current(datetime)
-        previous: datetime = iter.get_prev(datetime)
-        next: datetime = croniter(cron, previous).get_next(datetime)
-        if curr == next :
-            sl_end_date = curr
-        else:
-            sl_end_date = previous
-        sl_start_date: datetime = croniter(cron, sl_end_date).get_prev(datetime)
+        (sl_start_date, sl_end_date) = scheduled_dates_range(cron, start_time)
         while sl_start_date <= end_time:
             self.run(logical_date= sl_start_date.isoformat(), timeout=timeout, **kwargs)
             sl_end_date = croniter(cron, sl_end_date).get_next(datetime)

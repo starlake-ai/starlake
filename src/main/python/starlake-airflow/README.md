@@ -463,7 +463,7 @@ task_deps=json.loads("""[ {
   "task" : true
 } ]""")
 
-load_dependencies: bool = sl_job.get_context_var(var_name='load_dependencies', default_value='False', options=options).lower() == 'true'
+run_dependencies_first: bool = sl_job.get_context_var(var_name='load_dependencies', default_value='False', options=options).lower() == 'true'
 
 datasets: Set[str] = set()
 

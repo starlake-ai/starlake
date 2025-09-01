@@ -3,4 +3,4 @@ dag:
     template: "load/airflow__scheduled_table__shell.py.j2"
     filename: "{{domain}}_{{table}}.py"
     options:
-        load_dependencies: "true"
+        run_dependencies_first: "true"

@@ -274,6 +274,18 @@ developers := List(
     url = url("https://github.com/hayssams")
   ),
   Developer(
+    id = "tiboun",
+    name = "Bounkong Khamphousone",
+    email = "bounkong@gmail.com",
+    url = url("https://github.com/tiboun")
+  ),
+  Developer(
+    id = "fupelaqu",
+    name = "Stéphane Manciot",
+    email = "stephane.manciot@gmail.com",
+    url = url("https://github.com/fupelaqu")
+  ),
+  Developer(
     id = "elarib",
     name = "Abdelhamide Elarib",
     email = "elarib.abdelhamide@gmail.com",
