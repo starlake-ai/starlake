@@ -83,7 +83,6 @@ dependencyOverrides := Seq(
 
 name := "starlake-core"
 
-assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
 
 Common.enableStarlakeAliases
 
@@ -118,9 +117,10 @@ commands += Command.command("assemblyWithSpark") { state =>
   """set assembly / fullClasspath := (Compile / fullClasspath).value""" :: "assembly" :: state
 }
 
+assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
 
 Compile / assembly / artifact := {
-  val art: Artifact = (Compile / assembly / artifact).value
+  val art: Artifact = (Compile / packageBin / artifact).value
   art.withClassifier(Some("assembly"))
 }
 
@@ -233,7 +233,7 @@ pgpPassphrase := sys.env.get("PGP_PASSPHRASE").map(_.toCharArray)
 // Do not disable checksum
 publishLocal / checksums := Nil
 
-// sonatypeCredentialHost := sonatypeCentralHost
+sonatypeCredentialHost := sonatypeCentralHost
 
 ThisBuild / publishTo := {
   val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
@@ -255,8 +255,8 @@ releaseProcess := Seq(
   setReleaseVersion,
   commitReleaseVersion, // forces to push dirty files
   tagRelease,
-  releaseStepCommandAndRemaining("+publishSigned"),
-  releaseStepCommand("sonatypeBundleRelease"),
+  releaseStepCommandAndRemaining("publishSigned"),
+  releaseStepCommand("sonaRelease"),
   setNextVersion,
   commitNextVersion,
   pushChanges
@@ -272,6 +272,18 @@ developers := List(
     name = "Hayssam Saleh",
     email = "hayssam@saleh.fr",
     url = url("https://github.com/hayssams")
+  ),
+  Developer(
+    id = "tiboun",
+    name = "Bounkong Khamphousone",
+    email = "bounkong@gmail.com",
+    url = url("https://github.com/tiboun")
+  ),
+  Developer(
+    id = "fupelaqu",
+    name = "Stéphane Manciot",
+    email = "stephane.manciot@gmail.com",
+    url = url("https://github.com/fupelaqu")
   ),
   Developer(
     id = "elarib",

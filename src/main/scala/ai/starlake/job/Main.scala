@@ -4,6 +4,7 @@ import ai.starlake.buildinfo.BuildInfo
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.console.ConsoleCmd
 import ai.starlake.extract.*
+import ai.starlake.extract.freshness.FreshnessExtractCmd
 import ai.starlake.job.bootstrap.BootstrapCmd
 import ai.starlake.job.convert.Parquet2CSVCmd
 import ai.starlake.job.infer.InferSchemaCmd
@@ -106,7 +107,7 @@ object Main extends LazyLogging {
     ExtractScriptCmd,
     BigQueryTableInfoCmd,
     ExtractBigQuerySchemaCmd,
-    BigQueryFreshnessInfoCmd,
+    FreshnessExtractCmd,
     ProjectCompareCmd,
     MainServerCmd,
     DagGenerateCmd,
@@ -176,7 +177,7 @@ class Main extends LazyLogging {
   def run(args: Array[String]): Boolean = {
     ProxySettings.setProxy()
     val currentEnv = Option(System.getenv("SL_ENV"))
-    implicit val settings: Settings = Settings(Settings.referenceConfig, currentEnv, None)
+    implicit val settings: Settings = Settings(Settings.referenceConfig, currentEnv, None, None)
     logger.debug(settings.toString)
     logger.info(s"Starlake Version ${BuildInfo.version}")
     val argList = args.toList

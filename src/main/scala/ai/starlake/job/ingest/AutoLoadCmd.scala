@@ -35,12 +35,17 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with LazyLogging {
       builder
         .opt[Unit]("clean")
         .optional()
-        .action((x, c) => c.copy(clean = true))
+        .action((_, c) => c.copy(clean = true))
         .text("Overwrite existing mapping files before starting"),
       builder
         .opt[String]("accessToken")
         .action((x, c) => c.copy(accessToken = Some(x)))
         .text(s"Access token to use for authentication")
+        .optional(),
+      builder
+        .opt[String]("scheduledDate")
+        .action((x, c) => c.copy(scheduledDate = Some(x)))
+        .text("Scheduled date for the job, in format yyyy-MM-dd'T'HH:mm:ss.SSSZ")
         .optional(),
       builder
         .opt[Map[String, String]]("options")
@@ -52,7 +57,7 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with LazyLogging {
   }
 
   def parse(args: Seq[String]): Option[AutoLoadConfig] =
-    OParser.parse(parser, args, AutoLoadConfig(accessToken = None))
+    OParser.parse(parser, args, AutoLoadConfig(accessToken = None, scheduledDate = None))
 
   override def run(config: AutoLoadConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
@@ -95,7 +100,8 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with LazyLogging {
               config.options,
               config.accessToken,
               test = false,
-              files = None
+              files = None,
+              scheduledDate = config.scheduledDate
             )
           )
         } match {

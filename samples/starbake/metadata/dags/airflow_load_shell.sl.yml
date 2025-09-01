@@ -1,6 +1,7 @@
+version: 1
 dag:
     comment: "sample dag configuration"
     template: "load/airflow__scheduled_table__shell.py.j2"
     filename: "airflow_all_tables.py"
     options:
-        load_dependencies: "true"
+        sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"

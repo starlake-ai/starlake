@@ -7,11 +7,11 @@ import ai.starlake.utils.JobResult
 
 import scala.util.Try
 
-object BigQueryTableInfoCmd extends BigQueryTablesCmd {
+object BigQueryTableInfoCmd extends TablesExtractCmd {
 
   override def command: String = "bq-info"
 
-  override def run(config: BigQueryTablesConfig, schemaHandler: SchemaHandler)(implicit
+  override def run(config: TablesExtractConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
     Try(sink(config)).map(_ => JobResult.empty)

@@ -54,7 +54,8 @@ class KafkaIngestionJob(
   options: Map[String, String],
   mode: Mode,
   accessToken: Option[String],
-  test: Boolean
+  test: Boolean,
+  scheduledDate: Option[String]
 )(implicit settings: Settings)
     extends JsonIngestionJob(
       domain,
@@ -65,7 +66,8 @@ class KafkaIngestionJob(
       schemaHandler,
       options,
       accessToken,
-      test
+      test,
+      scheduledDate
     ) {
 
   var offsets: List[(Int, Long)] = Nil

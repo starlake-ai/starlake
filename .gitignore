@@ -174,3 +174,5 @@ samples/any-engine/incoming
 samples/starbake/datasets/archive
 samples/starbake/metadata/.build
 site
+deps.txt
+src/main/scala/ignore

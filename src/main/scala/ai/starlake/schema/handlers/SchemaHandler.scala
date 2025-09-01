@@ -41,7 +41,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings.{latestSchemaVersion, ConnectionInfo}
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extract.ExtractSchema
+import ai.starlake.extract.{ExtractSchema, JdbcDbUtils}
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
 import ai.starlake.schema.model.*
@@ -199,7 +199,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             ValidationMessage(
               severity = Error,
               target = dagConfigName,
-              message = s"DAG config $dagConfigName in model ${dom}.${tbl} is not found"
+              message = s"DAG config $dagConfigName in model ${dom}.${tbl} not found"
             )
           )
         else {
@@ -323,9 +323,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (allErrorsAndWarnings, errorCount, warningCount)
   }
 
-  def getDdlMapping(schema: SchemaInfo): Map[String, Map[String, String]] = {
-
-    schema.attributes.flatMap { attr =>
+  def getDdlMapping(attributes: List[TableAttribute]): Map[String, Map[String, String]] = {
+    attributes.flatMap { attr =>
       val ddlMapping = types().find(_.name == attr.`type`).map(_.ddlMapping)
       ddlMapping match {
         case Some(Some(mapping)) =>
@@ -600,7 +599,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     *   Unique type referenced by this name.
     */
   def getType(tpe: String): Option[Type] = types().find(_.name == tpe)
-
   def deserializedDomains(
     domainPath: Path,
     domainNames: List[String] = Nil,
@@ -715,7 +713,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     tablesFromDomainOrTasks
   }
 
-  def getTablesWithColumnNames(tableNames: List[String]): List[(String, TableWithNameAndType)] = {
+  def getTablesWithColumnNames(
+    tableNames: List[String],
+    accessToken: Option[String]
+  ): List[(String, TableWithNameAndType)] = {
     val objects = objectNames()
     tableNames.flatMap { tableFullName =>
       val tableComponents = tableFullName.split('.')
@@ -748,7 +749,57 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 (domainName, t)
               }
               .orElse {
-                Some((domainName, TableWithNameAndType(tableName, Nil)))
+                val connectionInfo =
+                  settings.appConfig.getConnection(settings.appConfig.connectionRef)
+                // getting metadata from snowflake is definitely too slow
+                if (connectionInfo.isSnowflake()) {
+                  JdbcDbUtils
+                    .extractColumnsUsingInformationSchema(
+                      connectionInfo,
+                      domainName,
+                      tableName
+                    )
+                    .toOption
+                    .map { colsAndTypes =>
+                      val t = TableWithNameAndType(
+                        tableName,
+                        colsAndTypes
+                          .map(it =>
+                            (
+                              it._1,
+                              PrimitiveType
+                                .fromSQLType(
+                                  connectionInfo.getJdbcEngineName().toString,
+                                  it._2,
+                                  this
+                                )
+                                .toString,
+                              None
+                            )
+                          )
+                      )
+                      (domainName, t)
+                    }
+                } else {
+
+                  val attrs =
+                    new ExtractSchema(this)
+                      .extractTable(domainName, tableName, None, accessToken)
+                      .toOption
+                      .filter(_.tables.nonEmpty)
+                      .map { it =>
+                        logger.info(s"Extracted schema for $domainName.$tableName from DB source")
+                        val attrs =
+                          it.tables.head.attributes.map(attr => (attr.name, attr.`type`, None))
+                        attrs
+                      }
+                      .getOrElse {
+                        logger.warn(s"Table $domainName.$tableNames not found in external schemas")
+                        Nil
+                      }
+
+                  Some((domainName, TableWithNameAndType(tableName, attrs)))
+                }
               }
         }
       domainNameAndTable
@@ -772,13 +823,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     raw: Boolean = false
   ): List[DomainInfo] = {
     _domains match {
-      case Some(domains) =>
+      case Some(domains) if domains.nonEmpty =>
         if (reload || raw) { // raw is used only for special use cases so we force it to reload
           val (_, domains) = initDomains(domainNames, tableNames, raw)
           domains
         } else
           domains
-      case None =>
+      case _ =>
         val (_, domains) = initDomains(domainNames, tableNames, raw)
         domains
     }
@@ -1394,7 +1445,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def taskByName(taskName: String): Try[AutoTaskInfo] = Try {
     val allTasks = tasks()
     allTasks
-      .find(t => t.fullName.equalsIgnoreCase(taskName))
+      .find(t => t.fullName().equalsIgnoreCase(taskName))
       .getOrElse(throw new Exception(s"Task $taskName not found"))
   }
   def taskByTableName(domain: String, table: String): Option[AutoTaskInfo] = {
@@ -1411,15 +1462,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def taskOnly(
-    taskName: String,
+    fullTaskName: String,
     reload: Boolean = false
   ): Try[AutoTaskInfo] = {
     val refs = loadRefs()
     if (refs.refs.isEmpty) {
-      val components = taskName.split('.')
+      val components = fullTaskName.split('.')
       assert(
         components.length == 2,
-        s"Task name $taskName should be composed of domain and task name separated by a dot"
+        s"Task name $fullTaskName should be composed of domain and task name separated by a dot"
       )
       val domainName = components(0)
       val taskPartName = components(1)
@@ -1429,13 +1480,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           theJob match {
             case None =>
             case Some(job) =>
-              val tasks = job.tasks.filterNot(_.fullName.equalsIgnoreCase(taskName))
+              val tasks = job.tasks.filterNot(_.fullName().equalsIgnoreCase(fullTaskName))
               val newJob = job.copy(tasks = tasks)
               _jobs = _jobs.filterNot(_.getName().equalsIgnoreCase(domainName)) :+ newJob
           }
           None
         } else {
-          _jobs.flatMap(_.tasks).find(_.fullName.equalsIgnoreCase(taskName))
+          _jobs.flatMap(_.tasks).find(_.fullName().equalsIgnoreCase(fullTaskName))
         }
       loadedTask match {
         case Some(task) =>
@@ -1452,9 +1503,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               configPath = new Path(directory, "_config.sl.yml")
               jobDesc <- loadJobTasksFromFile(configPath, List(taskPartName))
               taskDesc = jobDesc.tasks
-                .find(_.fullName.equalsIgnoreCase(taskName))
+                .find(_.fullName().equalsIgnoreCase(fullTaskName))
                 .getOrElse(
-                  throw new Exception(s"Task $taskName not found in $directory")
+                  throw new Exception(s"Task $fullTaskName not found in $directory")
                 )
             } yield {
               val mergedTask = jobDesc.default match {
@@ -1479,11 +1530,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           }
 
           taskDesc.orElse(
-            taskByName(taskName)
+            taskByName(fullTaskName)
           ) // because taskOnly can only handle task named after folder and file names
       }
     } else {
-      taskByName(taskName)
+      taskByName(fullTaskName)
     }
   }
 
@@ -1527,7 +1578,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
 
       val taskNamePatternErrors =
-        validJobs.flatMap(_.tasks.filter(_.name.nonEmpty).map(_.fullName)).flatMap { name =>
+        validJobs.flatMap(_.tasks.filter(_.name.nonEmpty).map(_.fullName())).flatMap { name =>
           val components = name.split('.')
           if (components.length != 2) {
             Some(
@@ -1775,10 +1826,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           DomainWithNameOnly(
             job.name,
             job.tasks
-              .map(_.table)
-              .distinctBy(_.toLowerCase())
-              .sorted
-              .map(TableWithNameAndType(_, List.empty))
+              .distinctBy(_.table.toLowerCase())
+              .sortBy(_.table)
+              .map { t =>
+                val attrs = t.attributes.map { attr =>
+                  (attr.getFinalName(), attr.`type`, attr.comment)
+                }
+                TableWithNameAndType(t.table, attrs)
+              }
           )
         }
     val externalNames = this.externals().map { domain =>
@@ -2237,18 +2292,54 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 logger.info(s"Found external schema for $domain.$table from external")
                 externalSchema.attributes.map(_.toDiffAttribute())
               case None =>
-                new ExtractSchema(this)
-                  .extractTable(domain, table, accessToken)
-                  .toOption
-                  .filter(_.tables.nonEmpty)
-                  .map { it =>
-                    logger.info(s"Extracted schema for $domain.$table from DB source")
-                    it.tables.head.attributes.map(_.toDiffAttribute())
+                val connectionInfo =
+                  settings.appConfig.getConnection(settings.appConfig.connectionRef)
+                if (
+                  connectionInfo.isSnowflake()
+                ) // getting metadata from snowflake is definitely too slow
+                  JdbcDbUtils.extractColumnsUsingInformationSchema(
+                    connectionInfo,
+                    domain,
+                    table
+                  ) match {
+                    case Success(cols) =>
+                      logger.info(s"Extracted schema for $domain.$table from Snowflake source")
+                      cols
+                        .map { case (colName, colType) =>
+                          TableAttribute(
+                            name = colName,
+                            `type` = PrimitiveType
+                              .fromSQLType(
+                                connectionInfo.getJdbcEngineName().toString,
+                                colType,
+                                this
+                              )
+                              .toString
+                          )
+
+                        }
+                        .map(_.toDiffAttribute())
+                    case Failure(exception) =>
+                      logger.warn(
+                        s"Table $domain.$table not found in Snowflake source",
+                        exception
+                      )
+                      Nil
                   }
-                  .getOrElse {
-                    logger.warn(s"Table $domain.$table not found in external schemas")
-                    Nil
-                  }
+                else {
+                  new ExtractSchema(this)
+                    .extractTable(domain, table, None, accessToken)
+                    .toOption
+                    .filter(_.tables.nonEmpty)
+                    .map { it =>
+                      logger.info(s"Extracted schema for $domain.$table from DB source")
+                      it.tables.head.attributes.map(_.toDiffAttribute())
+                    }
+                    .getOrElse {
+                      logger.warn(s"Table $domain.$table not found in external schemas")
+                      Nil
+                    }
+                }
             }
         }
     }

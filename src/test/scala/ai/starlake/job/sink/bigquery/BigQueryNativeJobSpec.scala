@@ -2,10 +2,11 @@ package ai.starlake.job.sink.bigquery
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
-import ai.starlake.extract._
+import ai.starlake.extract.*
+import ai.starlake.extract.freshness.FreshnessJob
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.transform.TransformConfig
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.utils.JsonSerializer
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.bigquery.{BigQueryOptions, TableId}
@@ -92,7 +93,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           deliverSourceDomain()
           deliverSourceTable("/sample/position/account.sl.yml")
           logger.info(settings.appConfig.datasets)
-          secure(LoadConfig(accessToken = None, test = false, files = None))
+          secure(LoadConfig(accessToken = None, test = false, files = None, scheduledDate = None))
         }
         val tableFound =
           Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
@@ -147,7 +148,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
 
           val workflow =
             new IngestionWorkflow(storageHandler, schemaHandler)
-          val config = TransformConfig("bqtest.bqjobtest")
+          val config = TransformConfig("bqtest.bqjobtest", scheduledDate = None)
           workflow.autoJob(config).isSuccess should be(true)
           workflow.autoJob(config.copy(interactive = Some("json"))).isSuccess should be(true)
           workflow.autoJob(config.copy(interactive = Some("csv"))).isSuccess should be(true)
@@ -159,14 +160,14 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
       pending
       val logTime = java.sql.Timestamp.from(Instant.now)
       val start = System.currentTimeMillis()
-      val infos = BigQueryInfo.extractInfo(BigQueryTablesConfig())
+      val infos = BigQueryInfo.extractInfo(TablesExtractConfig())
       val end = System.currentTimeMillis()
       println((end - start) / 1000)
       val datasetInfos = infos.map(_._1).map(BigQueryDatasetInfo(_, logTime))
       val tableInfos = infos.flatMap(_._2).map(BigQueryTableInfo(_, logTime))
       println(JsonSerializer.serializeObject(datasetInfos))
       println(JsonSerializer.serializeObject(tableInfos))
-      val config = BigQueryTablesConfig()
+      val config = TablesExtractConfig()
       BigQueryTableInfo.sink(config)
     }
     "Freshness of Table" should "return list of warning & errors" in {
@@ -181,8 +182,8 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
-          val config = BigQueryTablesConfig(tables = Map("bqtest" -> List("account")))
-          val result = BigQueryFreshnessInfo.freshness(config, settings.schemaHandler())
+          val config = TablesExtractConfig(tables = Map("bqtest" -> List("account")))
+          val result = FreshnessJob.freshness(config, settings.schemaHandler())
           val json = JsonSerializer.serializeObject(result)
           println(json)
 

@@ -36,6 +36,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
   lazy val mergedMetadata: Metadata = ingestionJob.mergedMetadata
 
+  lazy val scheduledDate: Option[String] = ingestionJob.scheduledDate
+
   private def requireTwoSteps(schema: SchemaInfo): Boolean = {
     // renamed attribute can be loaded directly so it's not in the condition
     schema
@@ -69,11 +71,11 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           }
 
         val unionTempTables = tempTables.map("SELECT * FROM " + _).mkString("(", " UNION ALL ", ")")
-        val targetTableName = s"${domain.finalName}.${schema.finalName}"
+        val targetFullTableName = s"${domain.finalName}.${schema.finalName}"
         val sqlWithTransformedFields = schema.buildSecondStepSqlSelectOnLoad(unionTempTables)
 
         val taskDesc = AutoTaskInfo(
-          name = targetTableName,
+          name = schema.finalName,
           sql = Some(sqlWithTransformedFields),
           database = schemaHandler.getDatabase(domain),
           domain = domain.finalName,
@@ -103,7 +105,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             accessToken = ingestionJob.accessToken,
             resultPageSize = 200,
             resultPageNumber = 1,
-            conn = None
+            conn = None,
+            scheduledDate = scheduledDate
           )(
             settings,
             storageHandler,
@@ -115,7 +118,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             schemaHandler,
             withFinalName = true
           ),
-          targetTableName,
+          targetFullTableName,
           TableSync.ALL
         )
 
@@ -212,7 +215,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     val domainAndTableName = domain + "." + table
     val optionsWrite =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, domainAndTableName, sinkConnection.options)
-    val ddlMap = schemaHandler.getDdlMapping(schema)
+    val ddlMap = schemaHandler.getDdlMapping(schema.attributes)
     val attrsWithDDLTypes = schemaHandler.getAttributesWithDDLType(schema, "duckdb")
 
     // Create or update table schema first

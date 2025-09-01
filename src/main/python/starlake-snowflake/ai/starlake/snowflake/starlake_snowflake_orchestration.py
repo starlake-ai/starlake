@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from ai.starlake.common import sort_crons_by_frequency
+from ai.starlake.common import most_frequent_crons
 from ai.starlake.job import StarlakeOrchestrator, StarlakeExecutionMode
 
-from ai.starlake.dataset import StarlakeDataset
+from ai.starlake.dataset import StarlakeDataset, StarlakeDatasetType
 from ai.starlake.orchestration import AbstractOrchestration, StarlakeSchedule, StarlakeDependencies, AbstractPipeline, AbstractTaskGroup, AbstractTask
 
 from ai.starlake.snowflake.starlake_snowflake_job import StarlakeSnowflakeJob 
@@ -15,11 +15,15 @@ from snowflake.core.task import Cron, StoredProcedureCall, Task
 from snowflake.core.task.dagv1 import DAG, DAGTask, DAGOperation, DAGRun, _dag_context_stack
 from snowflake.snowpark import Row, Session
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, List, Optional, Union
 
 from types import ModuleType
 
-from datetime import timedelta
+from datetime import datetime, timedelta
+
+from croniter import croniter
+
+import pytz
 
 class SnowflakeDag(DAG):
     def __init__(
@@ -45,188 +49,240 @@ class SnowflakeDag(DAG):
         not_scheduled_datasets: Optional[List[StarlakeDataset]] = None,
         least_frequent_datasets: Optional[List[StarlakeDataset]] = None,
         most_frequent_datasets: Optional[List[StarlakeDataset]] = None,
+        timezone: str = 'UTC',
+        min_timedelta_between_runs: int = 900, # default to 15 minutes
+        start_date: datetime = None,
+        data_cycle: Optional[str] = None,
+        optional_dataset_enabled: bool = False,
+        beyond_data_cycle_enabled: bool = False,
+        ai_zip: str = None
     ) -> None:
-        import logging
-        logging.basicConfig(level=logging.INFO)
-        self.logger = logging.getLogger(__name__)
+        from ai.starlake.common import is_valid_cron, get_cron_frequency, scheduled_dates_range
+        from ai.starlake.helper import datetime_format, SnowflakeDAGHelper
+
+
+        helper = SnowflakeDAGHelper(name=name, timezone=timezone)
+
+        info = helper.info
+        warning = helper.warning
+        error = helper.error
+        # debug = helper.debug
+
+        execute_sql = helper.execute_sql
+        get_execution_date = helper.get_execution_date
+        as_datetime = helper.as_datetime
+        is_current_graph_scheduled = helper.is_current_graph_scheduled
+        get_dag_logical_date = helper.get_dag_logical_date
+        get_start_end_dates = helper.get_start_end_dates
+        get_previous_dag_run = helper.get_previous_dag_run
+        check_if_dataset_exists = helper.check_if_dataset_exists
+        find_dataset_event = helper.find_dataset_event
+
         condition = None
 
-        changes = dict() # tracks the datasets whose changes have to be checked
+        datasets = dict() # tracks the datasets whose changes have to be checked
 
         streams = set() # set of streams which underlying datasets are scheduled
 
         not_scheduled_streams = set() # set of streams which underlying datasets are not scheduled
 
-        if not schedule: # if the DAG is not scheduled we will rely on streams to trigger the underlying dag and check if the scheduled datasets without streams have data using CHANGES
+        most_frequent = set()
 
-            if least_frequent_datasets:
-                self.logger.info(f"least frequent datasets: {','.join(list(map(lambda x: x.sink, least_frequent_datasets)))}")
-                for dataset in least_frequent_datasets:
-                    changes.update({dataset.sink: dataset.cron})
+        if not schedule and least_frequent_datasets:
+            info(f"Least frequent datasets: {','.join(list(map(lambda x: x.sink, least_frequent_datasets)))}", dry_run=False)
+            for dataset in least_frequent_datasets:
+                datasets.update({dataset.sink: (dataset.cron, dataset.freshness)})
 
-            not_scheduled_datasets_without_streams = []
-            if not_scheduled_datasets:
-                self.logger.info(f"not scheduled datasets: {','.join(list(map(lambda x: x.sink, not_scheduled_datasets)))}")
-                for dataset in not_scheduled_datasets:
-                    if dataset.stream:
-                        not_scheduled_streams.add(f"SYSTEM$STREAM_HAS_DATA('{dataset.stream}')")
-                    else:
-                        not_scheduled_datasets_without_streams.append(dataset)
-            if not_scheduled_datasets_without_streams:
-                self.logger.warning(f"Warning: No streams found for {','.join(list(map(lambda x: x.sink, not_scheduled_datasets_without_streams)))}")
-                ... # nothing to do here
+        if not_scheduled_datasets:
+            info(f"Not scheduled datasets: {','.join(list(map(lambda x: x.sink, not_scheduled_datasets)))}", dry_run=False)
+            for dataset in not_scheduled_datasets:
+                if dataset.stream:
+                    not_scheduled_streams.add(f"SYSTEM$STREAM_HAS_DATA('{dataset.stream}')")
+                elif not schedule:
+                    datasets.update({dataset.sink: (None, dataset.freshness)})
 
-            if most_frequent_datasets:
-                self.logger.info(f"most frequent datasets: {','.join(list(map(lambda x: x.sink, most_frequent_datasets)))}")
-            most_frequent_datasets_without_streams = []
-            if most_frequent_datasets:
-                for dataset in most_frequent_datasets:
-                    if dataset.stream:
-                        streams.add(f"SYSTEM$STREAM_HAS_DATA('{dataset.stream}')")
-                    else:
-                        most_frequent_datasets_without_streams.append(dataset)
-                        changes.update({dataset.sink: dataset.cron})
-            if most_frequent_datasets_without_streams:
-                self.logger.warning(f"Warning: No streams found for {','.join(list(map(lambda x: x.sink, most_frequent_datasets_without_streams)))}")
-                ...
+        if most_frequent_datasets:
+            info(f"Most frequent datasets: {','.join(list(map(lambda x: x.sink, most_frequent_datasets)))}", dry_run=False)
+            most_frequent = set(most_frequent_crons(list(map(lambda x: x.cron, most_frequent_datasets))))
+            for dataset in most_frequent_datasets:
+                if dataset.stream:
+                    streams.add(f"SYSTEM$STREAM_HAS_DATA('{dataset.stream}')")
+                elif not schedule:
+                    datasets.update({dataset.sink: (dataset.cron, dataset.freshness)})
 
-            if streams:
-                condition = ' OR '.join(streams)
+        if streams:
+            condition = ' OR '.join(streams)
 
-            if not_scheduled_streams:
-                if condition:
-                    condition = f"({condition}) AND ({' AND '.join(not_scheduled_streams)})"
-                else:
-                    condition = ' AND '.join(not_scheduled_streams)
-
-        def execute_sql(session: Session, query: Optional[str], message: Optional[str] = None, dry_run: bool = False) -> List[Row]:
-            """Execute the SQL.
-            Args:
-                session (Session): The Snowflake session.
-                query (str): The SQL query to execute.
-                message (Optional[str], optional): The optional message. Defaults to None.
-                mode (Optional[StarlakeExecutionMode], optional): The optional execution mode. Defaults to None.
-            Returns:
-                List[Row]: The rows.
-            """
-            if query:
-                if dry_run and message:
-                    print(f"-- {message}")
-                if dry_run:
-                    print(f"{query};")
-                    return []
-                else:
-                    return session.sql(query).collect()
+        if not_scheduled_streams:
+            if condition:
+                condition = f"({condition}) AND ({' AND '.join(not_scheduled_streams)})"
             else:
-                return []
+                condition = ' AND '.join(not_scheduled_streams)
 
-        format = '%Y-%m-%d %H:%M:%S%z'
+        computed_cron_expr = None
+        if computed_cron:
+            computed_cron_expr = computed_cron.expr
 
-        def fun(session: Session, dry_run: bool) -> None:
-            from croniter import croniter
-            from croniter.croniter import CroniterBadCronError
-            from datetime import datetime
+        def fun(session: Session, dry_run: bool, logical_date: Optional[str] = None) -> None:
+            query = "ALTER SESSION SET TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ'"
+            execute_sql(session, query, "Set session timestamp type mapping", False)
 
-            # get the original scheduled timestamp of the initial graph run in the current group
-            # For graphs that are retried, the returned value is the original scheduled timestamp of the initial graph run in the current group.
-            if not dry_run:
-                config = session.call("system$get_task_graph_config")
-            else:
-                config = None
-                print("-- SL_START")
-            if config:
-                import json
-                config = json.loads(config)
-            else:
-                config = {}
-            check_freshness = config.get("check_freshness", False)
-            logical_date: Optional[Union[str, datetime]] = config.get("logical_date", None)
+            ts = get_execution_date(session, dry_run=dry_run)
+
+            backfill: bool = False
+            if allow_overlapping_execution:
+                query = "SELECT SYSTEM$TASK_RUNTIME_INFO('IS_BACKFILL')::boolean"
+                rows = execute_sql(session, query, "Check if the current running dag is a backfill", dry_run)
+                if rows.__len__() == 1:
+                    backfill = rows[0][0]
+
+            manual: bool = not is_current_graph_scheduled(session, dry_run)
+
             if not logical_date:
-                query = f"select to_timestamp(system$task_runtime_info('CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP'))"
-                rows = execute_sql(session, query, "Getting the original scheduled timestamp of the initial graph run in the current group", dry_run)
-                if rows:
-                    logical_date = rows[0][0]
-                else:
-                    logical_date = None
-            if logical_date:
-                if isinstance(logical_date, str):
-                    from dateutil import parser
-                    start_time = parser.parse(logical_date)
-                else:
-                    start_time = logical_date
+                logical_date = get_dag_logical_date(session, ts, backfill, dry_run=dry_run)
+            logical_date = as_datetime(logical_date)
+
+            if computed_cron_expr and not backfill:
+                # if a cron expression has been provided, the scheduled date corresponds to the end date determined by applying the cron expression to the logical date
+                (_, scheduled_date) = get_start_end_dates(computed_cron_expr, logical_date)
             else:
-                start_time = datetime.fromtimestamp(datetime.now().timestamp())
+                scheduled_date = logical_date
 
-            def check_if_dataset_exists(dataset: str) -> bool:
-                query = f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE CONCAT(TABLE_SCHEMA, '.', TABLE_NAME) ILIKE '{dataset}'"
-                rows = execute_sql(session, query, f"Checking if dataset {dataset} exists", dry_run)
-                if dry_run:
-                    return True
-                else:
-                    return rows.__len__() > 0
+            previous_dag_checked: Optional[datetime] = None
+            previous_dag_ts: Optional[datetime] = None
 
-            for dataset, cron_expr in changes.items():
-                if not check_if_dataset_exists(dataset):
-                    raise ValueError(f"Dataset {dataset} does not exist")
-                try:
-                    # enabling change tracking for the dataset - should be done once and when we create our datasets
-                    query = f"ALTER TABLE {dataset} SET CHANGE_TRACKING = TRUE"
-                    execute_sql(session, query, f"Enabling change tracking for dataset {dataset}", dry_run)
-                    croniter(cron_expr)
-                    iter = croniter(cron_expr, start_time)
-                    # get the start and end date of the current cron iteration
-                    curr = iter.get_current(datetime)
-                    previous = iter.get_prev(datetime)
-                    next = croniter(cron_expr, previous).get_next(datetime)
-                    if curr == next :
-                        sl_end_date = curr
-                    else:
-                        sl_end_date = previous
-                    sl_start_date = croniter(cron_expr, sl_end_date).get_prev(datetime)
-                    change = f"SELECT count(*) FROM {dataset} CHANGES(INFORMATION => DEFAULT) AT(TIMESTAMP => '{sl_start_date.strftime(format)}') END (TIMESTAMP => '{sl_end_date.strftime(format)}')"
-                    __error = None
-                    try:
-                        rows = execute_sql(session, change, f"Checking freshness of {dataset} dataset from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)} using time travel", dry_run)
-                        if rows:
-                            count = rows[0][0]
+            previous_dag_run = get_previous_dag_run(session, logical_date, False, at_scheduled_date=False)
+
+            if previous_dag_run:
+                previous_dag_checked = previous_dag_run[0]
+                previous_dag_ts = previous_dag_run[1]
+                info(f"Found previous succeeded dag run with scheduled date {previous_dag_checked} and start date {previous_dag_ts}", dry_run=dry_run)
+
+            if not previous_dag_checked:
+                # if the dag never run successfuly, 
+                # we set the previous dag checked to the start date of the dag
+                previous_dag_checked = start_date
+                info(f"No previous succeeded dag run found, we set the previous dag checked to the start date of the dag {previous_dag_checked}", dry_run=dry_run)
+
+            last_dag_checked: Optional[datetime] = None
+            last_dag_ts: Optional[datetime] = None
+            if not backfill:
+                last_dag_run = get_previous_dag_run(session, logical_date, False, at_scheduled_date=True)
+                if last_dag_run:
+                    last_dag_checked = last_dag_run[0]
+                    last_dag_ts = last_dag_run[1]
+                    info(f"Found last succeeded dag run with scheduled date {last_dag_checked} and start date {last_dag_ts}", dry_run=dry_run)
+
+            skipped = False
+
+            if last_dag_ts and last_dag_checked:
+                if computed_cron_expr:
+                    # Compute the scheduled date for the last DAG run if a computed cron expression has been provided for the DAG
+                    (_, last_dag_checked) = get_start_end_dates(computed_cron_expr, last_dag_checked)
+                    info(f"Computed scheduled date for last DAG run: {last_dag_checked}", dry_run=dry_run)
+                if not backfill and last_dag_checked.strftime(datetime_format) == scheduled_date.strftime(datetime_format):
+                    # if the last DAG run has the same scheduled date as the current one, we check if it was run less than min_timedelta_between_runs seconds ago
+                    diff: timedelta = ts - last_dag_ts
+                    if not manual:
+                        # we run successfuly this dag for the same scheduled date, we should skip the current execution
+                        warning(f"The last succeeded dag run has been executed at {last_dag_ts} with the same scheduled date {last_dag_checked}... The current DAG execution will be skipped", dry_run=dry_run)
+                        if not dry_run:
+                            skipped = True
+                    elif diff.total_seconds() <= min_timedelta_between_runs:
+                        # we run successfuly this dag for the same scheduled date, we should skip the current execution
+                        warning(f"The last succeeded dag run has been executed at {last_dag_ts} with the same scheduled date {last_dag_checked} less than {min_timedelta_between_runs} seconds ago ({diff.seconds} seconds)... The current DAG execution will be skipped", dry_run=dry_run)
+                        if not dry_run:
+                            skipped = True
+
+            if not skipped:
+                missing_datasets = []
+
+                data_cycle_freshness: Optional[timedelta] = None
+                if data_cycle and data_cycle.lower() != "none":
+                    # the freshness of the data cycle is the time delta between 2 iterations of its schedule
+                    data_cycle_freshness = get_cron_frequency(data_cycle)
+
+                for dataset, (original_cron, freshness) in datasets.items():
+                    if not check_if_dataset_exists(session, dataset):
+                        error(f"Dataset {dataset} does not exist", dry_run=dry_run)
+                        if not dry_run:
+                            skipped = True
+                            break
+
+                    cron = original_cron or data_cycle
+                    scheduled = cron and is_valid_cron(cron)
+                    optional = False
+                    beyond_data_cycle_allowed = False
+
+                    if data_cycle_freshness:
+                        original_scheduled = original_cron and is_valid_cron(original_cron)
+                        if optional_dataset_enabled:
+                            # we check if the dataset is optional by comparing its freshness with that of the data cycle
+                            # the freshness of a scheduled dataset is the time delta between 2 iterations of its schedule
+                            # the freshness of a non scheduled dataset is defined by its freshness parameter
+                            optional = (original_scheduled and abs(data_cycle_freshness.total_seconds()) < abs(get_cron_frequency(original_cron).total_seconds())) or (not original_scheduled and abs(data_cycle_freshness.total_seconds()) < freshness)
+                        if beyond_data_cycle_enabled:
+                            # we check if the dataset scheduled date is allowed to be beyond the data cycle by comparing its freshness with that of the data cycle
+                            beyond_data_cycle_allowed = (original_scheduled and abs(data_cycle_freshness.total_seconds()) < abs(get_cron_frequency(original_cron).total_seconds() + freshness)) or (not original_scheduled and abs(data_cycle_freshness.total_seconds()) < freshness)
+
+                    if optional:
+                        info(f"Dataset {dataset.uri} is optional, we skip it", dry_run=dry_run)
+                        continue
+                    elif scheduled:
+                        if not cron in most_frequent or cron.startswith('0 0') or get_cron_frequency(cron).days == 0:
+                            dates_range = scheduled_dates_range(cron, scheduled_date)
                         else:
-                            count = 0
-                    except Exception as e:
-                        __error = e
-                        count = 0
-                    if count == 0 and check_freshness:
-                        raise ValueError(f"Error checking {dataset} dataset freshness from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}{' -> ' + str(__error) if __error else ''}")
-                    elif dry_run:
-                        print(f"-- Dataset {dataset} has {count} changes from {sl_start_date.strftime(format)} to {sl_end_date.strftime(format)}")
-                except CroniterBadCronError:
-                    raise ValueError(f"Invalid cron expression: {cron_expr}")
-                except Exception as e:
-                    if dry_run:
-                        print(f"-- {str(e)}")
+                            dates_range = scheduled_dates_range(cron, croniter(cron, scheduled_date.replace(hour=0, minute=0, second=0, microsecond=0)).get_next(datetime))
+                        scheduled_date_to_check_min = dates_range[0]
+                        scheduled_date_to_check_max = max(scheduled_date, dates_range[1]) # we check the dataset events around the scheduled date
+                        if not original_cron and previous_dag_checked > scheduled_date_to_check_min:
+                            scheduled_date_to_check_min = previous_dag_checked
+                        if beyond_data_cycle_allowed:
+                            scheduled_date_to_check_min = scheduled_date_to_check_min - timedelta(seconds=freshness)
+                            scheduled_date_to_check_max = scheduled_date_to_check_max + timedelta(seconds=freshness)
+                        if find_dataset_event(session, dataset, scheduled_date_to_check_min, scheduled_date_to_check_max, scheduled_date, False):
+                            info(f"Dataset {dataset} has been found in the audit table between {scheduled_date_to_check_min.strftime(datetime_format)} and {scheduled_date_to_check_max.strftime(datetime_format)}", dry_run=dry_run)
+                        else:
+                            warning(f"Dataset {dataset} has not been found in the audit table between {scheduled_date_to_check_min.strftime(datetime_format)} and {scheduled_date_to_check_max.strftime(datetime_format)}", dry_run=dry_run)
+                            missing_datasets.append(dataset)
                     else:
-                        raise e
+                        # we check if one dataset event at least has been published since the previous dag checked and around the scheduled date +- freshness in seconds - it should be the closest one
+                        scheduled_date_to_check_min = previous_dag_checked - timedelta(seconds=freshness)
+                        scheduled_date_to_check_max = scheduled_date + timedelta(seconds=freshness)
+                        if find_dataset_event(session, dataset, scheduled_date_to_check_min, scheduled_date_to_check_max, scheduled_date, False):
+                            info(f"Dataset {dataset} has been found in the audit table between {scheduled_date_to_check_min.strftime(datetime_format)} and {scheduled_date_to_check_max.strftime(datetime_format)}", dry_run=dry_run)
+                        else:
+                            warning(f"Dataset {dataset} has not been found in the audit table between {scheduled_date_to_check_min.strftime(datetime_format)} and {scheduled_date_to_check_max.strftime(datetime_format)}", dry_run=dry_run)
+                            missing_datasets.append(dataset)
+
+                if missing_datasets:
+                    warning(f"The following datasets are missing: {', '.join(missing_datasets)}, the current DAG execution will be skipped", dry_run=dry_run)
+                    skipped = True
+                elif datasets:
+                    info(f"All datasets are present: {', '.join(datasets.keys())}, the current DAG will continue its execution", dry_run=dry_run)
+                else:
+                    info("No datasets to check, the current DAG will continue its execution", dry_run=dry_run)
+
+            if not skipped:
+                # if the dag has to be run, we set the return value to the logical date of the running dag
+                query = f"SELECT SYSTEM$SET_RETURN_VALUE('{scheduled_date.strftime(datetime_format)}')"
+                execute_sql(session, query, f"Set return value to the logical date of the running DAG '{scheduled_date.strftime(datetime_format)}'", dry_run)
+            else:
+                # if the dag has to be skipped, we set the return value to an empty string
+                query = "SELECT SYSTEM$SET_RETURN_VALUE('')"
+                execute_sql(session, query, "Set return value to an empty string because the DAG has to be skipped", dry_run)
 
         definition = StoredProcedureCall(
             func = fun, 
-            args=[False],
+            args=[False, None],
             stage_location=stage_location,
+            imports=[(ai_zip, 'ai')],
             packages=packages
         )
 
-        if not schedule and not condition:
-            if computed_cron:
-                schedule = computed_cron
-            elif changes:
-                sorted_crons_by_frequency: Tuple[Dict[int, List[str]], List[str]] = sort_crons_by_frequency(set(self.scheduled_datasets.values()))
-                most_frequent_cron = sorted_crons_by_frequency[1][0]
-                from datetime import datetime
-                from croniter import croniter
-                iter_cron = croniter(most_frequent_cron, start_time=datetime.now())
-                next_run_1 = iter_cron.get_next(datetime)
-                next_run_2 = iter_cron.get_next(datetime)
-                schedule = next_run_2 - next_run_1
-            else: 
-                raise StarlakeSnowflakeError("A DAG must be scheduled or depends on stream(s) or at least one dataset with a cron expression")
+        if not schedule:
+            # if no schedule is provided, we set the schedule to a timedelta based on the minimum time delta between runs
+            schedule = timedelta(seconds=min_timedelta_between_runs)
 
         super().__init__(
             name=name, 
@@ -248,9 +304,10 @@ class SnowflakeDag(DAG):
 
         self._definition = definition
         self._condition = condition
-        self._changes = changes
+        self._datasets = datasets
         self._streams = streams
         self._not_scheduled_streams = not_scheduled_streams
+        self._timezone = timezone
 
     def _to_low_level_task(self) -> Task:
         return Task(
@@ -279,8 +336,8 @@ class SnowflakeDag(DAG):
         return self._condition
 
     @property
-    def changes(self) -> dict[str, str]:
-        return self._changes
+    def datasets(self) -> dict[str, str]:
+        return self._datasets
 
     @property
     def streams(self) -> set[str]:
@@ -290,12 +347,16 @@ class SnowflakeDag(DAG):
     def not_scheduled_streams(self) -> set[str]:
         return self._not_scheduled_streams
 
-    def has_changes(self) -> bool:
-        """Check if the DAG has changes.
+    @property
+    def timezone(self) -> str:
+        return self._timezone
+
+    def has_datasets(self) -> bool:
+        """Check if the DAG has datasets.
         Returns:
-            bool: True if the DAG has changes, False otherwise.
+            bool: True if the DAG has datasets, False otherwise.
         """
-        return self._changes.__len__() > 0
+        return self._datasets.__len__() > 0
 
     def has_streams(self) -> bool:
         """Check if the DAG has streams.
@@ -315,6 +376,10 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
 
         super().__init__(job, orchestration_cls=SnowflakeOrchestration, dag=None, schedule=schedule, dependencies=dependencies, orchestration=orchestration, add_dag_dependency=fun, **kwargs)
 
+        if self.run_dependencies_first and dependencies:
+            datasets = dependencies.retrieve_datasets(self.filtered_datasets, job.sl_schedule_parameter_name, job.sl_schedule_format, recursive=True, datasetType=StarlakeDatasetType.LOAD)
+            self.set_cron_expr(datasets)
+
         snowflake_schedule: Union[Cron, None] = None
         if self.cron is not None:
             snowflake_schedule = Cron(self.cron, job.timezone)
@@ -326,9 +391,7 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
         self._stage_location = job.stage_location
         self._warehouse = job.warehouse
 
-        config = {
-            "check_freshness": job.check_freshness,
-        }
+        config = {}
 
         self.dag = SnowflakeDag(
             name=self.pipeline_id,
@@ -344,6 +407,13 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             task_auto_retry_attempts=job.retries,
             allow_overlapping_execution=job.allow_overlapping_execution,
             config=config,
+            timezone=job.timezone,
+            min_timedelta_between_runs=job.min_timedelta_between_runs,
+            start_date=job.start_date,
+            data_cycle=job.data_cycle,
+            optional_dataset_enabled=job.optional_dataset_enabled,
+            beyond_data_cycle_enabled=job.beyond_data_cycle_enabled,
+            ai_zip=job.ai_zip,
         )
 
     def __enter__(self):
@@ -387,9 +457,7 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
         if database is None or schema is None:
             raise StarlakeSnowflakeError("Database and schema must be provided to deploy the pipeline")
         stage_name = f"{database}.{schema}.{self.stage_location}".upper()
-        result = session.sql(f"SHOW STAGES LIKE '{stage_name.split('.')[-1]}'").collect()
-        if not result:
-            session.sql(f"CREATE STAGE {stage_name}").collect()
+        session.sql(f"CREATE STAGE IF NOT EXISTS {stage_name}").collect()
         session.custom_package_usage_config = {"enabled": True, "force_push": True}
         op = self.get_dag_operation(session, database, schema)
         # op.delete(pipeline_id)
@@ -421,7 +489,7 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
                 if isinstance(definition, StoredProcedureCall):
                     func = definition.func
                     if isinstance(func, Callable):
-                        func.__call__(session = session, dry_run = True)
+                        func.__call__(session = session, dry_run = True, logical_date = logical_date)
             dag = self.dag
             dry_run(dag.definition)
             tasks = dag.tasks
@@ -437,7 +505,6 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             op = self.get_dag_operation(session, database, schema)
             task = op.schema.tasks[self.pipeline_id]
             config = dict() # TODO load the config from the task
-            config.update({"check_freshness": False}) # disable freshness check
             if logical_date:
                 config.update({"logical_date": logical_date})
             task.suspend()
@@ -445,16 +512,15 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             session.sql(f"ALTER TASK IF EXISTS {self.pipeline_id} SET CONFIG = '{json.dumps(config)}'").collect()
             task.resume()
             task.execute()
-            from datetime import datetime
             dag_runs = op.get_current_dag_runs(self.dag)
             start = datetime.now()
             def check_started(dag_runs: List[DAGRun]) -> bool:
-                import time
                 if not dag_runs:
                     raise StarlakeSnowflakeError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed to run")
                 else:
                     while True:
-                        dag_runs_sorted: List[DAGRun] = sorted(dag_runs, key=lambda run: run.scheduled_time, reverse=True)
+                        import time
+                        dag_runs_sorted: List[DAGRun] = sorted(dag_runs, key=lambda run: run.query_start_time, reverse=True)
                         last_run: DAGRun = dag_runs_sorted[0]
                         state = last_run.state
                         print(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} is {state.lower()}")
@@ -466,18 +532,24 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
                             time.sleep(5)
                             return check_started(op.get_current_dag_runs(self.dag))
             check_started(dag_runs)
+            datetime_format = '%Y-%m-%d %H:%M:%S %z'
+            start_as_timestamp = start.astimezone(pytz.timezone(self.dag.timezone)).strftime(datetime_format)
+            print(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} started at {start_as_timestamp}")
             def check_status(result: SnowflakeDagResult) -> SnowflakeDagResult:
                 import time
                 while True:
                     rows: List[Row] = session.sql(
                         f"""SELECT NAME, STATE, GRAPH_RUN_GROUP_ID 
-                            FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())
-                            WHERE GRAPH_RUN_GROUP_ID IN (
-                                SELECT GRAPH_RUN_GROUP_ID FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())
-                            WHERE NAME ilike '{self.pipeline_id}%' AND COMPLETED_TIME is not null
-                                ORDER BY COMPLETED_TIME DESC
-                                LIMIT 1
-                            )""").collect()
+FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())
+WHERE GRAPH_RUN_GROUP_ID IN (
+    SELECT GRAPH_RUN_GROUP_ID FROM TABLE(INFORMATION_SCHEMA.TASK_HISTORY())
+    WHERE 
+        NAME ilike '{self.pipeline_id}%' 
+        AND COMPLETED_TIME is not null
+        AND COMPLETED_TIME >= '{start_as_timestamp}'
+    ORDER BY COMPLETED_TIME DESC
+    LIMIT 1
+)""").collect()
                     if rows:
                         for row in rows:
                             d = row.as_dict()
@@ -486,9 +558,7 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
                             graph_run_group_id = d.get('GRAPH_RUN_GROUP_ID', None)
                             if name and state and graph_run_group_id:
                                 result.update_task_result(name, state, graph_run_group_id)
-                        if result.has_failed:
-                            return result
-                        elif result.is_succeeded:
+                        if result.has_failed or result.is_succeeded or result.is_skipped:
                             return result
                         elif datetime.now() - start > timedelta(seconds=int(timeout)):
                             raise TimeoutError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} timed out")
@@ -502,12 +572,14 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
                     elif datetime.now() - start > timedelta(seconds=int(timeout)):
                         raise TimeoutError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} timed out")
                     else:
-                        print(f"No task history found for {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} yet")
+                        print(f"No task history found for {self.pipeline_id} {f' and with logical date {logical_date}' if logical_date else ''} yet")
                         time.sleep(5)
                         return check_status(result)
             status = check_status(SnowflakeDagResult(tasks = list(map(lambda task: SnowflakeTaskResult(name = task.full_name), self.dag.tasks))))
             if status.has_failed:
                 raise StarlakeSnowflakeError(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} failed -> {status}")
+            elif status.is_skipped:
+                print(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} skipped -> {status}")
             elif status.is_succeeded:
                 print(f"Pipeline {self.pipeline_id} {f'with logical date {logical_date}' if logical_date else ''} succeeded -> {status}")
             else:
@@ -530,8 +602,6 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
         """
         # check if backfill has been enabled for the pipeline and that there is no use of streams
         if self.job.allow_overlapping_execution and not self.dag.has_streams():
-            from datetime import datetime
-            import pytz
             start_time = datetime.fromisoformat(start_date).astimezone(pytz.timezone('UTC'))
             end_time = datetime.fromisoformat(end_date).astimezone(pytz.timezone('UTC'))
             if start_time > end_time:
@@ -548,7 +618,6 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
                     raise ValueError("The schedule must be a Cron or timedelta object")
             if interval is None:
                 if cron and cron.strip().lower() != 'none':
-                    from croniter import croniter
                     # reference datetime
                     base_time = datetime.now()
 
@@ -584,8 +653,8 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             if backfill_job_id is None:
                 raise StarlakeSnowflakeError(f"Pipeline {self.pipeline_id} backfill failed")
 
-            format = '%Y-%m-%d %H:%M:%S%z'
-            print(f" Pipeline {self.pipeline_id} is executing backfill job '{backfill_job_id}' with {partition_count} partition(s) from '{start_time.strftime(format)}' to '{end_time.strftime(format)}' using {interval} minutes interval")
+            datetime_format = '%Y-%m-%d %H:%M:%S %z'
+            print(f" Pipeline {self.pipeline_id} is executing backfill job '{backfill_job_id}' with {partition_count} partition(s) from '{start_time.strftime(datetime_format)}' to '{end_time.strftime(datetime_format)}' using {interval} minutes interval")
 
             # check the backfill job status
             def check_status():
@@ -622,8 +691,11 @@ class SnowflakePipeline(AbstractPipeline[SnowflakeDag, DAGTask, List[DAGTask], S
             super().backfill(timeout=timeout, start_date=start_date, end_date=end_date, **kwargs)
 
     def get_dag_operation(self, session: Session, database: str, schema: str) -> DAGOperation:
+        session.sql(f"CREATE DATABASE IF NOT EXISTS {database}").collect()
         session.sql(f"USE DATABASE {database}").collect()
+        session.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}").collect()
         session.sql(f"USE SCHEMA {schema}").collect()
+        session.sql(f"CREATE WAREHOUSE IF NOT EXISTS {self.warehouse.upper()}").collect()
         session.sql(f"USE WAREHOUSE {self.warehouse.upper()}").collect()
         root = Root(session)
         schema = root.databases[database].schemas[schema]
@@ -644,14 +716,18 @@ class SnowflakeTaskResult:
         return self.state == 'FAILED'
 
     @property
+    def is_skipped(self) -> bool:
+        return self.state == 'SKIPPED'
+
+    @property
     def is_succeeded(self) -> bool:
-        return self.state == 'SUCCEEDED'
+        return self.state == 'SUCCEEDED' 
 
     @property
     def state_as_str(self) -> str:
         if self.is_executing:
             return "is executing"
-        return self.state.lower()
+        return self.state.lower().replace('_', ' ')
 
     def __repr__(self) -> str:
         return f"Task {self.name} within graph_run_group_id {self.graph_run_group_id} {(self.state_as_str)}"
@@ -674,6 +750,10 @@ class SnowflakeDagResult:
     @property
     def is_executing(self) -> bool:
         return any([task.is_executing for task in self.tasks])
+
+    @property
+    def is_skipped(self) -> bool:
+        return any([task.is_skipped for task in self.tasks])
 
     @property
     def is_succeeded(self) -> bool:

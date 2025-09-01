@@ -1,8 +1,8 @@
 package ai.starlake.job.common
 
-import ai.starlake.schema.model.{ConnectionType, ExpectationSQL}
+import ai.starlake.schema.model.{ConnectionType, ExpectationSQL, TableSync}
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 case class TaskSQLStatements(
   name: String,
@@ -15,10 +15,14 @@ case class TaskSQLStatements(
   mainSqlIfNotExists: List[String],
   postSqls: List[String],
   addSCD2ColumnsSqls: List[String],
+  targetSchema: List[String],
+  syncStrategy: Option[TableSync],
   connectionType: ConnectionType
 ) {
 
   def asMap(): Map[String, Object] = {
+    val finalSyncStrategy =
+      if (targetSchema.isEmpty) TableSync.NONE else syncStrategy.getOrElse(TableSync.ADD)
     Map(
       "name"               -> name,
       "domain"             -> List(domain).asJava,
@@ -29,7 +33,8 @@ case class TaskSQLStatements(
       "mainSqlIfExists"    -> mainSqlIfExists.asJava,
       "mainSqlIfNotExists" -> mainSqlIfNotExists.asJava,
       "postsql"            -> postSqls.asJava,
-      "addSCD2ColumnsSqls" -> addSCD2ColumnsSqls.asJava,
+      "targetSchema"       -> targetSchema.asJava,
+      "syncStrategy"       -> finalSyncStrategy,
       "connectionType"     -> List(connectionType.toString).asJava
     )
   }

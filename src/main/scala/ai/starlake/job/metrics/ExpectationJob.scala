@@ -4,9 +4,9 @@ import ai.starlake.config.Settings
 import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
+import ai.starlake.utils.*
 import ai.starlake.utils.Formatter.RichFormatter
-import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
 
 import java.sql.Timestamp
@@ -51,7 +51,7 @@ case class ExpectationReport(
   }
 
   def asSelect(engineName: Engine)(implicit settings: Settings): String = {
-    import ai.starlake.utils.Formatter._
+    import ai.starlake.utils.Formatter.*
     timestamp.setNanos(0)
     val template = ExpectationJob.selectTemplate(engineName)
     val selectStatement = template.richFormat(
@@ -116,7 +116,8 @@ class ExpectationJob(
   expectations: List[ExpectationItem],
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
-  sqlRunner: ExpectationAssertionHandler
+  sqlRunner: ExpectationAssertionHandler,
+  interactive: Boolean
 )(implicit val settings: Settings)
     extends SparkJob {
 
@@ -140,6 +141,19 @@ class ExpectationJob(
   }
 
   override def run(): Try[JobResult] = {
+    val expectationReports: List[ExpectationReport] = runExpectations()
+
+    val result = sinkExpectationReports(expectationReports)
+
+    val failedCount = expectationReports.count(!_.success)
+    if (settings.appConfig.expectations.failOnError && this.failOnError()) {
+      Failure(new Exception(s"$failedCount Expectations failed"))
+    } else {
+      result
+    }
+  }
+
+  def runExpectations(): List[ExpectationReport] = {
     val fullTableName = database match {
       case Some(db) => s"$db.$domainName.$schemaName"
       case None     => s"$domainName.$schemaName"
@@ -178,7 +192,6 @@ class ExpectationJob(
         case Failure(e: IllegalArgumentException) =>
           if (expectation.failOnError)
             _failOnError = true
-          e.printStackTrace()
           ExpectationReport(
             applicationId(),
             database,
@@ -195,7 +208,6 @@ class ExpectationJob(
         case Failure(e) =>
           if (expectation.failOnError)
             _failOnError = true
-          e.printStackTrace()
           ExpectationReport(
             applicationId(),
             database,
@@ -213,73 +225,70 @@ class ExpectationJob(
         case Success(value) => value
       }
     }
-    val result =
-      if (expectationReports.nonEmpty) {
-        expectationReports.foreach(r => logger.info(r.toString))
-        val auditSink = settings.appConfig.audit.getSink()
-        auditSink.getConnectionType() match {
-          case ConnectionType.GCPLOG =>
-            val logName = settings.appConfig.audit.getDomainExpectation()
-            GcpUtils.sinkToGcpCloudLogging(
-              expectationReports.map(_.asMap()),
-              "expectation",
-              logName
-            )
-            Success(new JobResult {})
-          case _ =>
-            val sqls = expectationReports
-              .map(
-                _.asSelect(
-                  settings.appConfig.audit.sink.getSink().getConnection().getJdbcEngineName()
-                )
+    expectationReports
+  }
+
+  private def sinkExpectationReports(
+    expectationReports: List[ExpectationReport]
+  ): Try[JobResult] = {
+    if (expectationReports.nonEmpty && !interactive) {
+      expectationReports.foreach(r => logger.info(r.toString))
+      val auditSink = settings.appConfig.audit.getSink()
+      auditSink.getConnectionType() match {
+        case ConnectionType.GCPLOG =>
+          val logName = settings.appConfig.audit.getDomainExpectation()
+          GcpUtils.sinkToGcpCloudLogging(
+            expectationReports.map(_.asMap()),
+            "expectation",
+            logName
+          )
+          Success(new JobResult {})
+        case _ =>
+          val sqls = expectationReports
+            .map(
+              _.asSelect(
+                settings.appConfig.audit.sink.getSink().getConnection().getJdbcEngineName()
               )
-              .mkString("", " UNION ", "")
-            val taskDesc = AutoTaskInfo(
-              name = applicationId(),
-              sql = Some(sqls),
-              database = settings.appConfig.audit.getDatabase(),
-              domain = settings.appConfig.audit.getDomain(),
-              table = "expectations",
-              presql = Nil,
-              postsql = Nil,
-              connectionRef = settings.appConfig.audit.sink.connectionRef,
-              sink = Some(settings.appConfig.audit.sink),
-              parseSQL = Some(true),
-              _auditTableName = Some("expectations")
             )
-            val engine =
-              taskDesc.getSinkConnection().isJdbcUrl() match {
-                case true =>
-                  // This handle the case when sparkFormat is true,
-                  // we do not want to use spark to write the logs
-                  Engine.JDBC
-                case false => taskDesc.getSinkConnection().getEngine()
-              }
-            val task = AutoTask
-              .task(
-                Option(applicationId()),
-                taskDesc,
-                Map.empty,
-                None,
-                truncate = false,
-                engine = engine,
-                logExecution = false,
-                test = false,
-                resultPageSize = 200,
-                resultPageNumber = 1,
-                dryRun = false
-              )(settings, storageHandler, schemaHandler)
-            val res = task.run()
-            Utils.logFailure(res, logger)
-        }
-      } else
-        Success(SparkJobResult(None, None))
-    val failedCount = expectationReports.count(!_.success)
-    if (settings.appConfig.expectations.failOnError && this.failOnError()) {
-      Failure(new Exception(s"$failedCount Expectations failed"))
-    } else {
-      result
-    }
+            .mkString("", " UNION ", "")
+          val taskDesc = AutoTaskInfo(
+            name = applicationId(),
+            sql = Some(sqls),
+            database = settings.appConfig.audit.getDatabase(),
+            domain = settings.appConfig.audit.getDomain(),
+            table = "expectations",
+            presql = Nil,
+            postsql = Nil,
+            connectionRef = settings.appConfig.audit.sink.connectionRef,
+            sink = Some(settings.appConfig.audit.sink),
+            parseSQL = Some(true),
+            _auditTableName = Some("expectations")
+          )
+          val engine =
+            if (taskDesc.getSinkConnection().isJdbcUrl())
+              Engine.JDBC
+            else
+              taskDesc.getSinkConnection().getEngine()
+          val task = AutoTask
+            .task(
+              Option(applicationId()),
+              taskDesc,
+              Map.empty,
+              None,
+              truncate = false,
+              engine = engine,
+              logExecution = false,
+              test = false,
+              resultPageSize = 200,
+              resultPageNumber = 1,
+              dryRun = false,
+              scheduledDate = None // No scheduled date for expectations jobs
+            )(settings, storageHandler, schemaHandler)
+          val res = task.run()
+          Utils.logFailure(res, logger)
+      }
+    } else
+      Success(SparkJobResult(None, None))
   }
 
   def buildStatementsList(): Try[List[ExpectationSQL]] = Try {
@@ -315,7 +324,8 @@ object ExpectationJob {
     expectations: List[ExpectationItem],
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler,
-    sqlRunner: ExpectationAssertionHandler
+    sqlRunner: ExpectationAssertionHandler,
+    interactive: Boolean
   )(implicit settings: Settings): ExpectationJob = {
     new ExpectationJob(
       appId,
@@ -325,7 +335,8 @@ object ExpectationJob {
       expectations,
       storageHandler,
       schemaHandler,
-      sqlRunner
+      sqlRunner,
+      interactive
     )
   }
   def buildSQLStatements()(implicit settings: Settings): Option[TaskSQLStatements] = {
@@ -345,6 +356,8 @@ object ExpectationJob {
           mainSqlIfNotExists = null,
           postSqls = Nil,
           addSCD2ColumnsSqls = Nil,
+          targetSchema = Nil, // We do not update the expectations schema
+          syncStrategy = Some(TableSync.NONE),
           settings.appConfig.audit.getSink().getConnection().`type`
         )
       )

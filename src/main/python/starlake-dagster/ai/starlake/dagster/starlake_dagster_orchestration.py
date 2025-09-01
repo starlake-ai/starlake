@@ -1,6 +1,6 @@
 from ai.starlake.dagster.starlake_dagster_job import StarlakeDagsterJob, DagsterDataset, StarlakeDagsterUtils
 
-from ai.starlake.common import sl_timestamp_format, sl_scheduled_date, is_valid_cron, get_cron_frequency, StarlakeParameters
+from ai.starlake.common import sl_timestamp_format, sl_scheduled_date, is_valid_cron, get_cron_frequency, StarlakeParameters, scheduled_dates_range
 
 from ai.starlake.dataset import StarlakeDataset, DatasetTriggeringStrategy
 
@@ -660,7 +660,7 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
         print(f"Previous successful run for {self.pipeline_id} around {scheduled_date} is {previous_partition.strftime(sl_timestamp_format)}")
 
         data_cycle_freshness = None
-        if job.data_cycle:
+        if job.data_cycle and job.data_cycle.lower() != 'none' and is_valid_cron(job.data_cycle):
             # the freshness of the data cycle is the time delta between 2 iterations of its schedule
             data_cycle_freshness = get_cron_frequency(job.data_cycle)
 
@@ -689,15 +689,7 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
                 print(f"Dataset {dataset.uri} is optional, we skip it")
                 continue
             elif scheduled:
-                iter = croniter(cron, scheduled_date)
-                curr: datetime = iter.get_current(datetime)
-                previous: datetime = iter.get_prev(datetime)
-                next: datetime = croniter(cron, previous).get_next(datetime)
-                if curr == next :
-                    scheduled_date_to_check_max = curr
-                else:
-                    scheduled_date_to_check_max = previous
-                scheduled_date_to_check_min: datetime = croniter(cron, scheduled_date_to_check_max).get_prev(datetime)
+                (scheduled_date_to_check_min, scheduled_date_to_check_max) = scheduled_dates_range(cron, scheduled_date)
                 if original_cron:
                     partitions = [
                         scheduled_date_to_check_min.strftime(sl_timestamp_format),
@@ -710,6 +702,7 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
                 if beyond_data_cycle_allowed:
                     scheduled_date_to_check_min = scheduled_date_to_check_min - timedelta(seconds=freshness)
                     scheduled_date_to_check_max = scheduled_date_to_check_max + timedelta(seconds=freshness)
+                scheduled_date_to_check_max = max(scheduled_date_to_check_max, scheduled_date)
                 scheduled_datetime = schedules.get(dataset.uri, None)
                 if scheduled_datetime:
                     # we check if the scheduled datetime is between the scheduled date to check min and max
@@ -813,7 +806,7 @@ class DagsterPipeline(AbstractPipeline[JobDefinition, OpDefinition, GraphDefinit
             # otherwise use the current date
             cron_expr = self.computed_cron_expr
             if cron_expr and is_valid_cron(cron_expr):
-                logical_date = sl_scheduled_date(cron_expr, datetime.now(pytz.utc), previous=False).strftime(sl_timestamp_format)
+                logical_date = sl_scheduled_date(cron_expr, datetime.now(pytz.utc)).strftime(sl_timestamp_format)
             else:
                 print(f"No logical date provided and no cron defined for {self.pipeline_id}, using current date.")
                 logical_date = datetime.now(pytz.utc).strftime(sl_timestamp_format)

@@ -2,10 +2,9 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig}
+import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig, JdbcDbUtils}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Severity.Error
-import ai.starlake.schema.model.TableSync.NONE
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.diff.{Attribute as DiffAttribute, DBSchema}
 import ai.starlake.transpiler.schema.CaseInsensitiveLinkedHashMap
@@ -15,7 +14,7 @@ import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructType
 
-import scala.jdk.CollectionConverters.*
+import scala.jdk.CollectionConverters._
 
 case class TaskDesc(version: Int, task: AutoTaskInfo)
 
@@ -93,7 +92,7 @@ case class AutoTaskInfo(
   def getWriteMode(): WriteMode =
     writeStrategy.map(_.toWriteMode()).getOrElse(WriteMode.APPEND)
 
-  def fullName = s"${this.domain}.${this.name}"
+  def fullName() = s"${this.domain}.${this.name}"
 
   def merge(child: AutoTaskInfo): AutoTaskInfo = {
     AutoTaskInfo(
@@ -321,16 +320,33 @@ case class AutoTaskInfo(
               }
             }
             .orElse {
-              new ExtractSchema(schemaHandler)
-                .extractTable(fullTableName, accessToken)
-                .toOption
-                .filter(_.tables.nonEmpty)
-                .map { it =>
-                  logger.info(
-                    s"Found extracted table ${it.tables.head.name} for table $fullTableName with attributes ${it.tables.head.attributes.map(_.name).mkString(", ")}"
+              val connectionInfo =
+                settings.appConfig.getConnection(settings.appConfig.connectionRef)
+              // getting metadata from snowflake is definitely too slow
+              if (connectionInfo.isSnowflake()) {
+                JdbcDbUtils
+                  .existsTableUsingInformationSchema(
+                    connectionInfo,
+                    domainName,
+                    schemaName
                   )
-                  (it.finalName, it.tables.head.finalName)
-                }
+                  .toOption
+                  .filter(identity)
+                  .map { _ =>
+                    (domainName, schemaName)
+                  }
+              } else {
+                new ExtractSchema(schemaHandler)
+                  .extractTable(fullTableName, None, accessToken)
+                  .toOption
+                  .filter(_.tables.nonEmpty)
+                  .map { it =>
+                    logger.info(
+                      s"Found extracted table ${it.tables.head.name} for table $fullTableName with attributes ${it.tables.head.attributes.map(_.name).mkString(", ")}"
+                    )
+                    (it.finalName, it.tables.head.finalName)
+                  }
+              }
             }
         }
         .groupBy { case (domain, _) =>
@@ -351,7 +367,9 @@ case class AutoTaskInfo(
         new DBSchema("", domain, tablesMap)
       }.asJava
 
-    println(YamlSerde.serialize(dbSchemas))
+    logger.info(YamlSerde.serialize(dbSchemas))
+    logger.info(sqlWithParametersTranspiled)
+
     val statementColumns =
       new JSQLSchemaDiff(dbSchemas)
         .getDiff(sqlWithParametersTranspiled, s"${this.domain}.${this.table}")
@@ -514,8 +532,8 @@ case class AutoTaskInfo(
   @JsonIgnore
   def getPath()(implicit settings: Settings): Path = {
     assert(
-      this.fullName.split('.').length == 2,
-      s"Invalid full task name: ${this.fullName}. Expected format: domainName.tableName"
+      this.fullName().split('.').length == 2,
+      s"Invalid full task name: ${this.fullName()}. Expected format: domainName.tableName"
     )
     new Path(DatasetArea.transform, this.getName().replace('.', '/') + ".sl.yml")
   }
@@ -535,7 +553,7 @@ case class AutoTaskInfo(
   def readyForSync(): Boolean = {
     this.attributes.nonEmpty &&
     this.attributes.forall(_.`type`.nonEmpty) &&
-    this.getSyncStrategyValue() != NONE
+    this.getSyncStrategyValue() != TableSync.NONE
   }
 }
 

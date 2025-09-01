@@ -13,6 +13,7 @@
 # - fargate_async_poke_interval(30): the interval in seconds to wait between fargate async task checks [OPTIONAL]
 # - retry_on_failure(False): whether to retry the task on failure or not (if not set, False will be used) [OPTIONAL]
 # - sl_env_var: starlake variables specified as a map in json format - at least the root project path SL_ROOT should be specified [OPTIONAL]
+# - run_dependencies_first(False): whereas the dependencies should be added and executed before each transformation that has to be performed within the dag (if not set, the dependencies will not be added) [OPTIONAL]
 # - tags: a list of tags to be applied to the dag [OPTIONAL]
 # - catchup(False): whether to catch up the missed runs or not [OPTIONAL]
 # - start_date: the start date of the dag (eg. 2022-01-01) [OPTIONAL]

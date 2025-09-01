@@ -467,7 +467,7 @@ task_deps=json.loads("""[ {
 job_name = os.path.basename(__file__).replace(".py", "").replace(".pyc", "").lower()
 
 # if you want to load dependencies, set load_dependencies to True in the options
-load_dependencies: bool = sl_job.get_context_var(var_name='load_dependencies', default_value='False', options=options).lower() == 'true'
+run_dependencies_first: bool = sl_job.get_context_var(var_name='load_dependencies', default_value='False', options=options).lower() == 'true'
 
 sensor = None
 
@@ -493,7 +493,7 @@ for task in task_deps:
     load_task_dependencies(task)
 
 # if you choose to not load the dependencies, a sensor will be created to check if the dependencies are met
-if not load_dependencies:
+if not run_dependencies_first:
 
     def load_assets(task: dict):
         if 'children' in task:

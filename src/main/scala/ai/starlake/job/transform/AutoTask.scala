@@ -24,7 +24,7 @@ import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.ingest.{AuditLog, Step}
-import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
+import ai.starlake.job.metrics.{ExpectationJob, ExpectationReport, JdbcExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.job.strategies.TransformStrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -66,10 +66,13 @@ abstract class AutoTask(
   val resultPageSize: Int,
   val resultPageNumber: Int,
   val accessToken: Option[String],
-  conn: Option[java.sql.Connection]
+  conn: Option[java.sql.Connection],
+  val scheduledDate: Option[String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
+  def runExpectations(): List[ExpectationReport]
+  def runAndSinkExpectations(): Try[JobResult]
   def createAuditTable(): Boolean
 
   /** Build the SQL statements to create or alter the table schema in the target database.
@@ -95,13 +98,9 @@ abstract class AutoTask(
   }
 
   def aclSQL(): List[String] = {
-    val sinkEngine = sinkConnection.getJdbcEngineName()
+    val sinkEngineName = sinkConnection.getJdbcEngineName()
     taskDesc.acl.flatMap { ace =>
-      /*
-        https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
-        https://hevodata.com/learn/snowflake-grant-role-to-user/
-       */
-      ace.asSql(fullTableName, sinkEngine)
+      ace.asSql(fullTableName, sinkEngineName)
     }
   }
 
@@ -112,7 +111,7 @@ abstract class AutoTask(
       .domains()
       .find(_.finalName == taskDesc.domain)
       .flatMap(_.tables.find(_.finalName == taskDesc.table))
-      .map(schemaHandler.getDdlMapping)
+      .map(schema => schemaHandler.getDdlMapping(schema.attributes))
       .getOrElse(Map.empty)
 
   val sparkSinkFormat =
@@ -346,7 +345,8 @@ abstract class AutoTask(
         Step.TRANSFORM.toString,
         taskDesc.getDatabase(),
         settings.appConfig.tenant,
-        test
+        test = test,
+        scheduledDate = scheduledDate
       )
       Some(log)
     } else {
@@ -424,7 +424,8 @@ abstract class AutoTask(
         taskDesc.expectations,
         storageHandler,
         schemaHandler,
-        new JdbcExpectationAssertionHandler(sinkOptions)
+        new JdbcExpectationAssertionHandler(sinkOptions),
+        false
       ).buildStatementsList() match {
         case Success(expectations) =>
           expectations
@@ -484,8 +485,24 @@ abstract class AutoTask(
     val addSCD2ColumnsSqls =
       buildAddSCD2ColumnsSqls(sinkConnection.getJdbcEngineName())
 
+    val ddlMap: Map[String, Map[String, String]] = schemaHandler.getDdlMapping(taskDesc.attributes)
+    val sparkSchema =
+      SparkUtils.sparkSchemaWithCondition(
+        schemaHandler,
+        taskDesc.attributes,
+        _ => true,
+        withFinalName = false // no rename in the task schema
+      )
+    val sqlSchema = SparkUtils.sqlSchema(
+      sparkSchema,
+      caseSensitive = false,
+      sinkConnection.jdbcUrl,
+      ddlMap,
+      0
+    )
+
     TaskSQLStatements(
-      taskDesc.name,
+      taskDesc.fullName(),
       taskDesc.domain,
       taskDesc.table,
       createSchemaAndTableSql.map(_.pyFormat()),
@@ -495,6 +512,8 @@ abstract class AutoTask(
       mainSqlIfNotExists.map(_.pyFormat()),
       postSqls.map(_.pyFormat()),
       addSCD2ColumnsSqls.map(_.pyFormat()),
+      sqlSchema,
+      taskDesc.syncStrategy,
       taskDesc.getSinkConnectionType()
     )
   }
@@ -523,43 +542,33 @@ abstract class AutoTask(
 
 object AutoTask extends LazyLogging {
 
-  def minimal(
-    domainName: String,
-    tableName: String,
-    connectionRef: String,
+  def fromAutoTaskInfo(
+    info: AutoTaskInfo,
     accessToken: Option[String] = None,
-    _auditTableName: Option[String] = None
+    scheduledDate: Option[String] = None
   )(implicit
     settings: Settings
   ): AutoTask = {
-    val desc =
-      AutoTaskInfo(
-        "__IGNORE__",
-        sql = None,
-        database = None,
-        domain = domainName,
-        table = tableName,
-        connectionRef = Some(connectionRef),
-        _auditTableName = _auditTableName
-      )
     AutoTask
       .task(
         appId = None,
-        taskDesc = desc,
+        taskDesc = info,
         configOptions = Map.empty,
         interactive = None,
         accessToken = accessToken,
         test = false,
         truncate = false,
         logExecution = false,
-        engine = settings.appConfig.getConnection(connectionRef).getEngine(),
+        engine = settings.appConfig.getConnection(info.getRunConnectionRef()).getEngine(),
         resultPageSize = 1000,
         resultPageNumber = 1,
-        dryRun = false
+        dryRun = false,
+        scheduledDate = scheduledDate
       )(settings, settings.storageHandler(), settings.schemaHandler())
+
   }
 
-  /** Used for linegae only
+  /** Used for lineage only
     */
   def unauthenticatedTasks(reload: Boolean)(implicit
     settings: Settings,
@@ -580,7 +589,8 @@ object AutoTask extends LazyLogging {
           logExecution = true,
           resultPageSize = 200,
           resultPageNumber = 1,
-          dryRun = false
+          dryRun = false,
+          scheduledDate = None // No scheduled date for unauthenticated tasks
         )
       )
   }
@@ -616,7 +626,8 @@ object AutoTask extends LazyLogging {
     accessToken: Option[String] = None,
     resultPageSize: Int,
     resultPageNumber: Int,
-    dryRun: Boolean
+    dryRun: Boolean,
+    scheduledDate: Option[String]
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -637,7 +648,8 @@ object AutoTask extends LazyLogging {
           accessToken = accessToken,
           resultPageSize = resultPageSize,
           resultPageNumber = resultPageNumber,
-          dryRun = dryRun
+          dryRun = dryRun,
+          scheduledDate = scheduledDate
         )
       case Engine.JDBC
           if sinkConfig
@@ -654,7 +666,8 @@ object AutoTask extends LazyLogging {
           accessToken = accessToken,
           resultPageSize = resultPageSize,
           resultPageNumber = resultPageNumber,
-          conn = None
+          conn = None,
+          scheduledDate = scheduledDate
         )
       case _ =>
         sinkConfig match {
@@ -670,7 +683,8 @@ object AutoTask extends LazyLogging {
               accessToken = accessToken,
               resultPageSize = resultPageSize,
               logExecution = logExecution,
-              resultPageNumber = resultPageNumber
+              resultPageNumber = resultPageNumber,
+              scheduledDate = scheduledDate
             )
 
           case _ =>
@@ -684,7 +698,8 @@ object AutoTask extends LazyLogging {
               accessToken = accessToken,
               resultPageSize = resultPageSize,
               resultPageNumber = resultPageNumber,
-              logExecution = logExecution
+              logExecution = logExecution,
+              scheduledDate = scheduledDate
             )
         }
     }
@@ -699,7 +714,8 @@ object AutoTask extends LazyLogging {
     test: Boolean,
     parseSQL: Boolean,
     pageSize: Int,
-    pageNumber: Int
+    pageNumber: Int,
+    scheduledDate: Option[String]
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -725,7 +741,8 @@ object AutoTask extends LazyLogging {
           test,
           parseSQL,
           pageSize,
-          pageNumber
+          pageNumber,
+          scheduledDate
         )
       case Failure(e) =>
         Failure(e)
@@ -744,7 +761,8 @@ object AutoTask extends LazyLogging {
     test: Boolean,
     parseSQL: Boolean,
     pageSize: Int,
-    pageNumber: Int
+    pageNumber: Int,
+    scheduledDate: Option[String]
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -804,7 +822,8 @@ object AutoTask extends LazyLogging {
       accessToken = accessToken,
       resultPageSize = pageSize,
       resultPageNumber = pageNumber,
-      dryRun = false
+      dryRun = false,
+      scheduledDate = scheduledDate
     )
     t.run() match {
       case Success(jobResult) =>

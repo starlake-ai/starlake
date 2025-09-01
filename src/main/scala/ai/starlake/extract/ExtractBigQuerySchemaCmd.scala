@@ -7,12 +7,12 @@ import ai.starlake.utils.JobResult
 
 import scala.util.Try
 
-object ExtractBigQuerySchemaCmd extends BigQueryTablesCmd {
+object ExtractBigQuerySchemaCmd extends TablesExtractCmd {
   override def command: String = "extract-bq-schema"
   def fromExtractSchemaConfig(
     config: ExtractSchemaConfig,
     jdbcSchema: JDBCSchema
-  ): BigQueryTablesConfig = {
+  ): TablesExtractConfig = {
     val tablesRenamed = jdbcSchema.tables.map { table =>
       if (table.name == "_" || table.name == "") "*" else table.name
     }
@@ -21,21 +21,21 @@ object ExtractBigQuerySchemaCmd extends BigQueryTablesCmd {
         Map.empty[String, List[String]]
       else
         Map(jdbcSchema.schema -> tablesRenamed)
-    BigQueryTablesConfig(
+    TablesExtractConfig(
       tables = tables,
       database = jdbcSchema.catalog,
       external = config.external
     )
   }
 
-  override def run(config: BigQueryTablesConfig, schemaHandler: SchemaHandler)(implicit
+  override def run(config: TablesExtractConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] =
     Try {
       extract(config, schemaHandler)
     }.map(_ => JobResult.empty)
 
-  def extract(config: BigQueryTablesConfig, schemaHandler: SchemaHandler)(implicit
+  def extract(config: TablesExtractConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): List[DomainInfo] = {
     if (config.external) {

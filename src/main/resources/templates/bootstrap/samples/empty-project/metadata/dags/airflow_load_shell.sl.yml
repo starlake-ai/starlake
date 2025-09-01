@@ -3,7 +3,7 @@ version: 1
 dag:
     comment: "dag for loading all {{domain}} tables"
     template: "load/airflow__scheduled_table__shell.py.j2"
-    filename: "airflow_{{domain}}_tables.py"
+    filename: "{{domain}}_tables_{{sl_project_id}}.py"
     options:
         sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
         SL_STARLAKE_PATH: "starlake"
