@@ -140,11 +140,12 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     val taskConfigsGroupedByFilename = taskConfigs
       .map { taskConfig =>
         val envVars = schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
-          "table"    -> taskConfig.taskDesc.table,
-          "domain"   -> taskConfig.taskDesc.domain,
-          "name"     -> taskConfig.taskDesc.fullName(), // deprecated
-          "task"     -> taskConfig.taskDesc.fullName(),
-          "schedule" -> taskConfig.schedule.getOrElse("None")
+          "table"         -> taskConfig.taskDesc.table,
+          "domain"        -> taskConfig.taskDesc.domain,
+          "name"          -> taskConfig.taskDesc.fullName(), // deprecated
+          "task"          -> taskConfig.taskDesc.fullName(),
+          "schedule"      -> taskConfig.schedule.getOrElse("None"),
+          "sl_project_id" -> config.masterProjectId.getOrElse("-1")
         )
         val filename = Utils.parseJinja(
           taskConfig.dagConfig.filename,
@@ -374,7 +375,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                   "table"         -> table.name,
                   "finalTable"    -> table.finalName,
                   "renamedTable"  -> table.finalName,
-                  "rawDomains"    -> rawDomains
+                  "rawDomains"    -> rawDomains,
+                  "sl_project_id" -> config.masterProjectId.getOrElse("-1")
                 )
               val options = dagConfig.options.map { case (k, v) =>
                 k -> Utils.parseJinja(v, envVars)
@@ -478,7 +480,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                   "domain"        -> domain.name,
                   "renamedDomain" -> domain.finalName,
                   "finalDomain"   -> domain.finalName,
-                  "rawDomain"     -> rawDomain
+                  "rawDomain"     -> rawDomain,
+                  "sl_project_id" -> config.masterProjectId.getOrElse("-1")
                 )
               val options = dagConfig.options.map { case (k, v) =>
                 k -> Utils.parseJinja(v, envVars)
@@ -505,7 +508,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 "domain"        -> domain.name,
                 "renamedDomain" -> domain.finalName,
                 "finalDomain"   -> domain.finalName,
-                "rawDomain"     -> rawDomain
+                "rawDomain"     -> rawDomain,
+                "sl_project_id" -> config.masterProjectId.getOrElse("-1")
               )
             val options = dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
             val comment = Utils.parseJinja(dagConfig.comment, envVars)
@@ -560,7 +564,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             dagSchedules.foreach { schedule =>
               val envVars =
                 schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
-                  "schedule" -> schedule.schedule
+                  "schedule"      -> schedule.schedule,
+                  "sl_project_id" -> config.masterProjectId.getOrElse("-1")
                 )
               val options = dagConfig.options.map { case (k, v) =>
                 k -> Utils.parseJinja(v, envVars)
@@ -581,7 +586,10 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               )
             }
           } else {
-            val envVars = schemaHandler.activeEnvVars(root = Option(settings.appConfig.root))
+            val envVars =
+              schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
+                "sl_project_id" -> config.masterProjectId.getOrElse("-1")
+              )
             val options = dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
             val comment = Utils.parseJinja(dagConfig.comment, envVars)
             val context = LoadDagGenerationContext(
@@ -673,6 +681,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               exclude = Some("_.*".r.pattern),
               recursive = false
             )
+        /*
         dagFiles.map { file =>
           val fileName = file.path.getName
           val newFileName = s"SL_${projectId}_$fileName"
@@ -684,6 +693,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           settings.storageHandler().move(file.path, newPath)
           newPath
         }
+         */
+        dagFiles.map(_.path)
       case None =>
         Nil
 

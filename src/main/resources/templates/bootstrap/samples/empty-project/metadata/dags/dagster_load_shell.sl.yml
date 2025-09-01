@@ -3,7 +3,7 @@ version: 1
 dag:
     comment: "dag for loading all domain {{domain}} tables"
     template: "load/dagster__scheduled_table__shell.py.j2"
-    filename: "dagster_{{domain}}_tables.py"
+    filename: "{{domain}}_tables_{{sl_project_id}}.py"
     options:
         sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
         SL_STARLAKE_PATH: "starlake"
