@@ -60,7 +60,7 @@ class ColLineage(
       .toList
       .distinct
     allTables.map { table =>
-      val isTask = allTaskNames.contains(table.fullName.toLowerCase)
+      val isTask = allTaskNames.contains(table.fullName().toLowerCase)
       table.copy(
         isTask = isTask,
         table = ColLineage.toLowerCase(table.table),
@@ -78,9 +78,10 @@ class ColLineage(
           sqlColLineage(
             config.outputFile,
             sql,
-            task.fullName.split('.')(0),
-            task.fullName.split('.')(1),
-            task.getRunConnection()(settings)
+            task.fullName().split('.')(0),
+            task.fullName().split('.')(1),
+            task.getRunConnection()(settings),
+            config.accessToken
           )
         }
       case None =>
@@ -93,7 +94,8 @@ class ColLineage(
     sql: String,
     domain: String,
     table: String,
-    connection: ConnectionInfo
+    connection: ConnectionInfo,
+    accessToken: Option[String]
   ): Option[ColLineage.Lineage] = {
     val sqlSubst = schemaHandler.substituteRefTaskMainSQL(sql, connection)
     if (sqlSubst.isEmpty) {
@@ -102,7 +104,8 @@ class ColLineage(
     } else {
       val tableNames = SQLUtils.extractTableNames(sqlSubst)
       val quoteFreeTables = tableNames.map(SQLUtils.quoteFreeTableName)
-      val tablesWithColumnNames = schemaHandler.getTablesWithColumnNames(quoteFreeTables)
+      val tablesWithColumnNames =
+        schemaHandler.getTablesWithColumnNames(quoteFreeTables, accessToken)
       Some(
         colLineage(
           outputFile,
@@ -142,7 +145,6 @@ class ColLineage(
         sql,
         JdbcMetaData.copyOf(jdbcMetadata.setErrorMode(JdbcMetaData.ErrorMode.LENIENT))
       )
-
     val allTaskNames = schemaHandler.taskTableNames().map(_.toLowerCase)
     val tables = extractTables(res, allTaskNames)
     val relations = ColLineage.extractRelations(domainName, tableName, res)
@@ -182,7 +184,7 @@ object ColLineage {
   }
   case class Relation(from: Column, to: Column, expression: Option[String])
   case class Table(domain: String, table: String, columns: List[String], isTask: Boolean) {
-    def fullName: String = s"$domain.$table"
+    def fullName(): String = s"$domain.$table"
   }
   case class Lineage(tables: List[Table], relations: List[Relation]) {
     def diff(other: Lineage) = {
@@ -443,7 +445,11 @@ object ColLineage {
           )
         }
         .toList
-    relations.distinct
+    relations.distinct.filter { relation =>
+      // Filter out relations where from and to are the same
+      relation.from.domain != relation.to.domain ||
+      relation.from.table != relation.to.table || relation.from.column != relation.to.column
+    }
   }
   def tablesInRelations(relations: List[Relation], allTaskNames: List[String]): List[Table] = {
     val tables =

@@ -32,6 +32,7 @@ import scala.util.{Failure, Success, Try}
 trait IngestionJob extends SparkJob {
   val accessToken: Option[String]
   val test: Boolean
+  val scheduledDate: Option[String]
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
     val validatorClassName = loader.toLowerCase() match {
       case "native" =>
@@ -158,49 +159,33 @@ trait IngestionJob extends SparkJob {
     if (settings.appConfig.isHiveCompatible()) {
       val fullTableName = schemaHandler.getFullTableName(domain, schema)
       schema.acl.flatMap { ace =>
-        if (Utils.isRunningInDatabricks()) {
-          /*
-        GRANT
-          privilege_type [, privilege_type ] ...
-          ON (CATALOG | DATABASE <database-name> | TABLE <table-name> | VIEW <view-name> | FUNCTION <function-name> | ANONYMOUS FUNCTION | ANY FILE)
-          TO principal
-
-        privilege_type
-          : SELECT | CREATE | MODIFY | READ_METADATA | CREATE_NAMED_FUNCTION | ALL PRIVILEGES
-           */
-          ace.asDatabricksSql(fullTableName)
-        } else { // Hive
-          ace.asHiveSql(fullTableName)
-        }
+        ace.asSql(fullTableName, engine = Engine.SPARK)
       }
     } else {
       Nil
     }
   }
 
-  def applyHiveTableAcl(forceApply: Boolean = false): Try[Unit] =
+  def applyHiveTableAcl(): Try[Unit] =
     Try {
-      if (forceApply || settings.appConfig.accessPolicies.apply) {
-        val sqls = extractHiveTableAcl()
-        sqls.foreach { sql =>
-          SparkUtils.sql(session, sql)
-        }
+      val sqls = extractHiveTableAcl()
+      sqls.foreach { sql =>
+        SparkUtils.sql(session, sql)
       }
     }
 
-  private def extractJdbcAcl(): List[String] = {
+  def applyJdbcAcl(connection: Settings.ConnectionInfo, forceApply: Boolean = false): Try[Unit] = {
     val fullTableName = schemaHandler.getFullTableName(domain, schema)
-    schema.acl.flatMap { ace =>
-      /*
-        https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
-        https://hevodata.com/learn/snowflake-grant-role-to-user/
-       */
-      ace.asJdbcSql(fullTableName)
-    }
+    val sqls =
+      schema.acl.flatMap { ace =>
+        ace.asSql(fullTableName, connection.getJdbcEngineName())
+      }
+    AccessControlEntry.applyJdbcAcl(
+      connection,
+      sqls,
+      forceApply
+    )
   }
-
-  def applyJdbcAcl(connection: Settings.ConnectionInfo, forceApply: Boolean = false): Try[Unit] =
-    AccessControlEntry.applyJdbcAcl(connection, extractJdbcAcl(), forceApply)
 
   private def bqNativeJob(tableId: TableId, sql: String)(implicit settings: Settings) = {
     val bqConfig = BigQueryLoadConfig(
@@ -333,7 +318,8 @@ trait IngestionJob extends SparkJob {
           Step.LOAD.toString,
           schemaHandler.getDatabase(domain),
           settings.appConfig.tenant,
-          false
+          test = false,
+          scheduledDate
         )
       }
     } else {
@@ -353,7 +339,8 @@ trait IngestionJob extends SparkJob {
           Step.LOAD.toString,
           schemaHandler.getDatabase(domain),
           settings.appConfig.tenant,
-          false
+          test = false,
+          scheduledDate
         )
       )
     }
@@ -388,7 +375,8 @@ trait IngestionJob extends SparkJob {
         Step.LOAD.toString,
         schemaHandler.getDatabase(domain),
         settings.appConfig.tenant,
-        test = false
+        test = false,
+        scheduledDate
       )
     }
     AuditLog.sink(logs, accessToken)(settings, storageHandler, schemaHandler).map(_ => logs)
@@ -627,7 +615,8 @@ trait IngestionJob extends SparkJob {
         this.schema.expectations,
         storageHandler,
         schemaHandler,
-        new JdbcExpectationAssertionHandler(jdbcOptions)
+        new JdbcExpectationAssertionHandler(jdbcOptions),
+        false
       ).run()
     } else {
       Success(SparkJobResult(None, None))
@@ -644,7 +633,8 @@ trait IngestionJob extends SparkJob {
         this.schema.expectations,
         storageHandler,
         schemaHandler,
-        new SparkExpectationAssertionHandler(session)
+        new SparkExpectationAssertionHandler(session),
+        false
       ).run()
     } else {
       Success(SparkJobResult(None, None))
@@ -663,7 +653,8 @@ trait IngestionJob extends SparkJob {
         this.schema.expectations,
         storageHandler,
         schemaHandler,
-        new BigQueryExpectationAssertionHandler(job)
+        new BigQueryExpectationAssertionHandler(job),
+        false
       ).run()
     } else {
       Success(SparkJobResult(None, None))
@@ -857,7 +848,8 @@ trait IngestionJob extends SparkJob {
               test = test,
               logExecution = false,
               resultPageSize = 200,
-              resultPageNumber = 1
+              resultPageNumber = 1,
+              scheduledDate = scheduledDate
             )(
               settings,
               storageHandler,
@@ -875,7 +867,8 @@ trait IngestionJob extends SparkJob {
               schema = Some(schema),
               accessToken = accessToken,
               resultPageSize = 200,
-              resultPageNumber = 1
+              resultPageNumber = 1,
+              scheduledDate = scheduledDate
             )(
               settings,
               storageHandler,
@@ -937,7 +930,8 @@ trait IngestionJob extends SparkJob {
       domainName,
       schemaName,
       now,
-      path
+      path,
+      scheduledDate
     ) match {
       case Success((rejectedDF, rejectedPath)) =>
         Success(rejectedPath)

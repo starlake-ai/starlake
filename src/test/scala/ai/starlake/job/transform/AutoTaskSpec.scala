@@ -20,7 +20,7 @@ class AutoTaskSpec extends TestHelper {
         val workflow = new IngestionWorkflow(storageHandler, schemaHandler)
         println(starlakeDatasetsPath)
 
-        workflow.autoJob(TransformConfig(name = "result.file"))
+        workflow.autoJob(TransformConfig(name = "result.file", scheduledDate = None))
 
         // val location = getTablePath("result", "file")
         val csvLocation = DatasetArea.export("result", "file" + ".csv")
@@ -49,7 +49,7 @@ class AutoTaskSpec extends TestHelper {
           )
           val schemaHandler = settings.schemaHandler()
           val workflow = new IngestionWorkflow(storageHandler, schemaHandler)
-          workflow.autoJob(TransformConfig(name = "piJob"))
+          workflow.autoJob(TransformConfig(name = "piJob", scheduledDate = None))
 
           readFileContent(
             new Path(starlakeDatasetsPath + "/business/result/file/file.csv")

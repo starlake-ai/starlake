@@ -54,12 +54,12 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                 tempTables
                   .map(s"SELECT * FROM ${domain.finalName}." + _)
                   .mkString("(", " UNION ALL ", ")")
-              val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
               val sqlWithTransformedFields =
                 starlakeSchema.buildSecondStepSqlSelectOnLoad(unionTempTables)
+              val targetTableFullName = s"${domain.finalName}.${starlakeSchema.finalName}"
 
               val taskDesc = AutoTaskInfo(
-                name = targetTableName,
+                name = starlakeSchema.finalName,
                 sql = Some(sqlWithTransformedFields),
                 database = schemaHandler.getDatabase(domain),
                 domain = domain.finalName,
@@ -89,7 +89,8 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                   accessToken = ingestionJob.accessToken,
                   resultPageSize = 200,
                   resultPageNumber = 1,
-                  Some(conn)
+                  Some(conn),
+                  scheduledDate = scheduledDate
                 )(
                   settings,
                   storageHandler,
@@ -103,7 +104,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                   schemaHandler,
                   withFinalName = true
                 ),
-                targetTableName,
+                targetTableFullName,
                 TableSync.ALL
               )
 
@@ -114,9 +115,11 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
 
               runResult match {
                 case Success(_) =>
-                  logger.info(s"Table $targetTableName created successfully")
+                  logger.info(s"Table $targetTableFullName created successfully")
                 case Failure(exception) =>
-                  logger.error(s"Error creating table $targetTableName: ${exception.getMessage}")
+                  logger.error(
+                    s"Error creating table $targetTableFullName: ${exception.getMessage}"
+                  )
                   throw exception
               }
             } else {
@@ -177,7 +180,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     val compression =
       getOption("COMPRESSION").getOrElse("true").equalsIgnoreCase("true")
     if (compression)
-      ("COMPRESSION = GZIP", ".gz")
+      ("COMPRESSION = AUTO", ".gz")
     else
       ("COMPRESSION = NONE", "")
   }
@@ -221,11 +224,13 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
         "MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE"
 
     val extraOptions = copyExtraOptions(commonOptions)
+
+    // $extension is unused here because snowflake auto-detects compression and user is in charge of defining the right pattern
     val sql =
       s"""
          |COPY INTO $domainAndTableName
          |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern$extension'
+         |PATTERN = '$pattern'
          |PURGE = ${purge}
          |FILE_FORMAT = (
          |  TYPE = JSON
@@ -248,11 +253,12 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       else
         "STRIP_OUTER_ELEMENT=TRUE"
 
+    // $extension is unused here because snowflake auto-detects compression and user is in charge of defining the right pattern'
     val sql =
       s"""
          |COPY INTO $domainAndTableName
          |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern$extension'
+         |PATTERN = '$pattern
          |PURGE = ${purge}
          |FILE_FORMAT = (
          |  TYPE = XML
@@ -267,11 +273,13 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
   private def buildCopyOther(domainAndTableName: String, format: String) = {
     val commonOptions = List("NULL_IF")
     val extraOptions = copyExtraOptions(commonOptions)
+
+    // $extension is unused here because snowflake auto-detects compression and user is in charge of defining the right pattern
     val sql =
       s"""
          |COPY INTO $domainAndTableName
          |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern$extension'
+         |PATTERN = '$pattern'
          |PURGE = $purge
          |FILE_FORMAT = (
          |  TYPE = $format
@@ -308,11 +316,12 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
         .getOrElse(mergedMetadata.resolveEscape())
         .replaceAll("\\\\", "\\\\\\\\")
 
+    // $extension is unused here because snowflake auto-detects compression and user is in charge of defining the right pattern
     val sql =
       s"""
          |COPY INTO $domainAndTableName
          |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern$extension'
+         |PATTERN = '$pattern'
          |PURGE = $purge
          |FILE_FORMAT = (
          |  TYPE = CSV
@@ -343,7 +352,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     val domainAndTableName = domain + "." + table
     val optionsWrite =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, domainAndTableName, sinkConnection.options)
-    val ddlMap = schemaHandler.getDdlMapping(schema)
+    val ddlMap = schemaHandler.getDdlMapping(schema.attributes)
     val attrsWithDDLTypes = schemaHandler.getAttributesWithDDLType(schema, "snowflake")
 
     // Create or update table schema first
@@ -400,7 +409,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     logger.info(res.toString())
     res = JdbcDbUtils.executeQueryAsMap(s"CREATE OR REPLACE TEMPORARY STAGE $tempStage", conn)
     logger.info(res.toString())
-    val putSqls = pathsAsString.map(path => s"PUT $path @$tempStage/$domain")
+    val putSqls = pathsAsString.map(path => s"PUT $path @$tempStage/$domain AUTO_COMPRESS = FALSE")
     putSqls.map { putSql =>
       res = JdbcDbUtils.executeQueryAsMap(putSql, conn)
       logger.info(res.toString())

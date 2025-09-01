@@ -2,9 +2,13 @@ package ai.starlake.integration.lineage
 
 import ai.starlake.integration.IntegrationTestBase
 import ai.starlake.job.Main
-import ai.starlake.transpiler.JSQLColumResolver
+import ai.starlake.transpiler.{JSQLColumResolver, JSQLSchemaDiff}
+import ai.starlake.transpiler.diff.{Attribute, DBSchema}
 import ai.starlake.transpiler.schema.JdbcMetaData
 import better.files.File
+
+import java.util
+import scala.jdk.CollectionConverters.*
 
 class ColLineageIntegrationSpec extends IntegrationTestBase {
   "Lineage Generation1" should "succeed" in {
@@ -162,16 +166,6 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "purchased_items"
                        |    },
                        |    "to" : {
-                       |      "table" : "order_details",
-                       |      "column" : "purchased_items"
-                       |    },
-                       |    "expression" : "List(p.name || ' (' || o.quantity || ')')"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "order_details",
-                       |      "column" : "purchased_items"
-                       |    },
-                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "order_items_analysis",
                        |      "column" : "purchased_items"
@@ -204,28 +198,74 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "total_order_value"
                        |    },
                        |    "to" : {
-                       |      "table" : "order_details",
-                       |      "column" : "total_order_value"
-                       |    },
-                       |    "expression" : "Sum(o.quantity * p.price)"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "order_details",
-                       |      "column" : "total_order_value"
-                       |    },
-                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "order_items_analysis",
                        |      "column" : "total_order_value"
                        |    }
                        |  } ]
                        |}
+                       |
                        |""".stripMargin
       val res = tmpFile.contentAsString
       tmpFile.delete(swallowIOExceptions = true)
       println(res)
       assert(res.replaceAll("\\s", "") == expected.replaceAll("\\s", ""))
     }
+  }
+
+  def getStarlakeSchemas(): util.Collection[DBSchema] = {
+
+    val schema1 = new DBSchema("", "starbake", "orders")
+    val schema2 = new DBSchema("", "starbake", "products")
+    val schema3 = new DBSchema("", "starbake", "customers")
+    List(schema1, schema2, schema3).asJavaCollection
+  }
+
+  "Lineage with functions" should "succeed" in {
+    val sqlStr =
+      """
+        |WITH customer_orders AS (
+        |    SELECT
+        |        o.customer_id,
+        |        COUNT(DISTINCT o.order_id) AS total_orders,
+        |        SUM(o.quantity * p.price) AS total_spent,
+        |        MIN(o.order_date) AS first_order_date,
+        |        MAX(o.order_date) AS last_order_date,
+        |        ARRAY_AGG(DISTINCT p.category) AS purchased_categories
+        |--        LIST(DISTINCT p.category) AS purchased_categories
+        |    FROM
+        |        starbake.orders o
+        |            JOIN
+        |        starbake.products p ON o.product_id = p.product_id
+        |    GROUP BY
+        |        o.customer_id
+        |)
+        |SELECT
+        |    co.customer_id,
+        |    concat(c.first_name,' ', c.last_name) AS customer_name,
+        |    c.email,
+        |    co.total_orders,
+        |    co.total_spent,
+        |    co.first_order_date,
+        |    co.last_order_date,
+        |    co.purchased_categories,
+        |    (CAST(co.last_order_date as DATE) - CAST(co.first_order_date as DATE)) as days_since_first_order
+        |--    DATEDIFF('day', co.first_order_date, co.last_order_date) AS days_since_first_order
+        |FROM
+        |    starbake.customers c
+        |        LEFT JOIN
+        |    customer_orders co ON c.id = co.customer_id
+        |ORDER BY
+        |    co.total_spent DESC NULLS LAST;
+        |
+        |""".stripMargin
+    val meta = new JdbcMetaData(getStarlakeSchemas())
+    val res = JSQLColumResolver.getResultSetMetaData(
+      sqlStr,
+      meta.setErrorMode(JdbcMetaData.ErrorMode.LENIENT)
+    )
+    val tbl = res.getScopeTable(3)
+    assert("c" == tbl)
   }
   "Lineage with multiple input cols2" should "succeed" in {
     withEnvs("SL_ROOT" -> (theSampleFolder.parent / "lineage").pathAsString) {
@@ -340,16 +380,6 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "total_orders"
                        |    },
                        |    "to" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "total_orders"
-                       |    },
-                       |    "expression" : "COUNT(DISTINCT o.order_id)"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "total_orders"
-                       |    },
-                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "customer_purchase_history",
                        |      "column" : "total_orders"
@@ -382,16 +412,6 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "total_spent"
                        |    },
                        |    "to" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "total_spent"
-                       |    },
-                       |    "expression" : "SUM(o.quantity * p.price)"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "total_spent"
-                       |    },
-                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "customer_purchase_history",
                        |      "column" : "total_spent"
@@ -413,16 +433,6 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "column" : "first_order_date"
                        |    },
                        |    "to" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "first_order_date"
-                       |    },
-                       |    "expression" : "MIN(o.order_date)"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "first_order_date"
-                       |    },
-                       |    "to" : {
                        |      "domain" : "starbake_analytics",
                        |      "table" : "customer_purchase_history",
                        |      "column" : "first_order_date"
@@ -432,16 +442,6 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "domain" : "starbake",
                        |      "table" : "orders",
                        |      "column" : "order_date"
-                       |    },
-                       |    "to" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "last_order_date"
-                       |    },
-                       |    "expression" : "MAX(o.order_date)"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "last_order_date"
                        |    },
                        |    "to" : {
                        |      "table" : "customer_orders",
@@ -463,16 +463,6 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
                        |      "domain" : "starbake",
                        |      "table" : "products",
                        |      "column" : "category"
-                       |    },
-                       |    "to" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "purchased_categories"
-                       |    },
-                       |    "expression" : "array_agg(DISTINCT p.category)"
-                       |  }, {
-                       |    "from" : {
-                       |      "table" : "customer_orders",
-                       |      "column" : "purchased_categories"
                        |    },
                        |    "to" : {
                        |      "table" : "customer_orders",
@@ -633,4 +623,43 @@ class ColLineageIntegrationSpec extends IntegrationTestBase {
 
     //@formatter:on
   }
+  "Infer col from sum" should "succeed" in {
+
+    val dbSchemas: util.Collection[DBSchema] = {
+      val schema1 = new DBSchema(
+        "",
+        "starbake",
+        "orders",
+        new Attribute("customer_id", "long"),
+        new Attribute("order_id", "long"),
+        new Attribute("status", "string"),
+        new Attribute("timestamp", "iso_date_time")
+      )
+      val schema2 = new DBSchema(
+        "",
+        "starbake",
+        "order_lines",
+        new Attribute("order_id", "long"),
+        new Attribute("product_id", "long"),
+        new Attribute("quantity", "int"),
+        new Attribute("sale_price", "double")
+      )
+      List(schema1, schema2).asJavaCollection
+    }
+    val sql =
+      """
+        |select starbake.orders.order_id, sum(quantity) as qty
+        |from starbake.orders, starbake.order_lines
+        |where starbake.orders.order_id = starbake.order_lines.order_id
+        |group by 1
+        |
+        |
+        |
+        |""".stripMargin
+    val statementColumns =
+      new JSQLSchemaDiff(dbSchemas)
+        .getDiff(sql, s"kpis.all")
+    println(statementColumns)
+  }
+
 }

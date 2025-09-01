@@ -2,11 +2,14 @@
 # Release notes
 
 # 1.5.1:
+
 __Improvement__:
 - look at bigquery job's exceptions recursively to check for a retry
+- **BREAKING CHANGE** New column has been added to the AUDIT table to handle state aware orchestration inside Snowflake Tasks
 
 __Bug fix__:
 - schema and data extraction runs in parallel again
+- bigquery native load didn't merge file's DSV schema with starlake schema before checking for two steps load
 
 # 1.5.0:
 __Improvement__:

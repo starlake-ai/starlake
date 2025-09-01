@@ -112,7 +112,7 @@ class SchemaInfo2HandlerSpec extends TestHelper {
 
         loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv")
         loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv").load(
-          LoadConfig(accessToken = None, test = false, files = None)
+          LoadConfig(accessToken = None, test = false, files = None, scheduledDate = None)
         )
 
         val acceptedFullDelta: Array[Row] = sparkSession
@@ -138,7 +138,7 @@ class SchemaInfo2HandlerSpec extends TestHelper {
         sparkSession.sql("DROP TABLE IF EXISTS DOMAIN.complexUser")
         loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-DELTA.csv")
         loadWorkflow("DOMAIN", "/sample/adaptiveWrite/Players-FULL.csv").load(
-          LoadConfig(accessToken = None, test = false, files = None)
+          LoadConfig(accessToken = None, test = false, files = None, scheduledDate = None)
         )
 
         val acceptedDeltaFull: Array[Row] = sparkSession
@@ -287,7 +287,13 @@ class SchemaInfo2HandlerSpec extends TestHelper {
           "/sample/complexUser.sl.yml"
         ).foreach(deliverSourceTable)
         load(
-          IngestConfig("DOMAIN.sl.yml", "User", List(targetPath), accessToken = None)
+          IngestConfig(
+            "DOMAIN.sl.yml",
+            "User",
+            List(targetPath),
+            accessToken = None,
+            scheduledDate = None
+          )
         ).isSuccess shouldBe true
         sparkSession.sql("DROP TABLE IF EXISTS DOMAIN.User")
         sparkSession.sql("DROP TABLE IF EXISTS DOMAIN.Players")
@@ -487,7 +493,7 @@ class SchemaInfo2HandlerSpec extends TestHelper {
         case Success(job) =>
           val tasks = job.tasks
           tasks.length shouldBe 3
-          tasks.map(_.fullName) should contain theSameElementsAs (List(
+          tasks.map(_.fullName()) should contain theSameElementsAs (List(
             "dream2.client2", // tasks are handled before task refs
             "myjob.task1",
             "myjob.task2"

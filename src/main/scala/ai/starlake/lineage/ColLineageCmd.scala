@@ -28,7 +28,11 @@ object ColLineageCmd extends Cmd[ColLineageConfig] {
       opt[String]("task")
         .action((x, c) => c.copy(task = x))
         .required()
-        .text("task name to buidl lineage for")
+        .text("task name to buidl lineage for"),
+      opt[String]("accessToken")
+        .action((x, c) => c.copy(accessToken = Some(x)))
+        .text(s"Access token to use for authentication")
+        .optional()
     )
   }
 

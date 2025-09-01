@@ -1,7 +1,7 @@
 package ai.starlake.utils
 
-import ai.starlake.config.Settings.latestSchemaVersion
-import ai.starlake.config.{CometColumns, Settings}
+import ai.starlake.config.Settings.{latestSchemaVersion, AppConfig}
+import ai.starlake.config.{ApplicationDesc, CometColumns, Settings}
 import ai.starlake.exceptions.SchemaValidationException
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.*
@@ -9,13 +9,13 @@ import ai.starlake.utils.ImplicitRichPath.*
 import ai.starlake.utils.YamlMigrator.V1.TableForExtractConfig
 import com.fasterxml.jackson.databind.node.{ArrayNode, BooleanNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
-import com.networknt.schema.*
+import com.networknt.schema._
 import com.networknt.schema.SpecVersion.VersionFlag
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import java.util.Locale
-import scala.jdk.CollectionConverters.*
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 object YamlSerde extends LazyLogging with YamlUtils {
@@ -33,6 +33,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
       case e: SchemaInfo         => TableDesc(latestSchemaVersion, e)
       case e: ExtractSchemasInfo => ExtractDesc(latestSchemaVersion, e)
       case e: DagInfo            => DagDesc(latestSchemaVersion, e)
+      case e: AppConfig          => ApplicationDesc(latestSchemaVersion, e)
       case _                     => entity
     }
   }
@@ -346,7 +347,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
   def deserializeYamlTypes(content: String, path: String): List[Type] = {
     val refsSubPath = "types"
     val refsNode = validateConfigFile(refsSubPath, content, path, List(YamlMigrator.V1.TypesConfig))
-    mapper.treeToValue(refsNode, classOf[TypesDesc]).types
+    mapper.treeToValue(refsNode, classOf[TypesInfo]).types
   }
 
   def deserializeYamlDagConfig(content: String, path: String): Try[DagInfo] = {

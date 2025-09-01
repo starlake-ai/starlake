@@ -2,13 +2,13 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.{JdbcDbUtils, SparkExtractorJob}
-import ai.starlake.job.metrics.{ExpectationJob, SparkExpectationAssertionHandler}
+import ai.starlake.job.metrics.{ExpectationJob, ExpectationReport, SparkExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
-import ai.starlake.utils._
+import ai.starlake.utils.*
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
@@ -36,7 +36,8 @@ class SparkAutoTask(
   accessToken: Option[String] = None,
   resultPageSize: Int,
   resultPageNumber: Int,
-  schema: Option[SchemaInfo] = None
+  schema: Option[SchemaInfo] = None,
+  scheduledDate: Option[String]
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,
@@ -49,7 +50,8 @@ class SparkAutoTask(
       resultPageSize,
       resultPageNumber,
       accessToken,
-      None
+      None,
+      scheduledDate
     ) {
 
   override def run(): Try[JobResult] = {
@@ -76,7 +78,7 @@ class SparkAutoTask(
     result
   }
 
-  def applyHiveTableAcl(forceApply: Boolean = false): Try[Unit] =
+  def applyHiveTableAcl(): Try[Unit] =
     Try {
       val isGrantSupported = Try(
         session.sessionState.sqlParser.parseExpression(
@@ -84,7 +86,7 @@ class SparkAutoTask(
         )
       ).isSuccess
       if (isGrantSupported) {
-        if (forceApply || settings.appConfig.accessPolicies.apply) {
+        if (settings.appConfig.accessPolicies.apply) {
           val sqls = this.aclSQL()
           sqls.foreach { sql =>
             logger.info(sql)
@@ -316,16 +318,7 @@ class SparkAutoTask(
             applyHiveTableAcl()
           }
           if (settings.appConfig.expectations.active) {
-            new ExpectationJob(
-              Option(applicationId()),
-              taskDesc.database,
-              taskDesc.domain,
-              taskDesc.table,
-              taskDesc.expectations,
-              storageHandler,
-              schemaHandler,
-              new SparkExpectationAssertionHandler(session)
-            ).run()
+            runAndSinkExpectations()
           }
           applyHiveTableAcl()
           SparkJobResult(jobResult, None)
@@ -339,6 +332,34 @@ class SparkAutoTask(
       logAuditFailure(start, end, e, test)
       Failure(e)
     }
+  }
+
+  def runAndSinkExpectations(): Try[JobResult] = {
+    new ExpectationJob(
+      Option(applicationId()),
+      taskDesc.database,
+      taskDesc.domain,
+      taskDesc.table,
+      taskDesc.expectations,
+      storageHandler,
+      schemaHandler,
+      new SparkExpectationAssertionHandler(session),
+      false
+    ).run()
+  }
+
+  def runExpectations(): List[ExpectationReport] = {
+    new ExpectationJob(
+      Option(applicationId()),
+      taskDesc.database,
+      taskDesc.domain,
+      taskDesc.table,
+      taskDesc.expectations,
+      storageHandler,
+      schemaHandler,
+      new SparkExpectationAssertionHandler(session),
+      true
+    ).runExpectations()
   }
 
   private def runPySpark(pythonFile: Path): Option[DataFrame] = {
@@ -405,7 +426,8 @@ class SparkAutoTask(
                 accessToken = this.accessToken,
                 resultPageSize = resultPageSize,
                 resultPageNumber = resultPageNumber,
-                dryRun = false
+                dryRun = false,
+                scheduledDate = scheduledDate
               )(
                 settings,
                 storageHandler,
@@ -425,7 +447,8 @@ class SparkAutoTask(
                 accessToken = this.accessToken,
                 resultPageSize = resultPageSize,
                 resultPageNumber = resultPageNumber,
-                None
+                None,
+                scheduledDate = scheduledDate
               )(
                 settings,
                 storageHandler,
@@ -644,7 +667,8 @@ class SparkAutoTask(
             accessToken = accessToken,
             resultPageSize = resultPageSize,
             resultPageNumber = resultPageNumber,
-            dryRun = false
+            dryRun = false,
+            scheduledDate = scheduledDate
           )
           val secondStepJobResult = secondStepTask.runNative(loadedDF.schema)
           sparkBigQueryJob.dropTable(firstStepTemplateTableId)
@@ -670,7 +694,8 @@ class SparkAutoTask(
           accessToken = accessToken,
           resultPageSize = resultPageSize,
           resultPageNumber = resultPageNumber,
-          dryRun = false
+          dryRun = false,
+          scheduledDate = scheduledDate
         )
 
       val sparkSchema = loadedDF.schema
@@ -828,7 +853,8 @@ class SparkAutoTask(
             accessToken = this.accessToken,
             resultPageSize = resultPageSize,
             resultPageNumber = resultPageNumber,
-            conn = None
+            conn = None,
+            scheduledDate = scheduledDate
           )(
             settings,
             storageHandler,
@@ -868,7 +894,8 @@ class SparkAutoTask(
             accessToken = this.accessToken,
             resultPageSize = resultPageSize,
             resultPageNumber = resultPageNumber,
-            conn = None
+            conn = None,
+            scheduledDate = scheduledDate
           )
         secondAutoStepTask.updateJdbcTableSchema(loadedDF.schema, fullTableName, TableSync.ALL)
         val jobResult = secondAutoStepTask.runJDBC(Some(loadedDF))

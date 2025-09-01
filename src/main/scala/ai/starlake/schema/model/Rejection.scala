@@ -54,7 +54,7 @@ object Rejection {
 
     override def toString: String = {
       val failMsg = if (success) "success" else "failure"
-      s"""$colName: $typeName("$pattern") = "$colData" ? $failMsg"""
+      s"""{"colName": "$colName", "typeName": "$typeName", "pattern": "$pattern",  "colData": "$colData", failMsg:"$failMsg"}"""
     }
 
   }
@@ -86,10 +86,8 @@ object Rejection {
 
     override def toString: String = {
       // we intentionnaly do not return the input line.
-      val colErrors = colInfos.map(_.toString).mkString("\n")
-      s"""ERR  -> $colErrors
-         |FILE -> $inputFileName
-         |""".stripMargin
+      val colErrors = colInfos.map(_.toString).mkString(",")
+      s"""{"colErrors": [$colErrors], "inputFileName": "$inputFileName"}"""
 
     }
   }

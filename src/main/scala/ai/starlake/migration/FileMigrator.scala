@@ -2,7 +2,7 @@ package ai.starlake.migration
 
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model.TypesDesc
+import ai.starlake.schema.model.TypesInfo
 import ai.starlake.utils.YamlSerde
 import org.apache.hadoop.fs.Path
 
@@ -192,7 +192,7 @@ object TypesYamlFileMigrator extends YamlFileMigrator {
         storageHandler.read(path),
         path.toString
       )
-      YamlSerde.serializeToPath(path, TypesDesc(latestSchemaVersion, migratedYamlEntity))
+      YamlSerde.serializeToPath(path, TypesInfo(latestSchemaVersion, migratedYamlEntity))
     }.map(_ => Nil)
   }
 

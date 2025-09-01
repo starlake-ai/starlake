@@ -4,16 +4,20 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.core.utils.CaseClassToPojoConverter
 import ai.starlake.job.ingest.DummyIngestionJob
 import ai.starlake.job.transform.{AutoTask, AutoTaskQueries}
-import ai.starlake.lineage.{AutoTaskDependencies, AutoTaskDependenciesConfig}
+import ai.starlake.lineage.{
+  AutoTaskDependencies,
+  AutoTaskDependenciesConfig,
+  TaskViewDependencyNode
+}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.utils.{JsonSerializer, Utils}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import java.nio.charset.StandardCharsets
 import java.util
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
 class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
@@ -110,6 +114,15 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       "unknown"
   }
 
+  private def allTaskDepsFullNames(deps: List[TaskViewDependencyNode]): List[String] = {
+    val immediateDeps = deps.flatMap { dep =>
+      if (dep.isTask()) List(dep.data.name) else Nil
+    }
+    immediateDeps ++
+    deps.flatMap { dep =>
+      allTaskDepsFullNames(dep.children)
+    }.distinct // avoid duplicates
+  }
   def generateTaskDags(
     config: DagGenerateConfig
   )(implicit settings: Settings): Unit = {
@@ -127,11 +140,12 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     val taskConfigsGroupedByFilename = taskConfigs
       .map { taskConfig =>
         val envVars = schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
-          "table"    -> taskConfig.taskDesc.table,
-          "domain"   -> taskConfig.taskDesc.domain,
-          "name"     -> taskConfig.taskDesc.fullName, // deprecated
-          "task"     -> taskConfig.taskDesc.fullName,
-          "schedule" -> taskConfig.schedule.getOrElse("None")
+          "table"         -> taskConfig.taskDesc.table,
+          "domain"        -> taskConfig.taskDesc.domain,
+          "name"          -> taskConfig.taskDesc.fullName(), // deprecated
+          "task"          -> taskConfig.taskDesc.fullName(),
+          "schedule"      -> taskConfig.schedule.getOrElse("None"),
+          "sl_project_id" -> config.masterProjectId.getOrElse("-1")
         )
         val filename = Utils.parseJinja(
           taskConfig.dagConfig.filename,
@@ -161,28 +175,40 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           headConfig.schedule.getOrElse("None")
         )
         val cronIfNone = if (cron == "None") null else cron
-        val configs = taskConfigs.map { case (_, config) => config.taskDesc.fullName }
+        val configs = taskConfigs.map { case (_, config) => config.taskDesc.fullName() }
         val autoTaskDepsConfig = AutoTaskDependenciesConfig(tasks = Some(configs))
         val deps = depsEngine.jobsDependencyTree(autoTaskDepsConfig)
         val orchestratorName = orchestratorFromTemplate(dagConfig.template).toLowerCase()
         val nativeOrchestrator = Set("snowflake", "databricks").contains(orchestratorName)
 
+        val depsFullNames = allTaskDepsFullNames(deps)
+        val configFullNames = taskConfigs.map { case (_, config) => config.taskDesc.fullName() }
+
+        val allTaskFullNames = depsFullNames ++ configFullNames
+        val allTaskDeps = allTaskFullNames
+          .map(_.toLowerCase())
+          .distinct
+          .flatMap { taskFullName =>
+            schemaHandler.taskOnly(taskFullName).toOption
+          }
+
         val taskStatements: List[AutoTaskQueries] =
           if (nativeOrchestrator) {
-            taskConfigs.map { case (_, config) =>
+            allTaskDeps.map { taskDep =>
               val task = AutoTask.task(
                 appId = None,
-                taskDesc = config.taskDesc,
+                taskDesc = taskDep,
                 configOptions = Map.empty,
                 interactive = None,
                 truncate = false,
                 test = false,
-                config.taskDesc.getRunEngine(),
+                taskDep.getRunEngine(),
                 logExecution = false,
                 accessToken = None,
                 resultPageSize = 1,
                 resultPageNumber = 1,
-                dryRun = false
+                dryRun = false,
+                scheduledDate = None // No scheduled date for task dags
               )(settings, settings.storageHandler(), schemaHandler)
               Try {
                 AutoTaskQueries(task)
@@ -323,16 +349,17 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 domain.finalName,
                 java.util.List.of[TableDomain](TableDomain(table.name, table.finalName))
               )
-              val (scheduleValue, nextScheduleIndex) = getScheduleName(schedule, scheduleIndex)
-              val cron = settings.appConfig.schedulePresets.getOrElse(
-                schedule,
-                scheduleValue
+              val (scheduleName, nextScheduleIndex) = getScheduleName(schedule, scheduleIndex)
+              scheduleIndex = nextScheduleIndex
+              val cronValue = settings.appConfig.schedulePresets.getOrElse(
+                scheduleName,
+                schedule
               )
-              val cronIfNone = if (cron == "None") null else cron
+              val cronIfNone = if (cronValue == "None") null else cronValue
               val schedules =
                 List(
                   DagSchedule(
-                    schedule,
+                    scheduleName,
                     cronIfNone,
                     java.util.List.of[DagDomain](dagDomain),
                     java.util.List.of(rawDomains)
@@ -341,20 +368,20 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
               val envVars =
                 schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
-                  "schedule"      -> scheduleValue,
+                  "schedule"      -> scheduleName,
                   "domain"        -> domain.name,
                   "finalDomain"   -> domain.finalName,
                   "renamedDomain" -> domain.finalName,
                   "table"         -> table.name,
                   "finalTable"    -> table.finalName,
                   "renamedTable"  -> table.finalName,
-                  "rawDomains"    -> rawDomains
+                  "rawDomains"    -> rawDomains,
+                  "sl_project_id" -> config.masterProjectId.getOrElse("-1")
                 )
               val options = dagConfig.options.map { case (k, v) =>
                 k -> Utils.parseJinja(v, envVars)
               }
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
-              scheduleIndex = nextScheduleIndex
               val filename = Utils.parseJinja(dagConfig.filename, envVars)
               val orchestratorName = orchestratorFromTemplate(dagConfig.template).toLowerCase()
               val nativeOrchestrator = Set("snowflake", "databricks").contains(orchestratorName)
@@ -369,7 +396,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                     schemaHandler = schemaHandler,
                     options = options,
                     accessToken = None,
-                    test = false
+                    test = false,
+                    scheduledDate = None // No scheduled date for domain dags
                   ).buildListOfSQLStatementsAsMap(orchestratorName)
                 val context = LoadDagGenerationContext(
                   config = dagConfig.copy(options = options, comment = comment),
@@ -410,6 +438,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           }
           .toList
           .sortBy(_.name)
+        var scheduleIndex = 1
         domains.foreach { domain =>
           val schedules = groupedBySchedule
             .flatMap { case (schedule, groupedByDomain) =>
@@ -421,13 +450,15 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                   domain.finalName,
                   tables.map(t => TableDomain(t.name, t.finalName)).asJava
                 )
-                val cron = settings.appConfig.schedulePresets.getOrElse(
-                  schedule,
+                val (scheduleName, nextScheduleIndex) = getScheduleName(schedule, scheduleIndex)
+                scheduleIndex = nextScheduleIndex
+                val cronValue = settings.appConfig.schedulePresets.getOrElse(
+                  scheduleName,
                   schedule
                 )
-                val cronIfNone = if (cron == "None") null else cron
+                val cronIfNone = if (cronValue == "None") null else cronValue
                 DagSchedule(
-                  schedule,
+                  scheduleName,
                   cronIfNone,
                   java.util.List.of[DagDomain](dagDomain),
                   java.util.List.of(rawDomains)
@@ -449,7 +480,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                   "domain"        -> domain.name,
                   "renamedDomain" -> domain.finalName,
                   "finalDomain"   -> domain.finalName,
-                  "rawDomain"     -> rawDomain
+                  "rawDomain"     -> rawDomain,
+                  "sl_project_id" -> config.masterProjectId.getOrElse("-1")
                 )
               val options = dagConfig.options.map { case (k, v) =>
                 k -> Utils.parseJinja(v, envVars)
@@ -476,7 +508,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 "domain"        -> domain.name,
                 "renamedDomain" -> domain.finalName,
                 "finalDomain"   -> domain.finalName,
-                "rawDomain"     -> rawDomain
+                "rawDomain"     -> rawDomain,
+                "sl_project_id" -> config.masterProjectId.getOrElse("-1")
               )
             val options = dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
             val comment = Utils.parseJinja(dagConfig.comment, envVars)
@@ -504,7 +537,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           val dagTemplateContent = new Yml2DagTemplateLoader().loadTemplate(dagTemplateName)
           val dagSchedules = groupedBySchedule
             .map { case (schedule, groupedByDomain) =>
-              val (scheduleValue, nextScheduleIndex) =
+              val (scheduleName, nextScheduleIndex) =
                 getScheduleName(schedule, scheduleIndex)
               scheduleIndex = nextScheduleIndex
               val (dagDomains, rawDomains) = groupedByDomain
@@ -518,12 +551,12 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 .toList
                 .sortBy { case (d, r) => d.name }
                 .unzip
-              val cron = settings.appConfig.schedulePresets.getOrElse(
-                schedule,
-                scheduleValue
+              val cronValue = settings.appConfig.schedulePresets.getOrElse(
+                scheduleName,
+                schedule
               )
-              val cronIfNone = if (cron == "None") null else cron
-              DagSchedule(scheduleValue, cronIfNone, dagDomains.asJava, rawDomains.asJava)
+              val cronIfNone = if (cronValue == "None") null else cronValue
+              DagSchedule(scheduleName, cronIfNone, dagDomains.asJava, rawDomains.asJava)
             }
             .toList
             .sortBy(_.schedule)
@@ -531,7 +564,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             dagSchedules.foreach { schedule =>
               val envVars =
                 schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
-                  "schedule" -> schedule.schedule
+                  "schedule"      -> schedule.schedule,
+                  "sl_project_id" -> config.masterProjectId.getOrElse("-1")
                 )
               val options = dagConfig.options.map { case (k, v) =>
                 k -> Utils.parseJinja(v, envVars)
@@ -552,7 +586,10 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               )
             }
           } else {
-            val envVars = schemaHandler.activeEnvVars(root = Option(settings.appConfig.root))
+            val envVars =
+              schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
+                "sl_project_id" -> config.masterProjectId.getOrElse("-1")
+              )
             val options = dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
             val comment = Utils.parseJinja(dagConfig.comment, envVars)
             val context = LoadDagGenerationContext(
@@ -644,6 +681,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               exclude = Some("_.*".r.pattern),
               recursive = false
             )
+        /*
         dagFiles.map { file =>
           val fileName = file.path.getName
           val newFileName = s"SL_${projectId}_$fileName"
@@ -655,6 +693,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           settings.storageHandler().move(file.path, newPath)
           newPath
         }
+         */
+        dagFiles.map(_.path)
       case None =>
         Nil
 

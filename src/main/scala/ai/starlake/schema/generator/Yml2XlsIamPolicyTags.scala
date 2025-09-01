@@ -8,7 +8,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook
 
 object Yml2XlsIamPolicyTags extends LazyLogging with XlsModel {
   def run(args: Array[String]): Unit = {
-    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None)
+    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None, None)
     Yml2XlsIamPolicyTagsCmd.run(args.toIndexedSeq, settings.schemaHandler())
   }
 

@@ -41,7 +41,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
   lazy val database: Option[String] = schemaHandler.getDatabase(domain)
 
-  val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
+  val targetFullTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
 
   lazy val sink = mergedMetadata.getSink()
 
@@ -51,6 +51,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       .copy(sparkFormat = None) // we are forcing native load.
 
   lazy val tempTableName: String = SQLUtils.temporaryTableName(starlakeSchema.finalName)
+
+  lazy val scheduledDate: Option[String] = ingestionJob.scheduledDate
 
   protected def requireTwoSteps(schema: SchemaInfo): Boolean = {
     // renamed attribute can be loaded directly so it's not in the condition
@@ -62,7 +64,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     settings.appConfig.archiveTable || settings.appConfig.audit.detailedLoadAudit && path.size > 1
   }
 
-  val twoSteps: Boolean = requireTwoSteps(starlakeSchema)
+  lazy val twoSteps: Boolean = requireTwoSteps(effectiveSchema)
 
   lazy val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
     strategy.toWriteMode()
@@ -124,7 +126,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
         accessToken = accessToken,
         resultPageSize = 200,
         resultPageNumber = 1,
-        dryRun = false
+        dryRun = false,
+        scheduledDate = scheduledDate
       )(
         settings,
         storageHandler,
@@ -231,7 +234,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       starlakeSchema.buildSecondStepSqlSelectOnLoad(tempTable, queryEngine)
 
     val taskDesc = AutoTaskInfo(
-      name = targetTableName,
+      name = starlakeSchema.finalName,
       sql = Some(sqlWithTransformedFields),
       database = schemaHandler.getDatabase(domain),
       domain = domain.finalName,
@@ -261,7 +264,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           logExecution = true,
           resultPageSize = 200,
           resultPageNumber = 1,
-          dryRun = false
+          dryRun = false,
+          scheduledDate = scheduledDate
         )(
           settings,
           storageHandler,
@@ -293,7 +297,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
         starlakeSchema.expectations,
         storageHandler,
         schemaHandler,
-        new JdbcExpectationAssertionHandler(sinkConnection.options)
+        new JdbcExpectationAssertionHandler(sinkConnection.options),
+        false
       ).buildStatementsList() match {
         case Success(expectations) =>
           expectations
@@ -308,7 +313,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
   val now = new Timestamp(System.currentTimeMillis())
   val auditLog = AuditLog(
     jobid = "ignore",
-    paths = Some(targetTableName),
+    paths = Some(targetFullTableName),
     domain = domain.finalName,
     schema = starlakeSchema.finalName,
     success = true,
@@ -321,7 +326,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     step = Step.LOAD.toString,
     database = database,
     tenant = settings.appConfig.tenant,
-    test = false
+    test = false,
+    scheduledDate = scheduledDate
   )
   def auditStatements(): Option[TaskSQLStatements] = {
     if (settings.appConfig.audit.active.getOrElse(true)) {
@@ -343,15 +349,16 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
   def buildSQLStatements(): Map[String, Object] = {
     val twoSteps = this.twoSteps
-    val targetTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
+    val targetFullTableName = s"${domain.finalName}.${starlakeSchema.finalName}"
     val tempTableName = s"${domain.finalName}.${this.tempTableName}"
     val incomingDir = getIncomingDir()
     val pattern = starlakeSchema.pattern.toString
     val format = mergedMetadata.resolveFormat()
 
-    val ddlMap: Map[String, Map[String, String]] = schemaHandler.getDdlMapping(starlakeSchema)
+    val ddlMap: Map[String, Map[String, String]] =
+      schemaHandler.getDdlMapping(starlakeSchema.attributes)
     val options =
-      new JdbcOptionsInWrite(sinkConnection.jdbcUrl, targetTableName, sinkConnection.options)
+      new JdbcOptionsInWrite(sinkConnection.jdbcUrl, targetFullTableName, sinkConnection.options)
 
     val connectionPreActions =
       sinkConnection.options.get("preActions").map(_.split(';')).getOrElse(Array.empty).toList
@@ -371,7 +378,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           options,
           ddlMap
         )
-        val schemaString = SparkUtils.schemaString(
+        val schemaString = SparkUtils.sqlSchemaString(
           finalSparkSchema,
           caseSensitive = false,
           options.url,
@@ -395,7 +402,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           "secondStep"          -> workflowStatements.task.asMap().asJava,
           "dropFirstStep"       -> dropFirstStepTableSql,
           "tempTableName"       -> tempTableName,
-          "targetTableName"     -> targetTableName,
+          "targetTableName"     -> targetFullTableName,
           "domain"              -> domain.finalName,
           "table"               -> starlakeSchema.finalName,
           "writeStrategy"       -> writeDisposition,
@@ -411,7 +418,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           )
       } else {
         val (createSchemaSql, createTableSql, _) = SparkUtils.buildCreateTableSQL(
-          targetTableName,
+          targetFullTableName,
           finalSparkSchema,
           caseSensitive = false,
           temporaryTable = false,
@@ -419,7 +426,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           ddlMap
         )
         val createTableSqls = List(createSchemaSql, createTableSql)
-        val workflowStatements = this.secondStepSQL(List(targetTableName))
+        val workflowStatements = this.secondStepSQL(List(targetFullTableName))
         val loadTaskSQL =
           Map(
             "steps"           -> "1",
@@ -427,7 +434,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
             "pattern"         -> pattern,
             "format"          -> format.toString,
             "createTable"     -> createTableSqls.asJava,
-            "targetTableName" -> targetTableName,
+            "targetTableName" -> targetFullTableName,
             "domain"          -> domain.finalName,
             "table"           -> starlakeSchema.finalName,
             "writeStrategy"   -> writeDisposition,

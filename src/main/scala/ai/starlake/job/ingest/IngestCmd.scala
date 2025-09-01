@@ -38,12 +38,17 @@ object IngestCmd extends Cmd[IngestConfig] {
         .arg[Map[String, String]]("options")
         .optional()
         .action((x, c) => c.copy(options = x))
-        .text("arguments to be used as substitutions")
+        .text("arguments to be used as substitutions"),
+      builder
+        .opt[String]("scheduledDate")
+        .optional()
+        .action((x, c) => c.copy(scheduledDate = Some(x)))
+        .text("Scheduled date for the job, in format yyyy-MM-dd'T'HH:mm:ss.SSSZ")
     )
   }
 
   def parse(args: Seq[String]): Option[IngestConfig] = {
-    OParser.parse(parser, args, IngestConfig(accessToken = None), setup)
+    OParser.parse(parser, args, IngestConfig(accessToken = None, scheduledDate = None), setup)
   }
 
   override def run(config: IngestConfig, schemaHandler: SchemaHandler)(implicit

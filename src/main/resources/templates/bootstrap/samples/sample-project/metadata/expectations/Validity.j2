@@ -1,4 +1,4 @@
-{% macro expect_column_most_common_value_to_be_in_set(table_name, column, value_set, ties_okay=False) %}
+{% macro expect_column_most_common_value_to_be_in_set(table_name = SL_THIS, column_name, value_set, ties_okay=False) %}
 -- This macro checks if the most common value(s) in a given column are within the expected set.
 --
 -- Parameters:
@@ -12,11 +12,11 @@
 
 WITH ValueCounts AS (
     SELECT 
-        "{{ column }}" AS column_name, 
-        {{ column }} AS value, 
+        "{{ column_name }}" AS column_name, 
+        {{ column_name }} AS value, 
         COUNT(*) AS frequency
     FROM {{ table_name }}
-    GROUP BY {{ column }}
+    GROUP BY {{ column_name }}
 ),
 RankedValues AS (
     SELECT 
@@ -45,7 +45,7 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_column_pair_values_to_be_equal(table_name, column_a, column_b) %}
+{% macro expect_column_pair_values_to_be_equal(table_name = SL_THIS, column_a, column_b) %}
 -- This macro generates a SQL query that checks if the values in two specified columns are equal for each row.
 -- If any row has unequal values in the specified columns, it will be returned by the query.
 --
@@ -75,7 +75,9 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_column_pair_values_to_be_in_set(table_name, column_a, column_b, value_pairs) %}
+# TODO :(bq) No matching signature for function COALESCE Argument types: INT64, STRING Signature: COALESCE([T1, ...]) Unable to find common supertype for templated argument <T1> Input types for <T1>: {INT64, STRING} at [6:16]
+
+{% macro expect_column_pair_values_to_be_in_set(table_name = SL_THIS, column_a, column_b, value_pairs) %}
 -- This macro generates a SQL query that checks if the values in two specified columns are within a given set for each row.
 -- If any row has values in the specified columns that are not within the set, it will be returned by the query.
 --
@@ -110,7 +112,8 @@ SELECT CASE
 END AS result;
 {% endmacro %}
 
-{% macro expect_column_value_lengths_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
+# TODO: Change char_length to length to work with snowflake
+{% macro expect_column_value_lengths_to_be_between(table_name = SL_THIS, column_name, lower_bound, upper_bound) %}
 -- This macro checks if all values in a column have lengths within a given range.
 --
 -- Returns:
@@ -123,13 +126,13 @@ SELECT
     END AS result
 FROM {{ table_name }}
 WHERE 
-    LENGTH({{ column_name }}) < {{ lower_bound }} --ToAsk: charlength for databrick and bq
-    OR LENGTH({{ column_name }}) > {{ upper_bound }}
+    CHAR_LENGTH({{ column_name }}) < {{ lower_bound }}
+    OR CHAR_LENGTH({{ column_name }}) > {{ upper_bound }}
     OR {{ column_name }} IS NULL;
 {% endmacro %}
 
-
-{% macro expect_column_value_lengths_to_equal(table_name, column_name, expected_length) %}
+# TODO: Change char_length to length to work with snowflake
+{% macro expect_column_value_lengths_to_equal(table_name = SL_THIS, column_name, expected_length) %}
 -- This macro checks if all values in a column have the exact expected length.
 --
 -- Returns:
@@ -139,14 +142,14 @@ SELECT
     CASE 
         WHEN EXISTS (
             SELECT 1 FROM {{ table_name }} 
-            WHERE LENGTH({{ column_name }}) <> {{ expected_length }}
+            WHERE CHAR_LENGTH({{ column_name }}) <> {{ expected_length }}
         ) THEN 1 
         ELSE 0 
     END AS result;
 {% endmacro %}
 
 
-{% macro expect_column_values_to_be_in_set(table_name, column_name, values) %}
+{% macro expect_column_values_to_be_in_set(table_name = SL_THIS, column_name, values) %}
 -- This macro generates a SQL query that checks if the values in a specified column are within a given set.
 --
 -- Parameters:
@@ -174,7 +177,7 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_column_values_to_match_like_pattern(table_name, column_name, pattern) %}
+{% macro expect_column_values_to_match_like_pattern(table_name = SL_THIS, column_name, pattern) %}
 -- This macro checks if all values in a column match a given LIKE pattern.
 -- 
 -- Returns:
@@ -190,8 +193,8 @@ SELECT
     END AS result;
 {% endmacro %}
 
-
-{% macro expect_column_values_to_match_like_pattern_list(table_name, column_name, patterns, match_on='any') %}
+# TODO : (bq) Braced constructors are not supported at [8:1]
+{% macro expect_column_values_to_match_like_pattern_list(table_name = SL_THIS, column_name, patterns, match_on='any') %}
 -- This macro checks if all values in a specified column match at least one pattern or all patterns.
 -- 
 -- Parameters:
@@ -231,7 +234,9 @@ WHERE
 ;
 {% endmacro %}
 
-{% macro expect_column_values_to_match_regex(table_name, column_name, regex, mostly=95) %}
+# TODO: (bq) No matching signature for function REGEXP_CONTAINS Argument types: INT64, STRING Signature: REGEXP_CONTAINS(STRING, STRING) Argument 1: 
+# Unable to coerce type INT64 to expected type STRING Signature: REGEXP_CONTAINS(BYTES, BYTES) Argument 1: Unable to coerce type INT64 to expected type BYTES at [6:22]
+{% macro expect_column_values_to_match_regex(table_name = SL_THIS, column_name, regex, mostly=95) %}
 -- This macro checks if column values match a regex across different databases.
 -- It calculates the percentage of matching values and returns 0 (pass) or 1 (fail) based on the `mostly` threshold.
 
@@ -240,7 +245,6 @@ WITH validation AS (
         COUNT(*) AS total_rows,
         SUM(
             CASE 
-                WHEN {{ column_name }} REGEXP '{{ regex }}' THEN 1  -- MySQL, SQLite (if REGEXP function is enabled)
                 WHEN REGEXP_LIKE({{ column_name }}, '{{ regex }}') THEN 1  -- BigQuery, Snowflake, DuckDB
                 ELSE 0 
             END
@@ -255,7 +259,8 @@ SELECT
 FROM validation;
 {% endmacro %}
 
-{% macro expect_column_values_to_match_regex_list(table_name, column_name, regex_patterns) %}
+# TODO: (bq) Function not found: REGEXP_LIKE at [4:5]
+{% macro expect_column_values_to_match_regex_list(table_name = SL_THIS, column_name, regex_patterns) %}
 -- This macro generates a SQL query that checks if the values in a specified column match any pattern in a given list of regular expression patterns.
 --
 -- Parameters:
@@ -278,14 +283,15 @@ SELECT {{ column_name }}
 FROM {{ table_name }}
 WHERE 
 {% for pattern in regex_patterns %}
-{{ column_name }} NOT REGEXP '{{ pattern }}'
+NOT REGEXP_LIKE({{ column_name }}, '{{ pattern }}')
 {% if not loop.last %}
 AND 
 {% endif %}
 {% endfor %};
 {% endmacro %}
 
-{% macro expect_column_values_to_not_be_in_set(table_name, column_name, values) %}
+# TODO: (bq) Braced constructors are not supported at [7:17]
+{% macro expect_column_values_to_not_be_in_set(table_name = SL_THIS, column_name, values) %}
 -- This macro generates a SQL query that checks if the values in a specified column are not within a given set.
 --
 -- Parameters:
@@ -312,7 +318,8 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_column_values_to_not_match_like_pattern(table_name, column_name, pattern) %}
+# TODO: (bq) No matching signature for operator LIKE 
+{% macro expect_column_values_to_not_match_like_pattern(table_name = SL_THIS, column_name, pattern) %}
 -- This macro generates a SQL query that checks if the values in a specified column do not match a given LIKE pattern.
 --
 -- Parameters:
@@ -332,7 +339,9 @@ FROM {{ table_name }}
 WHERE {{ column_name }} LIKE '{{ pattern }}';
 {% endmacro %}
 
-{% macro expect_column_values_to_not_match_like_pattern_list(table_name, column_name, patterns, mostly) %}
+# TODO
+# TODO: (bq) No matching signature for operator LIKE 
+{% macro expect_column_values_to_not_match_like_pattern_list(table_name = SL_THIS, column_name, patterns, mostly) %}
 -- This macro generates a SQL query that checks if the values in a specified column do not match any of a given list of LIKE patterns.
 --
 -- Parameters:
@@ -368,7 +377,8 @@ SELECT
 FROM total_count, non_matching_count;
 {% endmacro %}
 
-{% macro expect_column_values_to_not_match_regex(table_name, column_name, regex_pattern) %}
+# TODO: (bq) No matching signature for function REGEXP_CONTAINS
+{% macro expect_column_values_to_not_match_regex(table_name = SL_THIS, column_name, regex_pattern) %}
 -- This macro generates a SQL query that checks if the values in a specified column do not match a given regular expression pattern.
 --
 -- Parameters:
@@ -385,10 +395,12 @@ FROM total_count, non_matching_count;
 -- WHERE column_name ~ 'regex_pattern';
 SELECT {{ column_name }}
 FROM {{ table_name }}
-WHERE {{ column_name }} REGEXP '{{ regex_pattern }}';
+WHERE REGEXP_LIKE({{ column_name }}, '{{ regex_pattern }}');
 {% endmacro %}
 
-{% macro expect_column_values_to_not_match_regex_list(table_name, column_name, regex_patterns) %}
+TODO
+# TODO: (bq) No matching signature for function REGEXP_CONTAINS
+{% macro expect_column_values_to_not_match_regex_list(table_name = SL_THIS, column_name, regex_patterns) %}
 -- This macro generates a SQL query that checks if the values in a specified column do not match any pattern in a given list of regular expression patterns.
 --
 -- Parameters:
@@ -409,7 +421,7 @@ SELECT {{ column_name }}
 FROM {{ table_name }}
 WHERE 
 {% for pattern in regex_patterns %}
-{{ column_name }} REGEXP '{{ pattern }}'
+REGEXP_LIKE({{ column_name }}, '{{ pattern }}')
 {% if not loop.last %}
 OR 
 {% endif %}

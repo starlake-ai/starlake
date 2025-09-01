@@ -8,7 +8,7 @@ import ai.starlake.extract.JdbcDbUtils._
 import ai.starlake.extract.LastExportUtils._
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{JDBCSchema, JDBCTable, PrimitiveType}
-import ai.starlake.utils.Formatter._
+import ai.starlake.utils.Formatter.*
 import ai.starlake.utils.{Utils, YamlSerde}
 import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.conversions.Conversions

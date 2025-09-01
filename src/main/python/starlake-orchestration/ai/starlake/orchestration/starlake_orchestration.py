@@ -7,11 +7,11 @@ import os
 import importlib
 import inspect
 
-from ai.starlake.common import StarlakeCronPeriod, sl_cron_start_end_dates, sort_crons_by_frequency, is_valid_cron, sanitize_id
+from ai.starlake.common import StarlakeCronPeriod, sl_cron_start_end_dates, sort_crons_by_frequency, is_valid_cron, sanitize_id, scheduled_dates_range
 
 from ai.starlake.job import StarlakeSparkConfig, IStarlakeJob, StarlakePreLoadStrategy, StarlakeExecutionMode
 
-from ai.starlake.dataset import StarlakeDataset, AbstractEvent
+from ai.starlake.dataset import StarlakeDataset, AbstractEvent, StarlakeDatasetType
 
 from ai.starlake.orchestration import StarlakeSchedule, StarlakeDependencies, StarlakeDependency, StarlakeDependencyType, DependencyMixin, TreeNodeMixin
 
@@ -292,9 +292,11 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
 
         cron: Optional[str] = None
 
-        load_dependencies: Optional[bool] = None
+        run_dependencies_first: Optional[bool] = None
  
         datasets: Optional[List[StarlakeDataset]] = None
+
+        filtered_datasets: Set[str] = set()
 
         graphs: Optional[Set[TreeNodeMixin]] = None
 
@@ -314,13 +316,13 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
 
             catchup = cron is not None and self.get_context_var(var_name='catchup', default_value='False').lower() == 'true'
 
-            load_dependencies = self.get_context_var(var_name='load_dependencies', default_value='False').lower() == 'true'
+            run_dependencies_first = job.run_dependencies_first
 
-            filtered_datasets: Set[str] = set(job.caller_globals.get('filtered_datasets', []))
+            filtered_datasets = set(job.caller_globals.get('filtered_datasets', []))
 
             computed_schedule = dependencies.get_schedule(
                 cron=cron, 
-                load_dependencies=load_dependencies,
+                run_dependencies_first=run_dependencies_first,
                 filtered_datasets=filtered_datasets,
                 sl_schedule_parameter_name=self.sl_schedule_parameter_name,
                 sl_schedule_format=self.sl_schedule_format
@@ -332,7 +334,7 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
                 else:
                     datasets = computed_schedule
 
-            graphs = dependencies.graphs(load_dependencies=load_dependencies)
+            graphs = dependencies.graphs(run_dependencies_first=run_dependencies_first)
 
         self.__tags = tags
 
@@ -340,11 +342,9 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
 
         self.__catchup = catchup
 
-        self.__load_dependencies = load_dependencies
+        self.__run_dependencies_first = run_dependencies_first
 
         self.__graphs = graphs
-
-        self.__datasets = datasets
 
         self.__assets: List[StarlakeDataset] = []
 
@@ -354,19 +354,9 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         else:
             self.__add_dag_dependency = None
 
-        uris: Set[str] = set(map(lambda dataset: dataset.uri, datasets or []))
-        sorted_crons_by_frequency: Tuple[Dict[int, List[str]], List[str]] = sort_crons_by_frequency(set(self.scheduled_datasets.values()))
-        crons_by_frequency = sorted_crons_by_frequency[0]
-        self.__crons_by_frequency = crons_by_frequency
-        sorted_crons = sorted_crons_by_frequency[1]
-        if cron:
-            cron_expr = cron
-        elif len(uris) == len(self.scheduled_datasets) and len(crons_by_frequency.keys()) > 0:
-            cron_expr = sorted_crons[0]
-        else:
-            cron_expr = None
+        self.__filtered_datasets = filtered_datasets
 
-        self.__cron_expr = cron_expr
+        self.set_cron_expr(datasets)
 
         self.__inner_tasks: Dict[str, AbstractTask] = dict()
 
@@ -560,6 +550,28 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         return self.__cron_expr
 
     @property
+    def filtered_datasets(self) -> Set[str]:
+        return self.__filtered_datasets
+
+    def set_cron_expr(self, datasets: List[StarlakeDataset] = []):
+        # Set the cron expression based on the datasets and their frequencies.
+        self.__datasets = datasets
+        uris: Set[str] = set(map(lambda dataset: dataset.uri, datasets or []))
+        sorted_crons_by_frequency: Tuple[Dict[int, List[str]], List[str]] = sort_crons_by_frequency(set(self.scheduled_datasets.values()))
+        crons_by_frequency = sorted_crons_by_frequency[0]
+        self.__crons_by_frequency = crons_by_frequency
+        sorted_crons = sorted_crons_by_frequency[1]
+        if self.cron:
+            cron_expr = self.cron
+        elif len(uris) == len(self.scheduled_datasets) and len(crons_by_frequency.keys()) > 0:
+            cron_expr = sorted_crons[0]
+        else:
+            cron_expr = None
+        self.__cron_expr = cron_expr
+        if cron_expr and self.job.data_cycle_enabled and not self.job.data_cycle:
+            self.job.data_cycle = cron_expr
+
+    @property
     def catchup(self) -> bool:
         return self.__catchup
 
@@ -579,8 +591,8 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
 
     @final
     @property
-    def load_dependencies(self) -> Optional[bool]:
-        return self.__load_dependencies
+    def run_dependencies_first(self) -> Optional[bool]:
+        return self.__run_dependencies_first
 
     @final
     @property
@@ -813,9 +825,10 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         kwargs.pop('spark_config', None)
         kwargs.pop('dataset', None)
         asset = StarlakeDataset(
-            name=name, 
-            sink=f"{domain}.{table}", 
-            cron = self.cron, 
+            name        = name,
+            sink        = f"{domain}.{table}",
+            cron        = self.cron,
+            datasetType = StarlakeDatasetType.LOAD,
             **kwargs
         )
         if asset not in self.assets:
@@ -847,16 +860,17 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         kwargs.pop('spark_config', None)
         kwargs.pop('dataset', None)
         asset = StarlakeDataset(
-            name = transform_name, 
-            cron = self.cron,
-            sink = sink,
+            name        = transform_name, 
+            cron        = self.computed_cron_expr,
+            sink        = sink,
+            datasetType = StarlakeDatasetType.TRANSFORM,
             **kwargs
         )
         if asset not in self.assets:
             self.__assets.append(asset)
         return self.orchestration.sl_create_task(
             task_id, 
-                self.job.sl_transform(
+            self.job.sl_transform(
                 task_id=task_id, 
                 transform_name=transform_name, 
                 transform_options=self.sl_transform_options(self.computed_cron_expr), 
@@ -935,7 +949,7 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
             end_date (Optional[str]): the end date.
         """
         from datetime import datetime
-        cron = self.cron
+        cron = self.computed_cron_expr
         if not cron or cron.strip().lower() == 'none':
             raise ValueError("The pipeline must have a cron expression to backfill")
         if not start_date or start_date.strip().lower() == 'none':
@@ -943,20 +957,13 @@ class AbstractPipeline(Generic[U, T, GT, E], AbstractTaskGroup[U], AbstractEvent
         if not end_date or end_date.strip().lower() == 'none':
             end_date = datetime.fromtimestamp(datetime.now().timestamp()).isoformat()
         from croniter import croniter
-        start_time = datetime.fromisoformat(start_date)
-        end_time = datetime.fromisoformat(end_date)
+        import pytz
+        start_time = datetime.fromisoformat(start_date).astimezone(pytz.UTC)
+        end_time = datetime.fromisoformat(end_date).astimezone(pytz.UTC)
         if start_time > end_time:
             raise ValueError("The start date must be before the end date")
-        iter = croniter(cron, start_time)
         # get the start and end date of the current cron iteration
-        curr: datetime = iter.get_current(datetime)
-        previous: datetime = iter.get_prev(datetime)
-        next: datetime = croniter(cron, previous).get_next(datetime)
-        if curr == next :
-            sl_end_date = curr
-        else:
-            sl_end_date = previous
-        sl_start_date: datetime = croniter(cron, sl_end_date).get_prev(datetime)
+        (sl_start_date, sl_end_date) = scheduled_dates_range(cron, start_time)
         while sl_start_date <= end_time:
             self.run(logical_date= sl_start_date.isoformat(), timeout=timeout, **kwargs)
             sl_end_date = croniter(cron, sl_end_date).get_next(datetime)

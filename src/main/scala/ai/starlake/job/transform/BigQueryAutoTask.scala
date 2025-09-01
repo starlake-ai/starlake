@@ -3,15 +3,19 @@ package ai.starlake.job.transform
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.extract.{
-  BigQueryTablesConfig,
   ExtractBigQuerySchema,
   ExtractSchemaCmd,
-  ExtractSchemaConfig
+  ExtractSchemaConfig,
+  TablesExtractConfig
 }
-import ai.starlake.job.metrics.{BigQueryExpectationAssertionHandler, ExpectationJob}
-import ai.starlake.job.sink.bigquery._
+import ai.starlake.job.metrics.{
+  BigQueryExpectationAssertionHandler,
+  ExpectationJob,
+  ExpectationReport
+}
+import ai.starlake.job.sink.bigquery.*
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.conversion.BigQueryUtils
@@ -20,7 +24,7 @@ import ai.starlake.utils.{JobResult, Utils}
 import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,
-  Schema => BQSchema,
+  Schema as BQSchema,
   StandardTableDefinition
 }
 import org.apache.hadoop.fs.Path
@@ -29,7 +33,7 @@ import org.apache.spark.sql.types.StructType
 
 import java.sql.Timestamp
 import java.time.Instant
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
 class BigQueryAutoTask(
@@ -43,7 +47,8 @@ class BigQueryAutoTask(
   accessToken: Option[String] = None,
   resultPageSize: Int,
   resultPageNumber: Int,
-  dryRun: Boolean
+  dryRun: Boolean,
+  scheduledDate: Option[String]
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,
@@ -56,7 +61,8 @@ class BigQueryAutoTask(
       resultPageSize,
       resultPageNumber,
       accessToken,
-      None
+      None,
+      scheduledDate
     ) {
 
   private lazy val bqSink = taskDesc.sink
@@ -337,22 +343,7 @@ class BigQueryAutoTask(
                   jobResultCount.foreach(logAuditSuccess(start, end, _, test))
                 // We execute assertions only on success
                 if (settings.appConfig.expectations.active) {
-                  new ExpectationJob(
-                    Option(applicationId()),
-                    taskDesc.database,
-                    taskDesc.domain,
-                    taskDesc.table,
-                    taskDesc.expectations,
-                    storageHandler,
-                    schemaHandler,
-                    new BigQueryExpectationAssertionHandler(
-                      bqNativeJob(
-                        config,
-                        "",
-                        taskDesc.taskTimeoutMs
-                      )
-                    )
-                  ).run()
+                  runAndSinkExpectations()
                 }
               }
               Try {
@@ -415,7 +406,7 @@ class BigQueryAutoTask(
                         new Path(new Path(DatasetArea.external, domainName), s"$tableName.sl.yml")
                       if (!storageHandler.exists(slFile)) {
                         val config =
-                          BigQueryTablesConfig(tables = Map(domainName -> List(tableName)))
+                          TablesExtractConfig(tables = Map(domainName -> List(tableName)))
                         ExtractBigQuerySchema.extractAndSaveToExternal(config, schemaHandler)
                       }
                     }
@@ -436,6 +427,46 @@ class BigQueryAutoTask(
     // We execute the post statements even if the main statement failed
     // We may be doing some cleanup here.
 
+  }
+
+  def runAndSinkExpectations(): Try[JobResult] = {
+    new ExpectationJob(
+      Option(applicationId()),
+      taskDesc.database,
+      taskDesc.domain,
+      taskDesc.table,
+      taskDesc.expectations,
+      storageHandler,
+      schemaHandler,
+      new BigQueryExpectationAssertionHandler(
+        bqNativeJob(
+          bigQuerySinkConfig,
+          "",
+          taskDesc.taskTimeoutMs
+        )
+      ),
+      false
+    ).run()
+  }
+
+  def runExpectations(): List[ExpectationReport] = {
+    new ExpectationJob(
+      Option(applicationId()),
+      taskDesc.database,
+      taskDesc.domain,
+      taskDesc.table,
+      taskDesc.expectations,
+      storageHandler,
+      schemaHandler,
+      new BigQueryExpectationAssertionHandler(
+        bqNativeJob(
+          bigQuerySinkConfig,
+          "",
+          taskDesc.taskTimeoutMs
+        )
+      ),
+      true
+    ).runExpectations()
   }
 
   private def sqlSubst(): String = {
