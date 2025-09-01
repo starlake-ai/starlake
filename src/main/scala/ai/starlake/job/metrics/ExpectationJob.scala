@@ -192,7 +192,6 @@ class ExpectationJob(
         case Failure(e: IllegalArgumentException) =>
           if (expectation.failOnError)
             _failOnError = true
-          e.printStackTrace()
           ExpectationReport(
             applicationId(),
             database,
@@ -209,7 +208,6 @@ class ExpectationJob(
         case Failure(e) =>
           if (expectation.failOnError)
             _failOnError = true
-          e.printStackTrace()
           ExpectationReport(
             applicationId(),
             database,

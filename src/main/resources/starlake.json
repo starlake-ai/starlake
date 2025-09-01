@@ -975,6 +975,7 @@
     },
     "TableV1": {
       "type": "object",
+      "description": "Table Schema definition.",
       "properties": {
         "name": {
           "$ref": "#/definitions/ConvertibleToString",
