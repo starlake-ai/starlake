@@ -288,29 +288,29 @@ class JdbcAutoTask(
 
   def runAndSinkExpectations(): Try[JobResult] = {
     new ExpectationJob(
-      Option(applicationId()),
-      taskDesc.database,
-      taskDesc.domain,
-      taskDesc.table,
-      taskDesc.expectations,
-      storageHandler,
-      schemaHandler,
-      new JdbcExpectationAssertionHandler(sinkOptions),
-      false
+      appId = Option(applicationId()),
+      database = taskDesc.database,
+      domainName = taskDesc.domain,
+      schemaName = taskDesc.table,
+      expectations = taskDesc.expectations,
+      storageHandler = storageHandler,
+      schemaHandler = schemaHandler,
+      sqlRunner = new JdbcExpectationAssertionHandler(sinkOptions),
+      interactive = false
     ).run()
   }
 
   def runExpectations(): List[ExpectationReport] = {
     new ExpectationJob(
-      Option(applicationId()),
-      taskDesc.database,
-      taskDesc.domain,
-      taskDesc.table,
-      taskDesc.expectations,
-      storageHandler,
-      schemaHandler,
-      new JdbcExpectationAssertionHandler(sinkOptions),
-      true
+      appId = Option(applicationId()),
+      database = taskDesc.database,
+      domainName = taskDesc.domain,
+      schemaName = taskDesc.table,
+      expectations = taskDesc.expectations,
+      storageHandler = storageHandler,
+      schemaHandler = schemaHandler,
+      sqlRunner = new JdbcExpectationAssertionHandler(sinkOptions),
+      interactive = true
     ).runExpectations()
   }
 
