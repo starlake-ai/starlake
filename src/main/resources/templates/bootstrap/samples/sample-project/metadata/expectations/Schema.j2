@@ -1,4 +1,4 @@
-{% macro expect_column_to_exist(table_name, column_name) %}
+{% macro column_must_exist(table_name = SL_THIS, column_name) %}
 -- This macro generates a SQL query that checks if a specified column exists in a table.
 --
 -- Parameters:
@@ -8,22 +8,27 @@
 -- Returns:
 -- The name of the column if it exists in the specified table.
 
+{% list = {{ table_name }}.split('.') %}
 SELECT 
     CASE 
         WHEN COUNT(*) > 0 THEN 0  -- Column exists
         ELSE 1  -- Column does not exist
     END AS result
-FROM pragma_table_info('{{ table_name }}')
-WHERE name = '{{ column_name }}';
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE 
+    TABLE_SCHEMA = '{{ list[0] }}'
+    AND TABLE_NAME = '{{ list[1] }}'
+    AND COLUMN_NAME = '{{ column_name }}';
 {% endmacro %}
 
-{% macro expect_column_values_to_be_in_type_list(table_name, column_name, type_list) %}
+# TODO
+{% macro expect_column_values_to_be_in_type_list(table_name = SL_THIS, column_name, type_list) %}
 -- This macro generates a SQL query that checks if the values in a specified column match the types in a given type list.
 SELECT 
     CASE 
         WHEN COUNT(*) > 0 AND 
              COUNT(CASE 
-                        WHEN typeof({{ column_name }}) IN ({% for type in type_list %}'{{ type }}'{% if not loop.last %}, {% endif %}{% endfor %}) 
+                        WHEN TYPEOF({{ column_name }}) IN ({% for type in type_list %}'{{ type }}'{% if not loop.last %}, {% endif %}{% endfor %}) 
                         THEN 1 
                         ELSE NULL 
                     END) = COUNT(*) 
@@ -31,9 +36,25 @@ SELECT
         ELSE 1  -- Some values don't match the expected types
     END AS result
 FROM {{ table_name }}
+
+# new
+SELECT
+    CASE
+        WHEN DATA_TYPE IN (
+            {% for dtype in data_types %}
+                '{{ dtype }}'{% if not loop.last %}, {% endif %}
+            {% endfor %}
+        ) THEN 0
+        ELSE 1
+    END AS result
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = '{{ schema_name | upper }}'
+  AND TABLE_NAME = '{{ table_name | upper }}'
+  AND COLUMN_NAME = '{{ column_name | upper }}';
 {% endmacro %}
 
-{% macro expect_column_values_to_be_in_set(table_name, column_name, values) %}
+# TODO: return values that are not in set 
+{% macro expect_column_values_to_be_in_set(table_name = SL_THIS, column_name, values) %}
 -- This macro generates a SQL query that checks if the values in a specified column are within a given set.
 --
 -- Parameters:
@@ -49,7 +70,7 @@ FROM {{ table_name }}
 WHERE {{ column_name }} NOT IN ({{ values | join(', ') }});
 {% endmacro %}
 
-{% macro expect_column_values_to_be_of_type(table_name, column_name, expected_type) %}
+{% macro expect_column_values_to_be_of_type(table_name = SL_THIS, column_name, expected_type) %}
 -- This macro generates a SQL query that checks if the values in a specified column are of a given data type.
 --
 -- Parameters:
@@ -64,7 +85,7 @@ SELECT
     CASE 
         WHEN COUNT(*) > 0 AND 
              COUNT(CASE 
-                        WHEN typeof({{ column_name }}) = '{{ expected_type }}' 
+                        WHEN TYPEOF({{ column_name }}) = '{{ expected_type }}' 
                         THEN 1 
                         ELSE NULL 
                     END) = COUNT(*) 
@@ -74,7 +95,7 @@ SELECT
 FROM {{ table_name }}
 {% endmacro %}
 
-{% macro expect_table_column_count_to_be_between(table_name, min_value, max_value) %}
+{% macro expect_table_column_count_to_be_between(table_name = SL_THIS, min_value, max_value) %}
 -- This macro generates a SQL query that checks if the number of columns in a table is between a given range.
 --
 -- Parameters:
@@ -85,16 +106,18 @@ FROM {{ table_name }}
 -- Returns:
 -- 0 if the column count is between the given range, 1 if it is not.
 
+{% list = {{ table_name }}.split('.') %}
 SELECT 
     CASE 
         WHEN COUNT(*) BETWEEN {{ min_value }} AND {{ max_value }} 
         THEN 0  
         ELSE 1 
     END AS result
-FROM pragma_table_info('{{ table_name }}');
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = '{{ list[1] }}' AND TABLE_SCHEMA = '{{ list[0] }}';
 {% endmacro %}
 
-{% macro expect_table_column_count_to_equal(table_name, expected_value) %}
+{% macro expect_table_column_count_to_equal(table_name = SL_THIS, expected_value) %}
 -- This macro generates a SQL query that checks if the number of columns in a table equals a specified value.
 --
 -- Parameters:
@@ -104,16 +127,20 @@ FROM pragma_table_info('{{ table_name }}');
 -- Returns:
 -- 0 if the column count equals the expected value, 1 if it does not.
 
+{% list = {{ table_name }}.split('.') %}
 SELECT 
     CASE 
         WHEN COUNT(*) = {{ expected_value }} 
         THEN 0 
         ELSE 1 
     END AS result
-FROM pragma_table_info('{{ table_name }}');
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME = '{{ list[1] }}' AND TABLE_SCHEMA = '{{ list[0] }}';
 {% endmacro %}
 
-{% macro expect_table_columns_to_match_ordered_list(table_name, expected_columns) %}
+
+# TODO even ordered column gve 1 as result
+{% macro expect_table_columns_to_match_ordered_list(table_name = SL_THIS, expected_columns) %}
 -- This macro generates a SQL query that checks if the columns in a table match a specified ordered list.
 --
 -- Parameters:
@@ -123,9 +150,12 @@ FROM pragma_table_info('{{ table_name }}');
 -- Returns:
 -- 0 if the columns match the expected ordered list, 1 if they do not.
 
+{% list = {{ table_name }}.split('.') %}
 WITH TableColumns AS (
-    SELECT name AS column_name, cid + 1 AS ordinal_position 
-    FROM pragma_table_info('{{ table_name }}')
+    SELECT COLUMN_NAME AS column_name, ORDINAL_POSITION AS ordinal_position 
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = '{{ list[1] }}' AND TABLE_SCHEMA = '{{ list[0] }}'
+    ORDER BY ORDINAL_POSITION
 ),
 ExpectedColumns AS (
     {% for column, position in expected_columns %}
@@ -153,7 +183,8 @@ SELECT
 FROM TableColumns, ExpectedColumns;
 {% endmacro %}
 
-{% macro expect_table_columns_to_match_set(table_name, expected_columns) %}
+# TODO even ordered column gve 1 as result
+{% macro expect_table_columns_to_match_set(table_name = SL_THIS, expected_columns) %}
 -- This macro generates a SQL query that checks if the columns in a table match a specified set, regardless of order.
 --
 -- Parameters:
@@ -163,9 +194,11 @@ FROM TableColumns, ExpectedColumns;
 -- Returns:
 -- 0 if the columns match the expected set, 1 if they do not.
 
+{% list = {{ table_name }}.split('.') %}
 WITH TableColumns AS (
-    SELECT name AS column_name
-    FROM pragma_table_info('{{ table_name }}')
+    SELECT COLUMN_NAME AS column_name
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = '{{ list[1] }}' AND TABLE_SCHEMA = '{{ list[0] }}'
 ),
 ExpectedColumns AS (
     {% for column in expected_columns %}

@@ -30,7 +30,7 @@ object FreshnessJob extends LazyLogging {
   def freshness(
     config: TablesExtractConfig,
     schemaHandler: SchemaHandler
-  )(implicit settings: Settings): List[FreshnessStatus] = {
+  )(implicit mySettings: Settings): List[FreshnessStatus] = {
     val conn = ConnectionInfo.getConnectionOrDefault(config.connectionRef)
     val tables: List[(String, List[(String, Long)])] = {
       conn.getJdbcEngineName() match {
@@ -69,7 +69,7 @@ object FreshnessJob extends LazyLogging {
                         0L,
                         "INFO",
                         schemaHandler.getDatabase(domain).getOrElse(""),
-                        settings.appConfig.tenant
+                        mySettings.appConfig.tenant
                       )
                     )
 
@@ -107,7 +107,7 @@ object FreshnessJob extends LazyLogging {
                             0L,
                             "INFO",
                             schemaHandler.getDatabase(domain).getOrElse(""),
-                            settings.appConfig.tenant
+                            mySettings.appConfig.tenant
                           )
                         )
                       )
@@ -139,15 +139,15 @@ object FreshnessJob extends LazyLogging {
                       new Timestamp(System.currentTimeMillis()),
                       0L,
                       "INFO",
-                      task.database.getOrElse(settings.appConfig.database),
-                      settings.appConfig.tenant
+                      task.database.getOrElse(mySettings.appConfig.database),
+                      mySettings.appConfig.tenant
                     )
                   )
 
                 case Some(freshness) =>
                   val errorStatus =
                     getFreshnessStatus(
-                      task.database.getOrElse(settings.appConfig.database),
+                      task.database.getOrElse(mySettings.appConfig.database),
                       task.domain,
                       task.table,
                       lastModifiedTime,
@@ -158,7 +158,7 @@ object FreshnessJob extends LazyLogging {
                   errorStatus
                     .orElse {
                       getFreshnessStatus(
-                        task.database.getOrElse(settings.appConfig.database),
+                        task.database.getOrElse(mySettings.appConfig.database),
                         task.domain,
                         task.table,
                         lastModifiedTime,
@@ -176,8 +176,8 @@ object FreshnessJob extends LazyLogging {
                           new Timestamp(System.currentTimeMillis()),
                           0L,
                           "INFO",
-                          task.database.getOrElse(settings.appConfig.database),
-                          settings.appConfig.tenant
+                          task.database.getOrElse(mySettings.appConfig.database),
+                          mySettings.appConfig.tenant
                         )
                       )
                     )

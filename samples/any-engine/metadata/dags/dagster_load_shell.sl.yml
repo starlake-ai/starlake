@@ -3,7 +3,7 @@ dag:
     template: "load/dagster__scheduled_table__shell.py.j2"
     filename: "dagster_all_load.py"
     options:
-        load_dependencies: "true"
+        run_dependencies_first: "true"
         sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
         SL_STARLAKE_PATH: "{{SL_ROOT}}/starlake"
 
