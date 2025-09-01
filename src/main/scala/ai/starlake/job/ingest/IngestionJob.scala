@@ -615,7 +615,8 @@ trait IngestionJob extends SparkJob {
         this.schema.expectations,
         storageHandler,
         schemaHandler,
-        new JdbcExpectationAssertionHandler(jdbcOptions)
+        new JdbcExpectationAssertionHandler(jdbcOptions),
+        false
       ).run()
     } else {
       Success(SparkJobResult(None, None))
@@ -632,7 +633,8 @@ trait IngestionJob extends SparkJob {
         this.schema.expectations,
         storageHandler,
         schemaHandler,
-        new SparkExpectationAssertionHandler(session)
+        new SparkExpectationAssertionHandler(session),
+        false
       ).run()
     } else {
       Success(SparkJobResult(None, None))
@@ -651,7 +653,8 @@ trait IngestionJob extends SparkJob {
         this.schema.expectations,
         storageHandler,
         schemaHandler,
-        new BigQueryExpectationAssertionHandler(job)
+        new BigQueryExpectationAssertionHandler(job),
+        false
       ).run()
     } else {
       Success(SparkJobResult(None, None))

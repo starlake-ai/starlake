@@ -2,13 +2,13 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.{JdbcDbUtils, SparkExtractorJob}
-import ai.starlake.job.metrics.{ExpectationJob, SparkExpectationAssertionHandler}
+import ai.starlake.job.metrics.{ExpectationJob, ExpectationReport, SparkExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
-import ai.starlake.utils._
+import ai.starlake.utils.*
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
@@ -318,16 +318,7 @@ class SparkAutoTask(
             applyHiveTableAcl()
           }
           if (settings.appConfig.expectations.active) {
-            new ExpectationJob(
-              Option(applicationId()),
-              taskDesc.database,
-              taskDesc.domain,
-              taskDesc.table,
-              taskDesc.expectations,
-              storageHandler,
-              schemaHandler,
-              new SparkExpectationAssertionHandler(session)
-            ).run()
+            runAndSinkExpectations()
           }
           applyHiveTableAcl()
           SparkJobResult(jobResult, None)
@@ -341,6 +332,34 @@ class SparkAutoTask(
       logAuditFailure(start, end, e, test)
       Failure(e)
     }
+  }
+
+  def runAndSinkExpectations(): Try[JobResult] = {
+    new ExpectationJob(
+      Option(applicationId()),
+      taskDesc.database,
+      taskDesc.domain,
+      taskDesc.table,
+      taskDesc.expectations,
+      storageHandler,
+      schemaHandler,
+      new SparkExpectationAssertionHandler(session),
+      false
+    ).run()
+  }
+
+  def runExpectations(): List[ExpectationReport] = {
+    new ExpectationJob(
+      Option(applicationId()),
+      taskDesc.database,
+      taskDesc.domain,
+      taskDesc.table,
+      taskDesc.expectations,
+      storageHandler,
+      schemaHandler,
+      new SparkExpectationAssertionHandler(session),
+      true
+    ).runExpectations()
   }
 
   private def runPySpark(pythonFile: Path): Option[DataFrame] = {

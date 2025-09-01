@@ -1,44 +1,4 @@
-{% macro expect_column_kl_divergence_to_be_less_than(table_name, column_name, reference_distribution, threshold) %} 
--- This macro generates a SQL query that calculates the Kullback-Leibler (KL) divergence between the distribution of values
--- in the specified column and a reference distribution. It checks if the KL divergence is less than a specified threshold.
---
--- Returns:
--- The KL divergence value if it is less than the specified threshold.
---
--- Parameters:
--- table_name: The name of the table to query.
--- column_name: The name of the column to calculate the distribution for.
--- reference_distribution: A dictionary representing the reference distribution {value: probability}.
--- threshold: The maximum acceptable KL divergence.
-
-WITH ColumnDistribution AS (
-    SELECT {{ column_name }},
-           COUNT(*) * 1.0 / SUM(COUNT(*)) OVER () AS probability
-    FROM {{ table_name }}
-    GROUP BY {{ column_name }}
-),
-ReferenceDistribution AS (
-    {% for value, prob in reference_distribution.items() %}
-    SELECT {{ value }} AS value, {{ prob }} AS probability
-    {% if not loop.last %}
-    UNION ALL
-    {% endif %}
-    {% endfor %}
-),
-KLDivergence AS (
-    SELECT SUM(cd.probability * LOG(cd.probability / rd.probability)) AS kl_divergence
-    FROM ColumnDistribution cd
-    JOIN ReferenceDistribution rd ON cd.{{ column_name }} = rd.value
-)
-SELECT 
-    CASE 
-        WHEN kl_divergence < {{ threshold }} THEN 0  
-        ELSE 1                                       
-    END AS is_valid
-FROM KLDivergence;
-{% endmacro %}
-
-{% macro expect_column_max_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
+{% macro expect_column_max_to_be_between(table_name = SL_THIS, column_name, lower_bound, upper_bound) %}
 -- This macro generates a SQL query that checks if the maximum value in the specified column is between a given range.
 --
 -- Returns:
@@ -58,7 +18,7 @@ SELECT
 FROM {{ table_name }};
 {% endmacro %}
 
-{% macro expect_column_mean_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
+{% macro expect_column_mean_to_be_between(table_name = SL_THIS, column_name, lower_bound, upper_bound) %}
 -- This macro generates a SQL query that checks if the mean value of the specified column is between a given range.
 --
 -- Parameters:
@@ -78,7 +38,7 @@ SELECT
 FROM {{ table_name }};
 {% endmacro %}
 
-{% macro expect_column_median_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
+{% macro expect_column_median_to_be_between(table_name = SL_THIS, column_name, lower_bound, upper_bound) %}
 -- This macro generates a SQL query that checks if the median value of the specified column is between a given range.
 --
 -- Parameters:
@@ -92,7 +52,7 @@ FROM {{ table_name }};
 
 WITH MedianCalculation AS (
     SELECT {{ column_name }},
-           ROW_NUMBER() OVER (ORDER BY {{ column_name }}) AS row_num,
+           ROW_NUMBER() OVER (PARTITION BY 1 ORDER BY {{ column_name }}) AS row_num,
            COUNT(*) OVER () AS total_rows
     FROM {{ table_name }}
 )
@@ -106,7 +66,7 @@ FROM MedianCalculation
 WHERE row_num IN (FLOOR((total_rows + 1) / 2), CEIL((total_rows + 1) / 2));
 {% endmacro %}
 
-{% macro expect_column_min_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
+{% macro expect_column_min_to_be_between(table_name = SL_THIS, column_name, lower_bound, upper_bound) %}
 -- This macro generates a SQL query that checks if the minimum value in the specified column is between a given range.
 --
 -- Parameters:
@@ -127,7 +87,7 @@ SELECT
 FROM {{ table_name }};
 {% endmacro %}
 
-{% macro expect_column_most_common_value_to_be_in_set(table_name, column_name, values) %}
+{% macro expect_column_most_common_value_to_be_in_set(table_name = SL_THIS, column_name, values) %}
 -- This macro generates a SQL query that checks if the most common value in the specified column is within a given set.
 --
 -- Parameters:
@@ -158,7 +118,7 @@ SELECT
 FROM MostCommonValue;
 {% endmacro %}
 
-{% macro expect_column_pair_values_a_to_be_greater_than_b(table_name, column_a, column_b) %}
+{% macro expect_column_pair_values_a_to_be_greater_than_b(table_name = SL_THIS, column_a, column_b) %}
 -- This macro generates a SQL query that checks if the values in column A are greater than the values in column B for each row.
 -- If the result set is empty, it means all values in column A are greater than the values in column B.
 --
@@ -208,7 +168,8 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_column_pair_values_to_be_in_set(table_name, column_a, column_b, value_pairs) %}
+# TODO: (bq) does not allow tuple
+{% macro expect_column_pair_values_to_be_in_set(table_name = SL_THIS, column_a, column_b, value_pairs) %}
 -- This macro generates a SQL query that checks if the values in two specified columns are within a given set for each row.
 -- If any row has values in the specified columns that are not within the set, it will be returned by the query.
 --
@@ -239,75 +200,6 @@ SELECT CASE
 END AS result;
 {% endmacro %}
 
-{% macro expect_column_quantile_values_to_be_between(table_name, column_name, quantiles, lower_bounds, upper_bounds) %}
--- This macro generates a SQL query that checks if the quantile values of a specified column are between given ranges.
---
--- Parameters:
--- table_name: The name of the table to query.
--- column_name: The name of the column to calculate the quantile values for.
--- quantiles: A list of quantiles to check.
--- lower_bounds: A list of lower bounds for the quantiles.
--- upper_bounds: A list of upper bounds for the quantiles.
---
--- Returns:
--- The quantile values of the specified column if they are between the given ranges.
-
-WITH Sorted AS (
-    SELECT {{ column_name }}
-    FROM {{ table_name }}
-    ORDER BY {{ column_name }}
-),
-Quantiles AS (
-    SELECT 
-        (SELECT {{ column_name }} 
-         FROM Sorted 
-         LIMIT 1 OFFSET (SELECT ROUND(COUNT(*) * {{ quantiles[0] }} / 100) FROM Sorted)) AS percentile_25,
-        (SELECT {{ column_name }} 
-         FROM Sorted 
-         LIMIT 1 OFFSET (SELECT ROUND(COUNT(*) * {{ quantiles[1] }} / 100) FROM Sorted)) AS percentile_75
-)
-SELECT CASE
-    WHEN percentile_25 >= {{ lower_bounds[0] }} 
-         AND percentile_25 <= {{ upper_bounds[0] }}
-         AND percentile_75 >= {{ lower_bounds[1] }} 
-         AND percentile_75 <= {{ upper_bounds[1] }}
-    THEN 0
-    ELSE 1
-END AS result
-FROM Quantiles;
-{% endmacro %}
-
-{% macro expect_column_stdev_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
--- This macro generates a SQL query that checks if the standard deviation of a specified column is between a given range.
---
--- Parameters:
--- table_name: The name of the table to query.
--- column_name: The name of the column to calculate the standard deviation for.
--- lower_bound: The lower bound of the range.
--- upper_bound: The upper bound of the range.
---
--- Returns:
--- The standard deviation of the specified column if it is between the given range.
-
-WITH stats AS (
-    SELECT
-        AVG({{ column_name }}) AS mean_value,
-        COUNT({{ column_name }}) AS count_value
-    FROM {{ table_name }}
-),
-variance AS (
-    SELECT
-        SUM(({{ column_name }} - mean_value) * ({{ column_name }} - mean_value)) / (count_value - 1) AS variance_value
-    FROM {{ table_name }}, stats
-)
-SELECT CASE
-    WHEN ROUND(SQRT(variance_value), 2) BETWEEN {{ lower_bound }} AND {{ upper_bound }}
-    THEN 0
-    ELSE 1
-END AS result
-FROM variance;
-{% endmacro %}
-
 {% macro expect_column_sum_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
 -- This macro generates a SQL query that checks if the sum of values in a specified column is between a given range.
 --
@@ -329,45 +221,7 @@ SELECT
 FROM {{ table_name }};
 {% endmacro %}
 
-{% macro expect_column_value_z_scores_to_be_less_than(table_name, column_name, threshold) %}
--- This macro generates a SQL query that checks if the z-scores of values in a specified column are less than a given threshold.
---
--- Parameters:
--- table_name: The name of the table to query.
--- column_name: The name of the column to calculate z-scores for.
--- threshold: The z-score threshold.
---
--- Returns:
--- The values in the specified column and their z-scores that are less than the given threshold.
-
-WITH Mean AS (
-    SELECT 
-        AVG({{ column_name }}) AS mean_value
-    FROM {{ table_name }}
-),
-Stats AS (
-    SELECT 
-        Mean.mean_value,
-        SQRT(
-            SUM(({{ column_name }} - Mean.mean_value) * ({{ column_name }} - Mean.mean_value))
-            / (COUNT({{ column_name }}) - 1)
-        ) AS stdev_value
-    FROM {{ table_name }}, Mean
-),
-ZScores AS (
-    SELECT 
-        {{ column_name }},
-        ({{ column_name }} - Stats.mean_value) / Stats.stdev_value AS z_score
-    FROM {{ table_name }}, Stats
-)
-SELECT 
-    CASE 
-        WHEN EXISTS (SELECT 1 FROM ZScores WHERE z_score < {{ threshold }} AND z_score != 0) THEN 0
-        ELSE 1
-    END AS result;
-{% endmacro %}
-
-{% macro expect_column_values_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
+{% macro expect_column_values_to_be_between(table_name = SL_THIS, column_name, lower_bound, upper_bound) %}
 -- This macro generates a SQL query that checks if the values in a specified column are between a given range.
 --
 -- Parameters:
@@ -390,7 +244,8 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_column_values_to_be_in_set(table_name, column_name, values) %}
+# TODO:(bq) Braced constructors are not supported at [3:39]
+{% macro expect_column_values_to_be_in_set(table_name = SL_THIS, column_name, values) %}
 -- This macro generates a SQL query that checks if the values in a specified column are within a given set.
 --
 -- Parameters:
@@ -412,7 +267,8 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_column_values_to_not_be_in_set(table_name, column_name, values) %}
+# TODO:(bq) Braced constructors are not supported
+{% macro expect_column_values_to_not_be_in_set(table_name = SL_THIS, column_name, values) %}
 -- This macro generates a SQL query that checks if the values in a specified column are not within a given set.
 --
 -- Parameters:
@@ -434,7 +290,7 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_multicolumn_sum_to_equal(table_name, columns, expected_sum) %}
+{% macro expect_multicolumn_sum_to_equal(table_name = SL_THIS, columns, expected_sum) %}
 -- This macro generates a SQL query that checks if the sum of values across multiple specified columns equals a given value for each row.
 --
 -- Parameters:
@@ -454,4 +310,28 @@ SELECT
         ) THEN 1
         ELSE 0
     END AS result;
+{% endmacro %}
+
+{% macro expect_column_proportion_of_unique_values_to_equal(table_name = SL_THIS, column_name, expected_proportion) %}
+
+
+# TODO: (bq) Braced constructors are not supported
+{% macro expect_column_proportion_of_unique_values_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
+-- This macro generates a SQL query that checks if the proportion of unique values in a specified column is between a given range.
+
+WITH UniqueValueCount AS (
+    SELECT COUNT(DISTINCT {{ column_name }}) AS unique_count
+    FROM {{ table_name }}
+),
+TotalValueCount AS (
+    SELECT COUNT({{ column_name }}) AS total_count
+    FROM {{ table_name }}
+)
+SELECT 
+    CASE 
+        WHEN (CAST(unique_count AS FLOAT) / total_count) BETWEEN {{ lower_bound }} AND {{ upper_bound }}
+        THEN 0
+        ELSE 1
+    END AS result
+FROM UniqueValueCount, TotalValueCount;
 {% endmacro %}

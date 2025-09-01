@@ -33,28 +33,6 @@ import scala.collection.mutable
 import scala.util.Try
 import ai.starlake.schema.model.Severity._
 
-/** List of globally defined types
-  *
-  * @param types
-  *   : Type list
-  */
-case class TypesDesc(version: Int, types: List[Type]) {
-  def this() =
-    this(latestSchemaVersion, Nil) // Should never be called. Here for Jackson deserialization only
-
-  def checkValidity(): Either[List[ValidationMessage], Boolean] = {
-    val typeNames = types.map(_.name)
-    val dup: Either[List[ValidationMessage], Boolean] =
-      Utils.duplicates(
-        "Type name",
-        typeNames,
-        "%s is defined %d times. A type can only be defined once."
-      )
-    val result = Utils.combine(dup, types.map(_.checkValidity()): _*)
-    result
-  }
-}
-
 /** Semantic Type
   *
   * @param name
@@ -75,6 +53,9 @@ case class Type(
 ) {
   def this() = this("", "") // Should never be called. Here for Jackson deserialization only
 
+  def getDdlMappingForDB(db: String): Option[String] = {
+    ddlMapping.flatMap(_.get(db.toLowerCase()))
+  }
   @JsonIgnore
   val isString: Boolean = name == "string"
 
@@ -230,4 +211,41 @@ case class Type(
       Right(true)
   }
 
+}
+
+/** List of globally defined types
+  *
+  * @param types
+  *   : Type list
+  */
+case class TypesInfo(version: Int, types: List[Type]) {
+  def this() =
+    this(latestSchemaVersion, Nil) // Should never be called. Here for Jackson deserialization only
+
+  def checkValidity(): Either[List[ValidationMessage], Boolean] = {
+    val typeNames = types.map(_.name)
+    val dup: Either[List[ValidationMessage], Boolean] =
+      Utils.duplicates(
+        "Type name",
+        typeNames,
+        "%s is defined %d times. A type can only be defined once."
+      )
+    val result = Utils.combine(dup, types.map(_.checkValidity()): _*)
+    result
+  }
+
+  def getTypeForSqlType(db: String, sqlType: String): Option[Type] =
+    types.find(t => t.getDdlMappingForDB(db).contains(sqlType))
+
+  def getApproximateTypeForSqlType(db: String, sqlType: String): Option[Type] = {
+    val exactMatch = getTypeForSqlType(db, sqlType)
+    exactMatch.orElse {
+      // Try to find an approximate match by prefix ignoring precision and scale
+      types.find(t =>
+        t.getDdlMappingForDB(db).exists { ddlType =>
+          ddlType.toLowerCase().startsWith(sqlType)
+        }
+      )
+    }
+  }
 }

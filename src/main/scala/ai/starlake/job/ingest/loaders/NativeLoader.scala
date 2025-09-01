@@ -297,7 +297,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
         starlakeSchema.expectations,
         storageHandler,
         schemaHandler,
-        new JdbcExpectationAssertionHandler(sinkConnection.options)
+        new JdbcExpectationAssertionHandler(sinkConnection.options),
+        false
       ).buildStatementsList() match {
         case Success(expectations) =>
           expectations

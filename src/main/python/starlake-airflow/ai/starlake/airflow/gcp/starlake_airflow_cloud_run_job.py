@@ -95,6 +95,17 @@ class StarlakeAirflowCloudRunJob(StarlakeAirflowJob):
         """
         kwargs.update({'pool': kwargs.get('pool', self.pool)})
         kwargs.update({'retry_delay': timedelta(seconds=self.retry_delay_in_seconds)})
+        if task_type is not None and (task_type == TaskType.LOAD or task_type == TaskType.TRANSFORM):
+            arguments = [] if not arguments else arguments
+            params: dict = kwargs.get('params', dict())
+            cron = params.get('cron_expr', params.get('cron', None))
+            params.update({'cron': cron})
+            kwargs.update({'params': params})
+            tmp_arguments = []
+            tmp_arguments.append("--scheduledDate")
+            tmp_arguments.append("\'{{sl_scheduled_date(params.cron, ts_as_datetime(data_interval_end | ts))}}\'")
+            command = arguments.pop(0)
+            arguments = [command] + tmp_arguments + arguments
         command = f'^{self.separator}^' + self.separator.join(arguments)
         if self.cloud_run_async: # asynchronous job
             with TaskGroup(group_id=f'{task_id}_wait') as task_completion_sensors:

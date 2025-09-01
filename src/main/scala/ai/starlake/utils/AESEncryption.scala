@@ -88,17 +88,4 @@ object AESEncryption {
     val secretKey = keyGen.generateKey()
     Base64.getEncoder.encodeToString(secretKey.getEncoded)
   }
-
-  def main(args: Array[String]): Unit = {
-    val text = "Hello, World!"
-    val keyGen = KeyGenerator.getInstance("AES")
-    keyGen.init(256) // for example
-
-    val secretKey = Base64.getEncoder().encodeToString(keyGen.generateKey().getEncoded())
-    val encryptedText = AESEncryption.encrypt(text, secretKey)
-    println(s"Encrypted: $encryptedText")
-    val decryptedText = AESEncryption.decrypt(encryptedText, secretKey)
-    println(s"Decrypted: $decryptedText")
-  }
-
 }

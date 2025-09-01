@@ -286,7 +286,10 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
       case _          => jdbcSchema.schema
     }
     storageHandler.mkdirs(new Path(baseOutputDir, domainName))
+
+    // real extraction happens here
     val extractedDomain = extractDomain(jdbcSchema, connectionSettings, domainTemplate)
+
     val domain = extractedDomain.copy(
       comment = extractedDomain.comment.orElse(currentDomain.flatMap(_.comment)),
       tags =
