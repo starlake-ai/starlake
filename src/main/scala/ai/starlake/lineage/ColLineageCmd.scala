@@ -24,7 +24,7 @@ object ColLineageCmd extends Cmd[ColLineageConfig] {
         .opt[String]("output")
         .action((x, c) => c.copy(outputFile = Some(File(x))))
         .optional()
-        .text("Where to save the generated dot file ? Output to the console by default"),
+        .text("Where to save the generated JSON file ? Output to the console by default"),
       opt[String]("task")
         .action((x, c) => c.copy(task = x))
         .required()
