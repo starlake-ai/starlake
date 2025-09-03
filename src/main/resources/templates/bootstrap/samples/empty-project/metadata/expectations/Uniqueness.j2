@@ -1,4 +1,4 @@
-{% macro ExpectColumnDistinctValuesToBeInSet(table_name, column_name, values) %}
+{% macro expect_column_distinct_values_to_be_in_set(table_name = SL_THIS, column_name, values) %}
 SELECT 
     CASE 
         WHEN (
@@ -11,7 +11,7 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_column_distinct_values_to_contain_set(table_name, column_name, values) %}
+{% macro expect_column_distinct_values_to_contain_set(table_name = SL_THIS, column_name, values) %}
 SELECT 
     CASE 
         WHEN (
@@ -28,13 +28,14 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_column_distinct_values_to_equal_set(table_name, column_name, values) %}
+{% macro expect_column_distinct_values_to_equal_set(table_name = SL_THIS, column_name, values) %}
 SELECT 
     CASE 
         WHEN (
             WITH DistinctValues AS (
                 SELECT DISTINCT {{ column_name }}
                 FROM {{ table_name }}
+                ORDER BY {{ column_name }}
             ),
             ExpectedValues AS (
                 {% for value in values %}
@@ -57,7 +58,7 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_column_proportion_of_unique_values_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
+{% macro expect_column_proportion_of_unique_values_to_be_between(table_name = SL_THIS, column_name, lower_bound, upper_bound) %}
 WITH UniqueValueCount AS (
     SELECT COUNT(DISTINCT {{ column_name }}) AS unique_count
     FROM {{ table_name }}
@@ -75,7 +76,7 @@ SELECT
 FROM UniqueValueCount, TotalValueCount;
 {% endmacro %}
 
-{% macro expect_column_unique_value_count_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
+{% macro expect_column_unique_value_count_to_be_between(table_name = SL_THIS, column_name, lower_bound, upper_bound) %}
 SELECT 
     CASE 
         WHEN (
@@ -87,7 +88,7 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_column_values_to_be_unique(table_name, column_name) %}
+{% macro expect_column_values_to_be_unique(table_name = SL_THIS, column_name) %}
 SELECT 
     CASE 
         WHEN EXISTS (
@@ -101,7 +102,7 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_compound_columns_to_be_unique(table_name, columns) %}
+{% macro expect_compound_columns_to_be_unique(table_name = SL_THIS, columns) %}
 SELECT 
     CASE 
         WHEN EXISTS (
@@ -115,9 +116,10 @@ SELECT
     END AS result;
 {% endmacro %}
 
-{% macro expect_select_column_values_to_be_unique_within_record(table_name, columns) %}
+# TODO : not sure about this one
+{% macro expect_select_column_values_to_be_unique_within_record(table_name = SL_THIS, columns) %}
 WITH UniqueRows AS (
-    SELECT *,
+    SELECT {{ columns | join(', ') }},
         CASE
             WHEN 
             {% for i in range(columns | length) %}

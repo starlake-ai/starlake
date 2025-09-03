@@ -2,7 +2,7 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractSchemaCmd, ExtractSchemaConfig, JdbcDbUtils}
-import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
+import ai.starlake.job.metrics.{ExpectationJob, ExpectationReport, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{
   AccessControlEntry,
@@ -251,16 +251,7 @@ class JdbcAutoTask(
           }
 
           if (settings.appConfig.expectations.active) {
-            new ExpectationJob(
-              Option(applicationId()),
-              taskDesc.database,
-              taskDesc.domain,
-              taskDesc.table,
-              taskDesc.expectations,
-              storageHandler,
-              schemaHandler,
-              new JdbcExpectationAssertionHandler(sinkOptions)
-            ).run()
+            runAndSinkExpectations()
           }
           if (settings.appConfig.autoExportSchema) {
             val isTableInAuditDomain =
@@ -293,6 +284,34 @@ class JdbcAutoTask(
           logAuditFailure(start, end, e, test)
     }
     res
+  }
+
+  def runAndSinkExpectations(): Try[JobResult] = {
+    new ExpectationJob(
+      appId = Option(applicationId()),
+      database = taskDesc.database,
+      domainName = taskDesc.domain,
+      schemaName = taskDesc.table,
+      expectations = taskDesc.expectations,
+      storageHandler = storageHandler,
+      schemaHandler = schemaHandler,
+      sqlRunner = new JdbcExpectationAssertionHandler(sinkOptions),
+      interactive = false
+    ).run()
+  }
+
+  def runExpectations(): List[ExpectationReport] = {
+    new ExpectationJob(
+      appId = Option(applicationId()),
+      database = taskDesc.database,
+      domainName = taskDesc.domain,
+      schemaName = taskDesc.table,
+      expectations = taskDesc.expectations,
+      storageHandler = storageHandler,
+      schemaHandler = schemaHandler,
+      sqlRunner = new JdbcExpectationAssertionHandler(sinkOptions),
+      interactive = true
+    ).runExpectations()
   }
 
   private def runInteractive(conn: Connection, mainSql: String): JdbcJobResult = {

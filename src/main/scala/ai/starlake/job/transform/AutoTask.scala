@@ -24,7 +24,7 @@ import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.ingest.{AuditLog, Step}
-import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
+import ai.starlake.job.metrics.{ExpectationJob, ExpectationReport, JdbcExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.job.strategies.TransformStrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -71,6 +71,8 @@ abstract class AutoTask(
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
+  def runExpectations(): List[ExpectationReport]
+  def runAndSinkExpectations(): Try[JobResult]
   def createAuditTable(): Boolean
 
   /** Build the SQL statements to create or alter the table schema in the target database.
@@ -422,7 +424,8 @@ abstract class AutoTask(
         taskDesc.expectations,
         storageHandler,
         schemaHandler,
-        new JdbcExpectationAssertionHandler(sinkOptions)
+        new JdbcExpectationAssertionHandler(sinkOptions),
+        false
       ).buildStatementsList() match {
         case Success(expectations) =>
           expectations
@@ -539,42 +542,30 @@ abstract class AutoTask(
 
 object AutoTask extends LazyLogging {
 
-  def minimal(
-    domainName: String,
-    tableName: String,
-    connectionRef: String,
+  def fromAutoTaskInfo(
+    info: AutoTaskInfo,
     accessToken: Option[String] = None,
-    _auditTableName: Option[String] = None,
     scheduledDate: Option[String] = None
   )(implicit
     settings: Settings
   ): AutoTask = {
-    val desc =
-      AutoTaskInfo(
-        "__IGNORE__",
-        sql = None,
-        database = None,
-        domain = domainName,
-        table = tableName,
-        connectionRef = Some(connectionRef),
-        _auditTableName = _auditTableName
-      )
     AutoTask
       .task(
         appId = None,
-        taskDesc = desc,
+        taskDesc = info,
         configOptions = Map.empty,
         interactive = None,
         accessToken = accessToken,
         test = false,
         truncate = false,
         logExecution = false,
-        engine = settings.appConfig.getConnection(connectionRef).getEngine(),
+        engine = settings.appConfig.getConnection(info.getRunConnectionRef()).getEngine(),
         resultPageSize = 1000,
         resultPageNumber = 1,
         dryRun = false,
         scheduledDate = scheduledDate
       )(settings, settings.storageHandler(), settings.schemaHandler())
+
   }
 
   /** Used for lineage only
