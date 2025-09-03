@@ -409,7 +409,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     logger.info(res.toString())
     res = JdbcDbUtils.executeQueryAsMap(s"CREATE OR REPLACE TEMPORARY STAGE $tempStage", conn)
     logger.info(res.toString())
-    val putSqls = pathsAsString.map(path => s"PUT $path @$tempStage/$domain")
+    val putSqls = pathsAsString.map(path => s"PUT $path @$tempStage/$domain AUTO_COMPRESS = FALSE")
     putSqls.map { putSql =>
       res = JdbcDbUtils.executeQueryAsMap(putSql, conn)
       logger.info(res.toString())
