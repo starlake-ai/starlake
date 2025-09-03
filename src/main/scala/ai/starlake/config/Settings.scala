@@ -177,6 +177,17 @@ object Settings extends LazyLogging {
     options: Map[String, String] = Map.empty,
     _transpileDialect: Option[String] = None
   ) {
+
+    def toStarlakeCOnnection() = {
+      options.get("url") match {
+        case Some(url) if url.startsWith("jdbc:snowflake") =>
+          this.copy(
+            options = options + ("url" -> url.replace("jdbc:snowflake", "jdbc:starlake:snowflake"))
+          )
+        case _ => this
+      }
+    }
+
     def withEncryptedPassword(
       secretKey: String
     ): ConnectionInfo = {
@@ -897,6 +908,13 @@ object Settings extends LazyLogging {
     syncYamlWithDb: Boolean
     // createTableIfNotExists: Boolean
   ) extends Serializable {
+
+    def withStarlakeConnections(): AppConfig = {
+      def connectionsAsStarlakeConnections(): Map[String, ConnectionInfo] = {
+        connections.map { case (name, conn) => name -> conn.toStarlakeCOnnection() }
+      }
+      this.copy(connections = connectionsAsStarlakeConnections())
+    }
 
     @JsonIgnore
     def getEffectiveUdfs(): Seq[String] =
@@ -1636,6 +1654,10 @@ final case class Settings(
 ) {
 
   var _schemaHandler: Option[SchemaHandler] = None
+
+  def withStarlakeConnections(): Settings = {
+    this.copy(appConfig = appConfig.withStarlakeConnections())
+  }
 
   @transient
   def schemaHandler(

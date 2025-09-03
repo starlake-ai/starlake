@@ -25,10 +25,6 @@ class SparkExpectationAssertionHandler(session: SparkSession) extends Expectatio
   }
 }
 
-/** result.iterateAll().forEach(rows -> rows.forEach(row -> System.out.println(row.getValue())));
-  *
-  * @param runner
-  */
 class BigQueryExpectationAssertionHandler(runner: BigQueryNativeJob)
     extends ExpectationAssertionHandler {
   override def handle(sql: String)(implicit
@@ -61,10 +57,6 @@ class BigQueryExpectationAssertionHandler(runner: BigQueryNativeJob)
   }
 }
 
-/** result.iterateAll().forEach(rows -> rows.forEach(row -> System.out.println(row.getValue())));
-  *
-  * @param runner
-  */
 class JdbcExpectationAssertionHandler(jdbcProperties: Map[String, String])
     extends ExpectationAssertionHandler {
   override def handle(sql: String)(implicit
@@ -75,17 +67,40 @@ class JdbcExpectationAssertionHandler(jdbcProperties: Map[String, String])
       try {
         val rs = statement.executeQuery(sql)
         if (rs != null && rs.next()) {
-          val count = Try(rs.getInt(0)).getOrElse(Integer.MIN_VALUE)
+          val returnValue = Try(rs.getInt(0)).getOrElse(Integer.MIN_VALUE)
           if (rs.next()) // More than one line this is a mistake
             Integer.MIN_VALUE
           else
-            count
+            returnValue
 
         } else
           Integer.MIN_VALUE
       } finally {
         statement.close()
       }
+    }
+  }
+}
+
+class SQLConnectionExpectationAssertionHandler(connection: java.sql.Connection)
+    extends ExpectationAssertionHandler {
+  override def handle(sql: String)(implicit
+    settings: Settings
+  ): Int = {
+    val statement = connection.createStatement()
+    try {
+      val rs = statement.executeQuery(sql)
+      if (rs != null && rs.next()) {
+        val returnValue = Try(rs.getInt(0)).getOrElse(Integer.MIN_VALUE)
+        if (rs.next()) // More than one line this is a mistake
+          Integer.MIN_VALUE
+        else
+          returnValue
+
+      } else
+        Integer.MIN_VALUE
+    } finally {
+      statement.close()
     }
   }
 }

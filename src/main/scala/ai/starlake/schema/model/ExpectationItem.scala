@@ -35,8 +35,27 @@ case class ExpectationItem(
     }
   }
 
+  /** Generate a query call for this expectation e.g. {{expectationName(param1,param2)}} If the
+    * expectation is namespaced (e.g. category.expectationName(param1,param2)) only the
+    * expectationName is kept
+    * @return
+    *   the query call
+    */
   @JsonIgnore
-  def queryCall(): String = "{{" + expect + "}}"
+  def queryCall(): String = {
+    val nameIndex = expect.indexOf('(')
+    val callName =
+      if (nameIndex == -1)
+        expect
+      else {
+        val name = expect.substring(0, nameIndex)
+        val categoryIndex = name.indexOf('.')
+        if (categoryIndex == -1) expect
+        else
+          expect.substring(categoryIndex + 1)
+      }
+    "{{" + callName + "}}"
+  }
 }
 
 case class ExpectationSQL(
