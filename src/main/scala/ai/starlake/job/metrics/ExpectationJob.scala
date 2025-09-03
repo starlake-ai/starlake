@@ -5,6 +5,7 @@ import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
+import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.*
 import ai.starlake.utils.Formatter.RichFormatter
 import org.apache.hadoop.fs.Path
@@ -154,16 +155,10 @@ class ExpectationJob(
   }
 
   def runExpectations(): List[ExpectationReport] = {
-    val fullTableName = database match {
-      case Some(db) => s"$db.$domainName.$schemaName"
-      case None     => s"$domainName.$schemaName"
-    }
-    val bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $fullTableName)\n"
-
-    val macros = schemaHandler.jinjavaMacros
+    val macros = SQLUtils.stripComments(schemaHandler.jinjavaMacros)
     val expectationReports = expectations.map { expectation =>
       val expectationWithMacroDefinitions = List(macros, expectation.queryCall()).mkString("\n")
-      val sql = bqSlThisCTE +
+      val sql =
         Utils.parseJinja(
           expectationWithMacroDefinitions,
           schemaHandler.activeEnvVars()
@@ -221,7 +216,7 @@ class ExpectationJob(
             Some(Utils.exceptionAsString(e)),
             success = false
           )
-          throw new Exception(e)
+          throw new Exception(s"Error while trying to execute $sql", e)
         case Success(value) => value
       }
     }

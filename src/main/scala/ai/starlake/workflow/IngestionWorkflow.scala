@@ -1110,25 +1110,49 @@ class IngestionWorkflow(
   }
 
   def testLoad(config: StarlakeTestConfig): (List[StarlakeTestResult], StarlakeTestCoverage) = {
+    val domainName = config.domain
+    val tableName = config.table
+    val expectations =
+      (domainName, tableName) match {
+        case (Some(d), Some(t)) =>
+          schemaHandler.tableOnly(s"$d.$t") match {
+            case Success(tableDesc) => tableDesc.table.expectations
+            case Failure(_)         => Nil
+          }
+        case _ => // all good
+          Nil
+      }
     val loadTests = StarlakeTestData.loadTests(
       load = true,
       config.domain.getOrElse(""),
       config.table.getOrElse(""),
       config.test.getOrElse("")
     )
-    StarlakeTestData.runLoads(loadTests, config)
+    StarlakeTestData.runLoads(loadTests, expectations, config)
   }
 
   def testTransform(
     config: StarlakeTestConfig
   ): (List[StarlakeTestResult], StarlakeTestCoverage) = {
+    val domainName = config.domain
+    val tableName = config.table
+    val expectations =
+      (domainName, tableName) match {
+        case (Some(d), Some(t)) =>
+          schemaHandler.taskByName(s"$d.$t") match {
+            case Success(taskInfo) => taskInfo.expectations
+            case Failure(_)        => Nil
+          }
+        case _ => // all good
+          Nil
+      }
     val transformTests = StarlakeTestData.loadTests(
       load = false,
       config.domain.getOrElse(""),
       config.table.getOrElse(""),
       config.test.getOrElse("")
     )
-    StarlakeTestData.runTransforms(transformTests, config)
+    StarlakeTestData.runTransforms(transformTests, expectations, config)
   }
 
   def testLoadAndTransform(

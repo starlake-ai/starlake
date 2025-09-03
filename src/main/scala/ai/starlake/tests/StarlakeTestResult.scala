@@ -64,8 +64,8 @@ case class StarlakeTestResult(
   expectationName: String,
   missingColumns: List[String],
   notExpectedColumns: List[String],
-  missingRecords: File,
-  notExpectedRecords: File,
+  missingRecords: Option[File],
+  notExpectedRecords: Option[File],
   success: Boolean,
   exception: Option[String],
   duration: Long
@@ -98,24 +98,34 @@ case class StarlakeTestResult(
   def getNotExpectedColumns(): java.util.List[String] = notExpectedColumns.asJava
   def getNotExpectedColumnsCount(): Int = notExpectedColumns.size
   def getMissingRecords(): String =
-    if (missingRecords.exists())
-      Files.readAllLines(missingRecords.toPath).asScala.mkString("\n")
-    else ""
-  def getMissingRecordsCount() = {
-    val nbLines = if (missingRecords.exists()) getMissingRecords().split("\n").length else 0
-    if (nbLines >= 1) nbLines - 1 else 0
-  }
+    missingRecords match {
+      case Some(missingRecords) if missingRecords.exists() =>
+        Files.readAllLines(missingRecords.toPath).asScala.mkString("\n")
+      case _ => ""
+    }
+
+  def getMissingRecordsCount() =
+    missingRecords match {
+      case Some(missingRecords) if missingRecords.exists() =>
+        val nbLines = getMissingRecords().split("\n").length
+        if (nbLines >= 1) nbLines - 1 else 0
+      case _ => 0
+    }
 
   def getNotExpectedRecords(): String =
-    if (notExpectedRecords.exists())
-      Files.readAllLines(notExpectedRecords.toPath).asScala.mkString("\n")
-    else ""
+    notExpectedRecords match {
+      case Some(notExpectedRecords) if notExpectedRecords.exists() =>
+        Files.readAllLines(notExpectedRecords.toPath).asScala.mkString("\n")
+      case _ => ""
+    }
 
-  def getNotExpectedRecordsCount() = {
-    val nbLines = if (notExpectedRecords.exists()) getNotExpectedRecords().split("\n").length else 0
-    if (nbLines >= 1) nbLines - 1 else 0
-
-  }
+  def getNotExpectedRecordsCount() =
+    notExpectedRecords match {
+      case Some(notExpectedRecords) if notExpectedRecords.exists() =>
+        val nbLines = getNotExpectedRecords().split("\n").length
+        if (nbLines >= 1) nbLines - 1 else 0
+      case _ => 0
+    }
 
   def getSuccess(): Boolean = success
   def getExceptionHead(): String =
