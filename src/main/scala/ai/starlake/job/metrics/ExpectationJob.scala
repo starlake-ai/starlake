@@ -157,7 +157,8 @@ class ExpectationJob(
   def runExpectations(): List[ExpectationReport] = {
     val macros = SQLUtils.stripComments(schemaHandler.jinjavaMacros)
     val expectationReports = expectations.map { expectation =>
-      val expectationWithMacroDefinitions = List(macros, expectation.queryCall()).mkString("\n")
+      val queryCall = expectation.queryCall()
+      val expectationWithMacroDefinitions = List(macros, queryCall).mkString("\n")
       val sql =
         Utils.parseJinja(
           expectationWithMacroDefinitions,
@@ -176,7 +177,7 @@ class ExpectationJob(
           domainName,
           schemaName,
           Timestamp.from(Instant.now()),
-          "",
+          queryCall,
           expectation.expect,
           Some(sql),
           Some(expectationResult),
@@ -193,7 +194,7 @@ class ExpectationJob(
             domainName,
             schemaName,
             Timestamp.from(Instant.now()),
-            "",
+            queryCall,
             expectation.expect,
             None,
             None,
@@ -209,7 +210,7 @@ class ExpectationJob(
             domainName,
             schemaName,
             Timestamp.from(Instant.now()),
-            "",
+            queryCall,
             expectation.expect,
             Some(sql),
             None,
