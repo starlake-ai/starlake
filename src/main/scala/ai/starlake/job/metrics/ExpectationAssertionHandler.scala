@@ -67,7 +67,7 @@ class JdbcExpectationAssertionHandler(jdbcProperties: Map[String, String])
       try {
         val rs = statement.executeQuery(sql)
         if (rs != null && rs.next()) {
-          val returnValue = Try(rs.getInt(0)).getOrElse(Integer.MIN_VALUE)
+          val returnValue = Try(rs.getInt(1)).getOrElse(Integer.MIN_VALUE)
           if (rs.next()) // More than one line this is a mistake
             Integer.MIN_VALUE
           else
