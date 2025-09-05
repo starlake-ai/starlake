@@ -215,7 +215,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency SL_API_ZIP = new ResourceDependency("starlake-api", "https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-api" + "_" + SCALA_VERSION + "/" + SL_API_VERSION + "/starlake-api"+ "_" + SCALA_VERSION + "-" + SL_API_VERSION + ".zip");
 
     // SPARK
-    private static final ResourceDependency SPARK_JAR = new ResourceDependency("dist/spark", "https://archive.apache.org/dist/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION + "-scala2.13.tgz");
+    private static final ResourceDependency SPARK_JAR = new ResourceDependency("dist/spark", "https://www.apache.org/dyn/closer.lua/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION  + "-scala2.13.tgz?action=download");
     private static final ResourceDependency SPARK_BQ_JAR = new ResourceDependency("bigquery-with-dependencies",
             "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_" + SCALA_VERSION + "/" +
                     SPARK_BQ_VERSION + "/" +
@@ -794,7 +794,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     private static void downloadAndDisplayProgress(ResourceDependency resource, BiFunction<ResourceDependency, String, File> fileProducer) throws IOException, InterruptedException {
         try {
-            client = clientBuilder.build();
+            client = clientBuilder.followRedirects(HttpClient.Redirect.ALWAYS).build();
             boolean succesfullyDownloaded = false;
             List<String> triedUrlList = new ArrayList<>();
             System.out.println("Downloading " + resource.artefactName + "...");
@@ -811,48 +811,46 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
                 if (response.statusCode() == 200) {
                     long lengthOfFile = response.headers().firstValueAsLong("Content-Length").orElse(0L);
-                    InputStream input = new BufferedInputStream(response.body());
-                    OutputStream output = new FileOutputStream(file);
-                    byte[] data = new byte[CHUNK_SIZE];
-                    long total = 0;
-                    int count;
-                    int loop = 0;
-                    int sbLen = 0;
-                    long lastTime = System.currentTimeMillis();
-                    while ((count = input.read(data)) != -1) {
-                        total += count;
-                        output.write(data, 0, count);
-                        loop++;
-                        if (loop % 1000 == 0) {
-                            StringBuilder sb = new StringBuilder(" " + (total / 1024 / 1024) + "/" + (lengthOfFile / 1024 / 1024) + " MB");
-                            if (lengthOfFile > 0) {
-                                sb.append(" (");
-                                sb.append(total * 100 / lengthOfFile);
-                                sb.append("%)");
+                    try (InputStream input = new BufferedInputStream(response.body());
+                         OutputStream output = new FileOutputStream(file)) {
+                        byte[] data = new byte[CHUNK_SIZE];
+                        long total = 0;
+                        int count;
+                        int loop = 0;
+                        int sbLen = 0;
+                        long lastTime = System.currentTimeMillis();
+                        while ((count = input.read(data)) != -1) {
+                            total += count;
+                            output.write(data, 0, count);
+                            loop++;
+                            if (loop % 1000 == 0) {
+                                StringBuilder sb = new StringBuilder(" " + (total / 1024 / 1024) + "/" + (lengthOfFile / 1024 / 1024) + " MB");
+                                if (lengthOfFile > 0) {
+                                    sb.append(" (");
+                                    sb.append(total * 100 / lengthOfFile);
+                                    sb.append("%)");
+                                }
+                                long currentTime = System.currentTimeMillis();
+                                long timeDiff = currentTime - lastTime;
+                                double bytesPerMilliSec = (CHUNK_SIZE * 1000.0 / timeDiff);
+                                double bytesPerSec = bytesPerMilliSec * 1000;
+                                double mbPerSec = bytesPerSec / 1024 / 1024;
+                                sb.append(" ");
+                                sb.append(String.format("[%.2f MB/sec]", mbPerSec));
+                                lastTime = currentTime;
+                                sbLen = sb.length();
+                                for (int cnt = 0; cnt < sbLen; cnt++) {
+                                    System.out.print("\b");
+                                }
+                                System.out.print(sb);
                             }
-                            long currentTime = System.currentTimeMillis();
-                            long timeDiff = currentTime - lastTime;
-                            double bytesPerMilliSec = (CHUNK_SIZE * 1000.0 / timeDiff);
-                            double bytesPerSec = bytesPerMilliSec * 1000;
-                            double mbPerSec = bytesPerSec / 1024 / 1024;
-                            sb.append(" ");
-                            sb.append(String.format("[%.2f MB/sec]", mbPerSec));
-                            lastTime = currentTime;
-                            sbLen = sb.length();
-                            for (int cnt = 0; cnt < sbLen; cnt++) {
-                                System.out.print("\b");
-                            }
-                            System.out.print(sb);
                         }
+                        for (int cnt = 0; cnt < sbLen; cnt++) {
+                            System.out.print("\b");
+                        }
+                        System.out.print(file.getAbsolutePath() + " succesfully downloaded from " + urlFolder);
+                        System.out.println();
                     }
-                    for (int cnt = 0; cnt < sbLen; cnt++) {
-                        System.out.print("\b");
-                    }
-                    System.out.print(file.getAbsolutePath() + " succesfully downloaded from " + urlFolder);
-                    System.out.println();
-                    output.flush();
-                    output.close();
-                    input.close();
                     succesfullyDownloaded = true;
                     break;
                 } else {
