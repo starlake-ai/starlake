@@ -69,10 +69,9 @@ get_version_to_install() {
         fi
     done
 
-    ALL_SNAPSHOT_VERSIONS=$(get_from_url https://s01.oss.sonatype.org/service/local/repositories/snapshots/content/ai/starlake/starlake-core_2.13/ | awk -F'<|>' '/<text>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$' | sort -rV)
-    ALL_RELEASE_NEW_PATTERN_VERSIONS=$(get_from_url https://s01.oss.sonatype.org/service/local/repositories/releases/content/ai/starlake/starlake-core_2.13/ | awk -F'<|>' '/<text>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
-    ALL_RELEASE_OLD_PATTERN_VERSIONS=$(get_from_url https://s01.oss.sonatype.org/service/local/repositories/releases/content/ai/starlake/starlake-spark3_2.13/ | awk -F'<|>' '/<text>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
-    ALL_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_NEW_PATTERN_VERSIONS $ALL_RELEASE_OLD_PATTERN_VERSIONS")
+    ALL_SNAPSHOT_VERSIONS=$(get_from_url https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-core_2.13/maven-metadata.xml | awk -F'<|>' '/<version>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$' | sort -rV)
+    ALL_RELEASE_NEW_PATTERN_VERSIONS=$(get_from_url https://repo1.maven.org/maven2/ai/starlake/starlake-core_2.13/maven-metadata.xml | awk -F'<|>' '/<version>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
+    ALL_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_NEW_PATTERN_VERSIONS")
 
     SNAPSHOT_VERSION=$(echo "$ALL_SNAPSHOT_VERSIONS" | head -n 1)
     LATEST_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_VERSIONS" | head -n 5)
