@@ -30,6 +30,6 @@ table:
         type: "string"
         required: true
     expectations:
-      - expect: "is_col_value_not_unique('id')"
+      - expect: "is_col_value_not_unique('id', 'hr.flat_locations')"
         failOnError: false
 
