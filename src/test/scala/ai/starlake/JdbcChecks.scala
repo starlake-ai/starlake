@@ -186,6 +186,7 @@ trait JdbcChecks {
 
   }
 
+  // For testing only
   protected def expectingAudit(jdbcName: String, values: AuditLog*)(implicit
     settings: Settings
   ): Assertion = {

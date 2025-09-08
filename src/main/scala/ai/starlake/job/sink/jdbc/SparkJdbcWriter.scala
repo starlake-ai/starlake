@@ -1,8 +1,9 @@
 package ai.starlake.job.sink.jdbc
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{Settings, SparkSessionBuilder}
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.utils._
+import ai.starlake.utils.*
+import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 
@@ -15,7 +16,10 @@ class SparkJdbcWriter(
 
   override def name: String = s"cnxload-JDBC-${cliConfig.outputDomainAndTableName}"
 
-  val conf = session.sparkContext.hadoopConfiguration
+  val conf: Configuration = {
+    assert(!SparkSessionBuilder.isSparkConnectActive, "JDBC is not supported with Spark Connect")
+    session.sparkContext.hadoopConfiguration
+  }
   logger.info(s"JDBC Config $cliConfig")
 
   val jdbcOptions =

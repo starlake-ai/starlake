@@ -47,28 +47,28 @@ class SparkEnv private (
     */
   lazy val session: SparkSession = {
     val sysProps = System.getProperties()
+    if (!SparkSessionBuilder.isSparkConnectActive) {
+      if (
+        sys.env.getOrElse("SL_SPARK_NO_CATALOG", "false").toBoolean &&
+        config.getOption("spark.sql.catalogImplementation").isEmpty
+      ) {
+        // We need to avoid in-memory catalog implementation otherwise delta will fail to work
+        // through subsequent spark sessions since the metastore is not present anywhere.
+        sysProps.setProperty("derby.system.home", datasetsArea)
+        config.set("spark.sql.warehouse.dir", datasetsArea)
+      }
 
-    if (
-      sys.env.getOrElse("SL_SPARK_NO_CATALOG", "false").toBoolean &&
-      config.getOption("spark.sql.catalogImplementation").isEmpty
-    ) {
-      // We need to avoid in-memory catalog implementation otherwise delta will fail to work
-      // through subsequent spark sessions since the metastore is not present anywhere.
-      sysProps.setProperty("derby.system.home", datasetsArea)
-      config.set("spark.sql.warehouse.dir", datasetsArea)
+      if (Utils.isIcebergAvailable()) {
+        // Handled by configuration
+      } else if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
+        config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        if (config.get("spark.sql.catalog.spark_catalog", "").isEmpty)
+          config.set(
+            "spark.sql.catalog.spark_catalog",
+            "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+          )
+      }
     }
-
-    if (Utils.isIcebergAvailable()) {
-      // Handled by configuration
-    } else if (!Utils.isRunningInDatabricks() && Utils.isDeltaAvailable()) {
-      config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-      if (config.get("spark.sql.catalog.spark_catalog", "").isEmpty)
-        config.set(
-          "spark.sql.catalog.spark_catalog",
-          "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-        )
-    }
-
     // spark.sql.catalogImplementation = in-memory incompatible with delta on multiple spark sessions
     /*
     val catalogs = settings.sparkConfig.getString("sql.catalogKeys").split(",").toList

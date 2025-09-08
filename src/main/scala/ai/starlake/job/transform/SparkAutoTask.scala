@@ -1,6 +1,6 @@
 package ai.starlake.job.transform
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{Settings, SparkSessionBuilder}
 import ai.starlake.extract.{JdbcDbUtils, SparkExtractorJob}
 import ai.starlake.job.metrics.{ExpectationJob, ExpectationReport, SparkExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
@@ -80,11 +80,14 @@ class SparkAutoTask(
 
   def applyHiveTableAcl(): Try[Unit] =
     Try {
-      val isGrantSupported = Try(
-        session.sessionState.sqlParser.parseExpression(
-          "grant select on table secured_table to role my_role"
-        )
-      ).isSuccess
+      val isGrantSupported =
+        if (SparkSessionBuilder.isSparkConnectActive) true
+        else
+          Try(
+            session.sessionState.sqlParser.parseExpression(
+              "grant select on table secured_table to role my_role"
+            )
+          ).isSuccess
       if (isGrantSupported) {
         if (settings.appConfig.accessPolicies.apply) {
           val sqls = this.aclSQL()
