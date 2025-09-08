@@ -55,6 +55,8 @@ case class ExpectationReport(
     import ai.starlake.utils.Formatter.*
     timestamp.setNanos(0)
     val template = ExpectationJob.selectTemplate(engineName)
+    def replaceQuote(s: String): String =
+      s.replaceAll("'", "\"").replaceAll("\n", " ")
     val selectStatement = template.richFormat(
       Map(
         "jobid"     -> jobId,
@@ -62,11 +64,11 @@ case class ExpectationReport(
         "domain"    -> domain,
         "schema"    -> schema,
         "timestamp" -> timestamp.toString(),
-        "name"      -> name,
-        "params"    -> params.replaceAll("'", "-").replaceAll("\n", " "),
-        "sql"       -> sql.getOrElse("").replaceAll("'", "-").replaceAll("\n", " "),
+        "name"      -> replaceQuote(name),
+        "params"    -> replaceQuote(params),
+        "sql"       -> replaceQuote(sql.getOrElse("")),
         "count"     -> count.getOrElse(0L).toString,
-        "exception" -> exception.getOrElse("").replaceAll("'", "-").replaceAll("\n", " "),
+        "exception" -> replaceQuote(exception.getOrElse("")),
         "success"   -> success.toString
       ),
       Map.empty

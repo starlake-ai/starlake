@@ -68,7 +68,8 @@ case class StarlakeTestResult(
   notExpectedRecords: Option[File],
   success: Boolean,
   exception: Option[String],
-  duration: Long
+  duration: Long,
+  sql: Option[String]
 ) {
   def junitErrMessage(): Option[String] = {
     if (!success) {
