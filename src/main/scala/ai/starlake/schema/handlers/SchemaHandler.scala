@@ -405,8 +405,18 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     this._types
   }
 
-  lazy val jinjavaMacros: String = {
+  lazy val expectationMacros: String = {
     val j2Files = storage.list(DatasetArea.expectations, ".j2", recursive = true).map(_.path)
+    val macros = j2Files
+      .map { path =>
+        val content = storage.read(path)
+        "\n" + content + "\n"
+      }
+    macros.mkString("\n")
+  }
+
+  lazy val macros: String = {
+    val j2Files = storage.list(DatasetArea.macros, ".j2", recursive = true).map(_.path)
     val macros = j2Files
       .map { path =>
         val content = storage.read(path)

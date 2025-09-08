@@ -170,12 +170,28 @@ abstract class AutoTask(
   def buildConnection(): Map[String, String] = {
     sinkConnection.asMap()
   }
+
+  /** Substitute any macros except the ones that must be handled by the orchestrator
+    */
+  private def substituteMainSql(
+    sql: String
+  ): String = {
+    val replacedSql = sql
+      .replaceAll("\\{\\{\\s*sl_start_date\\s*}}", "__sl_start_date__")
+      .replaceAll("\\{\\{\\s*sl_end_date\\s*}}", "__sl_end_date__")
+
+    Utils
+      .parseJinja(schemaHandler.macros + "\n" + replacedSql, Map.empty)
+      .replaceAll("__sl_start_date__", "{{ sl_start_date }}")
+      .replaceAll("__sl_end_date__", "{{ sl_end_date }}")
+  }
+
   def buildAllSQLQueries(
     sql: Option[String],
     tableExistsForcedValue: Option[Boolean] = None,
     forceNative: Boolean = false
   ): String = {
-    val inputSQL = sql.getOrElse(taskDesc.getSql())
+    val inputSQL = substituteMainSql(sql.getOrElse(taskDesc.getSql()))
     val runConnection =
       if (forceNative) {
         this.taskDesc.getRunConnection().copy(sparkFormat = None)
