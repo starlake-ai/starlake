@@ -3,11 +3,7 @@ package ai.starlake.tests
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.Main
-import ai.starlake.job.metrics.{
-  ExpectationJob,
-  JdbcExpectationAssertionHandler,
-  SQLConnectionExpectationAssertionHandler
-}
+import ai.starlake.job.metrics.{ExpectationJob, SQLConnectionExpectationAssertionHandler}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.schema.model.{DDLLeaf, EnvDesc, ExpectationItem}
@@ -255,7 +251,7 @@ object StarlakeTestData {
     }
   }
 
-  def compareResults2(
+  def compareResultsOld(
     testFolder: Directory,
     targetDomain: String,
     targetTable: String,
@@ -336,7 +332,8 @@ object StarlakeTestData {
           notExpectedRecords = Option(notExpectedPath),
           success = success,
           exception = None,
-          duration = duration
+          duration = duration,
+          None
         )
       } match {
         case Success(result) => result
@@ -354,7 +351,8 @@ object StarlakeTestData {
             notExpectedRecords = None,
             success = false,
             exception = Some(Utils.exceptionAsString(e)),
-            duration = duration
+            duration = duration,
+            None
           )
       }
     }
@@ -395,7 +393,8 @@ object StarlakeTestData {
         notExpectedRecords = None,
         success = report.success,
         exception = report.exception,
-        duration = duration
+        duration = duration,
+        sql = report.sql
       )
     }.toArray
   }
@@ -689,7 +688,8 @@ object StarlakeTestData {
                     notExpectedRecords = None,
                     success = false,
                     exception = Some(Utils.exceptionAsString(e)),
-                    duration = end - start // in milliseconds
+                    duration = end - start, // in milliseconds
+                    sql = None
                   )
                 )
               case Success(_) =>
@@ -1178,32 +1178,33 @@ object StarlakeTestData {
 
     val table = schemaHandler.tableOnly(s"$domainName.$tableName").map(_.table).toOption
     val expectedCreateTable = table match {
-      case Some(table) if table.isFlat() =>
-        // We have the table YML file, we thus create the table schema using the YML file ddl mapping feature
-        val fields = table.ddlMapping("duckdb", schemaHandler)
-        val cols = fields
-          .map { case field: DDLLeaf =>
-            s""""${field.name}" ${field.tpe}"""
-          }
-          .mkString(", ")
-        val firstLine =
-          if (dataFile.getName.endsWith("json"))
-            Files
-              .readAllLines(Paths.get(dataFile.toString), StandardCharsets.UTF_8)
-              .get(0)
-              .trim
-          else
-            ""
-        val extraArgs =
-          if (firstLine.startsWith("[")) "(FORMAT JSON, ARRAY true)"
-          else if (dataFile.getName.endsWith("csv"))
-            s"(FORMAT CSV, nullstr '${settings.appConfig.testCsvNullString}')"
-          else ""
-        s"""CREATE OR REPLACE TABLE "$domainName"."$tableName" ($cols);
+      case Some(table) =>
+        if (table.isFlat()) {
+          // We have the table YML file, we thus create the table schema using the YML file ddl mapping feature
+          val fields = table.ddlMapping("duckdb", schemaHandler)
+          val cols = fields
+            .map { case field: DDLLeaf =>
+              s""""${field.name}" ${field.tpe}"""
+            }
+            .mkString(", ")
+          val firstLine =
+            if (dataFile.getName.endsWith("json"))
+              Files
+                .readAllLines(Paths.get(dataFile.toString), StandardCharsets.UTF_8)
+                .get(0)
+                .trim
+            else
+              ""
+          val extraArgs =
+            if (firstLine.startsWith("[")) "(FORMAT JSON, ARRAY true)"
+            else if (dataFile.getName.endsWith("csv"))
+              s"(FORMAT CSV, nullstr '${settings.appConfig.testCsvNullString}')"
+            else ""
+          s"""CREATE OR REPLACE TABLE "$domainName"."$tableName" ($cols);
                  |COPY "$domainName"."$tableName" FROM '${dataFile.toString}' $extraArgs;""".stripMargin
-      case Some(table) if !table.isFlat() =>
-        // We have the table YML file, we thus create the table schema using the YML file ddl mapping feature
-        s"""ERROR: Nested tables are not supported in tests => table $domainName.$table"""
+        } else {
+          s"""ERROR: Flat tables are expected in tests => table $domainName.$table"""
+        }
       case None =>
         // Table not present in starlake schema, we let duckdb infer the schema
         val source =

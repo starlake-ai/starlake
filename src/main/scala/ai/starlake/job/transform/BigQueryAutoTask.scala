@@ -342,7 +342,7 @@ class BigQueryAutoTask(
                 if (logExecution)
                   jobResultCount.foreach(logAuditSuccess(start, end, _, test))
                 // We execute assertions only on success
-                if (settings.appConfig.expectations.active) {
+                if (settings.appConfig.expectations.active && !taskDesc.isAuditTable()) {
                   runAndSinkExpectations()
                 }
               }

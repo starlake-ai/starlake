@@ -75,6 +75,9 @@ case class AutoTaskInfo(
 ) extends Named {
 
   @JsonIgnore
+  def isAuditTable(): Boolean = _auditTableName.isDefined
+
+  @JsonIgnore
   def getSyncStrategyValue(): TableSync = syncStrategy.getOrElse(TableSync.ADD)
 
   @JsonIgnore

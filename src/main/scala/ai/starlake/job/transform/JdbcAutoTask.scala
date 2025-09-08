@@ -250,7 +250,7 @@ class JdbcAutoTask(
             }
           }
 
-          if (settings.appConfig.expectations.active) {
+          if (settings.appConfig.expectations.active && !taskDesc.isAuditTable()) {
             runAndSinkExpectations()
           }
           if (settings.appConfig.autoExportSchema) {

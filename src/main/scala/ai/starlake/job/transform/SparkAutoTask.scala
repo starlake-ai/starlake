@@ -317,7 +317,7 @@ class SparkAutoTask(
             }
             applyHiveTableAcl()
           }
-          if (settings.appConfig.expectations.active) {
+          if (settings.appConfig.expectations.active && !taskDesc.isAuditTable()) {
             runAndSinkExpectations()
           }
           applyHiveTableAcl()
