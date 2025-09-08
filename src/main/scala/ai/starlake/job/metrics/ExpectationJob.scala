@@ -155,6 +155,10 @@ class ExpectationJob(
   }
 
   def runExpectations(): List[ExpectationReport] = {
+    val fullTableName = database match {
+      case Some(db) => s"$db.$domainName.$schemaName"
+      case None     => s"$domainName.$schemaName"
+    }
     val macros = SQLUtils.stripComments(schemaHandler.jinjavaMacros)
     val expectationReports = expectations.map { expectation =>
       val queryCall = expectation.queryCall()
@@ -164,11 +168,16 @@ class ExpectationJob(
           expectationWithMacroDefinitions,
           schemaHandler.activeEnvVars()
         )
+      val sqlWithSlThis =
+        if (sql.contains("sl_this")) {
+          sql.replaceAll("(?i)sl_this", fullTableName)
+        } else
+          sql
       logger.info(
-        s"Applying expectation: ${expectation.expect} with request $sql"
+        s"Applying expectation: ${expectation.expect} with request $sqlWithSlThis"
       )
       Try {
-        val expectationResult = sqlRunner.handle(sql)
+        val expectationResult = sqlRunner.handle(sqlWithSlThis)
         val success = expectationResult == 0
         if (!success) _failOnError = true
         ExpectationReport(
@@ -179,7 +188,7 @@ class ExpectationJob(
           Timestamp.from(Instant.now()),
           queryCall,
           expectation.expect,
-          Some(sql),
+          Some(sqlWithSlThis),
           Some(expectationResult),
           None,
           success = success
@@ -212,7 +221,7 @@ class ExpectationJob(
             Timestamp.from(Instant.now()),
             queryCall,
             expectation.expect,
-            Some(sql),
+            Some(sqlWithSlThis),
             None,
             Some(Utils.exceptionAsString(e)),
             success = false
