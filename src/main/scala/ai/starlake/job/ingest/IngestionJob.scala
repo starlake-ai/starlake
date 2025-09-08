@@ -1,6 +1,6 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.config.{CometColumns, DatasetArea, Settings}
+import ai.starlake.config.{CometColumns, DatasetArea, Settings, SparkSessionBuilder}
 import ai.starlake.exceptions.DisallowRejectRecordException
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.validator.SimpleRejectedRecord
@@ -10,19 +10,19 @@ import ai.starlake.job.ingest.loaders.{
   NativeLoader,
   SnowflakeNativeLoader
 }
-import ai.starlake.job.metrics._
-import ai.starlake.job.sink.bigquery._
+import ai.starlake.job.metrics.*
+import ai.starlake.job.sink.bigquery.*
 import ai.starlake.job.transform.{SparkAutoTask, SparkExportTask}
 import ai.starlake.job.validator.{CheckValidityResult, GenericRowValidator}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
-import ai.starlake.utils.Formatter._
-import ai.starlake.utils._
+import ai.starlake.schema.model.*
+import ai.starlake.utils.Formatter.*
+import ai.starlake.utils.*
 import com.google.cloud.bigquery.TableId
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
-import org.apache.spark.sql._
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.*
+import org.apache.spark.sql.functions.*
 import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.sql.Timestamp
@@ -511,10 +511,12 @@ trait IngestionJob extends SparkJob {
     *   : Spark Session used for the job
     */
   def ingestWithSpark(): Try[List[IngestionCounters]] = {
-    session.sparkContext.setLocalProperty(
-      "spark.scheduler.pool",
-      settings.appConfig.sparkScheduling.poolName
-    )
+    if (!SparkSessionBuilder.isSparkConnectActive) {
+      session.sparkContext.setLocalProperty(
+        "spark.scheduler.pool",
+        settings.appConfig.sparkScheduling.poolName
+      )
+    }
     val jobResult = {
       val start = Timestamp.from(Instant.now())
       val dataset = loadDataSet()
