@@ -2,6 +2,10 @@
 [![Maven Central Starlake Spark 3](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-core_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-core_2.12)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
+# Installing Starlake
+Please refer to the documentation: https://docs.starlake.ai/setup/starlake-core-setup
+
+
 # Sister projects
 
 - [Starlake Docker](https://github.com/starlake-ai/starlake-docker): Run Starlake in a docker container
@@ -89,7 +93,7 @@ table:
       type: "UPSERT_BY_KEY_AND_TIMESTAMP"
       timestamp: signup
       key: [id]
-                        # Please replace it by the adequate file pattern eq. customers-.*.psv if required
+      # Please replace it by the adequate file pattern eq. customers-.*.psv if required
   attributes:           # Description of the fields to recognize
     - name: "id"        # attribute name and column name in the destination table if no rename attribute is defined
       type: "string"    # expected type
@@ -125,8 +129,8 @@ transform:
 ```
 ```sql
 SELECT          # the SQL query will be translated into the appropriate MERGE INTO or INSERT OVERWRITE statement
-    productid,
-    SUM(unitprice * orderqty) AS total_revenue
+productid,
+SUM(unitprice * orderqty) AS total_revenue
 FROM salesorderdetail
 GROUP BY productid
 ORDER BY total_revenue DESC
