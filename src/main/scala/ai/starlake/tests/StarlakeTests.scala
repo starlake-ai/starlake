@@ -230,7 +230,7 @@ object StarlakeTestData {
   }
 
 // Call transpile
-  def outputTableDifferences(
+  private def outputTableDifferences(
     conn: Connection,
     targetDomain: String,
     targetTable: String,
