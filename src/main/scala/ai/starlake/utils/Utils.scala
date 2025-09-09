@@ -337,6 +337,12 @@ object Utils extends LazyLogging {
     _jinjava = null
   }
 
+  def renderJinja(str: String, params: Map[String, Any] = Map.empty)(implicit
+    settings: Settings
+  ): String = {
+    jinjava.render(str, params.asJava)
+  }
+
   def parseJinja(str: String, params: Map[String, Any])(implicit
     settings: Settings
   ): String =
@@ -349,8 +355,7 @@ object Utils extends LazyLogging {
     settings: Settings
   ): List[String] = {
     val result = str.map { sql =>
-      jinjava
-        .render(sql, params.asJava)
+      renderJinja(sql, params)
         .richFormat(params, Map.empty)
         .trim
     }
