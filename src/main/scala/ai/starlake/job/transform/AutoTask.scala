@@ -152,7 +152,7 @@ abstract class AutoTask(
 
   protected lazy val allVars =
     schemaHandler.activeEnvVars() ++ commandParameters // ++ Map("merge" -> tableExists)
-  protected lazy val preSql = {
+  lazy val preSql = {
     val testMacros =
       if (this.test) {
         List("LOAD SPATIAL", "LOAD JSON") ++ JSQLTranspiler.getMacroArray.toList
@@ -160,7 +160,7 @@ abstract class AutoTask(
         Nil
     testMacros ++ parseJinja(taskDesc.presql, allVars).filter(_.trim.nonEmpty)
   }
-  protected lazy val postSql = parseJinja(taskDesc.postsql, allVars).filter(_.trim.nonEmpty)
+  lazy val postSql = parseJinja(taskDesc.postsql, allVars).filter(_.trim.nonEmpty)
 
   lazy val jdbcSinkEngineName = this.sinkConnection.getJdbcEngineName()
   lazy val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
@@ -736,7 +736,7 @@ object AutoTask extends LazyLogging {
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
-  ): Try[List[Map[String, Any]]] = {
+  ): Try[List[List[(String, Any)]]] = {
     val connection =
       Try(
         settings.appConfig
@@ -783,7 +783,7 @@ object AutoTask extends LazyLogging {
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
-  ): Try[List[Map[String, Any]]] = Try {
+  ): Try[List[List[(String, Any)]]] = Try {
     val quote =
       settings.appConfig.jdbcEngines
         .get(connection.getJdbcEngineName().toString)
@@ -843,7 +843,7 @@ object AutoTask extends LazyLogging {
     )
     t.run() match {
       case Success(jobResult) =>
-        jobResult.asMap()
+        jobResult.asList()
       case Failure(e) =>
         e.printStackTrace()
         throw e

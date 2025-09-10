@@ -30,7 +30,7 @@ class JDBCIntegrationSpecBase extends IntegrationTestBase with PgContainerHelper
           connection.sparkDatasource().getOrElse("jdbc"),
           None
         )
-      JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
+      JdbcDbUtils.withJDBCConnection(settings.schemaHandler().dataBranch(), jdbcOptions) { conn =>
         // drop table using jdbc statement connection conn in the lines below
         val allTables = List("sales.customers", "sales.orders", "hr.locations", "hr.sellers")
         allTables.foreach { table =>

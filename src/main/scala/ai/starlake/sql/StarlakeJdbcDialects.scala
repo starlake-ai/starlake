@@ -33,7 +33,7 @@ private object StarlakeDuckDbDialect extends JdbcDialect with SQLConfHelper {
     (partitionId: Int) =>
       {
         try {
-          StarlakeConnectionPool.getConnection(options.parameters)
+          StarlakeConnectionPool.getConnection(None, options.parameters)
         } catch {
           case e: Throwable =>
             throw new Exception(

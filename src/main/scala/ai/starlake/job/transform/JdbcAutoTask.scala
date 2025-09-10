@@ -66,6 +66,7 @@ class JdbcAutoTask(
   override def tableExists: Boolean = {
     val exists =
       JdbcDbUtils.withJDBCConnection(
+        this.schemaHandler.dataBranch(),
         JdbcDbUtils
           .readOnlyConnection(sinkConnection)(settings)
           .options
@@ -83,16 +84,17 @@ class JdbcAutoTask(
   @throws[Exception]
   def createAuditTable(): Boolean = {
     // Table not found and it is an table in the audit schema defined in the reference-connections.conf file  Try to create it.
-    JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-      auditTableCreateSQL().foreach { sql =>
-        JdbcDbUtils.executeUpdate(sql, conn) match {
-          case Success(_) =>
-          case Failure(e) =>
-            logger.error(s"Error executing $sql", e)
-            throw e
+    JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnection.options) {
+      conn =>
+        auditTableCreateSQL().foreach { sql =>
+          JdbcDbUtils.executeUpdate(sql, conn) match {
+            case Success(_) =>
+            case Failure(e) =>
+              logger.error(s"Error executing $sql", e)
+              throw e
+          }
         }
-      }
-      true
+        true
     }
   }
 
@@ -137,7 +139,11 @@ class JdbcAutoTask(
 
     if (interactive.isEmpty && settings.appConfig.createSchemaIfNotExists) {
       // Creating a schema requires its own connection if called before a Spark save
-      JdbcDbUtils.withJDBCConnection(sinkConnection.options, sqlConnection) { conn =>
+      JdbcDbUtils.withJDBCConnection(
+        this.schemaHandler.dataBranch(),
+        sinkConnection.options,
+        sqlConnection
+      ) { conn =>
         JdbcDbUtils.createSchema(conn, fullDomainName)
       }
     }
@@ -158,7 +164,11 @@ class JdbcAutoTask(
 
       interactive match {
         case Some(_) =>
-          JdbcDbUtils.withJDBCConnection(sinkOptions, sqlConnection) { conn =>
+          JdbcDbUtils.withJDBCConnection(
+            this.schemaHandler.dataBranch(),
+            sinkOptions,
+            sqlConnection
+          ) { conn =>
             runInteractive(conn, mainSql)
           }
         case None =>
@@ -169,7 +179,11 @@ class JdbcAutoTask(
             )
           df match {
             case Some(loadedDF) =>
-              JdbcDbUtils.withJDBCConnection(sinkOptions, sqlConnection) { conn =>
+              JdbcDbUtils.withJDBCConnection(
+                this.schemaHandler.dataBranch(),
+                sinkOptions,
+                sqlConnection
+              ) { conn =>
                 Try {
                   conn.setAutoCommit(false)
                   runPreActions(conn, parsedPreActions.splitSql(";"))
@@ -184,6 +198,7 @@ class JdbcAutoTask(
                   }
                 } match {
                   case Success(_) =>
+                    runSqls(conn, postSql, "Post")
                     conn.commit()
                   case Failure(e) =>
                     conn.rollback()
@@ -202,6 +217,7 @@ class JdbcAutoTask(
                   .mode(SaveMode.Overwrite) // truncate done above if requested
                   .save(tablePath.toString)
                 JdbcDbUtils.withJDBCConnection(
+                  this.schemaHandler.dataBranch(),
                   sinkConnection.options.updated("enable_external_access", "true"),
                   sqlConnection
                 ) { conn =>
@@ -220,7 +236,11 @@ class JdbcAutoTask(
               }
 
             case None =>
-              JdbcDbUtils.withJDBCConnection(sinkOptions, sqlConnection) { conn =>
+              JdbcDbUtils.withJDBCConnection(
+                this.schemaHandler.dataBranch(),
+                sinkOptions,
+                sqlConnection
+              ) { conn =>
                 Try {
                   conn.setAutoCommit(false)
                   runPreActions(conn, parsedPreActions.splitSql(";"))
@@ -229,6 +249,7 @@ class JdbcAutoTask(
                   runSqls(conn, finalSqls, "Main")
                 } match {
                   case Success(_) =>
+                    runSqls(conn, postSql, "Post")
                     conn.commit()
                   case Failure(e) =>
                     conn.rollback()
@@ -237,10 +258,13 @@ class JdbcAutoTask(
               }
           }
 
-          JdbcDbUtils.withJDBCConnection(sinkOptions, sqlConnection) { conn =>
+          JdbcDbUtils.withJDBCConnection(
+            this.schemaHandler.dataBranch(),
+            sinkOptions,
+            sqlConnection
+          ) { conn =>
             Try {
               if (!test) applyJdbcAcl(conn, forceApply = true)
-              runSqls(conn, postSql, "Post")
               addSCD2Columns(conn, sinkConnection.getJdbcEngineName())
             } match {
               case Success(_) =>
@@ -420,71 +444,72 @@ class JdbcAutoTask(
     val sinkConnectionRefOptions = sinkConnection.options
     val jdbcUrl = sinkConnectionRefOptions("url")
     val targetTableExists: Boolean = tableExists
-    JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
-      if (targetTableExists) {
-        val existingSchema =
-          SparkUtils.getSchemaOption(conn, sinkConnectionRefOptions, tableName)
-        val addedSchema =
-          SparkUtils.added(
-            incomingSchemaWithSCD2,
-            existingSchema.getOrElse(incomingSchema)
-          )
-        val alterTableDropColumns =
-          if (syncStrategy == TableSync.ALL) {
-            val deletedSchema =
-              SparkUtils.dropped(
-                incomingSchemaWithSCD2,
-                existingSchema.getOrElse(incomingSchema)
-              )
-            val columnsToDrop =
-              SparkUtils.alterTableDropColumnsString(deletedSchema, tableName)
-            if (columnsToDrop.nonEmpty) {
-              logger.info(
-                s"alter table $tableName with ${columnsToDrop.size} columns to drop"
-              )
-              logger.debug(s"alter table ${columnsToDrop.mkString("\n")}")
+    JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnectionRefOptions) {
+      conn =>
+        if (targetTableExists) {
+          val existingSchema =
+            SparkUtils.getSchemaOption(conn, sinkConnectionRefOptions, tableName)
+          val addedSchema =
+            SparkUtils.added(
+              incomingSchemaWithSCD2,
+              existingSchema.getOrElse(incomingSchema)
+            )
+          val alterTableDropColumns =
+            if (syncStrategy == TableSync.ALL) {
+              val deletedSchema =
+                SparkUtils.dropped(
+                  incomingSchemaWithSCD2,
+                  existingSchema.getOrElse(incomingSchema)
+                )
+              val columnsToDrop =
+                SparkUtils.alterTableDropColumnsString(deletedSchema, tableName)
+              if (columnsToDrop.nonEmpty) {
+                logger.info(
+                  s"alter table $tableName with ${columnsToDrop.size} columns to drop"
+                )
+                logger.debug(s"alter table ${columnsToDrop.mkString("\n")}")
+              }
+              columnsToDrop
+            } else {
+              Nil
             }
-            columnsToDrop
-          } else {
-            Nil
-          }
-        val alterTableAddColumns =
-          if (syncStrategy == TableSync.ALL || syncStrategy == TableSync.ADD) {
-            val columnsToAdd =
-              SparkUtils.alterTableAddColumnsString(addedSchema, tableName, Map.empty)
-            if (columnsToAdd.nonEmpty) {
-              logger.info(
-                s"alter table $tableName with ${columnsToAdd.size} columns to add"
-              )
-              logger.debug(s"alter table ${columnsToAdd.mkString("\n")}")
+          val alterTableAddColumns =
+            if (syncStrategy == TableSync.ALL || syncStrategy == TableSync.ADD) {
+              val columnsToAdd =
+                SparkUtils.alterTableAddColumnsString(addedSchema, tableName, Map.empty)
+              if (columnsToAdd.nonEmpty) {
+                logger.info(
+                  s"alter table $tableName with ${columnsToAdd.size} columns to add"
+                )
+                logger.debug(s"alter table ${columnsToAdd.mkString("\n")}")
+              }
+              columnsToAdd
+            } else {
+              Nil
             }
-            columnsToAdd
-          } else {
-            Nil
-          }
 
-        // always drop after adding, in case all columns are dropped
-        // because in case all columns are dropped, an error is raised for a table without any columns.
-        val allAlter = alterTableAddColumns ++ alterTableDropColumns
-        (allAlter.toList, true)
-      } else {
-        val optionsWrite =
-          new JdbcOptionsInWrite(jdbcUrl, tableName, sinkConnectionRefOptions)
-        logger.info(
-          s"Table $tableName not found, creating it with schema $incomingSchemaWithSCD2"
-        )
-        val (createSchema, createTable, commentSQL) =
-          SparkUtils.buildCreateTableSQL(
-            tableName,
-            incomingSchemaWithSCD2,
-            caseSensitive = false,
-            temporaryTable = false,
-            optionsWrite,
-            attDdl()
+          // always drop after adding, in case all columns are dropped
+          // because in case all columns are dropped, an error is raised for a table without any columns.
+          val allAlter = alterTableAddColumns ++ alterTableDropColumns
+          (allAlter.toList, true)
+        } else {
+          val optionsWrite =
+            new JdbcOptionsInWrite(jdbcUrl, tableName, sinkConnectionRefOptions)
+          logger.info(
+            s"Table $tableName not found, creating it with schema $incomingSchemaWithSCD2"
           )
-        val allSqls = List(createSchema, createTable, commentSQL.getOrElse(""))
-        (allSqls, false)
-      }
+          val (createSchema, createTable, commentSQL) =
+            SparkUtils.buildCreateTableSQL(
+              tableName,
+              incomingSchemaWithSCD2,
+              caseSensitive = false,
+              temporaryTable = false,
+              optionsWrite,
+              attDdl()
+            )
+          val allSqls = List(createSchema, createTable, commentSQL.getOrElse(""))
+          (allSqls, false)
+        }
     }
   }
 
@@ -495,19 +520,20 @@ class JdbcAutoTask(
   ): Unit = {
     buildTableSchemaSQL(incomingSchema, tableName, syncStrategy) match {
       case (sqls, exists) =>
-        JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-          sqls.filter(_.nonEmpty).foreach { sql =>
-            if (exists) {
-              JdbcDbUtils.executeAlterTable(sql, conn)
-            } else {
-              JdbcDbUtils.executeUpdate(sql, conn) match {
-                case Success(_) =>
-                case Failure(e) =>
-                  logger.error(s"Error executing $sql", e)
-                  throw e
+        JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnection.options) {
+          conn =>
+            sqls.filter(_.nonEmpty).foreach { sql =>
+              if (exists) {
+                JdbcDbUtils.executeAlterTable(sql, conn)
+              } else {
+                JdbcDbUtils.executeUpdate(sql, conn) match {
+                  case Success(_) =>
+                  case Failure(e) =>
+                    logger.error(s"Error executing $sql", e)
+                    throw e
+                }
               }
             }
-          }
         }
     }
   }
@@ -525,8 +551,9 @@ object JdbcAutoTask extends LazyLogging {
       .withAccessToken(accessToken)
 
     // This is an update statement. No readonly connection is needed
-    JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
-      JdbcDbUtils.execute(sql, conn)
+    JdbcDbUtils.withJDBCConnection(settings.schemaHandler().dataBranch(), connection.options) {
+      conn =>
+        JdbcDbUtils.execute(sql, conn)
     }
   }
 }

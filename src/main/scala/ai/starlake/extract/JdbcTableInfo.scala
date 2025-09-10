@@ -37,20 +37,21 @@ class JdbcTableInfo {
       }
 
     val lastModifiedTimes =
-      JdbcDbUtils.withJDBCConnection(conn.options) { connection =>
-        finalQueries.map { case (schema, finalQuery) =>
-          // Execute the query and return the result as a Map
-          val rows =
-            JdbcDbUtils.executeQueryAsMap(finalQuery, connection)
-          val tableTimes =
-            rows.map { row =>
-              val noCaseRow = CaseInsensitiveMap(row)
-              val tableName = noCaseRow("table_name")
-              val lastModified = Timestamp.valueOf(noCaseRow("last_altered")).getTime
-              (tableName, lastModified)
-            }
-          (schema, tableTimes)
-        }
+      JdbcDbUtils.withJDBCConnection(settings.schemaHandler().dataBranch(), conn.options) {
+        connection =>
+          finalQueries.map { case (schema, finalQuery) =>
+            // Execute the query and return the result as a Map
+            val rows =
+              JdbcDbUtils.executeQueryAsMap(finalQuery, connection)
+            val tableTimes =
+              rows.map { row =>
+                val noCaseRow = CaseInsensitiveMap(row)
+                val tableName = noCaseRow("table_name")
+                val lastModified = Timestamp.valueOf(noCaseRow("last_altered")).getTime
+                (tableName, lastModified)
+              }
+            (schema, tableTimes)
+          }
       }
     lastModifiedTimes
 

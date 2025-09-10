@@ -26,111 +26,113 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       val sinkConnection = mergedMetadata.getSinkConnection()
       val twoSteps = requireTwoSteps(effectiveSchema)
       JdbcDbUtils
-        .withJDBCConnection(sinkConnection.withAccessToken(ingestionJob.accessToken).options) {
-          conn =>
-            logger.info(s"path count = ${path.size}")
-            if (twoSteps) {
-              val tempTables =
-                path.map { p =>
-                  logger.info(s"Loading $p to temporary table")
-                  val tempTable = SQLUtils.temporaryTableName(effectiveSchema.finalName)
-                  val loadResult = singleStepLoad(
-                    domain.finalName,
-                    tempTable,
-                    schemaWithMergedMetadata,
-                    List(p),
-                    conn
-                  )
-                  val filenameSQL =
-                    s"ALTER TABLE ${domain.finalName}.$tempTable ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '$p';"
-
-                  JdbcDbUtils.execute(filenameSQL, conn)
-                  val json = new Gson().toJson(loadResult)
-                  logger.info(s"Load result: $json")
-                  tempTable
-                }
-
-              val unionTempTables =
-                tempTables
-                  .map(s"SELECT * FROM ${domain.finalName}." + _)
-                  .mkString("(", " UNION ALL ", ")")
-              val sqlWithTransformedFields =
-                starlakeSchema.buildSecondStepSqlSelectOnLoad(unionTempTables)
-              val targetTableFullName = s"${domain.finalName}.${starlakeSchema.finalName}"
-
-              val taskDesc = AutoTaskInfo(
-                name = starlakeSchema.finalName,
-                sql = Some(sqlWithTransformedFields),
-                database = schemaHandler.getDatabase(domain),
-                domain = domain.finalName,
-                table = starlakeSchema.finalName,
-                presql = starlakeSchema.presql,
-                postsql = starlakeSchema.postsql,
-                sink = mergedMetadata.sink,
-                rls = starlakeSchema.rls,
-                expectations = starlakeSchema.expectations,
-                acl = starlakeSchema.acl,
-                comment = starlakeSchema.comment,
-                tags = starlakeSchema.tags,
-                writeStrategy = mergedMetadata.writeStrategy,
-                parseSQL = Some(true),
-                connectionRef = Option(mergedMetadata.getSinkConnectionRef())
-              )
-
-              val job =
-                new JdbcAutoTask(
-                  appId = Option(ingestionJob.applicationId()),
-                  taskDesc = taskDesc,
-                  commandParameters = Map.empty,
-                  interactive = None,
-                  truncate = false,
-                  test = false,
-                  logExecution = true,
-                  accessToken = ingestionJob.accessToken,
-                  resultPageSize = 200,
-                  resultPageNumber = 1,
-                  Some(conn),
-                  scheduledDate = scheduledDate
-                )(
-                  settings,
-                  storageHandler,
-                  schemaHandler
+        .withJDBCConnection(
+          this.schemaHandler.dataBranch(),
+          sinkConnection.withAccessToken(ingestionJob.accessToken).options
+        ) { conn =>
+          logger.info(s"path count = ${path.size}")
+          if (twoSteps) {
+            val tempTables =
+              path.map { p =>
+                logger.info(s"Loading $p to temporary table")
+                val tempTable = SQLUtils.temporaryTableName(effectiveSchema.finalName)
+                val loadResult = singleStepLoad(
+                  domain.finalName,
+                  tempTable,
+                  schemaWithMergedMetadata,
+                  List(p),
+                  conn
                 )
+                val filenameSQL =
+                  s"ALTER TABLE ${domain.finalName}.$tempTable ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '$p';"
 
-              val runResult = job.runJDBC(df = None, sqlConnection = Some(conn))
-
-              job.updateJdbcTableSchema(
-                starlakeSchema.sparkSchemaWithIgnoreAndScript(
-                  schemaHandler,
-                  withFinalName = true
-                ),
-                targetTableFullName,
-                TableSync.ALL
-              )
-
-              // TODO archive if set
-              tempTables.foreach { tempTable =>
-                JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
+                JdbcDbUtils.execute(filenameSQL, conn)
+                val json = new Gson().toJson(loadResult)
+                logger.info(s"Load result: $json")
+                tempTable
               }
 
-              runResult match {
-                case Success(_) =>
-                  logger.info(s"Table $targetTableFullName created successfully")
-                case Failure(exception) =>
-                  logger.error(
-                    s"Error creating table $targetTableFullName: ${exception.getMessage}"
-                  )
-                  throw exception
-              }
-            } else {
-              singleStepLoad(
-                domain = domain.finalName,
-                table = starlakeSchema.finalName,
-                schema = schemaWithMergedMetadata,
-                path = path,
-                conn = conn
+            val unionTempTables =
+              tempTables
+                .map(s"SELECT * FROM ${domain.finalName}." + _)
+                .mkString("(", " UNION ALL ", ")")
+            val sqlWithTransformedFields =
+              starlakeSchema.buildSecondStepSqlSelectOnLoad(unionTempTables)
+            val targetTableFullName = s"${domain.finalName}.${starlakeSchema.finalName}"
+
+            val taskDesc = AutoTaskInfo(
+              name = starlakeSchema.finalName,
+              sql = Some(sqlWithTransformedFields),
+              database = schemaHandler.getDatabase(domain),
+              domain = domain.finalName,
+              table = starlakeSchema.finalName,
+              presql = starlakeSchema.presql,
+              postsql = starlakeSchema.postsql,
+              sink = mergedMetadata.sink,
+              rls = starlakeSchema.rls,
+              expectations = starlakeSchema.expectations,
+              acl = starlakeSchema.acl,
+              comment = starlakeSchema.comment,
+              tags = starlakeSchema.tags,
+              writeStrategy = mergedMetadata.writeStrategy,
+              parseSQL = Some(true),
+              connectionRef = Option(mergedMetadata.getSinkConnectionRef())
+            )
+
+            val job =
+              new JdbcAutoTask(
+                appId = Option(ingestionJob.applicationId()),
+                taskDesc = taskDesc,
+                commandParameters = Map.empty,
+                interactive = None,
+                truncate = false,
+                test = false,
+                logExecution = true,
+                accessToken = ingestionJob.accessToken,
+                resultPageSize = 200,
+                resultPageNumber = 1,
+                Some(conn),
+                scheduledDate = scheduledDate
+              )(
+                settings,
+                storageHandler,
+                schemaHandler
               )
+
+            val runResult = job.runJDBC(df = None, sqlConnection = Some(conn))
+
+            job.updateJdbcTableSchema(
+              starlakeSchema.sparkSchemaWithIgnoreAndScript(
+                schemaHandler,
+                withFinalName = true
+              ),
+              targetTableFullName,
+              TableSync.ALL
+            )
+
+            // TODO archive if set
+            tempTables.foreach { tempTable =>
+              JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
             }
+
+            runResult match {
+              case Success(_) =>
+                logger.info(s"Table $targetTableFullName created successfully")
+              case Failure(exception) =>
+                logger.error(
+                  s"Error creating table $targetTableFullName: ${exception.getMessage}"
+                )
+                throw exception
+            }
+          } else {
+            singleStepLoad(
+              domain = domain.finalName,
+              table = starlakeSchema.finalName,
+              schema = schemaWithMergedMetadata,
+              path = path,
+              conn = conn
+            )
+          }
         }
     }.map { - =>
       List(

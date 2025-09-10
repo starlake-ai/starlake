@@ -63,7 +63,10 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             val filenameSQL =
               s"ALTER TABLE ${domain.finalName}.$tempTable ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '$p';"
 
-            JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
+            JdbcDbUtils.withJDBCConnection(
+              this.schemaHandler.dataBranch(),
+              sinkConnection.options
+            ) { conn =>
               JdbcDbUtils.execute(filenameSQL, conn)
 
             }
@@ -124,8 +127,9 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
         // TODO archive if set
         tempTables.foreach { tempTable =>
-          JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-            JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
+          JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnection.options) {
+            conn =>
+              JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
           }
         }
       } else {
@@ -219,22 +223,35 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     val attrsWithDDLTypes = schemaHandler.getAttributesWithDDLType(schema, "duckdb")
 
     // Create or update table schema first
-    JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-      val stmtExternal = conn.createStatement()
-      stmtExternal.close()
-      val tableExists = JdbcDbUtils.tableExists(conn, sinkConnection.jdbcUrl, domainAndTableName)
-      JdbcDbUtils.createSchema(conn, domain)
-      strategy.getEffectiveType() match {
-        case WriteStrategyType.APPEND =>
-          if (tableExists) {
-            SparkUtils.updateJdbcTableSchema(
-              conn,
-              sinkConnection.options,
-              domainAndTableName,
-              incomingSparkSchema,
-              attrsWithDDLTypes
-            )
-          } else {
+    JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnection.options) {
+      conn =>
+        val stmtExternal = conn.createStatement()
+        stmtExternal.close()
+        val tableExists = JdbcDbUtils.tableExists(conn, sinkConnection.jdbcUrl, domainAndTableName)
+        JdbcDbUtils.createSchema(conn, domain)
+        strategy.getEffectiveType() match {
+          case WriteStrategyType.APPEND =>
+            if (tableExists) {
+              SparkUtils.updateJdbcTableSchema(
+                conn,
+                sinkConnection.options,
+                domainAndTableName,
+                incomingSparkSchema,
+                attrsWithDDLTypes
+              )
+            } else {
+              SparkUtils.createTable(
+                conn,
+                domainAndTableName,
+                incomingSparkSchema,
+                caseSensitive = true,
+                temporaryTable = false,
+                optionsWrite,
+                ddlMap
+              )
+            }
+          case _ => //  WriteStrategyType.OVERWRITE or first step of other strategies
+            JdbcDbUtils.dropTable(conn, domainAndTableName)
             SparkUtils.createTable(
               conn,
               domainAndTableName,
@@ -244,74 +261,62 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
               optionsWrite,
               ddlMap
             )
-          }
-        case _ => //  WriteStrategyType.OVERWRITE or first step of other strategies
-          JdbcDbUtils.dropTable(conn, domainAndTableName)
-          SparkUtils.createTable(
-            conn,
-            domainAndTableName,
-            incomingSparkSchema,
-            caseSensitive = true,
-            temporaryTable = false,
-            optionsWrite,
-            ddlMap
-          )
-      }
-      val columnsString =
-        attrsWithDDLTypes
-          .map { case (attr, ddlType) =>
-            s"'$attr': '$ddlType'"
-          }
-          .mkString(", ")
-      val paths =
-        path
-          .map { p =>
-            val ps = p.toString
-            if (ps.startsWith("file:"))
-              StorageHandler.localFile(p).pathAsString
-            else if (ps.contains { "://" }) {
-              val defaultEndpoint =
-                ps.substring(2) match {
-                  case "gs" => "storage.googleapis.com"
-                  case "s3" => "s3.amazonaws.com"
-                  case _    => "s3.amazonaws.com"
-                }
-              val endpoint =
-                sinkConnection.options.getOrElse("s3_endpoint", defaultEndpoint)
-              val keyid =
-                sinkConnection.options("s3_access_key_id")
-              val secret =
-                sinkConnection.options("s3_secret_access_key")
-              JdbcDbUtils.execute("INSTALL httpfs;", conn)
-              JdbcDbUtils.execute("LOAD httpfs;", conn)
-              JdbcDbUtils.execute(s"SET s3_endpoint='$endpoint';", conn)
-              JdbcDbUtils.execute(s"SET s3_access_key_id='$keyid';", conn)
-              JdbcDbUtils.execute(s"SET s3_secret_access_key='$secret';", conn)
-              ps
-            } else {
-              ps
+        }
+        val columnsString =
+          attrsWithDDLTypes
+            .map { case (attr, ddlType) =>
+              s"'$attr': '$ddlType'"
             }
-          }
-          .mkString("['", "','", "']")
-      mergedMetadata.resolveFormat() match {
-        case Format.DSV =>
-          val nullstr =
-            if (Option(mergedMetadata.resolveNullValue()).isEmpty)
-              ""
-            else
-              s"nullstr = '${mergedMetadata.resolveNullValue()}',"
-          val options = mergedMetadata.getOptions()
-          val extraOptions =
-            if (options.nonEmpty)
-              options
-                .map { case (k, v) =>
-                  s"$k = '$v'"
-                }
-                .mkString("", ",", ",")
-            else
-              ""
+            .mkString(", ")
+        val paths =
+          path
+            .map { p =>
+              val ps = p.toString
+              if (ps.startsWith("file:"))
+                StorageHandler.localFile(p).pathAsString
+              else if (ps.contains { "://" }) {
+                val defaultEndpoint =
+                  ps.substring(2) match {
+                    case "gs" => "storage.googleapis.com"
+                    case "s3" => "s3.amazonaws.com"
+                    case _    => "s3.amazonaws.com"
+                  }
+                val endpoint =
+                  sinkConnection.options.getOrElse("s3_endpoint", defaultEndpoint)
+                val keyid =
+                  sinkConnection.options("s3_access_key_id")
+                val secret =
+                  sinkConnection.options("s3_secret_access_key")
+                JdbcDbUtils.execute("INSTALL httpfs;", conn)
+                JdbcDbUtils.execute("LOAD httpfs;", conn)
+                JdbcDbUtils.execute(s"SET s3_endpoint='$endpoint';", conn)
+                JdbcDbUtils.execute(s"SET s3_access_key_id='$keyid';", conn)
+                JdbcDbUtils.execute(s"SET s3_secret_access_key='$secret';", conn)
+                ps
+              } else {
+                ps
+              }
+            }
+            .mkString("['", "','", "']")
+        mergedMetadata.resolveFormat() match {
+          case Format.DSV =>
+            val nullstr =
+              if (Option(mergedMetadata.resolveNullValue()).isEmpty)
+                ""
+              else
+                s"nullstr = '${mergedMetadata.resolveNullValue()}',"
+            val options = mergedMetadata.getOptions()
+            val extraOptions =
+              if (options.nonEmpty)
+                options
+                  .map { case (k, v) =>
+                    s"$k = '$v'"
+                  }
+                  .mkString("", ",", ",")
+              else
+                ""
 
-          val sql = s"""INSERT INTO $domainAndTableName SELECT
+            val sql = s"""INSERT INTO $domainAndTableName SELECT
                | * FROM read_csv(
                | ${paths},
                | delim = '${mergedMetadata.resolveSeparator()}',
@@ -321,31 +326,31 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
                | $nullstr
                | $extraOptions
                | columns = { $columnsString});""".stripMargin
-          JdbcDbUtils.execute(sql, conn)
-
-        case Format.JSON_FLAT | Format.JSON =>
-          val format =
-            if (mergedMetadata.resolveArray()) "array"
-            else if (mergedMetadata.resolveMultiline())
-              "unstructured"
-            else
-              "newline_delimited"
-          if (schema.isFlat()) {
-            val sql =
-              s"""INSERT INTO  $domainAndTableName SELECT * FROM read_json($paths, format = '$format', columns = { $columnsString});"""
             JdbcDbUtils.execute(sql, conn)
-          } else {
-            schema.attributes.head.primitiveType(schemaHandler) match {
-              case Some(PrimitiveType.variant) =>
-                val sql =
-                  s"""INSERT INTO $domainAndTableName SELECT * FROM read_json_objects($paths, format = '$format');"""
-                JdbcDbUtils.execute(sql, conn)
-              case _ =>
-                s"""INSERT INTO $domainAndTableName SELECT * FROM read_json($paths, auto_detect = true, format = '$format');"""
+
+          case Format.JSON_FLAT | Format.JSON =>
+            val format =
+              if (mergedMetadata.resolveArray()) "array"
+              else if (mergedMetadata.resolveMultiline())
+                "unstructured"
+              else
+                "newline_delimited"
+            if (schema.isFlat()) {
+              val sql =
+                s"""INSERT INTO  $domainAndTableName SELECT * FROM read_json($paths, format = '$format', columns = { $columnsString});"""
+              JdbcDbUtils.execute(sql, conn)
+            } else {
+              schema.attributes.head.primitiveType(schemaHandler) match {
+                case Some(PrimitiveType.variant) =>
+                  val sql =
+                    s"""INSERT INTO $domainAndTableName SELECT * FROM read_json_objects($paths, format = '$format');"""
+                  JdbcDbUtils.execute(sql, conn)
+                case _ =>
+                  s"""INSERT INTO $domainAndTableName SELECT * FROM read_json($paths, auto_detect = true, format = '$format');"""
+              }
             }
-          }
-        case _ =>
-      }
+          case _ =>
+        }
     }
   }
 }
