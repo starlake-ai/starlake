@@ -751,8 +751,9 @@ class SparkAutoTask(
 
     val twoSteps = writeStrategy.isMerge()
     if (sinkConnection.isDuckDb()) {
-      JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
-        // do nothing just create the database
+      JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnectionRefOptions) {
+        conn =>
+          // do nothing just create the database
       }
 
     }
@@ -762,22 +763,26 @@ class SparkAutoTask(
         val firstStepTempTable = s"${taskDesc.domain}.$tablePartName"
 
         if (settings.appConfig.createSchemaIfNotExists) {
-          JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
+          JdbcDbUtils.withJDBCConnection(
+            this.schemaHandler.dataBranch(),
+            sinkConnectionRefOptions
+          ) { conn =>
             JdbcDbUtils.createSchema(conn, taskDesc.domain)
           }
         }
         val jdbcUrl = sinkConnectionRefOptions("url")
 
-        JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
-          SparkUtils.createTable(
-            conn,
-            firstStepTempTable,
-            loadedDF.schema,
-            caseSensitive = false,
-            temporaryTable = false,
-            new JdbcOptionsInWrite(jdbcUrl, firstStepTempTable, sinkConnectionRefOptions),
-            attDdl()
-          )
+        JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnectionRefOptions) {
+          conn =>
+            SparkUtils.createTable(
+              conn,
+              firstStepTempTable,
+              loadedDF.schema,
+              caseSensitive = false,
+              temporaryTable = false,
+              new JdbcOptionsInWrite(jdbcUrl, firstStepTempTable, sinkConnectionRefOptions),
+              attDdl()
+            )
         }
 
         val tablePath = new Path(s"${settings.appConfig.datasets}/${firstStepTempTable}")
@@ -796,19 +801,20 @@ class SparkAutoTask(
             .mode(SaveMode.Overwrite) // truncate done above if requested
             .option("separator", separator)
             .save(tablePath.toString)
-          JdbcDbUtils.withJDBCConnection(sinkConnection.options) { conn =>
-            val manager = new CopyManager(conn.unwrap(classOf[BaseConnection]))
-            storageHandler
-              .list(tablePath, recursive = false, extension = "csv")
-              .foreach { file =>
-                val localFile = StorageHandler.localFile(file.path).toString()
-                val copySql =
-                  s"COPY $firstStepTempTable FROM '$localFile' DELIMITER ',' CSV HEADER"
-                manager.copyIn(
-                  copySql,
-                  new BufferedReader(new java.io.FileReader(localFile))
-                )
-              }
+          JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnection.options) {
+            conn =>
+              val manager = new CopyManager(conn.unwrap(classOf[BaseConnection]))
+              storageHandler
+                .list(tablePath, recursive = false, extension = "csv")
+                .foreach { file =>
+                  val localFile = StorageHandler.localFile(file.path).toString()
+                  val copySql =
+                    s"COPY $firstStepTempTable FROM '$localFile' DELIMITER ',' CSV HEADER"
+                  manager.copyIn(
+                    copySql,
+                    new BufferedReader(new java.io.FileReader(localFile))
+                  )
+                }
           }
           settings.storageHandler().delete(tablePath)
         } else if (sinkConnection.isDuckDb()) {
@@ -818,6 +824,7 @@ class SparkAutoTask(
             .mode(SaveMode.Overwrite) // truncate done above if requested
             .save(tablePath.toString)
           JdbcDbUtils.withJDBCConnection(
+            this.schemaHandler.dataBranch(),
             sinkConnection.options.updated("enable_external_access", "true")
           ) { conn =>
             val sql =
@@ -873,8 +880,9 @@ class SparkAutoTask(
           )
 
         val jobResult = secondStepAutoTask.runJDBC(None)
-        JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
-          JdbcDbUtils.dropTable(conn, firstStepTempTable)
+        JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnectionRefOptions) {
+          conn =>
+            JdbcDbUtils.dropTable(conn, firstStepTempTable)
         }
         jobResult
       } else {

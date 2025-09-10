@@ -33,7 +33,7 @@ class ConnectionJobsSpec extends TestHelper {
       val usersOptions =
         settings.appConfig.connections(connection).options + ("dbtable" -> "myusers.myusers")
 
-      JdbcDbUtils.withJDBCConnection(usersOptions) { conn =>
+      JdbcDbUtils.withJDBCConnection(settings.schemaHandler().dataBranch(), usersOptions) { conn =>
         val statement = conn.createStatement()
         statement.execute("CREATE SCHEMA myusers")
         statement.execute("CREATE TABLE myusers.myusers(firstname TEXT, lastname TEXT, age INT)")

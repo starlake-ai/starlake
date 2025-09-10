@@ -480,6 +480,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
 
+  def dataBranch(): Option[String] = this.activeEnvVars().get("sl_data_branch")
+
   def activeEnvVars(
     reload: Boolean = false,
     env: Option[String] = None,
@@ -1244,10 +1246,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           val sqlContentRaw = storage.read(taskFile)
           val sqlContent = Utils.parseJinja(sqlContentRaw, activeEnvVars())
           val sqlTask = SqlTaskExtractor(sqlContent)
+          val preSql = sqlTask.presql ++ taskWithName.presql
+          val postSql = taskWithName.postsql ++ sqlTask.postsql
           taskWithName.copy(
-            presql = sqlTask.presql,
+            presql = preSql,
             sql = Option(sqlTask.sql),
-            postsql = sqlTask.postsql
+            postsql = postSql
           )
         }
       }

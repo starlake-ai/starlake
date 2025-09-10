@@ -9,10 +9,9 @@ case class SqlTaskExtractor(
 )
 
 object SqlTaskExtractor {
-
   def apply(sqlContent: String): SqlTaskExtractor = {
     // val cometPattern = "^\\s*/\\*\\s*(SQL|PRESQL|POSTSQL)\\s*\\*/\\s*$".r
-    val cometPattern = "^--\\s*(SQL|PRESQL|POSTSQL)\\s*$".r
+    val cometPattern = "^--\\s*(SL_SQL|SL_PRESQL|SL_POSTSQL)\\s*$".r
     val sqlFileLines = sqlContent.split("\n")
     val buffer = new StringBuffer()
     val presqlSection = ListBuffer.empty[String]
@@ -23,29 +22,29 @@ object SqlTaskExtractor {
       val sql = buffer.toString.trim
       if (sql.nonEmpty) {
         section match {
-          case "SQL" =>
+          case "SL_SQL" =>
             if (sql.nonEmpty && sqlSection.toString.isEmpty)
               sqlSection.append(sql)
-          case "PRESQL" =>
+          case "SL_PRESQL" =>
             presqlSection.append(sql)
-          case "POSTSQL" =>
+          case "SL_POSTSQL" =>
             postsqlSection.append(sql)
         }
         buffer.delete(0, buffer.length())
       }
     }
 
-    var section = "SQL"
+    var section = "SL_SQL"
     sqlFileLines.foreach {
-      case cometPattern("SQL") =>
+      case cometPattern("SL_SQL") =>
         appendToStep(buffer, section)
-        section = "SQL"
-      case cometPattern("PRESQL") =>
+        section = "SL_SQL"
+      case cometPattern("SL_PRESQL") =>
         appendToStep(buffer, section)
-        section = "PRESQL"
-      case cometPattern("POSTSQL") =>
+        section = "SL_PRESQL"
+      case cometPattern("SL_POSTSQL") =>
         appendToStep(buffer, section)
-        section = "POSTSQL"
+        section = "SL_POSTSQL"
       case line =>
         val trimmed = line.trim
         if (trimmed.nonEmpty)

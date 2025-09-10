@@ -187,6 +187,7 @@ object Dependencies {
   val jSqlTranspiler = Seq(
     "com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser,
     "ai.starlake.jsqltranspiler" % "jsqltranspiler" % Versions.jSqlTranspiler exclude ("org.apache.commons", "commons-io"),
+    "ai.starlake.jdbc" % "starlakejdbc" % Versions.starlakejdbc exclude ("org.apache.commons", "commons-io"),
     "com.manticore-projects.jsqlformatter" % "jsqlformatter" % Versions.jSqlFormatter
   )
 

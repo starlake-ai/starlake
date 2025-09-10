@@ -159,12 +159,7 @@ class BigQueryAutoTask(
     jobTimeoutMs: Option[Long] = None
   ): BigQueryNativeJob = {
     val toUpperSql = sql.toUpperCase()
-    val finalSql =
-      if (toUpperSql.startsWith("WITH") || toUpperSql.startsWith("SELECT"))
-        sql // "(" + sql + ")"
-      else
-        sql
-    new BigQueryNativeJob(config, finalSql, this.resultPageSize, jobTimeoutMs)
+    new BigQueryNativeJob(config, sql, this.resultPageSize, jobTimeoutMs)
   }
 
   private def runSqls(sqls: List[String]): List[Try[BigQueryJobResult]] = {
@@ -215,14 +210,13 @@ class BigQueryAutoTask(
     val jobResult: Try[JobResult] =
       interactive match {
         case None =>
-          val presqlResult: List[Try[JobResult]] = runSqls(preSql)
-          presqlResult.foreach(Utils.logFailure(_, logger))
-
           val jobResult: Try[JobResult] =
             loadedDF match {
               case Some(df) =>
                 taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
                   case Some(shardColumns) =>
+                    val presqlResult: List[Try[JobResult]] = runSqls(preSql)
+                    presqlResult.foreach(Utils.logFailure(_, logger))
                     val allResult =
                       df.select(shardColumns.head, shardColumns.tail: _*).distinct().collect().map {
                         row =>
@@ -316,7 +310,9 @@ class BigQueryAutoTask(
                     }
                   case None =>
                     sparkSchema.foreach(schema => updateBigQueryTableSchema(schema, None))
-                    saveNative(config, mainSql())
+                    val allSql =
+                      preSql.mkString(";\n") + mainSql() + ";\n" + postSql.mkString(";\n")
+                    saveNative(config, allSql)
                 }
             }
 
@@ -328,13 +324,8 @@ class BigQueryAutoTask(
           val postsqlResult: List[Try[JobResult]] = runSqls(postSql)
           postsqlResult.foreach(Utils.logFailure(_, logger))
 
-          val errors =
-            (presqlResult ++ List(jobResult) ++ postsqlResult).map(_.failed).collect {
-              case Success(e) =>
-                e
-            }
-          errors match {
-            case Nil =>
+          jobResult match {
+            case Success(_) =>
               jobResult map { jobResult =>
                 val end = Timestamp.from(Instant.now())
                 val jobResultCount =
@@ -377,8 +368,7 @@ class BigQueryAutoTask(
                   logger.warn(Utils.exceptionAsString(e))
               }
               jobResult
-            case _ =>
-              val err = errors.reduce(_.initCause(_))
+            case Failure(err) =>
               val end = Timestamp.from(Instant.now())
               logAuditFailure(start, end, err, test)
               Failure(err)

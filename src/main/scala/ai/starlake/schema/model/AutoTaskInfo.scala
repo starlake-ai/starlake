@@ -285,6 +285,7 @@ case class AutoTaskInfo(
   )(implicit settings: Settings): List[(String, String)] = {
     val schemaHandler = settings.schemaHandler()
     val sqlWithParametersTranspiled = sqlStatement.getOrElse(getTranspiledSql())
+
     val allTableNames = SQLUtils.extractTableNames(sqlWithParametersTranspiled)
     val thisTableName = s"${this.domain}.${this.table}"
     val tablesGroupedByDomain: List[(String, List[String])] =
