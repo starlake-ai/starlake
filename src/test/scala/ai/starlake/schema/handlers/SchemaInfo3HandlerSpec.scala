@@ -109,7 +109,10 @@ class SchemaInfo3HandlerSpec extends TestHelper {
         )
 
         val auditConnectionOptions = settings.appConfig.audit.sink.getSink().getConnection().options
-        JdbcDbUtils.withJDBCConnection(auditConnectionOptions) { conn =>
+        JdbcDbUtils.withJDBCConnection(
+          settings.schemaHandler().dataBranch(),
+          auditConnectionOptions
+        ) { conn =>
           // drop table using jdbc statement connection conn in the lines below
           val rs = conn
             .createStatement()

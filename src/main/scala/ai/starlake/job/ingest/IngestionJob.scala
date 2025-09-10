@@ -216,7 +216,10 @@ trait IngestionJob extends SparkJob {
 
       case Engine.JDBC =>
         val connection = settings.appConfig.connections(mergedMetadata.getSinkConnectionRef())
-        JdbcDbUtils.withJDBCConnection(connection.withAccessToken(accessToken).options) { conn =>
+        JdbcDbUtils.withJDBCConnection(
+          this.schemaHandler.dataBranch(),
+          connection.withAccessToken(accessToken).options
+        ) { conn =>
           sqls.foreach { sql =>
             val compiledSql = sql.richFormat(schemaHandler.activeEnvVars(), options)
             JdbcDbUtils.executeUpdate(compiledSql, conn)

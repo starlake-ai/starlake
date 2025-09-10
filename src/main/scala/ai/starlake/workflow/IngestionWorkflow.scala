@@ -1003,6 +1003,12 @@ class IngestionWorkflow(
     // Create audit table if it does not exist
     val tableExists = Try(action.tableExists)
 
+    def addPrePostSql(sql: String): String = {
+      val preSql = if (action.preSql.isEmpty) "" else action.preSql.mkString(";\n") + ";\n"
+      val postSql = if (action.postSql.isEmpty) "" else ";\n" + action.postSql.mkString(";\n")
+      preSql + sql + postSql
+    }
+
     val (formattedDontExist, formattedExist) =
       if (config.format) {
         val index1 = sqlWhenTableDontExist.toLowerCase().indexOf("select")
@@ -1026,11 +1032,14 @@ class IngestionWorkflow(
           }
 
         (
-          finalSqlDontExist,
-          finalSqlExist
+          addPrePostSql(finalSqlDontExist),
+          addPrePostSql(finalSqlExist)
         )
       } else {
-        (sqlWhenTableDontExist, sqlWhenTableExist)
+        (
+          addPrePostSql(sqlWhenTableDontExist),
+          addPrePostSql(sqlWhenTableExist)
+        )
       }
 
     val result =

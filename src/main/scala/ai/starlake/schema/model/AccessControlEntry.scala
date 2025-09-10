@@ -96,8 +96,9 @@ object AccessControlEntry {
     implicit settings: Settings
   ): Try[Unit] =
     Try {
-      JdbcDbUtils.withJDBCConnection(connection.options) { conn =>
-        applyJdbcAcl(conn, sqls, forceApply).get
+      JdbcDbUtils.withJDBCConnection(settings.schemaHandler().dataBranch(), connection.options) {
+        conn =>
+          applyJdbcAcl(conn, sqls, forceApply).get
       }
     }
 
