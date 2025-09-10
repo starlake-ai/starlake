@@ -12,7 +12,7 @@ case class BigQueryJobResult(
   job: scala.Option[Job]
 ) extends JobResult {
 
-  private def flatten(fieldList: List[Field], parentPath: String): List[Map[String, String]] = {
+  private def flatten(fieldList: List[Field], parentPath: String): List[List[(String, String)]] = {
     fieldList.flatMap { field =>
       val level = parentPath.count(_ == '/')
       val space = " " * 4 * level
@@ -20,7 +20,7 @@ case class BigQueryJobResult(
       val fieldName = space + field.getName
       val path = if (parentPath.isEmpty) fieldName else parentPath + "/" + fieldName
       val fieldMap =
-        Map(
+        List(
           "path"       -> path,
           "field_name" -> fieldName,
           "type"       -> field.getType.toString,
@@ -40,7 +40,7 @@ case class BigQueryJobResult(
     }
   }
 
-  override def asMap(): List[Map[String, Any]] = {
+  override def asList(): List[List[(String, Any)]] = {
     if (this.totalBytesProcessed < 0) {
       // The result is the schema of the table
       tableResult
@@ -58,7 +58,7 @@ case class BigQueryJobResult(
               .iterator()
               .asScala
               .toList
-            asMap(fields, headers)
+            asList(fields, headers)
           }
           values
         }
@@ -113,7 +113,7 @@ case class BigQueryJobResult(
                         .iterator()
                         .asScala
                         .toList
-                      asMap(fields, headers)
+                      asList(fields, headers)
                     }
                     values
                   }
@@ -128,7 +128,7 @@ case class BigQueryJobResult(
     }
   }
 
-  def asMap(fields: List[FieldValue], headers: List[Field]): Map[String, Any] = {
+  def asList(fields: List[FieldValue], headers: List[Field]): List[(String, Any)] = {
     val result =
       fields
         .zip(headers)
@@ -144,7 +144,7 @@ case class BigQueryJobResult(
                 val subFieldValues = record.iterator().asScala.toList
                 val subHeaders =
                   scala.Option(header.getSubFields.iterator()).map(_.asScala.toList).getOrElse(Nil)
-                val value = asMap(subFieldValues, subHeaders)
+                val value = asList(subFieldValues, subHeaders)
                 headerName -> value
               case FieldValue.Attribute.REPEATED =>
                 val record = fieldValue.getValue.asInstanceOf[FieldValueList]
@@ -163,7 +163,7 @@ case class BigQueryJobResult(
                     val valueList = subFieldValues.map { subField =>
                       val record = subField.getValue.asInstanceOf[FieldValueList]
                       val subFieldValues = record.iterator().asScala.toList
-                      val value = asMap(subFieldValues, subHeaders)
+                      val value = asList(subFieldValues, subHeaders)
                       value
                     }
                     valueList
@@ -176,7 +176,6 @@ case class BigQueryJobResult(
             }
           obj
         }
-        .toMap
     result
   }
 

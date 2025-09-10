@@ -62,22 +62,23 @@ class JdbcExpectationAssertionHandler(jdbcProperties: Map[String, String])
   override def handle(sql: String)(implicit
     settings: Settings
   ): Int = {
-    JdbcDbUtils.withJDBCConnection(jdbcProperties) { connection =>
-      val statement = connection.createStatement()
-      try {
-        val rs = statement.executeQuery(sql)
-        if (rs != null && rs.next()) {
-          val returnValue = Try(rs.getInt(1)).getOrElse(Integer.MIN_VALUE)
-          if (rs.next()) // More than one line this is a mistake
-            Integer.MIN_VALUE
-          else
-            returnValue
+    JdbcDbUtils.withJDBCConnection(settings.schemaHandler().dataBranch(), jdbcProperties) {
+      connection =>
+        val statement = connection.createStatement()
+        try {
+          val rs = statement.executeQuery(sql)
+          if (rs != null && rs.next()) {
+            val returnValue = Try(rs.getInt(1)).getOrElse(Integer.MIN_VALUE)
+            if (rs.next()) // More than one line this is a mistake
+              Integer.MIN_VALUE
+            else
+              returnValue
 
-        } else
-          Integer.MIN_VALUE
-      } finally {
-        statement.close()
-      }
+          } else
+            Integer.MIN_VALUE
+        } finally {
+          statement.close()
+        }
     }
   }
 }

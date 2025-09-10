@@ -29,7 +29,7 @@ case class IngestionCounters(
 }
 
 trait JobResult {
-  def asMap(): List[Map[String, Any]] = Nil
+  def asList(): List[List[(String, Any)]] = Nil
   def prettyPrint(format: String, dryRun: Boolean = false): String = ""
   def prettyPrint(
     format: String,
@@ -84,7 +84,7 @@ case class SparkJobResult(
   dataframe: Option[DataFrame],
   counters: Option[IngestionCounters]
 ) extends JobResult {
-  override def asMap(): List[Map[String, Any]] = {
+  override def asList(): List[List[(String, Any)]] = {
     dataframe
       .map { dataFrame =>
         val headers = dataFrame.schema.fields.map(_.name).toList
@@ -92,7 +92,7 @@ case class SparkJobResult(
           .collect()
           .map { row =>
             val fields = row.toSeq.map(Option(_).map(_.toString).getOrElse("NULL")).toList
-            headers.zip(fields).toMap
+            headers.zip(fields)
           }
           .toList
         dataAsList
@@ -119,8 +119,8 @@ case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) 
     prettyPrint(format, headers, rows)
   }
 
-  override def asMap(): List[Map[String, Any]] = {
-    rows.map { value => headers.zip(value).toMap }
+  override def asList(): List[List[(String, Any)]] = {
+    rows.map { value => headers.zip(value) }
 
   }
 
@@ -140,8 +140,8 @@ case object FailedJobResult extends JobResult
 case class PreLoadJobResult(domain: String, tables: Map[String, Int]) extends JobResult {
   val headers: List[String] = List("domain", "table", "loadable")
   val rows: List[List[String]] = tables.map { case (k, v) => List(domain, k, v.toString) }.toList
-  override def asMap(): List[Map[String, Any]] = {
-    rows.map { value => headers.zip(value).toMap }
+  override def asList(): List[List[(String, Any)]] = {
+    rows.map { value => headers.zip(value) }
   }
   override def prettyPrint(format: String, dryRun: Boolean = false): String = {
     prettyPrint(format, headers, rows)

@@ -40,7 +40,7 @@ class SparkJdbcWriter(
       }
       val outputDomain = cliConfig.outputDomainAndTableName.split("\\.")(0)
       val url = jdbcOptions("url")
-      JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
+      JdbcDbUtils.withJDBCConnection(settings.schemaHandler().dataBranch(), jdbcOptions) { conn =>
         val tableExists = JdbcDbUtils.tableExists(conn, url, cliConfig.outputDomainAndTableName)
         if (!tableExists && settings.appConfig.createSchemaIfNotExists) {
           logger.info(s"table ${cliConfig.outputDomainAndTableName} not found, trying to create it")
@@ -107,7 +107,7 @@ class SparkJdbcWriter(
       val dialect = SparkUtils.dialect(url)
 
       // We always append to the table to keep the schema (Spark loose the schema otherwise). We truncate using the truncate query option
-      JdbcDbUtils.withJDBCConnection(jdbcOptions) { conn =>
+      JdbcDbUtils.withJDBCConnection(settings.schemaHandler().dataBranch(), jdbcOptions) { conn =>
         JdbcDbUtils.truncateTable(conn, cliConfig.outputDomainAndTableName)
       }
       val dfToSave =
