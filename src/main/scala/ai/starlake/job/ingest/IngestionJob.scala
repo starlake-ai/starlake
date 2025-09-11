@@ -547,6 +547,7 @@ trait IngestionJob extends SparkJob {
                   coalesce(col("acceptedCount"), lit(0L)).as("acceptedCount")
                 )
                 .withColumn("inputCount", col("rejectedCount") + col("acceptedCount"))
+                .withColumn("jobid", lit(applicationId()))
                 .as[IngestionCounters]
                 .collect()
                 .toList
