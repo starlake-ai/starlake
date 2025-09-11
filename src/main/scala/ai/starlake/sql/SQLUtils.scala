@@ -692,6 +692,23 @@ object SQLUtils extends LazyLogging {
     format(select.toString, JSQLFormatter.OutputFormat.PLAIN)
   }
 
+  /** Substitute any macros except the ones that must be handled by the orchestrator
+    */
+  def instantiateMacrosInSql(
+    sql: String,
+    macros: String,
+    vars: Map[String, Any]
+  )(implicit settings: Settings): String = {
+    val replacedSql = sql
+      .replaceAll("\\{\\{\\s*sl_start_date\\s*}}", "__sl_start_date__")
+      .replaceAll("\\{\\{\\s*sl_end_date\\s*}}", "__sl_end_date__")
+
+    Utils
+      .parseJinja(macros + "\n" + replacedSql, vars)
+      .replaceAll("__sl_start_date__", "{{ sl_start_date }}")
+      .replaceAll("__sl_end_date__", "{{ sl_end_date }}")
+  }
+
   def main(args: Array[String]): Unit = {
     val statement =
       """

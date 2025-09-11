@@ -171,27 +171,11 @@ abstract class AutoTask(
     sinkConnection.asMap()
   }
 
-  /** Substitute any macros except the ones that must be handled by the orchestrator
-    */
-  private def substituteMainSql(
-    sql: String
-  ): String = {
-    val replacedSql = sql
-      .replaceAll("\\{\\{\\s*sl_start_date\\s*}}", "__sl_start_date__")
-      .replaceAll("\\{\\{\\s*sl_end_date\\s*}}", "__sl_end_date__")
-
-    Utils
-      .parseJinja(schemaHandler.macros + "\n" + replacedSql, Map.empty)
-      .replaceAll("__sl_start_date__", "{{ sl_start_date }}")
-      .replaceAll("__sl_end_date__", "{{ sl_end_date }}")
-  }
-
   def buildAllSQLQueries(
     sql: Option[String],
     tableExistsForcedValue: Option[Boolean] = None,
     forceNative: Boolean = false
   ): String = {
-    val inputSQL = substituteMainSql(sql.getOrElse(taskDesc.getSql()))
     val runConnection =
       if (forceNative) {
         this.taskDesc.getRunConnection().copy(sparkFormat = None)
@@ -199,10 +183,16 @@ abstract class AutoTask(
         this.taskDesc.getRunConnection()
       }
 
+    val inputSQL =
+      SQLUtils.instantiateMacrosInSql(
+        sql.getOrElse(taskDesc.getSql()),
+        schemaHandler.macros,
+        allVars
+      )
     if (interactive.isEmpty) {
       if (taskDesc.parseSQL.getOrElse(true)) {
         val sqlWithParametersTranspiledIfInTest =
-          schemaHandler.transpileAndSubstitute(
+          schemaHandler.transpileAndSubstituteSelectStatement(
             inputSQL,
             runConnection,
             allVars,
@@ -271,26 +261,23 @@ abstract class AutoTask(
         } else {
           mainSql
         }
-
       } else {
-        val mainSql = schemaHandler.substituteRefTaskMainSQL(
-          inputSQL,
-          taskDesc.getRunConnection(),
-          allVars
-        )
-        mainSql
+        inputSQL
       }
-    } else if (taskDesc.parseSQL.getOrElse(true)) {
-      val sqlWithParametersTranspiledIfInTest =
-        schemaHandler.transpileAndSubstitute(
-          inputSQL,
-          runConnection,
-          allVars,
-          this.test
-        )
-      sqlWithParametersTranspiledIfInTest
     } else {
-      inputSQL
+      // Interactive request (just display result of the SQL Select statement)
+      if (taskDesc.parseSQL.getOrElse(true)) {
+        val sqlWithParametersTranspiledIfInTest =
+          schemaHandler.transpileAndSubstituteSelectStatement(
+            inputSQL,
+            runConnection,
+            allVars,
+            this.test
+          )
+        sqlWithParametersTranspiledIfInTest
+      } else {
+        inputSQL
+      }
     }
   }
 
@@ -386,20 +373,26 @@ abstract class AutoTask(
   }
 
   def dependencies(streams: CaseInsensitiveMap[String]): List[String] = {
-    val result = SQLUtils.extractTableNamesUsingRegEx(parseJinja(taskDesc.getSql(), Map.empty))
-    val withStreamsResolved = result.map { table =>
-      if (streams.contains(table)) {
-        streams(table)
-      } else {
-        table
+    if (taskDesc.parseSQL.getOrElse(true)) {
+      val result = SQLUtils.extractTableNamesUsingRegEx(
+        parseJinja(taskDesc.getSql(), schemaHandler.activeEnvVars())
+      )
+      val withStreamsResolved = result.map { table =>
+        if (streams.contains(table)) {
+          streams(table)
+        } else {
+          table
+        }
       }
+      logger.info(
+        s"$name has ${withStreamsResolved.length} dependencies: ${withStreamsResolved.mkString(",")}"
+      )
+      withStreamsResolved
+    } else {
+      logger.info(s"$name has 0 dependencies since parseSQL is disabled")
+      Nil
     }
-    logger.info(
-      s"$name has ${withStreamsResolved.length} dependencies: ${withStreamsResolved.mkString(",")}"
-    )
-    withStreamsResolved
   }
-
   val (createDisposition, writeDisposition) =
     Utils.getDBDisposition(
       taskDesc.getWriteMode()
