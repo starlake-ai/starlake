@@ -55,14 +55,14 @@ trait JobResult {
 
       case "json" =>
         val res = values.foreach { value =>
-          val map = headers.zip(value).toMap.asJava
+          val map = headers.zip(value).asJava
           val json = new Gson().toJson(map)
           printStream.println(json)
         }
 
       case "json-array" =>
         val res = values.map { value =>
-          val map = headers.zip(value).toMap.asJava
+          val map = headers.zip(value).asJava
           map
         }
         val json = new Gson().toJson(res.asJava)
