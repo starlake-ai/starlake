@@ -2019,12 +2019,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def transpileAndSubstitute(
+  def transpileAndSubstituteSelectStatement(
     sql: String,
     connection: ConnectionInfo,
     allVars: Map[String, String] = Map.empty,
     test: Boolean
   ): String = {
+
     if (sql.startsWith("DESCRIBE ")) {
       // Do not transpile DESCRIBE statements
       sql
@@ -2378,31 +2379,34 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     list: List[(TableAttribute, AttributeStatus)],
     optSql: Option[String]
   ): Unit = {
-    val updatedTask =
-      task
-        .updateAttributes(list.filterNot(_._2 == AttributeStatus.REMOVED).map(_._1))
-        .copy(sql = None) // do not serialize sql. It is in its own file
-    val taskPath = new Path(DatasetArea.transform, s"${task.domain}/${task.name}.sl.yml")
+    if (list.nonEmpty) {
+      val updatedTask =
+        task
+          .updateAttributes(list.filterNot(_._2 == AttributeStatus.REMOVED).map(_._1))
+          .copy(sql = None) // do not serialize sql. It is in its own file
+      val taskPath = new Path(DatasetArea.transform, s"${task.domain}/${task.name}.sl.yml")
 
-    YamlSerde.serializeToPath(taskPath, updatedTask)(
-      settings.storageHandler()
-    )
-    val sqlPath = new Path(DatasetArea.transform, s"${task.domain}/${task.name}.sql")
-    optSql.foreach { sql =>
-      storage.write(sql, sqlPath)
+      YamlSerde.serializeToPath(taskPath, updatedTask)(
+        settings.storageHandler()
+      )
+      val sqlPath = new Path(DatasetArea.transform, s"${task.domain}/${task.name}.sql")
+      optSql.foreach { sql =>
+        storage.write(sql, sqlPath)
+      }
+      logger.debug(s"Diff SQL attributes with YAML for task ${task.getName()}: $list")
+      taskUpdated(task.domain, task.name)
     }
-    logger.debug(s"Diff SQL attributes with YAML for task ${task.getName()}: $list")
-    taskUpdated(task.domain, task.name)
   }
+
   def syncPreviewSqlWithYaml(
     taskName: String,
     query: Option[String],
     accessToken: Option[String]
   ): List[(TableAttribute, AttributeStatus)] = {
     settings.schemaHandler().taskByName(taskName) match {
-      case Success(task) =>
+      case Success(taskInfo) =>
         val list: List[(TableAttribute, AttributeStatus)] =
-          task.diffSqlAttributesWithYaml(query, accessToken)
+          taskInfo.diffSqlAttributesWithYaml(query, accessToken)
         logger.debug(s"Diff SQL attributes with YAML for task $taskName: ${list.length} attributes")
         list.foreach { case (attribute, status) =>
           logger.info(s"\tAttribute: ${attribute.name}, Status: $status")
@@ -2421,6 +2425,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     columnName: String,
     columnType: String,
     columnDesc: Option[String]
-  ) = {}
+  ) = ???
 
 }

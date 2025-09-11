@@ -260,17 +260,22 @@ case class AutoTaskInfo(
       .getOrElse(AllSinks().copy(connectionRef = Some(sinkConnectionRef)).getSink())
   }
 
-  def getTranspiledSql()(implicit settings: Settings): String = {
+  def getTranspiledSql(
+    extraVars: Map[String, String] = Map.empty
+  )(implicit settings: Settings): String = {
     val schemaHandler = settings.schemaHandler()
-    val allVars = schemaHandler.activeEnvVars()
+    val allVars = schemaHandler.activeEnvVars() ++ extraVars
     val inputSQL = getSql()
     val runConnection = this.getRunConnection()
-    schemaHandler.transpileAndSubstitute(
-      sql = inputSQL,
-      connection = runConnection,
-      allVars = allVars,
-      test = false
-    )
+    if (parseSQL.getOrElse(true))
+      schemaHandler.transpileAndSubstituteSelectStatement(
+        sql = inputSQL,
+        connection = runConnection,
+        allVars = allVars,
+        test = false
+      )
+    else
+      inputSQL
   }
 
   /** Extracts attributes from the SQL statement.
@@ -437,14 +442,20 @@ case class AutoTaskInfo(
   )(implicit
     settings: Settings
   ): List[(TableAttribute, AttributeStatus)] = {
-
-    // Extract attributes from the SQL statement
-    val sqlStatementAttributes =
-      this.attributesInSqlStatement(sqlStatement, accessToken).map { case (name, typ) =>
-        TableAttribute(name, typ)
-      }
-    // Sync attributes with the SQL statement attributes
-    this.diffSqlAttributesWithYaml(sqlStatementAttributes, accessToken)
+    if (parseSQL.getOrElse(true)) {
+      // Extract attributes from the SQL statement
+      val sqlStatementAttributes =
+        this.attributesInSqlStatement(sqlStatement, accessToken).map { case (name, typ) =>
+          TableAttribute(name, typ)
+        }
+      // Sync attributes with the SQL statement attributes
+      this.diffSqlAttributesWithYaml(sqlStatementAttributes, accessToken)
+    } else {
+      logger.info(
+        s"Skipping diff Sql Attributes With Yaml for task ${this.name} as parseSQL is set to false"
+      )
+      Nil
+    }
   }
 
   /** Update the task description with the new attributes. Existing attributes are updated with the
