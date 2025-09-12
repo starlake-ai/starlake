@@ -480,14 +480,26 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
 
-  def dataBranch(): Option[String] = this.activeEnvVars().get("sl_data_branch")
+  def dataBranch(): Option[String] =
+    this.activeEnvVars().get("sl_data_branch") match {
+      case Some(branch) if branch.nonEmpty && branch != "None" => Some(branch)
+      case _                                                   => None
+    }
 
   def activeEnvVars(
     reload: Boolean = false,
     env: Option[String] = None,
     root: Option[String] = None
   ): Map[String, String] = {
-    if (reload || _activeEnvVars == null) loadActiveEnvVars(env, root)
+
+    val currentEnv =
+      env.orElse {
+        settings.appConfig.env match {
+          case e if e.nonEmpty && e != "None" => Some(e)
+          case _                              => None
+        }
+      }
+    if (reload || _activeEnvVars == null) loadActiveEnvVars(currentEnv, root)
     root match {
       case Some(value) => _activeEnvVars + ("SL_ROOT" -> value)
       case None        => this._activeEnvVars
