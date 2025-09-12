@@ -88,7 +88,7 @@ trait IngestionJob extends SparkJob {
 
   override protected def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {
     val conf = super.withExtraSparkConf(sourceConfig)
-    conf.set("sql.parser.escapedStringLiterals", "true")
+    conf.set("spark.sql.parser.escapedStringLiterals", "true")
   }
 
   /** Apply the schema to the dataset. This is where all the magic happen Valid records are stored
@@ -547,6 +547,7 @@ trait IngestionJob extends SparkJob {
                   coalesce(col("acceptedCount"), lit(0L)).as("acceptedCount")
                 )
                 .withColumn("inputCount", col("rejectedCount") + col("acceptedCount"))
+                .withColumn("jobid", lit(applicationId()))
                 .as[IngestionCounters]
                 .collect()
                 .toList

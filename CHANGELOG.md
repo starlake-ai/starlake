@@ -1,6 +1,11 @@
 
 # Release notes
 
+# 1.5.3:
+__Bug fix__:
+- drop empty headers or null in native loader
+- ingestion failure when detailed load audit is enabled
+
 # 1.5.1:
 
 __Improvement__:
@@ -10,6 +15,7 @@ __Improvement__:
 __Bug fix__:
 - schema and data extraction runs in parallel again
 - bigquery native load didn't merge file's DSV schema with starlake schema before checking for two steps load
+- reenable string literal escape during ingestion
 
 # 1.5.0:
 __Improvement__:
