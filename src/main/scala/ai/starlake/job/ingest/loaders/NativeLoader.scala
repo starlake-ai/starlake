@@ -169,7 +169,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
   protected def computeEffectiveInputSchema(): SchemaInfo = {
     mergedMetadata.resolveFormat() match {
       case Format.DSV =>
-        (mergedMetadata.resolveWithHeader(), path.map(_.toString).headOption) match {
+        val fileForSchemaExtract = path.map(_.toString).headOption
+        (mergedMetadata.resolveWithHeader(), fileForSchemaExtract) match {
           case (java.lang.Boolean.TRUE, Some(sourceFile)) =>
             val csvHeaders = storageHandler.readAndExecute(
               new Path(sourceFile),
@@ -204,8 +205,21 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
             }
             val attributesMap = starlakeSchema.attributes.map(attr => attr.name -> attr).toMap
             val csvAttributesInOrders =
-              csvHeaders.map(h =>
-                attributesMap.getOrElse(h, TableAttribute(h, ignore = Some(true), required = None))
+              csvHeaders.flatMap(h =>
+                Option(h) match {
+                  case Some(value) if value.nonEmpty =>
+                    Some(
+                      attributesMap.getOrElse(
+                        h,
+                        TableAttribute(h, ignore = Some(true), required = None)
+                      )
+                    )
+                  case _ =>
+                    logger.warn(
+                      s"Found an non defined header in $fileForSchemaExtract. It has been ignored automatically."
+                    )
+                    None
+                }
               )
             // attributes not in csv input file must not be required but we don't force them to optional.
             val effectiveAttributes =
