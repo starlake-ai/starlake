@@ -594,7 +594,7 @@ object Settings extends LazyLogging {
 
     @JsonIgnore
     lazy val dialect: JdbcDialect =
-      applyIfConnectionTypeIs(ConnectionType.JDBC, SparkUtils.dialect(jdbcUrl))
+      applyIfConnectionTypeIs(ConnectionType.JDBC, SparkUtils.dialectForUrl(jdbcUrl))
 
     def quoteIdentifier(identifier: String): String = dialect.quoteIdentifier(identifier)
 

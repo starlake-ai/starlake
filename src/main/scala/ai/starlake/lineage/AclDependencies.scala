@@ -48,11 +48,15 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
     val aclTableGrants = aclTables.values.flatten
       .flatMap(_.acl)
       .flatMap(_.grants)
-      .map(_.toLowerCase())
+      // .map(_.toLowerCase())
       .toSet
 
     val rlsTableGrants =
-      rlsTables(config).values.flatten.flatMap(_._2).flatMap(_.grants).map(_.toLowerCase()).toSet
+      rlsTables(config).values.flatten
+        .flatMap(_._2)
+        .flatMap(_.grants)
+        // .map(_.toLowerCase())
+        .toSet
 
     val aclTasks = schemaHandler.tasks().filter { task =>
       val taskToInclude = config.tables.exists(

@@ -312,7 +312,7 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   def tableExists(conn: Connection, url: String, domainAndTablename: String): Boolean = {
-    val dialect = SparkUtils.dialect(url)
+    val dialect = SparkUtils.dialectForUrl(url)
     Try {
       val statement = conn.prepareStatement(dialect.getTableExistsQuery(domainAndTablename))
       try {
