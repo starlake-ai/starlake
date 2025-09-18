@@ -292,10 +292,24 @@ object JdbcDbUtils extends LazyLogging {
         throw e
     }
   }
+  @throws[Exception]
+  def createDatabase(conn: Connection, dbName: String): Unit = {
+    executeUpdate(databaseCreateSQL(dbName), conn) match {
+      case Success(_) =>
+      case Failure(e) =>
+        logger.error(s"Error creating database $dbName", e)
+        throw e
+    }
+  }
 
   @throws[Exception]
   def schemaCreateSQL(domainName: String): String = {
     s"CREATE SCHEMA IF NOT EXISTS $domainName"
+  }
+
+  @throws[Exception]
+  def databaseCreateSQL(domainName: String): String = {
+    s"CREATE DATABASE IF NOT EXISTS $domainName"
   }
 
   def buildDropTableSQL(tableName: String): String = {
