@@ -237,7 +237,7 @@ object JdbcDbUtils extends LazyLogging {
             Success(value)
         }
 
-        val url = connectionOptions("url")
+        val url = connectionOptions.get("url").orNull
         if (existingConnection.isEmpty && url != null && !isExtractCommandHack(url)) {
           Try(connection.close()) match {
             case Success(_) =>
