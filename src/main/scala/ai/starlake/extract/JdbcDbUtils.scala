@@ -128,7 +128,16 @@ object JdbcDbUtils extends LazyLogging {
           } else {
             connectionOptions
           }
-        val poolKey = url + connectionOptions.getOrElse("sl_access_token", "")
+        val poolKey =
+          url + connectionOptions
+            .get("sl_access_token") // if access token is present use it to differentiate the pool
+            .orElse(
+              connectionOptions.get("user").map(it => if (it.isEmpty) None else Some(it))
+            ) // if user is present use it to differentiate the pool
+            .orElse(
+              connectionOptions.get("password")
+            ) // if password that means there is no user, so the token is the only way to differentiate the pool
+            .getOrElse("")
         val pool = hikariPools
           .getOrElseUpdate(
             poolKey, {
