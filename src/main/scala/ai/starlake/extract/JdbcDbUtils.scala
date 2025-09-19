@@ -109,7 +109,11 @@ object JdbcDbUtils extends LazyLogging {
         }
       } else {
         val finalConnectionOptions =
-          if (url.contains(":snowflake:") && connectionOptions.contains("sl_access_token")) {
+          if (
+            url.contains(":snowflake:") &&
+            connectionOptions.contains("sl_access_token") &&
+            connectionOptions("sl_access_token").contains(":")
+          ) {
             val accountUserAndToken = connectionOptions("sl_access_token").split(":")
             val accessToken =
               accountUserAndToken.drop(2).mkString(":") // in case the token contains the ':' char
