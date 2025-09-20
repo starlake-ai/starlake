@@ -138,6 +138,10 @@ object JdbcDbUtils extends LazyLogging {
               connectionOptions.get("password")
             ) // if password that means there is no user, so the token is the only way to differentiate the pool
             .getOrElse("")
+        logger.info("************** JDBC POOL KEY ***************")
+        logger.info(poolKey)
+        logger.info(connectionOptions.getOrElse("password", "No password"))
+        logger.info("*******************************************")
         val pool = hikariPools
           .getOrElseUpdate(
             poolKey, {
