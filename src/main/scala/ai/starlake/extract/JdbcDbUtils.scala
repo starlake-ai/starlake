@@ -31,6 +31,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try, Using}
 
 object JdbcDbUtils extends LazyLogging {
+  val appType = Option(System.getenv("SL_API_APP_TYPE")).getOrElse("web")
 
   type TableName = String
   type TableRemarks = String
@@ -58,9 +59,16 @@ object JdbcDbUtils extends LazyLogging {
     private val duckDbPool = scala.collection.concurrent.TrieMap[String, Connection]()
 
     private def getHikariPoolKey(url: String, options: Map[String, String]): String = {
-      val keysToConsider = options.filter { case (k, v) =>
-        Set("password", "user", "sl_access_token").contains(k) && v.nonEmpty
-      }
+      val keysToConsider =
+        if (appType == "snowflake_native_app") {
+          options.filter { case (k, v) =>
+            Set("password", "user").contains(k) && v.nonEmpty
+          }
+        } else {
+          options.filter { case (k, v) =>
+            Set("password", "sl_access_token", "user").contains(k) && v.nonEmpty
+          }
+        }
       url + "?" + keysToConsider.toList.sortBy(_._1).map { case (k, v) => s"$k=$v" }.mkString("&")
     }
 
@@ -120,7 +128,7 @@ object JdbcDbUtils extends LazyLogging {
           if (
             url.contains(":snowflake:") &&
             connectionOptions.contains("sl_access_token") &&
-            connectionOptions("sl_access_token").contains(":")
+            connectionOptions("sl_access_token").contains(":") && appType != "snowflake_native_app"
           ) {
             // this is the case for Snowflake OAuth as a web app not as a native app
             val accountUserAndToken = connectionOptions("sl_access_token").split(":")
@@ -138,16 +146,6 @@ object JdbcDbUtils extends LazyLogging {
             connectionOptions
           }
         val poolKey = getHikariPoolKey(url, finalConnectionOptions)
-
-        url + connectionOptions
-          .get("sl_access_token") // if access token is present use it to differentiate the pool
-          .orElse(
-            connectionOptions.get("user").map(it => if (it.isEmpty) None else Some(it))
-          ) // if user is present use it to differentiate the pool
-          .orElse(
-            connectionOptions.get("password")
-          ) // if password that means there is no user, so the token is the only way to differentiate the pool
-          .getOrElse("")
 
         logger.info("************** JDBC POOL KEY ***************")
         logger.info(poolKey)
