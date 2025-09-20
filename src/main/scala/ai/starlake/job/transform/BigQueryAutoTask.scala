@@ -187,13 +187,17 @@ class BigQueryAutoTask(
     sparkSchema: Option[StructType]
   ): Try[JobResult] = {
 
-    def mainSql(): String =
-      if (loadedDF.isEmpty) {
-        buildAllSQLQueries(None, tableExistsForcedValue = None, forceNative = true)
-      } else {
-        val mainSql: String = sqlSubst()
-        mainSql
-      }
+    def mainSql(): String = {
+      val targetSQL =
+        if (loadedDF.isEmpty) {
+          buildAllSQLQueries(None, tableExistsForcedValue = None, forceNative = true)
+        } else {
+          val mainSql: String = sqlSubst()
+          mainSql
+        }
+      val trimmedSQL = targetSQL.trim()
+      if (trimmedSQL.endsWith(";")) trimmedSQL.dropRight(1) else trimmedSQL
+    }
 
     val config = bigQuerySinkConfig
 
