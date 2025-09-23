@@ -1,13 +1,13 @@
 package ai.starlake.config
 
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.SparkConf
-import org.apache.spark.sql.SparkSession
 
 object SparkSessionBuilder extends LazyLogging {
   val sparkConnectUrl: Option[String] = sys.env.get("SL_SPARK_CONNECT_URI")
   val isSparkConnectActive: Boolean = sparkConnectUrl.isDefined
 
+  import org.apache.spark.SparkConf
+  import org.apache.spark.sql.SparkSession
   def build(config: SparkConf): SparkSession = {
     sparkConnectUrl match {
       case Some(uri) =>
@@ -28,11 +28,10 @@ object SparkSessionBuilder extends LazyLogging {
       case None =>
         val master =
           config.get("spark.master", sys.env.getOrElse("SPARK_MASTER_URL", "local[*]"))
+        val localCatalog = config.getOption("spark.localCatalog").getOrElse("none")
+        // sys.env.getOrElse("SL_SPARK_LOCAL_CATALOG", "none")
         val session =
-          if (
-            sys.env.getOrElse("SL_SPARK_NO_CATALOG", "false").toBoolean &&
-            config.getOption("spark.sql.catalogImplementation").isEmpty
-          ) {
+          if (localCatalog != "none") {
             SparkSession.builder().config(config).master(master).enableHiveSupport().getOrCreate()
           } else
             SparkSession.builder().config(config).master(master).getOrCreate()

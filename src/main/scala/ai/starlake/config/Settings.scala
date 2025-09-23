@@ -1347,8 +1347,21 @@ object Settings extends LazyLogging {
     // Load fairscheduler.xml
     val jobConf = initSparkConfig(applicationConfSettings)
     val withSparkConfig = applicationConfSettings.copy(jobConf = jobConf)
-    val withDefaultSchdules = addDefaultSchedules(withSparkConfig)
-    withDefaultSchdules
+    val withDefaultSchedules = addDefaultSchedules(withSparkConfig)
+
+    val localCatalog = jobConf.get("spark.localCatalog", "none")
+    localCatalog match {
+      case "none"              => // do nothing
+      case "iceberg" | "delta" =>
+
+    }
+
+    val withDefaultWriteFormat =
+      withDefaultSchedules.copy(appConfig =
+        withDefaultSchedules.appConfig.copy(defaultWriteFormat = localCatalog)
+      )
+
+    withDefaultWriteFormat
   }
 
   val defaultCronPresets = Map(
