@@ -148,8 +148,8 @@ object JdbcDbUtils extends LazyLogging {
         val poolKey = getHikariPoolKey(url, finalConnectionOptions)
 
         logger.info("************** JDBC POOL KEY ***************")
-        logger.info(poolKey)
-        logger.info(connectionOptions.getOrElse("password", "No password"))
+        // logger.info(poolKey)
+        // logger.info(connectionOptions.getOrElse("password", "No password"))
         logger.info("*******************************************")
         val pool = hikariPools
           .getOrElseUpdate(
@@ -157,7 +157,7 @@ object JdbcDbUtils extends LazyLogging {
               val config = new HikariConfig()
               (finalConnectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token")
                 .foreach { case (key, value) =>
-                  logger.info(s"Adding property $key=$value")
+                  logger.info(s"Adding property $key")
                   config.addDataSourceProperty(key, value)
                 }
               config.setJdbcUrl(url)
@@ -177,11 +177,6 @@ object JdbcDbUtils extends LazyLogging {
             case _                               =>
           }
         }
-        val current = JdbcDbUtils.executeQueryAsMap(
-          s"SELECT CURRENT_USER(), CURRENT_ROLE()",
-          connection
-        )
-        println(s"Connected to $url as ${current.map(_.values.mkString(",")).mkString(",")}")
         connection
       }
     }
