@@ -177,6 +177,11 @@ object JdbcDbUtils extends LazyLogging {
             case _                               =>
           }
         }
+        val current = JdbcDbUtils.executeQueryAsMap(
+          s"SELECT CURRENT_USER(), CURRENT_ROLE()",
+          connection
+        )
+        println(s"Connected to $url as ${current.map(_.values.mkString(",")).mkString(",")}")
         connection
       }
     }
