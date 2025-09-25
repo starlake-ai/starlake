@@ -6,7 +6,6 @@ import ai.starlake.serve.{SingleUserMainServer, SingleUserServices}
 import ai.starlake.utils.{JobResult, SparkJob}
 import jline.console.history.FileHistory
 import org.apache.hadoop.fs.Path
-import org.apache.spark.internal.config
 
 import java.io.File
 import scala.util.{Success, Try}
