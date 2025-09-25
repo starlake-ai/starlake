@@ -6,7 +6,7 @@ import ai.starlake.core.utils.NamingUtils
 import ai.starlake.extract.spi.SchemaExtractor
 import ai.starlake.extract.{ExtractPathHelper, OnExtract, SanitizeStrategy}
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import com.typesafe.scalalogging.LazyLogging
 import io.swagger.v3.oas.models.media.{
   ArraySchema,
@@ -23,7 +23,7 @@ import io.swagger.v3.oas.models.media.{
   NumberSchema,
   ObjectSchema,
   PasswordSchema,
-  Schema => OpenAPISwaggerSchema,
+  Schema as OpenAPISwaggerSchema,
   StringSchema,
   UUIDSchema
 }
@@ -33,7 +33,7 @@ import io.swagger.v3.parser.OpenAPIV3Parser
 import io.swagger.v3.parser.core.models.ParseOptions
 
 import java.util.regex.Pattern
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
 /** `OpenAPISchemaExtractor` is responsible for extracting OpenAPI schemas into Starlake-compatible
@@ -779,6 +779,35 @@ class OpenAPISchemaExtractor(
         )
       }
 
+      def resolveType(attributeTypes: List[String]): String = {
+        val resolvedType =
+          if (attributeTypes.contains("object") || attributeTypes.contains("array")) {
+            PrimitiveType.variant.toString
+          } else if (attributeTypes.contains("integer")) {
+            PrimitiveType.int.toString
+          } else if (attributeTypes.contains("string")) {
+            PrimitiveType.string.toString
+          } else if (attributeTypes.contains("number")) {
+            PrimitiveType.decimal.toString
+          } else if (attributeTypes.contains("boolean")) {
+            PrimitiveType.boolean.toString
+          } else {
+            attributeTypes match {
+              case t :: _ =>
+                t
+              case _ =>
+                PrimitiveType.variant.toString
+            }
+          }
+        if (attributeTypes.size > 1) {
+          logger.warn(
+            "Using attribute type " + resolvedType + " out of " + attributeTypes
+              .mkString(", ")
+          )
+        }
+        resolvedType
+      }
+
       def formatAttribute(
         typeToFormat: SchemaDescription,
         detectWithPrimitives: Boolean = false
@@ -829,7 +858,11 @@ class OpenAPISchemaExtractor(
           )
         case s if isObjectSchemaLike(s) =>
           val attributes = buildAttributes(attributeSchema)
-          asAttributeOf(PrimitiveType.struct.toString, attributes)
+          if (attributes.isEmpty) {
+            asAttributeOf(PrimitiveType.variant.toString)
+          } else {
+            asAttributeOf(PrimitiveType.struct.toString, attributes)
+          }
         case _: UUIDSchema | _: EmailSchema | _: FileSchema | _: PasswordSchema | _: BinarySchema |
             _: ByteArraySchema =>
           asAttributeOf(PrimitiveType.string.toString)
@@ -851,17 +884,7 @@ class OpenAPISchemaExtractor(
             Option(attributeSchema.getType)
               .map(List(_))
               .getOrElse(attributeSchema.getTypes.asScala.toList)
-          val typeToFormat: String = attributeTypes match {
-            case t :: Nil => t
-            case t :: rest =>
-              logger.warn(
-                "Using attribute type " + t + " and ignoring " + rest
-                  .mkString(", ")
-              )
-              t
-            case _ =>
-              throw new RuntimeException("Should have at least one typed attribute based")
-          }
+          val typeToFormat: String = resolveType(attributeTypes)
           formatAttribute(typeToFormat, detectWithPrimitives = true)
         case _ =>
           throw new RuntimeException(
