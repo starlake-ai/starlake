@@ -62,7 +62,7 @@ object JdbcDbUtils extends LazyLogging {
       val keysToConsider =
         if (appType == "snowflake_native_app") {
           options.filter { case (k, v) =>
-            Set("password", "user").contains(k) && v.nonEmpty
+            Set("password", "user", "authenticator").contains(k) && v.nonEmpty
           }
         } else {
           options.filter { case (k, v) =>
