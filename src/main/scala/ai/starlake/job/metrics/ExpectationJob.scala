@@ -161,7 +161,7 @@ class ExpectationJob(
       case Some(db) => s"$db.$domainName.$schemaName"
       case None     => s"$domainName.$schemaName"
     }
-    val macros = SQLUtils.stripComments(schemaHandler.expectationMacros)
+    val macros = SQLUtils.stripComments(schemaHandler.allMacros)
     val expectationReports = expectations.map { expectation =>
       val queryCall = expectation.queryCall()
       val expectationWithMacroDefinitions = List(macros, queryCall).mkString("\n")
@@ -305,7 +305,7 @@ class ExpectationJob(
     }
     val bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $fullTableName)\n"
 
-    val macros = schemaHandler.expectationMacros
+    val macros = schemaHandler.allMacros
     val sqls = expectations.map { expectation =>
       val expectationWithMacroDefinitions = List(macros, expectation.queryCall()).mkString("\n")
       val sql = bqSlThisCTE +
