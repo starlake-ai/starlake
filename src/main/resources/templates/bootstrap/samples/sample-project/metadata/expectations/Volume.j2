@@ -1,5 +1,4 @@
-# TODO: value give true for equal and btw
-{% macro expect_table_row_count_to_be_between(table_name = SL_THIS, lower_bound, upper_bound) %}
+{% macro expect_table_row_count_to_be_between(table_name, lower_bound, upper_bound) %}
 -- This macro checks if the number of rows in a table is between a given range.
 SELECT 
     CASE 
@@ -9,7 +8,7 @@ SELECT
 FROM {{ table_name }};
 {% endmacro %}
 
-{% macro expect_table_row_count_to_equal(table_name = SL_THIS, expected_value) %}
+{% macro expect_table_row_count_to_equal(table_name, expected_value) %}
 -- This macro checks if the number of rows in a table equals a specified value.
 SELECT 
     CASE 
@@ -19,7 +18,7 @@ SELECT
 FROM {{ table_name }};
 {% endmacro %}
 
-{% macro expect_table_row_count_to_equal_other_table(table1_name = SL_THIS, table2_name) %}
+{% macro expect_table_row_count_to_equal_other_table(table1_name, table2_name) %}
 -- This macro checks if the number of rows in one table equals the number of rows in another table.
 WITH Table1RowCount AS (
     SELECT COUNT(*) AS row_count FROM {{ table1_name }}

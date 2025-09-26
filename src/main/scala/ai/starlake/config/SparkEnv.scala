@@ -169,7 +169,12 @@ class SparkEnv private (
 }
 
 object SparkEnv {
-  var sparkEnv: SparkEnv = _
+  def closeSession(): Unit = {
+    if (sparkEnv != null) {
+      sparkEnv.closeSession()
+    }
+  }
+  private var sparkEnv: SparkEnv = _
   def get(
     name: String,
     confTransformer: SparkConf => SparkConf = identity,
