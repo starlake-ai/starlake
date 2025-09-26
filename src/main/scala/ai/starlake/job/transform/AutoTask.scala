@@ -186,7 +186,7 @@ abstract class AutoTask(
     val inputSQL =
       SQLUtils.instantiateMacrosInSql(
         sql.getOrElse(taskDesc.getSql()),
-        schemaHandler.macros,
+        schemaHandler.allMacros,
         allVars
       )
     if (interactive.isEmpty) {
