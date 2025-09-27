@@ -322,8 +322,12 @@ final case class AllSinks(
   }
   def toAllSinks(): AllSinks = this
 
+  @JsonIgnore
+  def getConnectionRef()(implicit settings: Settings): String =
+    this.connectionRef.getOrElse(settings.appConfig.connectionRef)
+
   def getSink()(implicit settings: Settings): Sink = {
-    val ref = this.connectionRef.getOrElse(settings.appConfig.connectionRef)
+    val ref = getConnectionRef()
     if (ref.isEmpty) {
       throw new Exception("No connectionRef found")
     }
