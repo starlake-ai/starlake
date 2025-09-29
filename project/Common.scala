@@ -69,8 +69,8 @@ object Common {
   )
 
   def assemlySettings = Seq(
-    test in assembly := {},
-    mainClass in compile := Some("ai.starlake.job.Main")
+    assembly / test := {},
+    compile / mainClass := Some("ai.starlake.job.Main")
   )
 
   def customSettings: Seq[Def.Setting[_]] =
