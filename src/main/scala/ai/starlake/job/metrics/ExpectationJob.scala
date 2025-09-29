@@ -56,8 +56,8 @@ case class ExpectationReport(
     timestamp.setNanos(0)
     val template = ExpectationJob.selectTemplate(engineName)
     def replaceQuote(s: String): String =
-      s.replaceAll("'", "\"").replaceAll("\n", " ")
-    val selectStatement = template.richFormat(
+      s.replaceAll("'", "\"").replaceAll("\n", " ").replaceAll("\\{\\{", "").replaceAll("}}", "")
+    val mapParam =
       Map(
         "jobid"     -> jobId,
         "database"  -> database.getOrElse(""),
@@ -70,9 +70,8 @@ case class ExpectationReport(
         "count"     -> count.getOrElse(0L).toString,
         "exception" -> replaceQuote(exception.getOrElse("")),
         "success"   -> success.toString
-      ),
-      Map.empty
-    )
+      )
+    val selectStatement = template.richFormat(mapParam, Map.empty)
     selectStatement
   }
 }
