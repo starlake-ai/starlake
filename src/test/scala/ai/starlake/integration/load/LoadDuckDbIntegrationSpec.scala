@@ -5,13 +5,13 @@ import ai.starlake.job.Main
 import better.files.File
 
 class LoadDuckDbIntegrationSpec extends JDBCIntegrationSpecBase {
-  override def theSampleFolder: File = samplesFolder / "duckdb"
+  override def theSampleFolder: File = samplesFolder / "any-engine"
 
   override protected def cleanup(): Unit = {
     // cleanup(localDir)
   }
 
-  if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
+  if (sys.env.getOrElse("SL_LOCAL_TEST", "true").toBoolean) {
     "Import / Load / Transform DUCKDB" should "succeed" in {
       (theSampleFolder / "datasets").createDirectoryIfNotExists(createParents = true)
       withEnvs(
@@ -24,7 +24,7 @@ class LoadDuckDbIntegrationSpec extends JDBCIntegrationSpecBase {
           new Main().run(
             Array("stage")
           )
-        )
+        );
         assert(
           new Main().run(
             Array("load")

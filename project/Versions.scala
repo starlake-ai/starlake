@@ -1,6 +1,6 @@
 object Versions {
   val curator = "2.6.0"
-  val spark3 = "3.5.6"
+  val spark3 = "3.5.7"
   val deltaSpark3d0 = "3.3.2"
   val scalatest = "3.2.19"
   val scalacheckForScalatest = "3.2.18.0"
@@ -31,12 +31,12 @@ object Versions {
   val poi = "4.1.2"
   val scalate = "1.9.8"
   val confluentVersion = "7.7.5"
-  val kafkaClients = "7.7.4-ce"
+  val kafkaClients = "7.7.5-ce"
   val testContainers = "0.41.8"
   val gcpCloudLogging = "3.23.3"
   val gcpDataCatalog = "1.79.0"
   val jinja = "2.7.4" // forces dependency override on guava
-  val snowflakeSpark: String = "3.1.4"
+  val snowflakeSpark: String = "3.1.5"
   val snowflakeJDBC = "3.26.1"
   val duckdb = "1.4.0.0"
   val bigQueue = "0.7.0"

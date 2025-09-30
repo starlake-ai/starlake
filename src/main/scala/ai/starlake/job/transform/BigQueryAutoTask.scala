@@ -216,7 +216,8 @@ class BigQueryAutoTask(
         case None =>
           val jobResult: Try[JobResult] =
             loadedDF match {
-              case Some(df) =>
+
+              case Some(df) => // We are running Spark to load/transform the dataframe
                 taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
                   case Some(shardColumns) =>
                     val presqlResult: List[Try[JobResult]] = runSqls(preSql)

@@ -97,24 +97,26 @@ case class AuditLog(
 
   def asSelect(engineName: Engine)(implicit settings: Settings): String = {
     import ai.starlake.utils.Formatter._
+    def replaceQuote(s: String): String =
+      s.replaceAll("'", "-").replaceAll("\n", " ").replaceAll("\\{\\{", "").replaceAll("}}", "")
     timestamp.setNanos(0)
     val template: String = AuditLog.selectTemplate(engineName)
     val selectStatement = template.richFormat(
       Map(
         "jobid"         -> jobid,
         "paths"         -> paths.map(p => p.replaceAll("'", "-")).getOrElse("null"),
-        "domain"        -> domain.replaceAll("'", "-"),
-        "schema"        -> schema.replaceAll("'", "-"),
+        "domain"        -> replaceQuote(domain),
+        "schema"        -> replaceQuote(schema),
         "success"       -> success,
         "count"         -> count,
         "countAccepted" -> countAccepted,
         "countRejected" -> countRejected,
         "timestamp"     -> timestamp.toString(),
         "duration"      -> duration,
-        "message"       -> message.replaceAll("'", "-").replaceAll("\n", " "),
+        "message"       -> replaceQuote(message),
         "step"          -> step,
         "database"      -> database.getOrElse(""),
-        "tenant"        -> tenant.replaceAll("'", "-"),
+        "tenant"        -> replaceQuote(tenant),
         "scheduledDate" -> scheduledDate.getOrElse(timestamp.toString)
       ),
       Map.empty
