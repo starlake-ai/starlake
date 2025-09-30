@@ -426,7 +426,6 @@ object StarlakeTestData {
       ],
       List[(String, String)]
     ),
-    expectations: List[ExpectationItem],
     config: StarlakeTestConfig
   )(implicit originalSettings: Settings): (List[StarlakeTestResult], StarlakeTestCoverage) = {
     def runner(test: StarlakeTest, testName: String, settings: Settings): Unit = {
@@ -495,7 +494,7 @@ object StarlakeTestData {
         })
         .getOrElse(new File(originalSettings.appConfig.root, "test-reports"))
     val testsFolder = new Directory(new File(rootFolder, "transform"))
-    run(dataAndTests, runner, testsFolder, expectations)
+    run(dataAndTests, runner, testsFolder)
   }
 
   def runLoads(
@@ -512,7 +511,6 @@ object StarlakeTestData {
       ],
       List[(String, String)]
     ),
-    expectations: List[ExpectationItem],
     config: StarlakeTestConfig
   )(implicit originalSettings: Settings): (List[StarlakeTestResult], StarlakeTestCoverage) = {
     def runner(test: StarlakeTest, testName: String, settings: Settings): Unit = {
@@ -605,7 +603,7 @@ object StarlakeTestData {
         })
         .getOrElse(new File(originalSettings.appConfig.root, "test-reports"))
     val testsFolder = new Directory(new File(rootFolder, "load"))
-    run(dataAndTests, runner, testsFolder, expectations)
+    run(dataAndTests, runner, testsFolder)
   }
 
   def run(
@@ -623,8 +621,7 @@ object StarlakeTestData {
       List[(String, String)] // Domain and Table names
     ),
     runner: (StarlakeTest, String, Settings) => Unit,
-    testsFolder: Directory,
-    expectations: List[ExpectationItem]
+    testsFolder: Directory
   )(implicit originalSettings: Settings): (List[StarlakeTestResult], StarlakeTestCoverage) = {
     Class.forName("org.duckdb.DuckDBDriver")
     testsFolder.deleteRecursively()
@@ -694,6 +691,16 @@ object StarlakeTestData {
                 )
               case Success(_) =>
                 val end = System.currentTimeMillis()
+                val schemaHandler = settings.schemaHandler()
+                val tableExpectations = schemaHandler
+                  .tableByFinalName(test.domain, test.table)
+                  .map(_.expectations)
+                  .orElse(
+                    schemaHandler
+                      .taskByTableName(test.domain, test.table)
+                      .map(_.expectations)
+                  )
+                  .getOrElse(Nil)
                 val compareResult = Utils.withResources(
                   DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
                 ) { conn =>
@@ -702,7 +709,7 @@ object StarlakeTestData {
                     test.domain,
                     test.table,
                     test.getTaskName(),
-                    expectations,
+                    tableExpectations,
                     conn,
                     end - start
                   )(settings)
