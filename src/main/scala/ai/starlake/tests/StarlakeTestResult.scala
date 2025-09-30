@@ -82,7 +82,7 @@ case class StarlakeTestResult(
   def toJunitTestCase(): JunitTestCase = {
     val name: String = s"$domainName.$tName.$testName"
     val classname: String = s"$domainName.$taskName"
-    val time: Double = duration.toDouble / 1000
+    val time: Double = (duration.toDouble / 100).round / 10.0 // keep one decimal only
     val failure: Option[String] = junitErrMessage()
     JunitTestCase(name, classname, time, failure)
   }
@@ -134,7 +134,7 @@ case class StarlakeTestResult(
   def getException(): util.List[String] =
     exception.getOrElse("None").split("\n").toList.asJava
   def getDuration(): String = {
-    val d: Double = duration.toDouble / 1000
+    val d: Double = (duration.toDouble / 100).round / 10.0 // keep one decimal only
     s"$d"
   }
 

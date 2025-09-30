@@ -71,7 +71,7 @@ class TransformStrategiesBuilder extends LazyLogging {
     logger.info(
       s"Running Write strategy: ${strategy.`type`} for table ${tableComponents.getFullTableName()} with options: truncate: $truncate, materializedView: $materializedView, targetTableExists: $targetTableExists"
     )
-    if (materializedView == Materialization.MATERIALIZED_VIEW) {
+    if (materializedView == Materialization.VIEW) {
       buildSqlWithJ2(
         strategy,
         selectStatement,

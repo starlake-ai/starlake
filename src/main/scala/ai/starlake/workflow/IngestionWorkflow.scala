@@ -1137,7 +1137,7 @@ class IngestionWorkflow(
       config.table.getOrElse(""),
       config.test.getOrElse("")
     )
-    StarlakeTestData.runLoads(loadTests, expectations, config)
+    StarlakeTestData.runLoads(loadTests, config)
   }
 
   def testTransform(
@@ -1161,7 +1161,7 @@ class IngestionWorkflow(
       config.table.getOrElse(""),
       config.test.getOrElse("")
     )
-    StarlakeTestData.runTransforms(transformTests, expectations, config)
+    StarlakeTestData.runTransforms(transformTests, config)
   }
 
   def testLoadAndTransform(

@@ -69,8 +69,8 @@ object Common {
   )
 
   def assemlySettings = Seq(
-    test in assembly := {},
-    mainClass in compile := Some("ai.starlake.job.Main")
+    assembly / test := {},
+    compile / mainClass := Some("ai.starlake.job.Main")
   )
 
   def customSettings: Seq[Def.Setting[_]] =
@@ -114,7 +114,7 @@ object Resolvers {
   val snapshots = Resolver.sonatypeCentralSnapshots
 
   val allResolvers =
-    Seq(Resolver.mavenLocal, typeSafe, confluent, mulesoft, snapshots)
+    Seq(Resolver.mavenLocal, snapshots, typeSafe, confluent, mulesoft)
 
   val googleCloudBigDataMavenRepo = "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss"
 

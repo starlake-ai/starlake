@@ -2,6 +2,10 @@
 # Release notes
 
 # 1.5.3:
+__Improvement__:
+- handle jsonSchema type in openapi schema extraction
+
+
 __Bug fix__:
 - drop empty headers or null in native loader
 - ingestion failure when detailed load audit is enabled
