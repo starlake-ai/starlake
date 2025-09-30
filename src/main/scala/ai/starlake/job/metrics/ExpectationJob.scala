@@ -227,7 +227,7 @@ class ExpectationJob(
             Some(Utils.exceptionAsString(e)),
             success = false
           )
-          throw new Exception(s"Error while trying to execute $sql", e)
+        // throw new Exception(s"Error while trying to execute $sql", e)
         case Success(value) => value
       }
     }
