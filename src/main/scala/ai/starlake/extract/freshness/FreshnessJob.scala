@@ -54,10 +54,24 @@ object FreshnessJob extends LazyLogging {
     val quote = conn.getJdbcEngine().map(_.quote).getOrElse("")
     val selectSql =
       s"""
-        |SELECT ${quote}DOMAIN${quote}, ${quote}SCHEMA${quote}, ${quote}TIMESTAMP${quote}
-        |FROM $auditTable
-        |QUALIFY ROW_NUMBER() OVER (PARTITION BY DOMAIN, SCHEMA ORDER BY TIMESTAMP DESC) = 1
-        |""".stripMargin
+      |SELECT ${quote}DOMAIN${quote}, ${quote}SCHEMA${quote}, ${quote}TIMESTAMP${quote}
+      |FROM
+      |(
+      |   SELECT ${quote}DOMAIN${quote}, ${quote}SCHEMA${quote}, ${quote}TIMESTAMP${quote},
+      |       ROW_NUMBER() OVER(PARTITION BY DOMAIN, SCHEMA ORDER BY TIMESTAMP DESC)  AS SL_SEQ
+      |   FROM $auditTable
+      |)
+      |WHERE SL_SEQ = 1
+      |
+      |
+      |""".stripMargin
+
+    // Because QUALIFY is not supported in Postgres
+    //  s"""
+    //     |SELECT ${quote}DOMAIN${quote}, ${quote}SCHEMA${quote}, ${quote}TIMESTAMP${quote}
+    //       |FROM $auditTable
+    //   |QUALIFY ROW_NUMBER() OVER (PARTITION BY DOMAIN, SCHEMA ORDER BY TIMESTAMP DESC) = 1
+    //   |""".stripMargin
 
     val rows: Try[List[List[(String, Any)]]] =
       AutoTask
