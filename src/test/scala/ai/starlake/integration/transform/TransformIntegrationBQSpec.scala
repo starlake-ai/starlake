@@ -5,9 +5,9 @@ import ai.starlake.job.Main
 
 class TransformIntegrationBQSpec extends BigQueryIntegrationSpecBase {
   override def beforeAll(): Unit = {}
-  if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
-    "Native Bigquery Transform" should "succeed" in {
+  "Native Bigquery Load" should "succeed" in {
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       withEnvs(
         "SL_ENV"                                        -> "BQ",
         "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",
@@ -25,6 +25,16 @@ class TransformIntegrationBQSpec extends BigQueryIntegrationSpecBase {
             Array("load")
           )
         )
+      }
+    }
+  }
+  "Native Bigquery Transform" should "succeed" in {
+    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
+      withEnvs(
+        "SL_ENV"                                        -> "BQ",
+        "SL_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE" -> "DYNAMIC",
+        "SL_ROOT"                                       -> theSampleFolder.pathAsString
+      ) {
         assert(
           new Main().run(
             Array(

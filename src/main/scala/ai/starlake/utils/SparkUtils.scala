@@ -139,7 +139,7 @@ object SparkUtils extends LazyLogging {
     options: Map[String, String],
     table: String
   ): Option[StructType] = {
-    val dialect = SparkUtils.dialect(options("url"))
+    val dialect = SparkUtils.dialectForUrl(options("url"))
     val preferTimestampNTZ =
       options
         .get(JDBC_PREFER_TIMESTAMP_NTZ)
@@ -258,7 +258,7 @@ object SparkUtils extends LazyLogging {
     !deep
   }
 
-  def dialect(url: String): JdbcDialect = {
+  def dialectForUrl(url: String): JdbcDialect = {
     val reworkedUrl =
       url
         .replace("jdbc:redshift", "jdbc:postgresql")
@@ -300,6 +300,7 @@ object SparkUtils extends LazyLogging {
     )
     columns.mkString(", ")
   }
+
   def sqlSchema(
     schema: StructType,
     caseSensitive: Boolean,
@@ -313,17 +314,14 @@ object SparkUtils extends LazyLogging {
     }
     val dialectPattern = Pattern
       .compile("jdbc:([a-zA-Z]+):.*")
-      .matcher(url)
+      .matcher(
+        url.replace(":starlake:", ":")
+      ) // in case we are coming with a starlake wrapped jdbc url
     assert(dialectPattern.find())
     val dialectName = dialectPattern.group(1)
     val jdbcEng = settings.appConfig.jdbcEngines(dialectName)
 
-    val urlForRedshiftAndDuckDb =
-      url
-        .replace("jdbc:redshift:", "jdbc:postgresql:")
-        .replace("jdbc:duckdb:", "jdbc:postgresql:")
-
-    val dialect = JdbcDialects.get(urlForRedshiftAndDuckDb)
+    val dialect = dialectForUrl(url)
     val typMap =
       if (caseSensitive) sparkToSqlTypeMappings
       else

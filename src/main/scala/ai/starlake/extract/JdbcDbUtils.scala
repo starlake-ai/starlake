@@ -31,6 +31,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try, Using}
 
 object JdbcDbUtils extends LazyLogging {
+  val appType = Option(System.getenv("SL_API_APP_TYPE")).getOrElse("web")
 
   type TableName = String
   type TableRemarks = String
@@ -56,6 +57,21 @@ object JdbcDbUtils extends LazyLogging {
   object StarlakeConnectionPool {
     private val hikariPools = scala.collection.concurrent.TrieMap[String, HikariDataSource]()
     private val duckDbPool = scala.collection.concurrent.TrieMap[String, Connection]()
+
+    private def getHikariPoolKey(url: String, options: Map[String, String]): String = {
+      val keysToConsider =
+        if (appType == "snowflake_native_app") {
+          options.filter { case (k, v) =>
+            Set("password", "user", "authenticator").contains(k) && v.nonEmpty
+          }
+        } else {
+          options.filter { case (k, v) =>
+            Set("password", "sl_access_token", "user").contains(k) && v.nonEmpty
+          }
+        }
+      url + "?" + keysToConsider.toList.sortBy(_._1).map { case (k, v) => s"$k=$v" }.mkString("&")
+    }
+
     def getConnection(
       dataBranch: Option[String],
       connectionOptions: Map[String, String]
@@ -109,7 +125,12 @@ object JdbcDbUtils extends LazyLogging {
         }
       } else {
         val finalConnectionOptions =
-          if (url.contains(":snowflake:") && connectionOptions.contains("sl_access_token")) {
+          if (
+            url.contains(":snowflake:") &&
+            connectionOptions.contains("sl_access_token") &&
+            connectionOptions("sl_access_token").contains(":") && appType != "snowflake_native_app"
+          ) {
+            // this is the case for Snowflake OAuth as a web app not as a native app
             val accountUserAndToken = connectionOptions("sl_access_token").split(":")
             val accessToken =
               accountUserAndToken.drop(2).mkString(":") // in case the token contains the ':' char
@@ -124,14 +145,19 @@ object JdbcDbUtils extends LazyLogging {
           } else {
             connectionOptions
           }
-        val poolKey = url + connectionOptions.getOrElse("sl_access_token", "")
+        val poolKey = getHikariPoolKey(url, finalConnectionOptions)
+
+        logger.info("************** JDBC POOL KEY ***************")
+        // logger.info(poolKey)
+        // logger.info(connectionOptions.getOrElse("password", "No password"))
+        logger.info("*******************************************")
         val pool = hikariPools
           .getOrElseUpdate(
             poolKey, {
               val config = new HikariConfig()
               (finalConnectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token")
                 .foreach { case (key, value) =>
-                  logger.info(s"Adding property $key=$value")
+                  logger.info(s"Adding property $key")
                   config.addDataSourceProperty(key, value)
                 }
               config.setJdbcUrl(url)
@@ -237,8 +263,8 @@ object JdbcDbUtils extends LazyLogging {
             Success(value)
         }
 
-        val url = connectionOptions("url")
-        if (!isExtractCommandHack(url) && existingConnection.isEmpty) {
+        val url = connectionOptions.get("url").orNull
+        if (existingConnection.isEmpty && url != null && !isExtractCommandHack(url)) {
           Try(connection.close()) match {
             case Success(_) =>
               logger.debug(s"Closed connection $url")
@@ -292,10 +318,24 @@ object JdbcDbUtils extends LazyLogging {
         throw e
     }
   }
+  @throws[Exception]
+  def createDatabase(conn: Connection, dbName: String): Unit = {
+    executeUpdate(databaseCreateSQL(dbName), conn) match {
+      case Success(_) =>
+      case Failure(e) =>
+        logger.error(s"Error creating database $dbName", e)
+        throw e
+    }
+  }
 
   @throws[Exception]
   def schemaCreateSQL(domainName: String): String = {
     s"CREATE SCHEMA IF NOT EXISTS $domainName"
+  }
+
+  @throws[Exception]
+  def databaseCreateSQL(domainName: String): String = {
+    s"CREATE DATABASE IF NOT EXISTS $domainName"
   }
 
   def buildDropTableSQL(tableName: String): String = {
@@ -312,7 +352,7 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   def tableExists(conn: Connection, url: String, domainAndTablename: String): Boolean = {
-    val dialect = SparkUtils.dialect(url)
+    val dialect = SparkUtils.dialectForUrl(url)
     Try {
       val statement = conn.prepareStatement(dialect.getTableExistsQuery(domainAndTablename))
       try {

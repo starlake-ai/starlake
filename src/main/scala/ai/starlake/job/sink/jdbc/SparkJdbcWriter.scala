@@ -104,7 +104,7 @@ class SparkJdbcWriter(
         .format(format)
         .option("dbtable", cliConfig.outputDomainAndTableName)
 
-      val dialect = SparkUtils.dialect(url)
+      val dialect = SparkUtils.dialectForUrl(url)
 
       // We always append to the table to keep the schema (Spark loose the schema otherwise). We truncate using the truncate query option
       JdbcDbUtils.withJDBCConnection(settings.schemaHandler().dataBranch(), jdbcOptions) { conn =>

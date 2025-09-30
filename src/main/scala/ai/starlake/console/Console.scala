@@ -3,10 +3,12 @@ package ai.starlake.console
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.Main
 import ai.starlake.serve.{SingleUserMainServer, SingleUserServices}
+import ai.starlake.utils.{JobResult, SparkJob}
 import jline.console.history.FileHistory
 import org.apache.hadoop.fs.Path
 
 import java.io.File
+import scala.util.{Success, Try}
 
 class Console(implicit isettings: Settings) {
   sealed trait Input
@@ -97,6 +99,28 @@ class Console(implicit isettings: Settings) {
             println(s"Env $envValue does not exist")
           }
           false
+        case InputLine(sqlDot) if sqlDot.startsWith(".") =>
+          val sql = sqlDot.substring(1)
+          new SparkJob {
+            override def name: String = "console-job"
+            override implicit def settings: Settings = isettings
+            override def run(): Try[JobResult] = {
+              Try {
+                val df = session.sql(sql)
+                if (!df.isEmpty)
+                  df.show(false)
+              } match {
+                case scala.util.Success(_) =>
+                  Success(JobResult.empty)
+                case scala.util.Failure(e) =>
+                  e.printStackTrace()
+                  Success(JobResult.empty)
+              }
+
+            }
+          }.run()
+          false
+
         case InputLine(s) =>
           try {
             val params = s.split(" ")
@@ -115,29 +139,7 @@ class Console(implicit isettings: Settings) {
               e.printStackTrace()
           }
           false
-        /*
-      case InputLine(sql) if 1 == 2 =>
-        new SparkJob {
-          override def name: String = "console-job"
-          override implicit def settings: config.Settings = isettings
-          override def run(): Try[JobResult] = {
-            Try {
-              val df = session.sql(sql)
-              if (!df.isEmpty)
-                df.show(false)
-            } match {
-              case scala.util.Success(_) =>
-                Success(JobResult.empty)
-              case scala.util.Failure(e) =>
-                e.printStackTrace()
-                Success(JobResult.empty)
-            }
 
-          }
-        }.run()
-        false
-
-         */
         case _ =>
           false
       }

@@ -405,7 +405,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     this._types
   }
 
-  lazy val expectationMacros: String = {
+  def expectationMacros: String = {
     val j2Files = storage.list(DatasetArea.expectations, ".j2", recursive = true).map(_.path)
     val macros = j2Files
       .map { path =>
@@ -415,7 +415,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     macros.mkString("\n")
   }
 
-  lazy val macros: String = {
+  def macros: String = {
     val j2Files = storage.list(DatasetArea.macros, ".j2", recursive = true).map(_.path)
     val macros = j2Files
       .map { path =>
@@ -424,6 +424,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
     macros.mkString("\n")
   }
+
+  def allMacros: String = expectationMacros + "\n" + macros + "\n"
 
   private def viewName(sqlFile: Path) =
     if (sqlFile.getName().endsWith(".sql.j2"))

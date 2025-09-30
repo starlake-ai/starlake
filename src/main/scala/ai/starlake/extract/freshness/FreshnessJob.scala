@@ -4,16 +4,19 @@ import ai.starlake.config.Settings
 import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.extract.{BigQueryTableInfo, JdbcTableInfo, TablesExtractConfig}
 import ai.starlake.job.sink.bigquery.BigQuerySparkWriter
+import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Engine, WriteMode}
+import ai.starlake.schema.model.{AutoTaskInfo, Engine, WriteMode}
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import com.typesafe.scalalogging.LazyLogging
 
 import java.sql.Timestamp
+import java.time.{LocalDateTime, ZoneOffset}
+import java.time.format.DateTimeFormatter
 import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 case class FreshnessStatus(
   domain: String,
@@ -27,24 +30,112 @@ case class FreshnessStatus(
 )
 
 object FreshnessJob extends LazyLogging {
+  val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S")
+
+  private def formatTimestamp(dateString: String): Long = {
+    val localDateTime = LocalDateTime.parse(dateString, formatter)
+    val instant = localDateTime.toInstant(ZoneOffset.UTC)
+    val millis = instant.toEpochMilli
+    millis
+  }
+  def extractLastModifiedTime(
+    config: TablesExtractConfig
+  )(implicit settings: Settings): Try[List[(String, List[(String, Long)])]] = {
+    val auditDb = settings.appConfig.audit.getDatabase()
+    val auditDomain = settings.appConfig.audit.getDomain()
+    val auditTable =
+      auditDb match {
+        case None | Some("") =>
+          s"$auditDomain.audit"
+        case Some(auditDb) =>
+          s"$auditDb.$auditDomain.audit"
+      }
+    val conn = ConnectionInfo.getConnectionOrDefault(settings.appConfig.audit.sink.connectionRef)
+    val quote = conn.getJdbcEngine().map(_.quote).getOrElse("")
+    val selectSql =
+      s"""
+        |SELECT ${quote}DOMAIN${quote}, ${quote}SCHEMA${quote}, ${quote}TIMESTAMP${quote}
+        |FROM $auditTable
+        |QUALIFY ROW_NUMBER() OVER (PARTITION BY DOMAIN, SCHEMA ORDER BY TIMESTAMP DESC) = 1
+        |""".stripMargin
+
+    val rows: Try[List[List[(String, Any)]]] =
+      AutoTask
+        .executeSelect(
+          "__ignore__",
+          "__ignore__",
+          selectSql,
+          summarizeOnly = false,
+          settings.appConfig.audit.sink.getConnectionRef(),
+          None,
+          test = false,
+          parseSQL = false,
+          pageSize = 1000000,
+          pageNumber = 1,
+          scheduledDate = None // No scheduled date for validate command
+        )(settings, settings.storageHandler(), settings.schemaHandler())
+
+    rows.map { rows =>
+      // convert result to (domain, table, lastModifiedTime)
+      val freshnesses =
+        rows.map { cols =>
+          val domain = cols(0)._2.toString
+          val table = cols(1)._2.toString
+          val timestamp = formatTimestamp(cols(2)._2.toString())
+          (domain, table, timestamp)
+        }
+
+      // filter on config.tables if not empty
+      val filteredFreshnesses =
+        if (config.tables.isEmpty)
+          freshnesses
+        else {
+          val configTables = config.tables.flatMap { case (domain, tables) =>
+            tables.map { table =>
+              s"$domain.$table"
+            }
+          }.toList
+          freshnesses.filter { case (domain, table, _) =>
+            configTables.exists(it => it.equalsIgnoreCase(s"$domain.$table"))
+          }
+        }
+
+      // group by domain
+      filteredFreshnesses
+        .groupBy(_._1)
+        .map { case (domain, tables) =>
+          val tableInfos = tables.map { case (_, table, lastModifiedTime) =>
+            (table, lastModifiedTime)
+          }
+          (domain, tableInfos)
+        }
+        .toList
+    }
+  }
+
   def freshness(
     config: TablesExtractConfig,
     schemaHandler: SchemaHandler
   )(implicit mySettings: Settings): List[FreshnessStatus] = {
-    val conn = ConnectionInfo.getConnectionOrDefault(config.connectionRef)
-    val tables: List[(String, List[(String, Long)])] = {
-      conn.getJdbcEngineName() match {
-        case Engine.BQ =>
-          BigQueryTableInfo.extractLastModifiedTime(config)
-        case Engine.SNOWFLAKE =>
-          new JdbcTableInfo().extractLastModifiedTime(config)
-        case _ =>
-          throw new IllegalArgumentException(
-            s"Unsupported connection type: ${conn.getJdbcEngineName()}. Only 'bigquery' is supported."
-          )
-      }
-
+    val tables = extractLastModifiedTime(config) match {
+      case Success(tables) => tables
+      case Failure(exception) =>
+        throw new Exception("Could not extract tables freshness", exception)
     }
+//    val conn = ConnectionInfo.getConnectionOrDefault(config.connectionRef)
+//    val tables: List[(String, List[(String, Long)])] = {
+//      conn.getJdbcEngineName() match {
+//        case Engine.BQ =>
+//          BigQueryTableInfo.extractLastModifiedTime(config)
+//        case Engine.SNOWFLAKE =>
+//          new JdbcTableInfo().extractLastModifiedTime(config)
+//        case _ =>
+//          throw new IllegalArgumentException(
+//            s"Unsupported connection type: ${conn.getJdbcEngineName()}. Only 'bigquery' & Snowflake are supported."
+//          )
+//      }
+//
+//    }
     val domains = schemaHandler.domains()
     val tablesFreshnessStatuses = tables.flatMap { case (dsInfo, tableInfos) =>
       val domain = domains.find(_.finalName.equalsIgnoreCase(dsInfo))

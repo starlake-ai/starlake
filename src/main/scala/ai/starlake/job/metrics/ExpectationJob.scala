@@ -56,8 +56,8 @@ case class ExpectationReport(
     timestamp.setNanos(0)
     val template = ExpectationJob.selectTemplate(engineName)
     def replaceQuote(s: String): String =
-      s.replaceAll("'", "\"").replaceAll("\n", " ")
-    val selectStatement = template.richFormat(
+      s.replaceAll("'", "\"").replaceAll("\n", " ").replaceAll("\\{\\{", "").replaceAll("}}", "")
+    val mapParam =
       Map(
         "jobid"     -> jobId,
         "database"  -> database.getOrElse(""),
@@ -70,9 +70,8 @@ case class ExpectationReport(
         "count"     -> count.getOrElse(0L).toString,
         "exception" -> replaceQuote(exception.getOrElse("")),
         "success"   -> success.toString
-      ),
-      Map.empty
-    )
+      )
+    val selectStatement = template.richFormat(mapParam, Map.empty)
     selectStatement
   }
 }
@@ -161,7 +160,7 @@ class ExpectationJob(
       case Some(db) => s"$db.$domainName.$schemaName"
       case None     => s"$domainName.$schemaName"
     }
-    val macros = SQLUtils.stripComments(schemaHandler.expectationMacros)
+    val macros = SQLUtils.stripComments(schemaHandler.allMacros)
     val expectationReports = expectations.map { expectation =>
       val queryCall = expectation.queryCall()
       val expectationWithMacroDefinitions = List(macros, queryCall).mkString("\n")
@@ -228,7 +227,7 @@ class ExpectationJob(
             Some(Utils.exceptionAsString(e)),
             success = false
           )
-          throw new Exception(s"Error while trying to execute $sql", e)
+        // throw new Exception(s"Error while trying to execute $sql", e)
         case Success(value) => value
       }
     }
@@ -305,7 +304,7 @@ class ExpectationJob(
     }
     val bqSlThisCTE = s"WITH SL_THIS AS (SELECT * FROM $fullTableName)\n"
 
-    val macros = schemaHandler.expectationMacros
+    val macros = schemaHandler.allMacros
     val sqls = expectations.map { expectation =>
       val expectationWithMacroDefinitions = List(macros, expectation.queryCall()).mkString("\n")
       val sql = bqSlThisCTE +

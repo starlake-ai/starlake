@@ -17,7 +17,7 @@ case class StarlakeTestsSummary(
   def getFailures(): Int = failures
   def getSuccessRate(): Int = successRate
   def getDuration(): String = {
-    val d: Double = duration.toDouble / 1000
+    val d: Double = (duration.toDouble / 100).round / 10.0 // rounded to 1 decimal
     s"$d"
   }
 

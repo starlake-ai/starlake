@@ -11,6 +11,12 @@ import com.typesafe.scalalogging.LazyLogging
 import java.util.concurrent.TimeUnit
 
 class CaffeineSettingsManager extends SettingsManager with LazyLogging {
+  val snowflakeTokenCache: Cache[String, String] = Caffeine
+    .newBuilder()
+    .expireAfterAccess(10, TimeUnit.MINUTES)
+    .maximumSize(10000)
+    .build();
+
   val settingsCache: Cache[String, Settings] = Caffeine
     .newBuilder()
     .expireAfterAccess(10, TimeUnit.MINUTES)
@@ -138,6 +144,16 @@ class CaffeineSettingsManager extends SettingsManager with LazyLogging {
     val sessionId = uniqueId(root, env) + "_storage_handler"
     storageCache.put(sessionId, storageHandler)
   }
+
+  def setSnowflakeUserToken(
+    user: String,
+    token: String
+  ): Unit =
+    snowflakeTokenCache.put(user, token)
+
+  def getSnowflakeUserToken(user: String): Option[String] =
+    Option(snowflakeTokenCache.getIfPresent(user))
+
 }
 
 object CaffeineSettingsManager extends CaffeineSettingsManager
