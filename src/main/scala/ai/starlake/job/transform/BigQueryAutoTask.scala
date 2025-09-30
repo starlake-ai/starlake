@@ -6,6 +6,7 @@ import ai.starlake.extract.{
   ExtractBigQuerySchema,
   ExtractSchemaCmd,
   ExtractSchemaConfig,
+  JdbcDbUtils,
   TablesExtractConfig
 }
 import ai.starlake.job.metrics.{
@@ -20,7 +21,7 @@ import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
-import ai.starlake.utils.{JobResult, Utils}
+import ai.starlake.utils.{JobResult, SparkUtils, Utils}
 import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,
@@ -29,7 +30,8 @@ import com.google.cloud.bigquery.{
 }
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
+import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -214,12 +216,14 @@ class BigQueryAutoTask(
     val jobResult: Try[JobResult] =
       interactive match {
         case None =>
+          // It's a batch job not a interactive query,
+          // we need to transpile the query into and insert/update/create / merge statement
           val jobResult: Try[JobResult] =
             loadedDF match {
-
               case Some(df) => // We are running Spark to load/transform the dataframe
                 taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
                   case Some(shardColumns) =>
+                    // We are sharding the data ((Multi partitioning in BigQuery)
                     val presqlResult: List[Try[JobResult]] = runSqls(preSql)
                     presqlResult.foreach(Utils.logFailure(_, logger))
                     val allResult =
@@ -228,6 +232,7 @@ class BigQueryAutoTask(
                           val shard =
                             row.toSeq.map(Option(_).map(_.toString).getOrElse("null")).mkString("_")
                           logger.info(s"Processing shard $shard")
+                          // We update teh schema for each shard in case the schema evolved (each shard => different table)
                           sparkSchema
                             .foreach(schema => updateBigQueryTableSchema(schema, Some(shard)))
                           val shardHead = shardColumns.head
@@ -243,12 +248,14 @@ class BigQueryAutoTask(
                       }
                     allResult.find(_.isFailure).getOrElse(allResult.head)
                   case None =>
+                    // No sharding, we need to update a single table schema
                     sparkSchema.foreach(schema => updateBigQueryTableSchema(schema))
                     saveDF(df, None)
                 }
               case None =>
                 taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
                   case Some(shardColumns) =>
+                    // We are sharding the data ((Multi partitioning in BigQuery) using native bigquery job
                     // TODO Check that we are in the second step of the load
                     val shardsQuery =
                       "SELECT DISTINCT " +
@@ -297,6 +304,8 @@ class BigQueryAutoTask(
                             }
                             .foldLeft(s"$shardHead = '$sharValueHead'")(_ + " AND " + _)
                           val shardSql = s"SELECT * FROM (${taskDesc.sql}) WHERE $conditions"
+                          // We get the table names from the shard values and
+                          // we update the schema for each shard in case the schema evolved (each shard => different table)
                           sparkSchema.foreach(schema =>
                             updateBigQueryTableSchema(
                               schema,
@@ -314,6 +323,8 @@ class BigQueryAutoTask(
                         Failure(e)
                     }
                   case None =>
+                    // No Spark, No shard just native SQL job in bigquery
+                    // We need to infer the incoming schema from the sql query if the schema is not specified
                     sparkSchema.foreach(schema => updateBigQueryTableSchema(schema, None))
                     val allSql =
                       preSql.mkString(";\n") + mainSql() + ";\n" + postSql.mkString(";\n")

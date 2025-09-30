@@ -23,7 +23,7 @@ package ai.starlake.workflow
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractUtils, ParUtils}
 import ai.starlake.job.infer.{InferSchemaConfig, InferSchemaJob}
-import ai.starlake.job.ingest._
+import ai.starlake.job.ingest.*
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.metrics.{MetricsConfig, MetricsJob}
 import ai.starlake.job.sink.bigquery.{
@@ -42,11 +42,11 @@ import ai.starlake.lineage.{
   TaskViewDependencyNode
 }
 import ai.starlake.schema.AdaptiveWriteStrategy
-import ai.starlake.schema.generator._
+import ai.starlake.schema.generator.*
 import ai.starlake.schema.handlers.{FileInfo, SchemaHandler, StorageHandler}
+import ai.starlake.schema.model.*
 import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
-import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
 import ai.starlake.tests.{
   StarlakeTestConfig,
@@ -54,7 +54,7 @@ import ai.starlake.tests.{
   StarlakeTestData,
   StarlakeTestResult
 }
-import ai.starlake.utils._
+import ai.starlake.utils.*
 import better.files.File
 import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.LazyLogging
@@ -1181,7 +1181,7 @@ class IngestionWorkflow(
       StarlakeTestResult.html(loadResults, transformResults, config.outputDir)
       testsLog(loadResults._1 ++ transformResults._1)
     } else {
-      import java.io.{File => JFile}
+      import java.io.File as JFile
       val rootFolder =
         config.outputDir
           .flatMap { dir =>
