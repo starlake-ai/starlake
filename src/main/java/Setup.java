@@ -162,7 +162,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.4.0");
 
     // SPARK
-    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.6");
+    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.7");
     private static final String HADOOP_VERSION = getEnv("HADOOP_VERSION").orElse("3");
 
 
@@ -177,7 +177,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     private static final String HADOOP_AZURE_VERSION = getEnv("HADOOP_AZURE_VERSION").orElse("3.3.5");
     private static final String AZURE_STORAGE_VERSION = getEnv("AZURE_STORAGE_VERSION").orElse("8.6.6");
-    private static final String JETTY_VERSION = getEnv("JETTY_VERSION").orElse("9.4.51.v20230217");
+    private static final String JETTY_VERSION = getEnv("JETTY_VERSION").orElse("9.4.58.v20250814");
 
     // HADOOP_LIB ON WINDOWS
     private static final ResourceDependency[] HADOOP_LIBS = new ResourceDependency[]{
