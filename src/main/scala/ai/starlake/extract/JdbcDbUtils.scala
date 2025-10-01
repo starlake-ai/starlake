@@ -97,7 +97,7 @@ object JdbcDbUtils extends LazyLogging {
         // No connection pool for duckdb. This is a single user database on write.
         // We need to release the connection asap
         val properties = new Properties()
-        (connectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token")
+        (connectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account")
           .foreach { case (k, v) =>
             properties.setProperty(k, v)
           }
@@ -155,7 +155,7 @@ object JdbcDbUtils extends LazyLogging {
           .getOrElseUpdate(
             poolKey, {
               val config = new HikariConfig()
-              (finalConnectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token")
+              (finalConnectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account")
                 .foreach { case (key, value) =>
                   logger.info(s"Adding property $key")
                   config.addDataSourceProperty(key, value)
