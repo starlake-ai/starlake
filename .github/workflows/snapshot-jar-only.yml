@@ -18,7 +18,6 @@ jobs:
         run: |
           echo "SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }}" >>  $GITHUB_ENV
           echo "SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}" >>  $GITHUB_ENV
-          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >>  $GITHUB_ENV
       - uses: smartsquaregmbh/delete-old-packages@v0.3.1
         with:
           version-pattern: "^\\d+\\.\\d+\\.\\d+-SNAPSHOT$" # Remove all previous SNAPSHOT versions
@@ -36,7 +35,11 @@ jobs:
         with:
           sbt-runner-version: '1.11.5'
       - name: Publish Snapshot on Sonatype
-        run: SBT_OPTS="-Xss8M -Xmx16g -XX:+UseG1GC" SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt publish
+        env:
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          SBT_OPTS: "-Xss8M -Xmx16g -XX:+UseG1GC"
+        run: sbt publish
       - name: trigger-starlake-api
         if: ${{ success() }}
         uses: actions/github-script@v6
