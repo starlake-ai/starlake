@@ -2,18 +2,18 @@ package ai.starlake.extract.freshness
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.ConnectionInfo
-import ai.starlake.extract.{BigQueryTableInfo, JdbcTableInfo, TablesExtractConfig}
+import ai.starlake.extract.TablesExtractConfig
 import ai.starlake.job.sink.bigquery.BigQuerySparkWriter
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{AutoTaskInfo, Engine, WriteMode}
+import ai.starlake.schema.model.WriteMode
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
 import com.typesafe.scalalogging.LazyLogging
 
 import java.sql.Timestamp
-import java.time.{LocalDateTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
+import java.time.{LocalDateTime, ZoneOffset}
 import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
