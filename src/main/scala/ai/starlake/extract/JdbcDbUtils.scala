@@ -571,7 +571,8 @@ object JdbcDbUtils extends LazyLogging {
     val result = ListBuffer[(String, String)]()
     ParUtils.runOneInExecutionContext {
       withJDBCConnection(
-        settings.schemaHandler().dataBranch(),
+        // We ignore the branch when reading the information schema
+        None, // settings.schemaHandler().dataBranch(),
         readOnlyConnection(connectionSettings).options
       ) { connection =>
         val statement = connection.prepareStatement("""
@@ -601,7 +602,8 @@ object JdbcDbUtils extends LazyLogging {
   ): Try[List[(String, SqlColumn)]] = Try {
     val result = ListBuffer[(String, SqlColumn)]()
     withJDBCConnection(
-      settings.schemaHandler().dataBranch(),
+      // We ignore the branch when reading the information schema
+      None, // settings.schemaHandler().dataBranch(),
       readOnlyConnection(connectionSettings).options
     ) { connection =>
       val statement = connection.prepareStatement(s"""
@@ -634,7 +636,8 @@ object JdbcDbUtils extends LazyLogging {
     settings: Settings
   ): Try[Boolean] = Try {
     withJDBCConnection(
-      settings.schemaHandler().dataBranch(),
+      // We ignore the branch when reading the information schema
+      None, // settings.schemaHandler().dataBranch(),
       readOnlyConnection(connectionSettings).options
     ) { connection =>
       val statement = connection.prepareStatement(s"""
@@ -677,7 +680,8 @@ object JdbcDbUtils extends LazyLogging {
   ): Try[List[String]] = {
     ParUtils.runOneInExecutionContext {
       withJDBCConnection(
-        settings.schemaHandler().dataBranch(),
+        // We ignore the branch when extracting tables
+        None, // settings.schemaHandler().dataBranch(),
         readOnlyConnection(connectionSettings).options
       ) { connection =>
         val catalog = connectionSettings.getCatalog()
