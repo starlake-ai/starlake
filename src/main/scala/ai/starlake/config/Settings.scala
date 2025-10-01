@@ -30,6 +30,7 @@ import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.serve.CaffeineSettingsManager
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
+import ai.starlake.transpiler.JSQLTranspiler.Dialect
 import ai.starlake.utils.*
 import better.files.File
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
@@ -1605,6 +1606,12 @@ object Settings extends LazyLogging {
         val duckDBConnectionWithTranspileInfo = SQLUtils.transpilerDialect(v) match {
           case JSQLTranspiler.Dialect.DUCK_DB =>
             duckDBConnection.copy(_transpileDialect = None)
+          case Dialect.SNOWFLAKE =>
+            duckDBConnection.copy(
+              _transpileDialect = Some(Dialect.SNOWFLAKE.name()),
+              options = duckDBConnection.options ++ v.options.view
+                .filterKeys(_ == "account") // carry over account for snowflake cortex
+            )
           case dialect =>
             duckDBConnection.copy(_transpileDialect = Some(dialect.name()))
         }
