@@ -6,7 +6,6 @@ import ai.starlake.extract.{
   ExtractBigQuerySchema,
   ExtractSchemaCmd,
   ExtractSchemaConfig,
-  JdbcDbUtils,
   TablesExtractConfig
 }
 import ai.starlake.job.metrics.{
@@ -21,7 +20,7 @@ import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
-import ai.starlake.utils.{JobResult, SparkUtils, Utils}
+import ai.starlake.utils.{JobResult, Utils}
 import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,
@@ -30,8 +29,7 @@ import com.google.cloud.bigquery.{
 }
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
-import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
+import org.apache.spark.sql.types.StructType
 
 import java.sql.Timestamp
 import java.time.Instant
