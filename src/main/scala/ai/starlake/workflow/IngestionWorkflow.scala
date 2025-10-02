@@ -1148,7 +1148,7 @@ class IngestionWorkflow(
     val expectations =
       (domainName, tableName) match {
         case (Some(d), Some(t)) =>
-          schemaHandler.taskByName(s"$d.$t") match {
+          schemaHandler.taskByFullName(s"$d.$t") match {
             case Success(taskInfo) => taskInfo.expectations
             case Failure(_)        => Nil
           }

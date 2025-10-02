@@ -1154,7 +1154,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
       // set task name / domain / table and load sql/py file if any
       val tasks = jobDescWithTaskRefs.tasks.map { taskDesc =>
-        loadAutoTask(jobDescWithTaskRefs, jobFolder, taskDesc)
+        buildAutoTaskInfo(jobDescWithTaskRefs, jobFolder, taskDesc)
       }
       val jobName = if (jobDesc.name.isEmpty) jobFolder.getName() else jobDesc.name
       // We do not check if task has a sql file associated with it, as it can be a python task
@@ -1216,12 +1216,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       jobDesc
     }
 
-  def loadAutoTask(
+  def buildAutoTaskInfo(
     jobDesc: AutoJobInfo,
     jobFolder: Path,
     taskDesc: AutoTaskInfo
   ): AutoTaskInfo = {
-    val (taskName, tableName) = (taskDesc.name, taskDesc.table) match {
+    val (taskShortName, tableName) = (taskDesc.name, taskDesc.table) match {
       case ("", "") =>
         throw new Exception(
           s"Task name or table must be defined for $taskDesc in ${jobFolder}"
@@ -1237,13 +1237,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val domainName = if (taskDesc.domain.isEmpty) jobFolder.getName else taskDesc.domain
 
     val filenamePrefix =
-      if (taskDesc._filenamePrefix.isEmpty) taskName else taskDesc._filenamePrefix
+      if (taskDesc._filenamePrefix.isEmpty) taskShortName else taskDesc._filenamePrefix
 
     // task name is set explicitly and we always prefix it with the domain name except if it is already prefixed.
     val taskWithName = taskDesc.copy(
       domain = domainName,
       table = tableName,
-      name = taskName,
+      name = taskShortName,
       _filenamePrefix = filenamePrefix
     )
 
@@ -1330,7 +1330,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     taskNames: List[String] = Nil
   ): List[AutoTaskInfo] = {
     // List[(prefix, filename, extension)]
-    val taskNamesPrefix = taskNames.map(taskName => taskName + ".")
+    val taskNamesPrefix =
+      taskNames.map(taskName => taskName + ".") // we search for any .sl.yml or .sql or .py or .***
     val allFiles =
       storage
         .list(folder, recursive = true)
@@ -1345,8 +1346,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           List("sl.yml", "sql", "sql.j2", "py")
             .find(ext => filename.endsWith(s".$ext"))
             .map { ext =>
-              val taskName = filename.substring(0, filename.length - s".$ext".length)
-              (taskName, filename, ext)
+              val taskFileNameWithoutExt = filename.substring(0, filename.length - s".$ext".length)
+              (taskFileNameWithoutExt, filename, ext)
             }
         }
     val ymlFiles = allFiles.filter { case (taskName, filename, ext) => ext == "sl.yml" }
@@ -1357,7 +1358,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
     val autoTasksRefNames: List[(String, String, String)] = ymlFiles ++ sqlPyFiles
     val autoTasksRefs = autoTasksRefNames.flatMap {
-      case (taskFilePrefix, taskFilename, extension) =>
+      case (taskFileNameWithoutExt, taskFilename, extension) =>
+        val taskFullName = jobDesc.name + "." + taskFileNameWithoutExt
         extension match {
           case "sl.yml" =>
             Try {
@@ -1368,18 +1370,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                     .parseJinja(storage.read(taskPath), activeEnvVars()),
                   taskPath.toString
                 )
-                .copy(name = taskFilePrefix)
-              val taskName = if (taskDesc.name.nonEmpty) taskDesc.name else taskFilePrefix
+                .copy(name = taskFileNameWithoutExt)
 
-              if (taskDesc.name != taskName && taskDesc.name != jobDesc.name + "." + taskName)
-                logger.warn(
-                  s"Task name ${taskDesc.name} in ${taskPath.toString} is different from the file name ${taskFilePrefix}"
-                )
               val finalDomain = if (taskDesc.domain.isEmpty) jobDesc.name else taskDesc.domain
-              val finalTable = if (taskDesc.table.isEmpty) taskFilePrefix else taskDesc.table
+              val finalTable =
+                if (taskDesc.table.isEmpty) taskFileNameWithoutExt else taskDesc.table
               taskDesc.copy(
-                _filenamePrefix = taskFilePrefix,
-                name = taskName,
+                _filenamePrefix = taskFileNameWithoutExt,
                 domain = finalDomain,
                 table = finalTable
               )
@@ -1393,12 +1390,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           case _ =>
             Some(
               AutoTaskInfo(
-                name = taskFilePrefix,
+                name = taskFileNameWithoutExt,
                 sql = None,
                 database = None,
                 domain = "",
                 table = "",
-                _filenamePrefix = taskFilePrefix,
+                _filenamePrefix = taskFileNameWithoutExt,
                 taskTimeoutMs = None
               )
             )
@@ -1470,19 +1467,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     jobs().flatMap(_.tasks)
   }
 
-  def taskByName(taskName: String): Try[AutoTaskInfo] = Try {
+  def taskByFullName(taskFullName: String): Try[AutoTaskInfo] = Try {
     val allTasks = tasks()
     allTasks
-      .find(t => t.fullName().equalsIgnoreCase(taskName))
-      .getOrElse(throw new Exception(s"Task $taskName not found"))
+      .find(t => t.fullName().equalsIgnoreCase(taskFullName))
+      .getOrElse(throw new Exception(s"Task $taskFullName not found"))
   }
   def taskByTableName(domain: String, table: String): Option[AutoTaskInfo] = {
     val allTasks = tasks()
     allTasks.find(t => t.domain.equalsIgnoreCase(domain) && t.table.equalsIgnoreCase(table))
   }
 
-  def taskByTableName(fullTableName: String): Option[AutoTaskInfo] = {
-    val components = fullTableName.split('.')
+  def taskByTableName(tableFullName: String): Option[AutoTaskInfo] = {
+    val components = tableFullName.split('.')
     val domain = components(components.length - 2)
     val table = components(components.length - 1)
     val allTasks = tasks()
@@ -1490,15 +1487,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def taskOnly(
-    fullTaskName: String,
+    taskFullName: String,
     reload: Boolean = false
   ): Try[AutoTaskInfo] = {
     val refs = loadRefs()
     if (refs.refs.isEmpty) {
-      val components = fullTaskName.split('.')
+      val components = taskFullName.split('.')
       assert(
         components.length == 2,
-        s"Task name $fullTaskName should be composed of domain and task name separated by a dot"
+        s"Task name $taskFullName should be composed of domain and task name separated by a dot"
       )
       val domainName = components(0)
       val taskPartName = components(1)
@@ -1508,13 +1505,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           theJob match {
             case None =>
             case Some(job) =>
-              val tasks = job.tasks.filterNot(_.fullName().equalsIgnoreCase(fullTaskName))
+              val tasks = job.tasks.filterNot(_.fullName().equalsIgnoreCase(taskFullName))
               val newJob = job.copy(tasks = tasks)
               _jobs = _jobs.filterNot(_.getName().equalsIgnoreCase(domainName)) :+ newJob
           }
           None
         } else {
-          _jobs.flatMap(_.tasks).find(_.fullName().equalsIgnoreCase(fullTaskName))
+          _jobs.flatMap(_.tasks).find(_.fullName().equalsIgnoreCase(taskFullName))
         }
       loadedTask match {
         case Some(task) =>
@@ -1531,9 +1528,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               configPath = new Path(directory, "_config.sl.yml")
               jobDesc <- loadJobTasksFromFile(configPath, List(taskPartName))
               taskDesc = jobDesc.tasks
-                .find(_.fullName().equalsIgnoreCase(fullTaskName))
+                .find(_.fullName().equalsIgnoreCase(taskFullName))
                 .getOrElse(
-                  throw new Exception(s"Task $fullTaskName not found in $directory")
+                  throw new Exception(s"Task $taskFullName not found in $directory")
                 )
             } yield {
               val mergedTask = jobDesc.default match {
@@ -1558,11 +1555,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           }
 
           taskDesc.orElse(
-            taskByName(fullTaskName)
+            taskByFullName(taskFullName)
           ) // because taskOnly can only handle task named after folder and file names
       }
     } else {
-      taskByName(fullTaskName)
+      taskByFullName(taskFullName)
     }
   }
 
@@ -2375,15 +2372,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def syncApplySqlWithYaml(
-    taskName: String,
+    taskFullName: String,
     list: List[(TableAttribute, AttributeStatus)],
     optSql: Option[String]
   ): Unit = {
-    settings.schemaHandler().taskByName(taskName) match {
+    settings.schemaHandler().taskByFullName(taskFullName) match {
       case Success(task) =>
         syncApplySqlWithYaml(task, list, optSql)
       case Failure(exception) =>
-        logger.error(s"Failed to get task $taskName", exception)
+        logger.error(s"Failed to get task $taskFullName", exception)
         throw exception
     }
   }
@@ -2413,15 +2410,17 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def syncPreviewSqlWithYaml(
-    taskName: String,
+    taskFullName: String,
     query: Option[String],
     accessToken: Option[String]
   ): List[(TableAttribute, AttributeStatus)] = {
-    settings.schemaHandler().taskByName(taskName) match {
+    settings.schemaHandler().taskByFullName(taskFullName) match {
       case Success(taskInfo) =>
         val list: List[(TableAttribute, AttributeStatus)] =
           taskInfo.diffSqlAttributesWithYaml(query, accessToken)
-        logger.debug(s"Diff SQL attributes with YAML for task $taskName: ${list.length} attributes")
+        logger.debug(
+          s"Diff SQL attributes with YAML for task $taskFullName: ${list.length} attributes"
+        )
         list.foreach { case (attribute, status) =>
           logger.info(s"\tAttribute: ${attribute.name}, Status: $status")
         }
