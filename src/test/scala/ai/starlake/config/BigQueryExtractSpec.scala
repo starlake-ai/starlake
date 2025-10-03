@@ -1,7 +1,7 @@
 package ai.starlake.config
 
 import ai.starlake.TestHelper
-import ai.starlake.extract.BigQueryTablesConfig
+import ai.starlake.extract.TablesExtractConfig
 import ai.starlake.schema.generator.ExtractBigQuerySchema
 import com.google.cloud.bigquery.{BigQueryOptions, TableId}
 import com.typesafe.config.{Config, ConfigFactory}
@@ -47,7 +47,7 @@ class BigQueryExtractSpec extends TestHelper with BeforeAndAfterAll {
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
-          val domains = new ExtractBigQuerySchema(BigQueryTablesConfig(None, None))
+          val domains = new ExtractBigQuerySchema(TablesExtractConfig(None, None))
             .extractDatasets()
         }
       }

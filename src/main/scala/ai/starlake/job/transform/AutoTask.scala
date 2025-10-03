@@ -29,6 +29,7 @@ import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils._
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.sql.types.StructType
 
 import java.sql.Timestamp
 import scala.util.Try
@@ -122,10 +123,36 @@ abstract class AutoTask(
     }
   }
 
-  final def buildAllSQLQueries(sql: Option[String]): String = {
+  /** Build the SQL statements to create or alter the table schema in the target database.
+    * @param incomingSchema
+    * @param tableName
+    * @return
+    *   A list of SQL statements to create or alter the table schema and a boolean indicating
+    *   whether the table existed before the operation.
+    *
+    * This method is expected to be implemented by subclasses to provide the specific SQL statements
+    * needed for the target database engine. For BigQuery and Spark, no need to implement it since
+    * these are schema on write databases
+    */
+  def buildTableSchemaSQL(
+    incomingSchema: StructType,
+    tableName: String,
+    syncStrategy: TableSync
+  ): (List[String], Boolean) = (Nil, true)
+
+  final def buildAllSQLQueries(
+    sql: Option[String],
+    tableExistsForcedValue: Option[Boolean] = None,
+    forceNative: Boolean = false
+  ): String = {
     if (taskDesc.parseSQL.getOrElse(true)) {
       val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
-      val runConnection = this.taskDesc.getRunConnection()
+      val runConnection =
+        if (forceNative) {
+          this.taskDesc.getRunConnection().copy(sparkFormat = None)
+        } else {
+          this.taskDesc.getRunConnection()
+        }
       val sqlWithParametersTranspiledIfInTest =
         if (this.test || runConnection._transpileDialect.isDefined) {
           val envVars = schemaHandler.activeEnvVars()
@@ -149,18 +176,55 @@ abstract class AutoTask(
 
       val jdbcRunEngine = settings.appConfig.jdbcEngines(jdbcRunEngineName.toString)
 
+      val tblExists =
+        tableExistsForcedValue.getOrElse(
+          tableExists
+        ) // If tableExistsForcedValue is defined, use it, otherwise use tableExists
+
       val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).buildSQLForStrategy(
         strategy,
         sqlWithParametersTranspiledIfInTest,
         fullTableName,
         SQLUtils.extractColumnNames(sqlWithParameters),
-        tableExists,
+        tblExists,
         truncate = truncate,
         materializedView = isMaterializedView(),
         jdbcRunEngine,
         sinkConfig
       )
-      mainSql
+      if (settings.appConfig.syncSqlWithYaml && taskDesc._auditTableName.isEmpty) {
+        val list = schemaHandler.syncPreviewSqlWithYaml(taskDesc.name, None)
+        schemaHandler.syncApplySqlWithYaml(taskDesc, list, None)
+      }
+      if (
+        this.taskDesc.readyForSync() &&
+        settings.appConfig.syncYamlWithDb &&
+        taskDesc._auditTableName.isEmpty
+      ) {
+        logger.info(s"Main SQL: $mainSql")
+        logger.info("Identifying new / altered columns for " + fullTableName)
+        val columnStatements =
+          if (tableExists) {
+            val (columnStatements, _) =
+              buildTableSchemaSQL(
+                this.taskDesc.sparkSchema(schemaHandler),
+                this.fullTableName,
+                this.taskDesc.getSyncStrategyValue()
+              )
+            logger.info(s"${columnStatements.length} Schema change(s) to apply:")
+            columnStatements.foreach { stmt =>
+              logger.info(s" - $stmt")
+            }
+            columnStatements
+          } else {
+            logger.info("No schema changes to apply for " + fullTableName)
+            Nil
+          }
+
+        columnStatements.mkString("", ";\n", ";\n") + mainSql
+      } else {
+        mainSql
+      }
     } else {
       val selectStatement = Utils.parseJinja(sql.getOrElse(taskDesc.getSql()), allVars)
       selectStatement

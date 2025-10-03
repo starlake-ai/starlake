@@ -1,6 +1,9 @@
 package ai.starlake.utils
 
+import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
+import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.Attribute
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -223,4 +226,75 @@ object SparkUtils extends StrictLogging {
     }
 
   }
+
+  /** Creates a table with a given schema. Updated from Spark 3.0.1
+    */
+  def buildCreateTableSQL(
+    domainAndTableName: String,
+    schema: StructType,
+    caseSensitive: Boolean,
+    temporaryTable: Boolean,
+    options: JdbcOptionsInWrite,
+    attrDdlMapping: Map[String, Map[String, String]]
+  )(implicit settings: Settings): (String, String, Option[String]) = {
+    val strSchema =
+      schemaString(
+        schema,
+        caseSensitive,
+        options.url,
+        attrDdlMapping
+      ) // options.createTableColumnTypes
+    val createTableOptions = options.createTableOptions
+    val finalStrSchema =
+      if (options.parameters.getOrElse("quoteIdentifiers", "false").toBoolean)
+        strSchema
+      else
+        strSchema.replaceAll("\"", "")
+
+    val domainName = domainAndTableName.split('.').head
+    val createSchemaSQL = s"CREATE SCHEMA IF NOT EXISTS $domainName"
+    val temporary = if (temporaryTable) "TEMP" else ""
+    val createTableSQL =
+      s"CREATE $temporary TABLE IF NOT EXISTS $domainAndTableName ($finalStrSchema) $createTableOptions"
+
+    val commentSQL =
+      if (options.tableComment.nonEmpty)
+        Some(s"COMMENT ON TABLE $domainAndTableName IS '${options.tableComment}'")
+      else
+        None
+
+    (createSchemaSQL, createTableSQL, commentSQL)
+  }
+
+  def sparkSchemaWithCondition(
+    schemaHandler: SchemaHandler,
+    attributes: List[Attribute],
+    p: Attribute => Boolean,
+    withFinalName: Boolean
+  ): StructType = {
+    def enrichStructField(attr: Attribute, structField: StructField) = {
+      structField.copy(
+        name = if (withFinalName) attr.getFinalName() else attr.name,
+        nullable = if (attr.script.isDefined) true else !attr.required,
+        metadata =
+          if (attr.`type` == "variant")
+            org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
+          else org.apache.spark.sql.types.Metadata.empty
+      )
+    }
+
+    val fields = attributes filter p map { attr =>
+      val structField = StructField(
+        if (withFinalName) attr.getFinalName() else attr.name,
+        attr.sparkType(schemaHandler, enrichStructField),
+        if (attr.script.isDefined) true else !attr.required,
+        if (attr.`type` == "variant")
+          org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
+        else org.apache.spark.sql.types.Metadata.empty
+      )
+      attr.comment.map(structField.withComment).getOrElse(structField)
+    }
+    StructType(fields)
+  }
+
 }

@@ -1,7 +1,7 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extract.BigQueryTablesConfig
+import ai.starlake.extract.TablesExtractConfig
 import ai.starlake.job.metrics.{BigQueryExpectationAssertionHandler, ExpectationJob}
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.schema.generator.ExtractBigQuerySchema
@@ -135,11 +135,14 @@ class BigQueryAutoTask(
       bqNativeJob(bigQuerySinkConfig, req).runInteractiveQuery()
     }
   }
-  def runOnDF(loadedDF: DataFrame): Try[JobResult] = {
-    runBQ(Some(loadedDF))
+  def runOnDF(loadedDF: DataFrame, sparkSchema: Option[StructType]): Try[JobResult] = {
+    runBQ(Some(loadedDF), sparkSchema)
   }
 
-  private def runBQ(loadedDF: Option[DataFrame]): Try[JobResult] = {
+  private def runBQ(
+    loadedDF: Option[DataFrame],
+    sparkSchema: Option[StructType]
+  ): Try[JobResult] = {
     val config = bigQuerySinkConfig
 
     val start = Timestamp.from(Instant.now())
@@ -158,66 +161,27 @@ class BigQueryAutoTask(
     val jobResult: Try[JobResult] =
       interactive match {
         case None =>
-          val source = loadedDF
-            .map(df => Right(df))
-            .getOrElse(Left(""))
-
           val presqlResult: List[Try[JobResult]] = runSqls(preSql)
           presqlResult.foreach(Utils.logFailure(_, logger))
 
           val jobResult: Try[JobResult] =
             loadedDF match {
               case Some(df) =>
-                val bqLoadConfig =
-                  BigQueryLoadConfig(
-                    connectionRef = Some(sinkConnectionRef),
-                    source = source,
-                    outputTableId = Some(
-                      BigQueryJobBase.extractProjectDatasetAndTable(
-                        this.taskDesc.database,
-                        this.taskDesc.domain,
-                        this.taskDesc.table
-                      )
-                    ),
-                    sourceFormat = settings.appConfig.defaultWriteFormat,
-                    createDisposition = createDisposition,
-                    writeDisposition = writeDisposition,
-                    outputPartition = bqSink.getPartitionColumn(),
-                    outputClustering = bqSink.clustering.getOrElse(Nil),
-                    days = bqSink.days,
-                    requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-                    rls = this.taskDesc.rls,
-                    acl = this.taskDesc.acl,
-                    starlakeSchema = None,
-                    // outputTableDesc = action.taskDesc.comment.getOrElse(""),
-                    attributesDesc = this.taskDesc.attributesDesc,
-                    outputDatabase = this.taskDesc.database
-                  )
-                val bqSparkJob =
-                  new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment)
-                val result = bqSparkJob.run()
-                result.map { job =>
-                  bqSparkJob.applyRLSAndCLS() match {
-                    case Success(_) =>
-                      job
-                    case Failure(e) =>
-                      throw e
-                  }
-                }
+                sparkSchema.foreach(schema => updateBigQueryTableSchema(schema))
+                saveDF(df)
               case None =>
-                val bqJob = bqNativeJob(
-                  config,
-                  mainSql
-                )
-                val result = bqJob.runInteractiveQuery()
-                result.map { job =>
-                  bqJob.applyRLSAndCLS() match {
-                    case Success(_) =>
-                      job
-                    case Failure(e) =>
-                      throw e
+                sparkSchema.foreach(schema => updateBigQueryTableSchema(schema))
+                val targetSQL =
+                  if (loadedDF.isEmpty) {
+                    buildAllSQLQueries(None, tableExistsForcedValue = None, forceNative = true)
+                  } else {
+                    sqlSubst()
                   }
-                }
+                val trimmedSQL = targetSQL.trim()
+                saveNative(
+                  config,
+                  if (trimmedSQL.endsWith(";")) trimmedSQL.dropRight(1) else trimmedSQL
+                )
             }
 
           jobResult.recover { case e =>
@@ -268,7 +232,7 @@ class BigQueryAutoTask(
                   )
                 } else {
                   val config =
-                    BigQueryTablesConfig(tables = Map(taskDesc.domain -> List(taskDesc.table)))
+                    TablesExtractConfig(tables = Map(taskDesc.domain -> List(taskDesc.table)))
                   if (settings.appConfig.autoExportSchema)
                     ExtractBigQuerySchema.extractAndSaveAsDomains(config)
                 }
@@ -305,28 +269,83 @@ class BigQueryAutoTask(
     // We may be doing some cleanup here.
 
   }
-  override def run(): Try[JobResult] = {
-    runBQ(None)
-  }
 
-  /*override def buildAllSQLQueries(sql: Option[String]): String = {
-    assert(taskDesc.parseSQL.getOrElse(true))
-    val sqlWithParameters = substituteRefTaskMainSQL(sql.getOrElse(taskDesc.getSql()))
-    val columnNames = SQLUtils.extractColumnNames(sqlWithParameters)
-
-    val mainSql = StrategiesBuilder(jdbcSinkEngine.strategyBuilder).buildSQLForStrategy(
-      strategy,
-      sqlWithParameters,
-      fullTableName,
-      columnNames,
-      tableExists,
-      truncate,
-      isMaterializedView(),
-      jdbcSinkEngine,
-      sinkConfig
+  private def sqlSubst(): String = {
+    val sql = taskDesc.getSql()
+    val mainSql = schemaHandler.substituteRefTaskMainSQL(
+      sql,
+      taskDesc.getRunConnection(),
+      allVars
     )
     mainSql
-  }*/
+  }
+
+  private def saveNative(config: BigQueryLoadConfig, mainSql: String) = {
+    val bqJob = bqNativeJob(
+      config,
+      mainSql
+    )
+    val result = bqJob.runInteractiveQuery()
+    result.map { job =>
+      bqJob.applyRLSAndCLS() match {
+        case Success(_) =>
+          job
+        case Failure(e) =>
+          throw e
+      }
+    }
+  }
+
+  private def saveDF(source: DataFrame): Try[JobResult] = {
+    val bqLoadConfig =
+      BigQueryLoadConfig(
+        connectionRef = Some(sinkConnectionRef),
+        source = Right(source),
+        outputTableId = Some(
+          BigQueryJobBase.extractProjectDatasetAndTable(
+            this.taskDesc.database,
+            this.taskDesc.domain,
+            this.taskDesc.table
+          )
+        ),
+        sourceFormat = settings.appConfig.defaultWriteFormat,
+        createDisposition = createDisposition,
+        writeDisposition = writeDisposition,
+        outputPartition = bqSink.getPartitionColumn(),
+        outputClustering = bqSink.clustering.getOrElse(Nil),
+        days = bqSink.days,
+        requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
+        rls = this.taskDesc.rls,
+        acl = this.taskDesc.acl,
+        starlakeSchema = None,
+        // outputTableDesc = action.taskDesc.comment.getOrElse(""),
+        attributesDesc = this.taskDesc.attributesDesc,
+        outputDatabase = this.taskDesc.database
+      )
+    val bqSparkJob =
+      new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment)
+    val result = bqSparkJob.run()
+    result.map { job =>
+      bqSparkJob.applyRLSAndCLS() match {
+        case Success(_) =>
+          job
+        case Failure(e) =>
+          throw e
+      }
+    }
+  }
+
+  override def run(): Try[JobResult] = {
+    runNative()
+  }
+
+  def runNative(sparkSchema: StructType): Try[JobResult] = {
+    runBQ(None, Some(sparkSchema))
+  }
+
+  def runNative(): Try[JobResult] = {
+    runBQ(None, None)
+  }
 
   private def bqSchemaWithSCD2(incomingTableSchema: BQSchema): BQSchema = {
     val isSCD2 = strategy.getStrategyType() == WriteStrategyType.SCD2

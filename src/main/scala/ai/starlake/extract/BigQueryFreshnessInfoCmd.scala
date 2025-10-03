@@ -10,7 +10,7 @@ import scala.util.{Failure, Success, Try}
 object BigQueryFreshnessInfoCmd extends BigQueryTablesCmd {
   override def command: String = "bq-freshness"
 
-  override def run(config: BigQueryTablesConfig, schemaHandler: SchemaHandler)(implicit
+  override def run(config: TablesExtractConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
     val result = Try(freshness(config, schemaHandler))

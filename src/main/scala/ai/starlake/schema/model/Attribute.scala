@@ -32,6 +32,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 import ai.starlake.schema.model.Severity._
+import ai.starlake.transpiler.diff.{Attribute => DiffAttribute}
 
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
@@ -229,14 +230,25 @@ case class Attribute(
     * @return
     *   Spark type of this attribute
     */
-  def sparkType(schemaHandler: SchemaHandler): DataType = {
+  def sparkType(
+    schemaHandler: SchemaHandler,
+    structFieldModifier: (Attribute, StructField) => StructField = (_, sf) => sf
+  ): DataType = {
     def buildStruct(): List[StructField] = {
       if (attributes.isEmpty)
         throw new Exception(
           s"Attribute `$name` of type ${`type`} is considered as struct but doesn't have any attributes. Please check the types you defined or add attributes to it."
         )
       val fields = attributes.map { attr =>
-        val structField = StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+        val structField =
+          structFieldModifier(
+            attr,
+            StructField(
+              attr.name,
+              attr.sparkType(schemaHandler, structFieldModifier),
+              !attr.required
+            )
+          )
         attr.comment.map(structField.withComment).getOrElse(structField)
       }
       fields
@@ -396,6 +408,11 @@ case class Attribute(
         attributes.flatMap(_.deepForeignKeyForDot()).headOption
     }
   }
+
+  def toDiffAttribute(): DiffAttribute = {
+    new DiffAttribute(getFinalName(), `type`)
+  }
+
 }
 
 object Attribute {

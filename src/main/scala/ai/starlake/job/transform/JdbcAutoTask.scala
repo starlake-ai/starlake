@@ -4,7 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, WriteStrategyType}
+import ai.starlake.schema.model.{AccessControlEntry, AutoTaskDesc, TableSync, WriteStrategyType}
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
@@ -340,4 +340,127 @@ class JdbcAutoTask(
       }
     }
   }
+
+  /** @param incomingSchema
+    * @param tableName
+    * @return
+    *   (list of sql to execute, if the table exists) if (table exists, sqls are actually alter
+    *   table statements, else these are create schema / table statements
+    */
+  override def buildTableSchemaSQL(
+    incomingSchema: StructType,
+    tableName: String,
+    syncStrategy: TableSync
+  ): (List[String], Boolean) = {
+    // update target table schema if needed
+    val isSCD2 = strategy.getStrategyType() == WriteStrategyType.SCD2
+    val incomingSchemaWithSCD2 =
+      if (isSCD2) {
+        val startTs = strategy.start_ts.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val incomingSchemaWithStartTs =
+          if (incomingSchema.fieldNames.contains(startTs)) {
+            logger.warn(
+              s"Incoming schema already contains SCD2 start timestamp column '$startTs'. It will not be added again."
+            )
+            incomingSchema
+          } else {
+            incomingSchema
+              .add(
+                StructField(
+                  startTs,
+                  TimestampType,
+                  nullable = true
+                )
+              )
+          }
+        val endTs = strategy.end_ts.getOrElse(settings.appConfig.scd2EndTimestamp)
+        if (incomingSchemaWithStartTs.fieldNames.contains(endTs)) {
+          logger.warn(
+            s"Incoming schema already contains SCD2 end timestamp column '$endTs'. It will not be added again."
+          )
+          incomingSchemaWithStartTs
+        } else {
+          incomingSchemaWithStartTs
+            .add(
+              StructField(
+                endTs,
+                TimestampType,
+                nullable = true
+              )
+            )
+        }
+      } else {
+        incomingSchema
+      }
+    val sinkConnectionRefOptions = sinkConnection.options
+    val jdbcUrl = sinkConnectionRefOptions("url")
+    val targetTableExists: Boolean = tableExists
+    JdbcDbUtils.withJDBCConnection(sinkConnectionRefOptions) { conn =>
+      if (targetTableExists) {
+        val existingSchema =
+          SparkUtils.getSchemaOption(conn, sinkConnectionRefOptions, tableName)
+        val addedSchema =
+          SparkUtils.added(
+            incomingSchemaWithSCD2,
+            existingSchema.getOrElse(incomingSchema)
+          )
+        val alterTableDropColumns =
+          if (syncStrategy == TableSync.ALL) {
+            val deletedSchema =
+              SparkUtils.dropped(
+                incomingSchemaWithSCD2,
+                existingSchema.getOrElse(incomingSchema)
+              )
+            val columnsToDrop =
+              SparkUtils.alterTableDropColumnsString(deletedSchema, tableName)
+            if (columnsToDrop.nonEmpty) {
+              logger.info(
+                s"alter table $tableName with ${columnsToDrop.size} columns to drop"
+              )
+              logger.debug(s"alter table ${columnsToDrop.mkString("\n")}")
+            }
+            columnsToDrop
+          } else {
+            Nil
+          }
+        val alterTableAddColumns =
+          if (syncStrategy == TableSync.ALL || syncStrategy == TableSync.ADD) {
+            val columnsToAdd =
+              SparkUtils.alterTableAddColumnsString(addedSchema, tableName)
+            if (columnsToAdd.nonEmpty) {
+              logger.info(
+                s"alter table $tableName with ${columnsToAdd.size} columns to add"
+              )
+              logger.debug(s"alter table ${columnsToAdd.mkString("\n")}")
+            }
+            columnsToAdd
+          } else {
+            Nil
+          }
+
+        // always drop after adding, in case all columns are dropped
+        // because in case all columns are dropped, an error is raised for a table without any columns.
+        val allAlter = alterTableAddColumns ++ alterTableDropColumns
+        (allAlter.toList, true)
+      } else {
+        val optionsWrite =
+          new JdbcOptionsInWrite(jdbcUrl, tableName, sinkConnectionRefOptions)
+        logger.info(
+          s"Table $tableName not found, creating it with schema $incomingSchemaWithSCD2"
+        )
+        val (createSchema, createTable, commentSQL) =
+          SparkUtils.buildCreateTableSQL(
+            tableName,
+            incomingSchemaWithSCD2,
+            caseSensitive = false,
+            temporaryTable = false,
+            optionsWrite,
+            attDdl()
+          )
+        val allSqls = List(createSchema, createTable, commentSQL.getOrElse(""))
+        (allSqls, false)
+      }
+    }
+  }
+
 }

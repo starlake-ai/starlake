@@ -11,7 +11,7 @@ object BigQueryTableInfoCmd extends BigQueryTablesCmd {
 
   override def command: String = "bq-info"
 
-  override def run(config: BigQueryTablesConfig, schemaHandler: SchemaHandler)(implicit
+  override def run(config: TablesExtractConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
     Try(sink(config)).map(_ => JobResult.empty)
