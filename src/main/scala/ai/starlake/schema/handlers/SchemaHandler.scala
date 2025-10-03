@@ -20,13 +20,15 @@
 
 package ai.starlake.schema.handlers
 
-import ai.starlake.config.Settings.AppConfig
+import ai.starlake.config.Settings.{AppConfig, Connection}
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extract.ExtractSchema
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
 import ai.starlake.schema.model.Severity._
 import ai.starlake.schema.model._
 import ai.starlake.sql.SQLUtils
+import ai.starlake.transpiler.diff.{Attribute => DiffAttribute}
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{StarlakeObjectMapper, Utils, YamlSerializer}
 import better.files.File
@@ -520,23 +522,60 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     initDomainsFromArea(DatasetArea.load, domainNames, tableNames, raw)
   }
 
+  private var _externals = List.empty[Domain]
+  private var _externalLastUpdate = LocalDateTime.MIN
+
+  def externals(): List[Domain] = {
+    if (_externals.isEmpty) loadExternals()
+    _externals
+  }
+
   def loadExternals(): List[Domain] = {
-    if (storage.exists(DatasetArea.external)) {
-      loadFullDomains(DatasetArea.external, Nil, Nil, false) match {
-        case (list, Nil) => list.collect { case Success(domain) => domain }
-        case (list, errors) =>
-          errors.foreach {
-            case Failure(err) =>
-              logger.warn(
-                s"There is one or more invalid Yaml files in your domains folder:${Utils.exceptionAsString(err)}"
-              )
-            case Success(_) => // ignore
+    _externals = if (storage.exists(DatasetArea.external)) {
+      val loadedDomains =
+        loadFullDomains(DatasetArea.external, Nil, Nil, raw = false, _externalLastUpdate) match {
+          case (list, Nil) => list.collect { case Success(domain) => domain }
+          case (list, errors) =>
+            errors.foreach {
+              case Failure(err) =>
+                logger.warn(
+                  s"There is one or more invalid Yaml files in your domains folder:${Utils.exceptionAsString(err)}"
+                )
+              case Success(_) => // ignore
+            }
+            list.collect { case Success(domain) => domain }
+        }
+      loadedDomains.foreach { domain =>
+        domain.tables.foreach { table =>
+          _externals.find(_.name == domain.name) match {
+            case Some(existingDomain) =>
+              val otherTables = existingDomain.tables.filter(_.name != table.name)
+              _externals = _externals.map { d =>
+                if (d.name == domain.name) {
+                  d.copy(tables = otherTables :+ table)
+                } else {
+                  d
+                }
+              }
+            case None =>
+              _externals = _externals :+ domain
           }
-          list.collect { case Success(domain) => domain }
+        }
       }
+      _externalLastUpdate = LocalDateTime.now()
+      loadedDomains
     } else
       Nil
+    _externals
   }
+
+  def external(domain: String, table: String): Option[Schema] = {
+    externals().find(_.name.equalsIgnoreCase(domain)).flatMap { domainInfo =>
+      domainInfo.tables.find(_.name.equalsIgnoreCase(table))
+    }
+    None
+  }
+
   def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagGenerationConfig] = {
     val dagsConfigsPaths =
       storage.list(path = dagPath, extension = ".sl.yml", recursive = false).map(_.path)
@@ -646,14 +685,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     area: Path,
     domainNames: List[String] = Nil,
     tableNames: List[String] = Nil,
-    raw: Boolean
+    raw: Boolean,
+    lastUpdated: LocalDateTime = LocalDateTime.MIN
   ): (List[Try[Domain]], List[Try[Domain]]) = {
     val (validDomainsFile, invalidDomainsFiles) = deserializedDomains(area, domainNames, raw)
       .map {
         case (path, Success(domain)) =>
           logger.info(s"Loading domain from $path")
           val folder = path.getParent()
-          val schemaRefs = loadTableRefs(tableNames, raw, folder)
+          val schemaRefs = loadTableRefs(tableNames, raw, folder, lastUpdated)
           val tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs
           val finalTables =
             if (raw) tables
@@ -669,14 +709,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     (validDomainsFile, invalidDomainsFiles)
   }
 
-  private def loadTableRefs(
+  def loadTableRefs(
     tableNames: List[String] = Nil,
     raw: Boolean,
-    folder: Path
+    folder: Path,
+    lastUpdated: LocalDateTime
   ): List[Schema] = {
     val tableRefNames =
       storage
-        .list(folder, extension = ".sl.yml", recursive = true)
+        .list(folder, extension = ".sl.yml", since = lastUpdated, recursive = true)
         .map(_.path.getName())
         .filter(!_.startsWith("_config."))
 
@@ -721,17 +762,21 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
 
-  def loadJobTasksFromFile(jobPath: Path): Try[AutoJobDesc] = {
+  def loadJobTasksFromFile(jobPath: Path, taskNames: List[String] = Nil): Try[AutoJobDesc] = {
     val jobDesc = loadJobDesc(jobPath)
     logger.info(s"Successfully loaded job  in $jobPath")
     val jobParentPath = jobPath.getParent()
-    loadJobTasks(jobDesc, jobParentPath)
+    loadJobTasks(jobDesc, jobParentPath, taskNames)
   }
 
-  def loadJobTasks(jobDesc: AutoJobDesc, jobFolder: Path): Try[AutoJobDesc] = {
+  def loadJobTasks(
+    jobDesc: AutoJobDesc,
+    jobFolder: Path,
+    taskNames: List[String] = Nil
+  ): Try[AutoJobDesc] = {
     Try {
       // Load task refs and inject them in the job
-      val autoTasksRefs = loadTaskRefs(jobDesc, jobFolder)
+      val autoTasksRefs = loadTaskRefs(jobDesc, jobFolder, taskNames)
 
       val jobDescWithTaskRefs: AutoJobDesc =
         jobDesc.copy(tasks = Option(jobDesc.tasks).getOrElse(Nil) ::: autoTasksRefs)
@@ -854,13 +899,22 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     jobDesc
   }
 
-  private def loadTaskRefs(jobDesc: AutoJobDesc, folder: Path): List[AutoTaskDesc] = {
+  private def loadTaskRefs(
+    jobDesc: AutoJobDesc,
+    folder: Path,
+    taskNames: List[String] = Nil
+  ): List[AutoTaskDesc] = {
     // List[(prefix, filename, extension)]
+    val taskNamesPrefix = taskNames.map(taskName => taskName + ".")
     val allFiles =
       storage
         .list(folder, recursive = true)
         .map(_.path.getName())
-        .filter(name => !name.startsWith("_config."))
+        .filter(name =>
+          !name.startsWith("_config.") &&
+          (taskNames.isEmpty || taskNamesPrefix
+            .exists(t => name.toLowerCase().startsWith(t.toLowerCase())))
+        )
         .flatMap { filename =>
           // improve the code below to handle more than one extension
           List("sl.yml", "sql", "sql.j2", "py")
@@ -991,6 +1045,31 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val allTasks = tasks()
     allTasks.find(t => t.name == taskName)
   }
+
+  def taskByName(taskName: String): Try[AutoTaskDesc] = Try {
+    val allTasks = tasks()
+    allTasks
+      .find(t => t.name.equalsIgnoreCase(taskName))
+      .getOrElse(throw new Exception(s"Task $taskName not found"))
+  }
+  def taskByTableName(domain: String, table: String): Option[AutoTaskDesc] = {
+    val allTasks = tasks()
+    allTasks.find(t => t.domain.equalsIgnoreCase(domain) && t.table.equalsIgnoreCase(table))
+  }
+
+  def taskByTableName(fullTableName: String): Option[AutoTaskDesc] = {
+    val components = fullTableName.split('.')
+    val domain = components(components.length - 2)
+    val table = components(components.length - 1)
+    val allTasks = tasks()
+    allTasks.find(t => t.domain.equalsIgnoreCase(domain) && t.table.equalsIgnoreCase(table))
+  }
+
+  def tableByFinalName(domainName: String, schemaName: String): Option[Schema] =
+    for {
+      domain <- getDomain(domainName)
+      schema <- domain.tables.find(_.finalName == schemaName)
+    } yield schema
 
   private var (_jobErrors, _jobs): (List[ValidationMessage], List[AutoJobDesc]) = loadJobs()
 
@@ -1197,4 +1276,291 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         RejectedRecord.starlakeSchema
       )
     )
+
+  def saveToExternals(domains: List[Domain]) = {
+    saveTo(domains, DatasetArea.external)
+    loadExternals()
+  }
+
+  def saveTo(domains: List[Domain], outputPath: Path) = {
+    domains.foreach { domain =>
+      domain.writeDomainAsYaml(outputPath)(settings.storageHandler())
+    }
+  }
+
+  def attributesAsDiff(
+    domain: String,
+    table: String
+  ): List[DiffAttribute] = {
+    taskByTableName(domain, table).filter(it => it.attributes.nonEmpty) match {
+      case Some(taskInfo) =>
+        logger.info(s"Found task for $domain.$table from transform")
+        taskInfo.attributes.map(_.toDiffAttribute())
+      case None =>
+        // If the task does not exist, we return undefined for all columns
+        this.tableByFinalName(domain, table).filter(it => it.attributes.nonEmpty) match {
+          case Some(schemaInfo) =>
+            logger.info(s"Found schema for $domain.$table from load")
+            schemaInfo.attributes.map(_.toDiffAttribute())
+          case None =>
+            external(domain, table).filter(it => it.attributes.nonEmpty) match {
+              case Some(externalSchema) =>
+                logger.info(s"Found external schema for $domain.$table from external")
+                externalSchema.attributes.map(_.toDiffAttribute())
+              case None =>
+                val connectionInfo =
+                  settings.appConfig.getConnection(settings.appConfig.connectionRef)
+                new ExtractSchema(this)
+                  .extractTable(domain, table, None)
+                  .toOption
+                  .filter(_.tables.nonEmpty)
+                  .map { it =>
+                    logger.info(s"Extracted schema for $domain.$table from DB source")
+                    it.tables.head.attributes.map(_.toDiffAttribute())
+                  }
+                  .getOrElse {
+                    logger.warn(s"Table $domain.$table not found in external schemas")
+                    Nil
+                  }
+            }
+        }
+    }
+  }
+
+  def substituteRefTaskMainSQL(
+    sql: String,
+    connection: Connection,
+    allVars: Map[String, String] = Map.empty
+  ): String = {
+    if (sql.trim.isEmpty)
+      sql
+    else {
+      val selectStatement = Utils.parseJinja(sql, allVars)
+      val select =
+        SQLUtils.substituteRefInSQLSelect(
+          selectStatement,
+          refs(),
+          domains(),
+          tasks(),
+          connection
+        )
+      select
+    }
+  }
+
+  def transpileAndSubstituteSelectStatement(
+    sql: String,
+    connection: Connection,
+    allVars: Map[String, String] = Map.empty,
+    test: Boolean
+  ): String = {
+
+    if (sql.startsWith("DESCRIBE ")) {
+      // Do not transpile DESCRIBE statements
+      sql
+    } else {
+      val sqlWithParameters =
+        Try {
+          substituteRefTaskMainSQL(
+            sql,
+            connection,
+            allVars
+          )
+        } match {
+          case Success(substitutedSQL) =>
+            substitutedSQL
+          case Failure(e) =>
+            Utils.logException(logger, e)
+            sql
+        }
+
+      val sqlWithParametersTranspiledIfInTest =
+        if (test) {
+          val envVars = allVars
+          val timestamps =
+            if (test) {
+              List(
+                "SL_CURRENT_TIMESTAMP",
+                "SL_CURRENT_DATE",
+                "SL_CURRENT_TIME"
+              ).flatMap { e =>
+                val value = envVars.get(e).orElse(Option(System.getenv().get(e)))
+                value.map { v => e -> v }
+              }.toMap
+            } else
+              Map.empty[String, String]
+
+          SQLUtils.transpile(sqlWithParameters, connection, timestamps)
+        } else
+          sqlWithParameters
+      sqlWithParametersTranspiledIfInTest
+    }
+  }
+
+  def taskOnly(
+    fullTaskName: String,
+    reload: Boolean = false
+  ): Try[AutoTaskDesc] = {
+    val refs = loadRefs()
+    if (refs.refs.isEmpty) {
+      val components = fullTaskName.split('.')
+      assert(
+        components.length == 2,
+        s"Task name $fullTaskName should be composed of domain and task name separated by a dot"
+      )
+      val domainName = components(0)
+      val taskPartName = components(1)
+      val loadedTask =
+        if (reload) {
+          val theJob = _jobs.find(_.name.equalsIgnoreCase(domainName))
+          theJob match {
+            case None =>
+            case Some(job) =>
+              val tasks = job.tasks.filterNot(_.fullName().equalsIgnoreCase(fullTaskName))
+              val newJob = job.copy(tasks = tasks)
+              _jobs = _jobs.filterNot(_.name.equalsIgnoreCase(domainName)) :+ newJob
+          }
+          None
+        } else {
+          _jobs.flatMap(_.tasks).find(_.fullName().equalsIgnoreCase(fullTaskName))
+        }
+      loadedTask match {
+        case Some(task) =>
+          Success(task)
+        case None =>
+          val taskDesc =
+            for {
+              directory <- settings
+                .storageHandler()
+                .listDirectories(DatasetArea.transform)
+                .find(_.getName().equalsIgnoreCase(domainName))
+                .map(Success(_)) // convert Option to Try
+                .getOrElse(Failure(new NoSuchElementException(s"Domain not found $domainName")))
+              configPath = new Path(directory, "_config.sl.yml")
+              jobDesc <- loadJobTasksFromFile(configPath, List(taskPartName))
+              taskDesc = jobDesc.tasks
+                .find(_.fullName().equalsIgnoreCase(fullTaskName))
+                .getOrElse(
+                  throw new Exception(s"Task $fullTaskName not found in $directory")
+                )
+            } yield {
+              val mergedTask = jobDesc.default match {
+                case Some(defaultTask) =>
+                  defaultTask.merge(taskDesc)
+                case None =>
+                  taskDesc
+              }
+              mergedTask
+            }
+
+          taskDesc.map { t =>
+            val theJob = _jobs.find(_.name.equalsIgnoreCase(domainName))
+            theJob match {
+              case None =>
+              case Some(job) =>
+                val tasks = job.tasks :+ t
+                val newJob = job.copy(tasks = tasks)
+                _jobs = _jobs.filterNot(_.name.equalsIgnoreCase(domainName)) :+ newJob
+            }
+
+          }
+
+          taskDesc.orElse(
+            taskByName(fullTaskName)
+          ) // because taskOnly can only handle task named after folder and file names
+      }
+    } else {
+      taskByName(fullTaskName)
+    }
+  }
+
+  def taskAdded(domainName: String, taskName: String): Try[Unit] = {
+    // Add the domain if it does not exist
+    jobs().find(_.name.toLowerCase() == domainName.toLowerCase()) match {
+      case None =>
+        _jobs = _jobs :+ AutoJobDesc(domainName, tasks = Nil)
+      case Some(_) =>
+      // do nothing
+    }
+    // Load the task and add it to the job, replace if it already exists
+    taskOnly(s"${domainName}.${taskName}", reload = true) match {
+      case Success(taskDesc) =>
+        _jobs.find(_.name.toLowerCase() == domainName.toLowerCase()) match {
+          case None =>
+            throw new Exception(s"Should not happen: Job $domainName not found")
+          case Some(job) =>
+            val updatedTasks = job.tasks.filterNot(_.name.equalsIgnoreCase(taskDesc.name))
+            val updatedJob = job.copy(tasks = updatedTasks :+ taskDesc)
+            _jobs = _jobs.filterNot(_.name == job.name) :+ updatedJob
+            Success(())
+        }
+      case Failure(e) =>
+        Failure(e)
+    }
+  }
+
+  def taskDeleted(domain: String, task: String): Unit = {
+    jobs().find(_.name.toLowerCase() == domain.toLowerCase()) match {
+      case None =>
+        logger.warn(s"Job $domain not found")
+      case Some(job) =>
+        val tasksToKeep = job.tasks.filterNot(_.name.toLowerCase() == task.toLowerCase())
+        val updatedJob = job.copy(tasks = tasksToKeep)
+        _jobs = _jobs.filterNot(_.name == job.name) :+ updatedJob
+    }
+  }
+
+  def taskUpdated(
+    domainName: String,
+    taskName: String
+  ): Try[Unit] = {
+    taskDeleted(domainName, taskName)
+    taskAdded(domainName, taskName)
+  }
+
+  def syncApplySqlWithYaml(
+    task: AutoTaskDesc,
+    list: List[(Attribute, AttributeStatus)],
+    optSql: Option[String]
+  ): Unit = {
+    if (list.nonEmpty) {
+      val updatedTask =
+        task
+          .updateAttributes(list.filterNot(_._2 == AttributeStatus.REMOVED).map(_._1))
+          .copy(sql = None) // do not serialize sql. It is in its own file
+      val taskPath = new Path(DatasetArea.transform, s"${task.domain}/${task.name}.sl.yml")
+
+      YamlSerializer.serializeToPath(taskPath, updatedTask)(
+        settings.storageHandler()
+      )
+      val sqlPath = new Path(DatasetArea.transform, s"${task.domain}/${task.name}.sql")
+      optSql.foreach { sql =>
+        storage.write(sql, sqlPath)
+      }
+      logger.debug(s"Diff SQL attributes with YAML for task ${task.name}: $list")
+      taskUpdated(task.domain, task.name)
+    }
+  }
+
+  def syncPreviewSqlWithYaml(
+    taskName: String,
+    query: Option[String]
+  ): List[(Attribute, AttributeStatus)] = {
+    settings.schemaHandler().task(taskName) match {
+      case Some(taskInfo) =>
+        val list: List[(Attribute, AttributeStatus)] =
+          taskInfo.diffSqlAttributesWithYaml(query)
+        logger.debug(s"Diff SQL attributes with YAML for task $taskName: ${list.length} attributes")
+        list.foreach { case (attribute, status) =>
+          logger.info(s"\tAttribute: ${attribute.name}, Status: $status")
+        }
+        list
+      case _ =>
+        val exception = new Exception(s"Task $taskName not found")
+        logger.error("Failed to get task", exception)
+        throw exception
+    }
+
+  }
+
 }

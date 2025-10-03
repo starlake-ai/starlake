@@ -4,7 +4,7 @@ import ai.starlake.job.Cmd
 import ai.starlake.schema.model.WriteMode
 import scopt.OParser
 
-trait BigQueryTablesCmd extends Cmd[BigQueryTablesConfig] {
+trait BigQueryTablesCmd extends Cmd[TablesExtractConfig] {
 
   private def buildTablesMap(tables: Seq[String]): Map[String, List[String]] = {
     val tablesByDomain: Map[String, Seq[(String, String)]] =
@@ -18,8 +18,8 @@ trait BigQueryTablesCmd extends Cmd[BigQueryTablesConfig] {
     }
   }
 
-  val parser: OParser[Unit, BigQueryTablesConfig] = {
-    val builder = OParser.builder[BigQueryTablesConfig]
+  val parser: OParser[Unit, TablesExtractConfig] = {
+    val builder = OParser.builder[TablesExtractConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
@@ -61,6 +61,6 @@ trait BigQueryTablesCmd extends Cmd[BigQueryTablesConfig] {
     )
   }
 
-  def parse(args: Seq[String]): Option[BigQueryTablesConfig] =
-    OParser.parse(parser, args, BigQueryTablesConfig(), setup)
+  def parse(args: Seq[String]): Option[TablesExtractConfig] =
+    OParser.parse(parser, args, TablesExtractConfig(), setup)
 }

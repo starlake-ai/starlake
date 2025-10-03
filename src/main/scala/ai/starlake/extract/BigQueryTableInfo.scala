@@ -97,7 +97,7 @@ object BigQueryTableInfo extends StrictLogging {
       logTime,
       settings.appConfig.tenant
     )
-  def sink(config: BigQueryTablesConfig)(implicit iSettings: Settings): Unit = {
+  def sink(config: TablesExtractConfig)(implicit iSettings: Settings): Unit = {
     val logTime = java.sql.Timestamp.from(Instant.now)
     val selectedInfos: List[(Dataset, List[Table])] =
       extractTableInfos(config)
@@ -146,7 +146,7 @@ object BigQueryTableInfo extends StrictLogging {
     }
   }
 
-  def extractTableInfos(config: BigQueryTablesConfig)(implicit
+  def extractTableInfos(config: TablesExtractConfig)(implicit
     settings: Settings
   ): List[(Dataset, List[Table])] = {
     val infos = BigQueryInfo.extractInfo(config)

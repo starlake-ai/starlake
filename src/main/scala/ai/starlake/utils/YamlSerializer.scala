@@ -13,6 +13,7 @@ import ai.starlake.schema.model.{
   Schema => ModelSchema,
   SchemaRef,
   SchemaRefs,
+  Task,
   TransformDesc,
   WriteStrategyType
 }
@@ -137,8 +138,18 @@ object YamlSerializer extends LazyLogging {
   }
 
   def serializeToFile(targetFile: File, autoTaskDesc: AutoTaskDesc): Unit = {
-    case class Task(task: AutoTaskDesc)
     mapper.writeValue(targetFile.toJava, Task(autoTaskDesc))
+  }
+
+  def serializeTask(autoTaskDesc: AutoTaskDesc): String = {
+    mapper.writeValueAsString(Task(autoTaskDesc))
+  }
+
+  def serializeToPath(targetPath: Path, autoTaskDesc: AutoTaskDesc)(implicit
+    storage: StorageHandler
+  ): Unit = {
+    val taskAsString = serializeTask(autoTaskDesc)
+    storage.write(taskAsString, targetPath)
   }
 
   def serializeDomain(domain: Domain): String = {

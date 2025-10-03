@@ -647,7 +647,9 @@ object Settings extends StrictLogging {
     http: Http,
     timezone: TimeZone,
     // createTableIfNotExists: Boolean
-    duckdbMode: Boolean
+    duckdbMode: Boolean,
+    syncSqlWithYaml: Boolean,
+    syncYamlWithDb: Boolean
   ) extends Serializable {
 
     def getUdfs(): Seq[String] =
@@ -680,6 +682,15 @@ object Settings extends StrictLogging {
     def getConnection(connectionRef: String): Connection = {
       connections.getOrElse(
         connectionRef,
+        throw new Exception(
+          s"Connection $connectionRef not found. Please check your connection definition."
+        )
+      )
+    }
+    @JsonIgnore
+    def getDefaultConnection(): Connection = {
+      connections.getOrElse(
+        this.connectionRef,
         throw new Exception(
           s"Connection $connectionRef not found. Please check your connection definition."
         )

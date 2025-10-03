@@ -159,14 +159,14 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     "Extract Table infos" should "succeed" in {
       val logTime = java.sql.Timestamp.from(Instant.now)
       val start = System.currentTimeMillis()
-      val infos = BigQueryInfo.extractInfo(BigQueryTablesConfig())
+      val infos = BigQueryInfo.extractInfo(TablesExtractConfig())
       val end = System.currentTimeMillis()
       println((end - start) / 1000)
       val datasetInfos = infos.map(_._1).map(BigQueryDatasetInfo(_, logTime))
       val tableInfos = infos.flatMap(_._2).map(BigQueryTableInfo(_, logTime))
       println(JsonSerializer.serializeObject(datasetInfos))
       println(JsonSerializer.serializeObject(tableInfos))
-      val config = BigQueryTablesConfig()
+      val config = TablesExtractConfig()
       BigQueryTableInfo.sink(config)
     }
     "Freshness of Table" should "return list of warning & errors" in {
@@ -181,7 +181,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
-          val config = BigQueryTablesConfig(tables = Map("bqtest" -> List("account")))
+          val config = TablesExtractConfig(tables = Map("bqtest" -> List("account")))
           val result = BigQueryFreshnessInfo.freshness(config, new SchemaHandler(storageHandler))
           val json = JsonSerializer.serializeObject(result)
           println(json)

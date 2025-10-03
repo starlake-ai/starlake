@@ -26,7 +26,7 @@ case class FreshnessStatus(
 
 object BigQueryFreshnessInfo extends StrictLogging {
   def freshness(
-    config: BigQueryTablesConfig,
+    config: TablesExtractConfig,
     schemaHandler: SchemaHandler
   )(implicit isettings: Settings): List[FreshnessStatus] = {
     val tables: List[(Dataset, List[Table])] =
