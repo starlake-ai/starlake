@@ -71,7 +71,6 @@ object JdbcDbUtils extends LazyLogging {
         }
       url + "?" + keysToConsider.toList.sortBy(_._1).map { case (k, v) => s"$k=$v" }.mkString("&")
     }
-
     def getConnection(
       dataBranch: Option[String],
       connectionOptions: Map[String, String]
@@ -139,38 +138,49 @@ object JdbcDbUtils extends LazyLogging {
               .updated("account", accountUserAndToken(0))
               .updated("user", accountUserAndToken(1))
               .updated("password", accessToken)
+              .updated("allowUnderscoresInHost", "true")
+
             // password is the token in Snowflake 3.13+
             // properties.setProperty("user", ...)
             // properties.setProperty("role", ...)
+          } else if (url.contains(":snowflake:")) {
+            connectionOptions.updated("allowUnderscoresInHost", "true")
           } else {
             connectionOptions
           }
-        val poolKey = getHikariPoolKey(url, finalConnectionOptions)
 
         logger.info("************** JDBC POOL KEY ***************")
         // logger.info(poolKey)
         // logger.info(connectionOptions.getOrElse("password", "No password"))
         logger.info("*******************************************")
-        val pool = hikariPools
-          .getOrElseUpdate(
-            poolKey, {
-              val config = new HikariConfig()
-              (finalConnectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account")
-                .foreach { case (key, value) =>
-                  logger.info(s"Adding property $key")
-                  config.addDataSourceProperty(key, value)
-                }
-              config.setJdbcUrl(url)
-              config.setDriverClassName(driver)
-              config.setMinimumIdle(1)
-              config.setMaximumPoolSize(
-                100
-              ) // dummy value since we are limited by the ForJoinPool size
-              logger.info(s"Creating connection pool for $url")
-              new HikariDataSource(config)
-            }
-          )
-        val connection = pool.getConnection()
+        val javaProperties = new Properties()
+        (finalConnectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account")
+          .foreach { case (k, v) =>
+            javaProperties.setProperty(k, v)
+          }
+        val connection = DriverManager.getConnection(url, javaProperties)
+//
+//        val poolKey = getHikariPoolKey(url, finalConnectionOptions)
+//
+//        val pool = hikariPools
+//          .getOrElseUpdate(
+//            poolKey, {
+//              val config = new HikariConfig()
+//              javaProperties.forEach { case (k, v) =>
+//                logger.info(s"Adding property $k")
+//                config.addDataSourceProperty(k.toString, v.toString)
+//              }
+//              config.setJdbcUrl(url)
+//              config.setDriverClassName(driver)
+//              config.setMinimumIdle(1)
+//              config.setMaximumPoolSize(
+//                100
+//              ) // dummy value since we are limited by the ForJoinPool size
+//              logger.info(s"Creating connection pool for $url")
+//              new HikariDataSource(config)
+//            }
+//          )
+//        val connection = pool.getConnection()
         if (url.startsWith("jdbc:starlake:")) {
           dataBranch match {
             case Some(branch) if branch.nonEmpty => StarlakeJdbcOps.branchStart(branch, connection)
