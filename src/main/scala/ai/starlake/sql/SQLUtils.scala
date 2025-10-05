@@ -116,7 +116,11 @@ object SQLUtils extends LazyLogging {
     val select = jsqlParse(sql)
     val finder = new TablesNamesFinder()
     val tableList = Option(finder.getTables(select)).map(_.asScala).getOrElse(Nil)
-    tableList.toList.distinct
+    val unquoted = tableList.map { domainAndTableName =>
+      // We remove quotes if any
+      SQLUtils.unquoteAgressive(domainAndTableName.split("\\.").toList).mkString(".")
+    }
+    unquoted.toList.distinct
   }
 
   def extractCTENames(sql: String): List[String] = {
@@ -127,7 +131,7 @@ object SQLUtils extends LazyLogging {
         ctes.foreach { withItem =>
           val alias = Option(withItem.getAlias).map(_.getName).getOrElse("")
           if (alias.nonEmpty)
-            result += alias
+            result += SQLUtils.unquoteAgressive(alias)
         }
         null
       }
@@ -390,16 +394,20 @@ object SQLUtils extends LazyLogging {
   }
 
   def unquoteAgressive(cols: List[String]): List[String] = {
-    val quotes = List("\"", "'", "`")
     cols.map { col =>
-      var result = col.trim
-      quotes.foreach { quote =>
-        if (result.startsWith(quote) && result.endsWith(quote)) {
-          result = result.substring(1, result.length - 1)
-        }
-      }
-      result
+      unquoteAgressive(col)
     }
+  }
+
+  def unquoteAgressive(col: String): String = {
+    val quotes = List("\"", "'", "`")
+    var result = col.trim
+    quotes.foreach { quote =>
+      if (result.startsWith(quote) && result.endsWith(quote)) {
+        result = result.substring(1, result.length - 1)
+      }
+    }
+    result
   }
 
   def targetColumnsForSelectSql(targetTableColumns: List[String], quote: String): String =
