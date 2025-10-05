@@ -448,7 +448,12 @@ object SQLUtils extends LazyLogging {
             s"outputFormat=${outputFormat.name()}",
             "statementTerminator=NONE"
           )
-        ).getOrElse(s"-- failed to format start\n$sql\n-- failed to format end")
+        ) match {
+          case Success(formatted) => formatted
+          case Failure(e) =>
+            logger.error(s"Failed to format SQL: $sql")
+            s"-- failed to format start\n$sql\n-- failed to format end"
+        }
       } else {
         sql
       }
