@@ -261,8 +261,9 @@ abstract class AutoTask(
               logger.info("No schema changes to apply for " + fullTableName)
               Nil
             }
-
-          columnStatements.mkString("", ";\n", ";\n") + mainSql
+          if (columnStatements.isEmpty) mainSql
+          else
+            columnStatements.mkString("", ";\n", ";\n") + mainSql
         } else {
           mainSql
         }
