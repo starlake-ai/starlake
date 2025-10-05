@@ -291,9 +291,17 @@ object ColLineage {
     expression: Option[String]
   ): List[Relation] = {
     val children = column.getChildren.asScala.toList
+    val tableSchema =
+      if (Option(column.tableSchema).isEmpty) Option(column.scopeSchema).getOrElse("")
+      else column.tableSchema
+    val tableName =
+      if (Option(column.tableName).isEmpty) Option(column.scopeTable).getOrElse("")
+      else column.tableName
+    if (Option(column.tableSchema).isEmpty) Option(column.scopeSchema).getOrElse("")
+    else column.tableSchema
     val thisCol = Column(
-      toLowerCase(column.tableSchema),
-      toLowerCase(column.tableName),
+      toLowerCase(tableSchema),
+      toLowerCase(tableName),
       toLowerCase(column.columnName)
     )
     if (children.isEmpty) {

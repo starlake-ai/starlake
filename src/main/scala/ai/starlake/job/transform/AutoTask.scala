@@ -152,7 +152,7 @@ abstract class AutoTask(
 
   protected lazy val allVars =
     schemaHandler.activeEnvVars() ++ commandParameters // ++ Map("merge" -> tableExists)
-  lazy val preSql = {
+  lazy val preSql: List[String] = {
     val testMacros =
       if (this.test) {
         List("LOAD SPATIAL", "LOAD JSON") ++ JSQLTranspiler.getMacroArray.toList
@@ -232,6 +232,8 @@ abstract class AutoTask(
           val list = schemaHandler.syncPreviewSqlWithYaml(taskDesc.fullName(), None, None)
           schemaHandler.syncApplySqlWithYaml(taskDesc, list, None)
         }
+
+        // synched if ready for sync and syncYamlWithDb is true (SL_SYNC_YAML_WITH_DB=true) and not an audit table (to avoid recursion)
         if (
           this.taskDesc.readyForSync() &&
           settings.appConfig.syncYamlWithDb &&
@@ -241,6 +243,9 @@ abstract class AutoTask(
           logger.info("Identifying new / altered columns for " + fullTableName)
           val columnStatements =
             if (tableExists) {
+              // the alter column table are returned by buildTableSchemaSQL in JDBC case
+              // but in BigQuery this is done inside the build table schema sql function because we do it using the bq api
+              // For Spark we do not need this since Spark is schema on read
               val (columnStatements, _) =
                 buildTableSchemaSQL(
                   this.taskDesc.sparkSchema(schemaHandler),

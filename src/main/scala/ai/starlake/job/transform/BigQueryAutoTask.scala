@@ -167,7 +167,7 @@ class BigQueryAutoTask(
       bqNativeJob(bigQuerySinkConfig, req).runInteractiveQuery()
     }
   }
-  def runOnDF(loadedDF: DataFrame, sparkSchema: Option[StructType]): Try[JobResult] = {
+  def runOnDFOnLoad(loadedDF: DataFrame, sparkSchema: Option[StructType]): Try[JobResult] = {
     runBQ(Some(loadedDF), sparkSchema)
   }
 
@@ -178,10 +178,17 @@ class BigQueryAutoTask(
   def build(): Map[String, Any] = {
     Map.empty
   }
-  def runNative(sparkSchema: StructType): Try[JobResult] = {
+
+  def runNativeOnLoad(sparkSchema: StructType): Try[JobResult] = {
     runBQ(None, Some(sparkSchema))
   }
 
+  private def runPrePostSql(prePostSql: List[String]): Option[Failure[JobResult]] = {
+    val sqlResult: List[Try[JobResult]] = runSqls(prePostSql)
+    sqlResult.foreach(Utils.logFailure(_, logger))
+    sqlResult.find(_.isFailure).map(_.asInstanceOf[Failure[JobResult]])
+
+  }
   private def runBQ(
     loadedDF: Option[DataFrame],
     sparkSchema: Option[StructType]
@@ -190,12 +197,18 @@ class BigQueryAutoTask(
     def mainSql(): String = {
       val targetSQL =
         if (loadedDF.isEmpty) {
+          // We are in native mode (no Spark Dataframe)
+          // We build the query
+          // This will not return  alter table to add/remove columns if needed + the main sql transpiled to insert/update/create/merge
           buildAllSQLQueries(None, tableExistsForcedValue = None, forceNative = true)
         } else {
+          // We are in Spark mode, we just need to substitute the variables in the main SQL
+          // We do not rewrite it with insert/update/create/merge as we will use the spark dataframe write capabilities
           val mainSql: String = sqlSubst()
           mainSql
         }
       val trimmedSQL = targetSQL.trim()
+      // Because if we have two ';' BQ fails
       if (trimmedSQL.endsWith(";")) trimmedSQL.dropRight(1) else trimmedSQL
     }
 
@@ -219,110 +232,155 @@ class BigQueryAutoTask(
           val jobResult: Try[JobResult] =
             loadedDF match {
               case Some(df) => // We are running Spark to load/transform the dataframe
-                taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
-                  case Some(shardColumns) =>
-                    // We are sharding the data ((Multi partitioning in BigQuery)
-                    val presqlResult: List[Try[JobResult]] = runSqls(preSql)
-                    presqlResult.foreach(Utils.logFailure(_, logger))
-                    val allResult =
-                      df.select(shardColumns.head, shardColumns.tail: _*).distinct().collect().map {
-                        row =>
-                          val shard =
-                            row.toSeq.map(Option(_).map(_.toString).getOrElse("null")).mkString("_")
-                          logger.info(s"Processing shard $shard")
-                          // We update teh schema for each shard in case the schema evolved (each shard => different table)
-                          sparkSchema
-                            .foreach(schema => updateBigQueryTableSchema(schema, Some(shard)))
-                          val shardHead = shardColumns.head
-                          val shardTail = shardColumns.tail
-                          val conditions = shardTail
-                            .map { shardColumn =>
-                              df(shardColumn) === row.getAs(shardColumn)
-                            }
-                            .foldLeft(df(shardHead) === row.getAs(shardHead))(_ && _)
-                          val result = saveDF(df.filter(conditions), Some(shard))
-                          logger.info(s"Finished processing shard $shard with result $result")
-                          result
-                      }
-                    allResult.find(_.isFailure).getOrElse(allResult.head)
-                  case None =>
-                    // No sharding, we need to update a single table schema
-                    sparkSchema.foreach(schema => updateBigQueryTableSchema(schema))
-                    saveDF(df, None)
-                }
-              case None =>
-                taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
-                  case Some(shardColumns) =>
-                    // We are sharding the data ((Multi partitioning in BigQuery) using native bigquery job
-                    // TODO Check that we are in the second step of the load
-                    val shardsQuery =
-                      "SELECT DISTINCT " +
-                      shardColumns.mkString(", ") +
-                      " FROM (" + taskDesc.sql + ")"
-                    val res = bqNativeJob(
-                      config,
-                      shardsQuery
-                    ).runInteractiveQuery(dryRun = dryRun, pageSize = Some(1000))
+                val presqlResultError = runPrePostSql(preSql)
+                val runResult =
+                  presqlResultError match {
+                    case Some(fail) => fail
+                    case None =>
+                      taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
+                        case Some(shardColumns) =>
+                          // We are sharding the data ((Multi partitioning in BigQuery)
+                          // We run the presql once before sharding
+                          // presql succeeded or empty
+                          val allResult =
+                            // We apply the schema on each shard
+                            df.select(shardColumns.head, shardColumns.tail: _*)
+                              .distinct()
+                              .collect()
+                              .map { row =>
+                                val shard =
+                                  row.toSeq
+                                    .map(Option(_).map(_.toString).getOrElse("null"))
+                                    .mkString("_")
+                                logger.info(s"Processing shard $shard")
+                                // We update the schema for each shard in case the schema evolved (each shard => different table)
+                                sparkSchema
+                                  .foreach(schema => updateBigQueryTableSchema(schema, Some(shard)))
+                                val shardHead = shardColumns.head
+                                val shardTail = shardColumns.tail
+                                val conditions = shardTail
+                                  .map { shardColumn =>
+                                    df(shardColumn) === row.getAs(shardColumn)
+                                  }
+                                  .foldLeft(df(shardHead) === row.getAs(shardHead))(_ && _)
 
-                    val uniqueValues =
-                      res.map { bqRes =>
-                        val uniqueValues =
-                          bqRes.tableResult
-                            .map { rows =>
-                              val values = rows.iterateAll().asScala.toList.map { row =>
-                                row
-                                  .iterator()
-                                  .asScala
-                                  .toList
-                                  .map(x =>
-                                    Option(x.getValue())
-                                      .map(it =>
-                                        StringUtils
-                                          .replaceNonAlphanumericWithUnderscore(it.toString)
-                                      )
-                                      .getOrElse("null")
-                                  )
+                                // We save the dataframe filtered on the shard values
+                                val result = saveDF(df.filter(conditions), Some(shard))
+                                logger.info(s"Finished processing shard $shard with result $result")
+                                result
                               }
-                              values
-                            }
-                            .getOrElse(Nil)
-                        uniqueValues
+                          val failure = allResult.find(_.isFailure)
+                          // All writes should succeed otherwise we return the first failure
+                          failure.getOrElse(allResult.head)
+                        case None =>
+                          // No sharding, we need to update a single table schema
+                          sparkSchema.foreach(schema => updateBigQueryTableSchema(schema))
+                          // No shard just a single table to update
+                          val saveResult = saveDF(df, None)
+                          saveResult
                       }
-                    uniqueValues match {
-                      case Success(values) =>
-                        val allResult = values.map { shardValue =>
-                          logger.info(s"Processing shard $shardValue")
-                          val shardHead = shardColumns.head
-                          val sharValueHead = shardValue.head
-                          val shardValueTail = shardValue.tail
-                          val shardTail = shardColumns.tail
-                          val conditions = shardTail.zipWithIndex
-                            .map { case (shardColumn, index) =>
-                              s"$shardColumn = '${shardValueTail(index)}'"
-                            }
-                            .foldLeft(s"$shardHead = '$sharValueHead'")(_ + " AND " + _)
-                          val shardSql = s"SELECT * FROM (${taskDesc.sql}) WHERE $conditions"
-                          // We get the table names from the shard values and
-                          // we update the schema for each shard in case the schema evolved (each shard => different table)
-                          sparkSchema.foreach(schema =>
-                            updateBigQueryTableSchema(
-                              schema,
-                              Some(shardValue.mkString("_"))
-                            )
-                          )
-                          val resultApplyCLS = saveNative(config, shardSql)
-                          logger.info(
-                            s"Finished processing shard $shardValue with result $resultApplyCLS"
-                          )
-                          resultApplyCLS
+                  }
+                runResult match {
+                  case Failure(_) =>
+                    runResult
+                  case Success(_) =>
+                    val postSqlResultError = runPrePostSql(postSql)
+                    postSqlResultError.getOrElse(runResult)
+                }
+
+              case None =>
+                // We are in native mode (no Spark Dataframe)
+                taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
+                  case Some(shardColumns) =>
+                    val presqlResultError = runPrePostSql(preSql)
+                    presqlResultError match {
+                      case Some(fail) => fail
+                      case None       => // presql succeeded or empty
+                        // We are sharding the data ((Multi partitioning in BigQuery) using native bigquery job
+                        // TODO Check that we are in the second step of the load
+                        val shardsQuery =
+                          "SELECT DISTINCT " +
+                          shardColumns.mkString(", ") +
+                          " FROM (" + taskDesc.sql + ")"
+                        val res = bqNativeJob(
+                          config,
+                          shardsQuery
+                        ).runInteractiveQuery(dryRun = dryRun, pageSize = Some(1000))
+
+                        // We get all the distinct values for the shard columns
+                        val uniqueValues =
+                          res.map { bqRes =>
+                            val uniqueValues =
+                              bqRes.tableResult
+                                .map { rows =>
+                                  val values = rows.iterateAll().asScala.toList.map { row =>
+                                    row
+                                      .iterator()
+                                      .asScala
+                                      .toList
+                                      .map(x =>
+                                        Option(x.getValue())
+                                          .map(it =>
+                                            StringUtils
+                                              .replaceNonAlphanumericWithUnderscore(it.toString)
+                                          )
+                                          .getOrElse("null")
+                                      )
+                                  }
+                                  values
+                                }
+                                .getOrElse(Nil)
+                            uniqueValues
+                          }
+                        val runResult =
+                          uniqueValues match {
+                            case Success(values) =>
+                              val allResult = values.map { shardValue =>
+                                logger.info(s"Processing shard $shardValue")
+                                val shardHead = shardColumns.head
+                                val sharValueHead = shardValue.head
+                                val shardValueTail = shardValue.tail
+                                val shardTail = shardColumns.tail
+                                val conditions = shardTail.zipWithIndex
+                                  .map { case (shardColumn, index) =>
+                                    s"$shardColumn = '${shardValueTail(index)}'"
+                                  }
+                                  .foldLeft(s"$shardHead = '$sharValueHead'")(_ + " AND " + _)
+                                val shardSql = s"SELECT * FROM (${taskDesc.sql}) WHERE $conditions"
+                                // We get the table names from the shard values and
+                                // we update the schema for each shard in case the schema evolved (each shard => different table)
+                                // The code below means that we do not support schema evolution in native mode since we assume that
+                                // the incoming schema is provided by the caller
+                                sparkSchema.foreach(schema =>
+                                  updateBigQueryTableSchema(
+                                    schema,
+                                    Some(shardValue.mkString("_"))
+                                  )
+                                )
+                                val resultApplyCLS = saveNative(config, shardSql)
+                                logger.info(
+                                  s"Finished processing shard $shardValue with result $resultApplyCLS"
+                                )
+                                resultApplyCLS
+                              }
+                              allResult.find(_.isFailure).getOrElse(allResult.head)
+                            case Failure(e) =>
+                              Failure(e)
+                          }
+                        runResult match {
+                          case Failure(_) =>
+                            runResult
+                          case Success(_) =>
+                            val postSqlResultError = runPrePostSql(postSql)
+                            postSqlResultError.getOrElse(runResult)
                         }
-                        allResult.find(_.isFailure).getOrElse(allResult.head)
-                      case Failure(e) =>
-                        Failure(e)
                     }
+
                   case None =>
                     // No Spark, No shard just native SQL job in bigquery
                     // We need to infer the incoming schema from the sql query if the schema is not specified
+                    // We have the schema only in load mode.
+                    // For transform, this is done in th emain() function during the call to buildALlSQLQueries
                     sparkSchema.foreach(schema => updateBigQueryTableSchema(schema, None))
                     val allSql =
                       preSql.mkString(";\n") + mainSql() + ";\n" + postSql.mkString(";\n")
@@ -334,9 +392,6 @@ class BigQueryAutoTask(
             Utils.logException(logger, e)
             throw e
           }
-
-          val postsqlResult: List[Try[JobResult]] = runSqls(postSql)
-          postsqlResult.foreach(Utils.logFailure(_, logger))
 
           jobResult match {
             case Success(_) =>
@@ -596,6 +651,19 @@ class BigQueryAutoTask(
             result
         }
     }
+  }
+
+  /** In BigQuery this function not only build the table schema SQL but also update the table schema
+    * if the table already exists This is because we do not user later table creation statements in
+    * BigQuery
+    */
+  override def buildTableSchemaSQL(
+    incomingSchema: StructType,
+    tableName: String,
+    syncStrategy: TableSync
+  ): (List[String], Boolean) = {
+    updateBigQueryTableSchema(incomingSchema)
+    (Nil, true)
   }
 
   override def buildRLSQueries(): List[String] = {
