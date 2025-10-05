@@ -565,6 +565,13 @@ case class AutoTaskInfo(
     )
   }
 
+  /** Is the task ready to be synced
+    *   - has attributes
+    *   - all attributes have a type
+    *   - sync strategy is not NONE and by default it is ADD which means the task is ready to be
+    *     synced
+    * @return
+    */
   def readyForSync(): Boolean = {
     this.attributes.nonEmpty &&
     this.attributes.forall(_.`type`.nonEmpty) &&

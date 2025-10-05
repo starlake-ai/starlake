@@ -673,7 +673,7 @@ class SparkAutoTask(
             dryRun = false,
             scheduledDate = scheduledDate
           )
-          val secondStepJobResult = secondStepTask.runNative(loadedDF.schema)
+          val secondStepJobResult = secondStepTask.runNativeOnLoad(loadedDF.schema)
           sparkBigQueryJob.dropTable(firstStepTemplateTableId)
           secondStepJobResult
         case Failure(e) =>
@@ -723,7 +723,7 @@ class SparkAutoTask(
           updatedSchema
         }
         .getOrElse(sparkSchema)
-      secondStepTask.runOnDF(loadedDF, Some(updateSchema))
+      secondStepTask.runOnDFOnLoad(loadedDF, Some(updateSchema))
 
     }
   }
