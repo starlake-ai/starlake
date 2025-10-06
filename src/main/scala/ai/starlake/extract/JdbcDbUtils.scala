@@ -150,17 +150,14 @@ object JdbcDbUtils extends LazyLogging {
             connectionOptions
           }
 
-        logger.info("************** JDBC POOL KEY ***************")
-        // logger.info(poolKey)
-        // logger.info(connectionOptions.getOrElse("password", "No password"))
-        logger.info("*******************************************")
         val javaProperties = new Properties()
         (finalConnectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account")
           .foreach { case (k, v) =>
             javaProperties.setProperty(k, v)
           }
-        val connection = {
+        val connection =
           if (System.getenv("SL_USE_CONNECTION_POOLING") == "true") {
+            logger.info("Using connection pooling")
             val poolKey = getHikariPoolKey(url, finalConnectionOptions)
 
             val pool = hikariPools
@@ -184,9 +181,10 @@ object JdbcDbUtils extends LazyLogging {
             val connection = pool.getConnection()
 
             connection
-          } else
+          } else {
+            logger.info("Not using connection pooling")
             DriverManager.getConnection(url, javaProperties)
-        }
+          }
         //
         if (url.startsWith("jdbc:starlake:")) {
           dataBranch match {
