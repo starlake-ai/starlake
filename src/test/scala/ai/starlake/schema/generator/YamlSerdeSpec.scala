@@ -1294,6 +1294,8 @@ object YamlConfigGenerators {
       env                        <- arbitrary[String]
       datasets                   <- arbitrary[String]
       tests                      <- arbitrary[String]
+      types                      <- arbitrary[String]
+      macros                     <- arbitrary[String]
       dags                       <- arbitrary[String]
       prunePartitionOnMerge      <- arbitrary[Boolean]
       writeStrategies            <- arbitrary[String]
@@ -1378,6 +1380,8 @@ object YamlConfigGenerators {
       datasets = datasets,
       tests = tests,
       dags = dags,
+      types = types,
+      macros = macros,
       prunePartitionOnMerge = prunePartitionOnMerge,
       writeStrategies = writeStrategies,
       loadStrategies = loadStrategies,
