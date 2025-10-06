@@ -208,7 +208,7 @@ object DatasetArea extends LazyLogging {
     new Path(s"${settings.appConfig.metadata}")
 
   def types(implicit settings: Settings): Path =
-    new Path(metadata, "types")
+    new Path(settings.appConfig.types)
 
   def dags(implicit settings: Settings): Path =
     new Path(settings.appConfig.dags)
@@ -229,7 +229,7 @@ object DatasetArea extends LazyLogging {
     new Path(metadata, "expectations")
 
   def macros(implicit settings: Settings): Path =
-    new Path(metadata, "macros")
+    new Path(settings.appConfig.macros)
 
   def mapping(implicit settings: Settings): Path =
     new Path(metadata, "mapping")
