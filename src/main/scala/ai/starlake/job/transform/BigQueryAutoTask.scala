@@ -433,18 +433,22 @@ class BigQueryAutoTask(
   }
 
   /** Build the SQL statements to create or alter the table schema in the target database.
-   *
-   * @param incomingSchema
-   * @param tableName
-   * @return
-   * A list of SQL statements to create or alter the table schema and a boolean indicating
-   * whether the table existed before the operation.
-   *
-   * This method is expected to be implemented by subclasses to provide the specific SQL statements
-   * needed for the target database engine. For BigQuery and Spark, no need to implement it since
-   * these are schema on write databases
-   */
-  override def buildTableSchemaSQL(incomingSchema: StructType, tableName: String, syncStrategy: TableSync): (List[String], Boolean) = {
+    *
+    * @param incomingSchema
+    * @param tableName
+    * @return
+    *   A list of SQL statements to create or alter the table schema and a boolean indicating
+    *   whether the table existed before the operation.
+    *
+    * This method is expected to be implemented by subclasses to provide the specific SQL statements
+    * needed for the target database engine. For BigQuery and Spark, no need to implement it since
+    * these are schema on write databases
+    */
+  override def buildTableSchemaSQL(
+    incomingSchema: StructType,
+    tableName: String,
+    syncStrategy: TableSync
+  ): (List[String], Boolean) = {
     logger.info(s"Updating Schema to BigQuery table $tableName")
     updateBigQueryTableSchema(incomingSchema)
     (Nil, true)
