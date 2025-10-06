@@ -817,6 +817,8 @@ object Settings extends LazyLogging {
     env: String,
     datasets: String,
     dags: String,
+    types: String,
+    macros: String,
     tests: String,
     writeStrategies: String,
     prunePartitionOnMerge: Boolean,

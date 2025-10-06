@@ -11,8 +11,8 @@ import java.util.regex.Pattern
 import scala.jdk.CollectionConverters._
 
 class Yml2DagGenerateCommandSpec extends TestHelper {
-  new WithSettings() {
-    "Parse Jinja" should "should be able to extract template file and access all variables" in {
+  "Parse Jinja" should "should be able to extract template file and access all variables" in {
+    new WithSettings() {
       val templateContent = new Yml2DagTemplateLoader().loadTemplate("sample.py.j2")
       val context = LoadDagGenerationContext(
         config = DagInfo(
@@ -126,8 +126,9 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
       println(dagContent)
 
     }
-
-    "dag generation" should "should produce expected file" in {
+  }
+  "dag generation" should "should produce expected file" in {
+    new WithSettings() {
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/position/position.sl.yml",
         datasetDomainName = "position",
@@ -144,6 +145,7 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
         new DagGenerateJob(schemaHandler).run(Array.empty)
         val dagPath = new Path(new Path(DatasetArea.build, "dags"), "position.py")
         settings.storageHandler().exists(dagPath) shouldBe true
+        println(s"DAG file generated at $dagPath")
         val dagContent = settings.storageHandler().read(dagPath)
         dagContent should include("description='sample dag configuration'")
         dagContent should include("'profileVar':'DATAPROC_MEDIUM'")
