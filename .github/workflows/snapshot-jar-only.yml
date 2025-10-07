@@ -49,5 +49,5 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
             owner: 'starlake-ai',
             repo: 'starlake-api',
-            workflow_id: 'docker-hub-amd-only.yml',
+            workflow_id: 'snapshot-jar-only.yml',
             ref: 'main'})
