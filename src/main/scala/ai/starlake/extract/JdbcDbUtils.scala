@@ -183,6 +183,9 @@ object JdbcDbUtils extends LazyLogging {
             connection
           } else {
             logger.info("Not using connection pooling")
+            javaProperties.forEach { case (k, v) =>
+              println(s"connecting using property $k=$v")
+            }
             DriverManager.getConnection(url, javaProperties)
           }
         //
