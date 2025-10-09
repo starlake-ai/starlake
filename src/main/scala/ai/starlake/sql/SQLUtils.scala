@@ -545,7 +545,7 @@ object SQLUtils extends LazyLogging {
 
     val dialect = transpilerDialect(conn)
     val unpipedQuery = Try {
-      if (dialect != JSQLTranspiler.Dialect.GOOGLE_BIG_QUERY) {
+      if (false && dialect != JSQLTranspiler.Dialect.GOOGLE_BIG_QUERY) {
         JSQLTranspiler.unpipe(sql.trim)
       } else {
         sql
