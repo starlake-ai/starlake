@@ -87,6 +87,10 @@ object SqlCommentStripper {
       }
     }
 
-    result.toString()
+    removeEmptyLines(result.toString())
+  }
+
+  def removeEmptyLines(input: String): String = {
+    input.linesIterator.filter(_.trim.nonEmpty).mkString("\n")
   }
 }
