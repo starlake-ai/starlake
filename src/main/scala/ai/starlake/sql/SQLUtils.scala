@@ -148,7 +148,7 @@ object SQLUtils extends LazyLogging {
       }
     }
     try {
-      CCJSqlParserUtil.parse(sql, features)
+      CCJSqlParserUtil.parse(sql.trim, features)
     } catch {
       case exception: Exception =>
         logger.error(s"Failed to parse $sql")
@@ -452,7 +452,7 @@ object SQLUtils extends LazyLogging {
         val preformat = sql.replaceAll("}}", "______\n").replaceAll("\\{\\{", "___\n")
         Try(
           JSQLFormatter.format(
-            preformat,
+            preformat.trim,
             s"outputFormat=${outputFormat.name()}",
             "statementTerminator=NONE"
           )
@@ -553,7 +553,7 @@ object SQLUtils extends LazyLogging {
     val dialect = transpilerDialect(conn)
     val unpipedQuery = Try {
       if (dialect != JSQLTranspiler.Dialect.GOOGLE_BIG_QUERY) {
-        JSQLTranspiler.unpipe(sql)
+        JSQLTranspiler.unpipe(sql.trim)
       } else {
         sql
       }
@@ -566,7 +566,7 @@ object SQLUtils extends LazyLogging {
         sql
     }
     Try(
-      JSQLTranspiler.transpileQuery(unpipedQuery, dialect, timestamps.asJava)
+      JSQLTranspiler.transpileQuery(unpipedQuery.trim, dialect, timestamps.asJava)
     ) match {
       case Success(transpiled) =>
         SQLUtils.format(transpiled, JSQLFormatter.OutputFormat.PLAIN)
@@ -638,7 +638,7 @@ object SQLUtils extends LazyLogging {
     columnName: String,
     columnExpr: Option[String] = None
   ): String = {
-    val select = CCJSqlParserUtil.parse(statement).asInstanceOf[PlainSelect]
+    val select = CCJSqlParserUtil.parse(statement.trim).asInstanceOf[PlainSelect]
     columnExpr match {
       case Some(expr) =>
         val f = new Column(expr)
@@ -655,7 +655,7 @@ object SQLUtils extends LazyLogging {
 
   }
   def deleteSelectItem(statement: String, columnName: String): String = {
-    val select = CCJSqlParserUtil.parse(statement).asInstanceOf[PlainSelect]
+    val select = CCJSqlParserUtil.parse(statement.trim).asInstanceOf[PlainSelect]
     val itemsToRemove = select.getSelectItems.asScala.filter { item =>
       item.getExpression() match {
         case col: Column => col.getColumnName == columnName
@@ -673,7 +673,7 @@ object SQLUtils extends LazyLogging {
     maybePreviousColumnName: Option[String],
     columnExpr: Option[String] = None
   ): String = {
-    val select = CCJSqlParserUtil.parse(statement).asInstanceOf[PlainSelect]
+    val select = CCJSqlParserUtil.parse(statement.trim).asInstanceOf[PlainSelect]
     val previousColumnName = maybePreviousColumnName.getOrElse(columnName)
     val items = select.getSelectItems
     // update the column if it exists
@@ -746,6 +746,6 @@ object SQLUtils extends LazyLogging {
         |FROM order_details
         |ORDER BY order_id
         |""".stripMargin
-    CCJSqlParserUtil.parse(statement)
+    CCJSqlParserUtil.parse(statement.trim)
   }
 }

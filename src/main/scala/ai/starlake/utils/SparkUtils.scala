@@ -390,7 +390,7 @@ object SparkUtils extends LazyLogging {
   }
 
   def sql(session: SparkSession, sql: String): DataFrame = {
-    val formattedSQL = SQLUtils.format(sql, JSQLFormatter.OutputFormat.PLAIN)
+    val formattedSQL = SQLUtils.format(sql.trim, JSQLFormatter.OutputFormat.PLAIN)
 
     val sqlId = java.util.UUID.randomUUID.toString
     val result =
