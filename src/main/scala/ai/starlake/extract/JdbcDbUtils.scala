@@ -464,21 +464,24 @@ object JdbcDbUtils extends LazyLogging {
 
   def executeUpdate(script: String, connection: Connection): Try[Boolean] = {
     val sqlId = java.util.UUID.randomUUID.toString
+    val trimmedSQL = script.trim
     val formattedSQL = SQLUtils
-      .format(script, JSQLFormatter.OutputFormat.PLAIN)
+      .format(trimmedSQL, JSQLFormatter.OutputFormat.PLAIN)
     logger.info(s"Running JDBC SQL with id $sqlId: $formattedSQL")
     val statement = connection.createStatement()
     val result = Try {
-      val count = statement.executeUpdate(script)
+      val count = statement.executeUpdate(trimmedSQL)
       logger.info(s"$count records affected")
       true
     }
     result match {
       case Failure(exception) =>
-        logger.error(s"Error running JDBC SQL [$script] with id $sqlId: ${exception.getMessage}")
+        logger.error(
+          s"Error running JDBC SQL [$trimmedSQL] with id $sqlId: ${exception.getMessage}"
+        )
         throw exception
       case Success(value) =>
-        logger.info(s"end running JDBC SQL [$script] with id $sqlId with return value $value")
+        logger.info(s"end running JDBC SQL [$trimmedSQL] with id $sqlId with return value $value")
     }
     statement.close()
     result
