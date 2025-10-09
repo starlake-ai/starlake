@@ -371,14 +371,7 @@ object SQLUtils extends LazyLogging {
   def temporaryTableName(tableName: String): String =
     "zztmp_" + tableName + "_" + UUID.randomUUID().toString.replace("-", "")
 
-  def stripComments(sql: String): String = {
-
-    // Remove single line comments
-    val sql1 = sql.split("\n").map(_.replaceAll("--.*$", "")).mkString("\n")
-    // Remove multi-line comments
-    val sql2 = sql1.replaceAll("(?s)/\\*.*?\\*/", "")
-    sql2.trim
-  }
+  def stripComments(sql: String): String = SqlCommentStripper.stripComments(sql).trim
 
   def quoteCols(cols: List[String], quote: String): List[String] = {
     unquoteCols(cols, quote).map(col => s"${quote}$col${quote}")
