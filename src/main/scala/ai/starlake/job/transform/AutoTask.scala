@@ -171,6 +171,8 @@ abstract class AutoTask(
     sinkConnection.asMap()
   }
 
+  private val taskSQL = SQLUtils.stripComments(taskDesc.getSql())
+
   def buildAllSQLQueries(
     sql: Option[String],
     tableExistsForcedValue: Option[Boolean] = None,
@@ -185,7 +187,7 @@ abstract class AutoTask(
 
     val inputSQL =
       SQLUtils.instantiateMacrosInSql(
-        sql.getOrElse(taskDesc.getSql()),
+        sql.getOrElse(taskSQL),
         schemaHandler.allMacros,
         allVars
       )
@@ -381,7 +383,7 @@ abstract class AutoTask(
   def dependencies(streams: CaseInsensitiveMap[String]): List[String] = {
     if (taskDesc.parseSQL.getOrElse(true)) {
       val result = SQLUtils.extractTableNamesUsingRegEx(
-        parseJinja(taskDesc.getSql(), schemaHandler.activeEnvVars())
+        parseJinja(taskSQL, schemaHandler.activeEnvVars())
       )
       val withStreamsResolved = result.map { table =>
         if (streams.contains(table)) {
