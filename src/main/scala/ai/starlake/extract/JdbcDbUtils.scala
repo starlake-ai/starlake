@@ -132,12 +132,14 @@ object JdbcDbUtils extends LazyLogging {
           ) {
             // this is the case for Snowflake OAuth as a web app not as a native app
             val accountUserAndToken = connectionOptions("sl_access_token").split(":")
+            val account = accountUserAndToken(0)
+            val user = accountUserAndToken(1)
             val accessToken =
               accountUserAndToken.drop(2).mkString(":") // in case the token contains the ':' char
             connectionOptions
               .updated("authenticator", "oauth")
-              .updated("account", accountUserAndToken(0))
-              .updated("user", accountUserAndToken(1))
+              .updated("account", account)
+              .updated("user", user)
               .updated("password", accessToken)
               .updated("allowUnderscoresInHost", "true")
 
