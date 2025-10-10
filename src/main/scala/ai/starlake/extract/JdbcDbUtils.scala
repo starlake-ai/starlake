@@ -96,7 +96,7 @@ object JdbcDbUtils extends LazyLogging {
         // No connection pool for duckdb. This is a single user database on write.
         // We need to release the connection asap
         val properties = new Properties()
-        (connectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account")
+        (connectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account" - "allowUnderscoresInHost")
           .foreach { case (k, v) =>
             properties.setProperty(k, v)
           }
