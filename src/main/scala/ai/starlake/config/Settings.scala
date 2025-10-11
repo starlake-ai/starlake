@@ -1256,7 +1256,10 @@ object Settings extends LazyLogging {
               .copy(path = pathFromRoot(loadedConfig.metrics.path)),
             dags = pathFromRoot(loadedConfig.dags),
             writeStrategies = pathFromRoot(loadedConfig.writeStrategies),
-            loadStrategies = pathFromRoot(loadedConfig.loadStrategies)
+            loadStrategies = pathFromRoot(loadedConfig.loadStrategies),
+            types = pathFromRoot(loadedConfig.types),
+            macros = pathFromRoot(loadedConfig.macros),
+            tests = pathFromRoot(loadedConfig.tests)
           )
         }
         .getOrElse(loadedConfig)
@@ -1282,6 +1285,9 @@ object Settings extends LazyLogging {
           "expectations.path",
           ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.expectations.path)
         )
+        .withValue("types", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.types))
+        .withValue("macros", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.macros))
+        .withValue("tests", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.tests))
         .withValue("datasets", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.datasets))
         .withValue("metadata", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.metadata))
         .withValue("lock.path", ConfigValueFactory.fromAnyRef(withEnvUpdatedEnvConfig.lock.path))
