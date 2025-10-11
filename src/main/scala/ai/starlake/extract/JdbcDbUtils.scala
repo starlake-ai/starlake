@@ -60,38 +60,30 @@ object JdbcDbUtils extends LazyLogging {
 
     private def getHikariPoolKey(url: String, options: Map[String, String]): String = {
       val keysToConsider =
-        if (appType == "snowflake_native_app") {
-          options.filter { case (k, v) =>
-            Set("password", "user", "authenticator").contains(k) && v.nonEmpty
-          }
-        } else {
-          options.filter { case (k, v) =>
-            Set("password", "sl_access_token", "user").contains(k) && v.nonEmpty
-          }
+        options.get("sl_access_token") match {
+          case Some(_) =>
+            options.filter { case (k, v) =>
+              Set("password", "sl_access_token", "user").contains(k) && v.nonEmpty
+            }
+          case None =>
+            options.filter { case (k, v) =>
+              Set("password", "user", "authenticator").contains(k) && v.nonEmpty
+            }
         }
       url + "?" + keysToConsider.toList.sortBy(_._1).map { case (k, v) => s"$k=$v" }.mkString("&")
     }
+
     def getConnection(
       dataBranch: Option[String],
       connectionOptions: Map[String, String]
     ): java.sql.Connection = {
-      if (!connectionOptions.contains("driver")) {
-        Try(throw new Exception("Driver class not found in JDBC connection options")) match {
-          case Failure(exception) =>
-            exception.printStackTrace()
-          case Success(connection) =>
-        }
-      }
-
       assert(
         connectionOptions.contains("driver"),
         s"driver class not found in JDBC connection options $connectionOptions"
       )
-      val (driver, url) = StarlakeJdbcOps.driverAndUrl(
-        dataBranch,
-        connectionOptions("driver"),
-        connectionOptions("url")
-      )
+      val driver = connectionOptions("driver")
+      val url = connectionOptions("url")
+
       if (url.contains(":duckdb:")) {
         // No connection pool for duckdb. This is a single user database on write.
         // We need to release the connection asap
@@ -123,33 +115,38 @@ object JdbcDbUtils extends LazyLogging {
           )
         }
       } else {
-
-        val finalConnectionOptions =
+        val (finalConnectionOptions, finalUrl) =
           if (
             url.contains(":snowflake:") &&
             connectionOptions.contains("sl_access_token") &&
-            connectionOptions("sl_access_token").contains(":") && appType != "snowflake_native_app"
+            connectionOptions("sl_access_token").count(_ == ':') >= 2
           ) {
-            // this is the case for Snowflake OAuth as a web app not as a native app
+            // SnowflakeOAuth account:clientid
+            // this is the case for Snowflake OAuth as a web app not as a native app.
+            // even if we are inside a native app this is considered as a webapp
             val accountUserAndToken = connectionOptions("sl_access_token").split(":")
             val account = accountUserAndToken(0)
             val user = accountUserAndToken(1)
             val accessToken =
-              accountUserAndToken.drop(2).mkString(":") // in case the token contains the ':' char
-            connectionOptions
+              accountUserAndToken
+                .drop(2)
+                .mkString(":") // in case the token contains the ':' char which should not happen
+            val url = s"jdbc:snowflake://$account.snowflakecomputing.com"
+            val finalCOnnectionOptions = connectionOptions
               .updated("authenticator", "oauth")
               .updated("account", account)
               .updated("user", user)
               .updated("password", accessToken)
               .updated("allowUnderscoresInHost", "true")
-
+              .updated("url", url)
+            (finalCOnnectionOptions, url)
             // password is the token in Snowflake 3.13+
             // properties.setProperty("user", ...)
             // properties.setProperty("role", ...)
           } else if (url.contains(":snowflake:")) {
-            connectionOptions.updated("allowUnderscoresInHost", "true")
+            (connectionOptions.updated("allowUnderscoresInHost", "true"), url)
           } else {
-            connectionOptions
+            (connectionOptions, url)
           }
 
         val javaProperties = new Properties()
@@ -160,7 +157,7 @@ object JdbcDbUtils extends LazyLogging {
         val connection =
           if (System.getenv("SL_USE_CONNECTION_POOLING") == "true") {
             logger.info("Using connection pooling")
-            val poolKey = getHikariPoolKey(url, finalConnectionOptions)
+            val poolKey = getHikariPoolKey(finalUrl, finalConnectionOptions)
 
             val pool = hikariPools
               .getOrElseUpdate(
@@ -170,13 +167,13 @@ object JdbcDbUtils extends LazyLogging {
                     logger.info(s"Adding property $k")
                     config.addDataSourceProperty(k.toString, v.toString)
                   }
-                  config.setJdbcUrl(url)
+                  config.setJdbcUrl(finalUrl)
                   config.setDriverClassName(driver)
                   config.setMinimumIdle(1)
                   config.setMaximumPoolSize(
                     100
                   ) // dummy value since we are limited by the ForJoinPool size
-                  logger.info(s"Creating connection pool for $url")
+                  logger.info(s"Creating connection pool for $finalUrl")
                   new HikariDataSource(config)
                 }
               )
@@ -188,10 +185,16 @@ object JdbcDbUtils extends LazyLogging {
             javaProperties.forEach { case (k, v) =>
               println(s"connecting using property $k=$v")
             }
-            DriverManager.getConnection(url, javaProperties)
+            DriverManager.getConnection(finalUrl, javaProperties)
           }
         //
-        if (url.startsWith("jdbc:starlake:")) {
+        val (finalDriver, dataBranchUrl) = StarlakeJdbcOps.driverAndUrl(
+          dataBranch,
+          driver,
+          finalUrl
+        )
+
+        if (dataBranchUrl.startsWith("jdbc:starlake:")) {
           dataBranch match {
             case Some(branch) if branch.nonEmpty => StarlakeJdbcOps.branchStart(branch, connection)
             case _                               =>
