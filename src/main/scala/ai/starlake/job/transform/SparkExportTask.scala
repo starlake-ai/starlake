@@ -44,7 +44,8 @@ class SparkExportTask(
       accessToken = accessToken,
       resultPageSize = resultPageSize,
       resultPageNumber = resultPageNumber,
-      scheduledDate = scheduledDate
+      scheduledDate = scheduledDate,
+      syncSchema = false
     ) {
 
   override protected def effectiveSinkToFile(dataset: DataFrame): Try[JobResult] = {

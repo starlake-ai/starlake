@@ -45,77 +45,86 @@ class BigQueryNativeJob(
     tableInfoWithDefaultColumn: scala.Option[SLTableInfo] = None
   ): Try[BqLoadInfo] = {
     // have default column in another tableInfo otherwise load doesn't fill with default value. Column in load schema are then null if they doesn't exist.
-    getOrCreateTable(
-      cliConfig.domainDescription,
-      tableInfoWithDefaultColumn.getOrElse(tableInfo),
-      None
-    ).flatMap { _ =>
-      Try {
-        val bqSchema =
-          tableInfo.maybeSchema.getOrElse(throw new RuntimeException("Should never happen"))
-        logger.info(s"BigQuery Schema: $bqSchema")
-        val formatOptions: FormatOptions = bqLoadFormatOptions()
-        cliConfig.source match {
-          case Left(sourceURIs) =>
-            val sourceURIList = sourceURIs.split(",").toList
-            val uri = sourceURIList.head
+    getOrCreateDataset(cliConfig.domainDescription) match {
+      case Failure(exception) =>
+        logger.error(
+          s"Error while getting or creating dataset ${cliConfig.outputDatabase}",
+          exception
+        )
+        Failure(exception)
+      case Success(_) =>
+        getOrCreateTable(
+          tableInfoWithDefaultColumn.getOrElse(tableInfo),
+          None
+        ).flatMap { _ =>
+          Try {
+            val bqSchema =
+              tableInfo.maybeSchema.getOrElse(throw new RuntimeException("Should never happen"))
+            logger.info(s"BigQuery Schema: $bqSchema")
+            val formatOptions: FormatOptions = bqLoadFormatOptions()
+            cliConfig.source match {
+              case Left(sourceURIs) =>
+                val sourceURIList = sourceURIs.split(",").toList
+                val uri = sourceURIList.head
 
-            // We upload local files first.
-            val localFiles = uri.startsWith("file:")
-            BigQueryJobBase
-              .recoverBigqueryException {
-                val job = {
-                  if (localFiles) {
-                    loadLocalFilePathsToBQ(bqSchema, formatOptions, sourceURIList)
-                  } else {
-                    val loadConfig: LoadJobConfiguration =
-                      bqLoadConfig(bqSchema, formatOptions, sourceURIs)
-                    // Load data from a GCS CSV file into the table
-                    val jobId = newJobIdWithLocation()
-                    bigquery(accessToken = cliConfig.accessToken).create(
-                      JobInfo.newBuilder(loadConfig).setJobId(jobId).build()
-                    )
+                // We upload local files first.
+                val localFiles = uri.startsWith("file:")
+                BigQueryJobBase
+                  .recoverBigqueryException {
+                    val job = {
+                      if (localFiles) {
+                        loadLocalFilePathsToBQ(bqSchema, formatOptions, sourceURIList)
+                      } else {
+                        val loadConfig: LoadJobConfiguration =
+                          bqLoadConfig(bqSchema, formatOptions, sourceURIs)
+                        // Load data from a GCS CSV file into the table
+                        val jobId = newJobIdWithLocation()
+                        bigquery(accessToken = cliConfig.accessToken).create(
+                          JobInfo.newBuilder(loadConfig).setJobId(jobId).build()
+                        )
+                      }
+                    }
+                    job
                   }
-                }
-                job
-              }
-              .flatMap { job =>
-                logger.info(s"Waiting for job ${job.getJobId}")
-                // Blocks until this load table job completes its execution, either failing or succeeding.
-                BigQueryJobBase.recoverBigqueryException(
-                  job.waitFor(
-                    RetryOption.totalTimeout(
-                      org.threeten.bp.Duration.ofMillis(
-                        jobTimeoutMs.getOrElse(settings.appConfig.longJobTimeoutMs)
+                  .flatMap { job =>
+                    logger.info(s"Waiting for job ${job.getJobId}")
+                    // Blocks until this load table job completes its execution, either failing or succeeding.
+                    BigQueryJobBase.recoverBigqueryException(
+                      job.waitFor(
+                        RetryOption.totalTimeout(
+                          org.threeten.bp.Duration.ofMillis(
+                            jobTimeoutMs.getOrElse(settings.appConfig.longJobTimeoutMs)
+                          )
+                        )
                       )
                     )
-                  )
-                )
-              }
-              .map { jobResult =>
-                if (scala.Option(jobResult.getStatus.getError()).isEmpty) {
-                  val stats = jobResult.getStatistics.asInstanceOf[LoadStatistics]
-                  applyRLSAndCLS().recover { case e =>
-                    Utils.logException(logger, e)
-                    throw e
                   }
-                  BqLoadInfo(
-                    stats.getOutputRows,
-                    stats.getBadRecords,
-                    sourceURIList,
-                    BigQueryJobResult(None, stats.getInputBytes, Some(jobResult))
-                  )
-                } else
-                  throw new Exception(
-                    "BigQuery was unable to load into the table due to an error:" + jobResult.getStatus
-                      .getError()
-                  )
-              }
-          case Right(_) =>
-            throw new Exception("Should never happen")
+                  .map { jobResult =>
+                    if (scala.Option(jobResult.getStatus.getError()).isEmpty) {
+                      val stats = jobResult.getStatistics.asInstanceOf[LoadStatistics]
+                      applyRLSAndCLS().recover { case e =>
+                        Utils.logException(logger, e)
+                        throw e
+                      }
+                      BqLoadInfo(
+                        stats.getOutputRows,
+                        stats.getBadRecords,
+                        sourceURIList,
+                        BigQueryJobResult(None, stats.getInputBytes, Some(jobResult))
+                      )
+                    } else
+                      throw new Exception(
+                        "BigQuery was unable to load into the table due to an error:" + jobResult.getStatus
+                          .getError()
+                      )
+                  }
+              case Right(_) =>
+                throw new Exception("Should never happen")
+            }
+          }.flatten
         }
-      }.flatten
     }
+
   }
 
   private def loadLocalFilePathsToBQ(
@@ -260,7 +269,7 @@ class BigQueryNativeJob(
     formatOptions
   }
 
-  def runInteractiveQuery(
+  def runBigQueryJob(
     thisSql: scala.Option[String] = None,
     pageSize: scala.Option[Long] = None,
     queryJobTimeoutMs: scala.Option[Long] = None,

@@ -1,7 +1,9 @@
 package ai.starlake.job.sink.jdbc
 
+import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.config.{Settings, SparkSessionBuilder}
 import ai.starlake.extract.JdbcDbUtils
+import ai.starlake.schema.model.ConnectionType
 import ai.starlake.utils.*
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.SaveMode
@@ -40,6 +42,7 @@ class SparkJdbcWriter(
       }
       val outputDomain = cliConfig.outputDomainAndTableName.split("\\.")(0)
       val url = jdbcOptions("url")
+      val connectionInfo = ConnectionInfo(ConnectionType.JDBC, options = jdbcOptions)
       JdbcDbUtils.withJDBCConnection(settings.schemaHandler().dataBranch(), jdbcOptions) { conn =>
         val tableExists = JdbcDbUtils.tableExists(conn, url, cliConfig.outputDomainAndTableName)
         if (!tableExists && settings.appConfig.createSchemaIfNotExists) {
@@ -56,6 +59,7 @@ class SparkJdbcWriter(
           val deletedSchema = SparkUtils.dropped(schema, existingSchema.getOrElse(schema))
           val alterTableDropColumns =
             SparkUtils.alterTableDropColumnsString(
+              connectionInfo.getJdbcEngineName().toString,
               deletedSchema,
               cliConfig.outputDomainAndTableName
             )
@@ -67,6 +71,7 @@ class SparkJdbcWriter(
           }
           val alterTableAddColumns =
             SparkUtils.alterTableAddColumnsString(
+              connectionInfo.getJdbcEngineName().toString,
               addedSchema,
               cliConfig.outputDomainAndTableName,
               Map.empty
@@ -87,6 +92,7 @@ class SparkJdbcWriter(
             s"Table ${cliConfig.outputDomainAndTableName} not found, creating it with schema $schema"
           )
           SparkUtils.createTable(
+            connectionInfo.getJdbcEngineName().toString,
             conn,
             cliConfig.outputDomainAndTableName,
             schema,

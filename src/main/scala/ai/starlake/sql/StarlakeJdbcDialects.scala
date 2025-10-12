@@ -28,7 +28,6 @@ private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
 }
 
 private object StarlakeDuckDbDialect extends JdbcDialect with SQLConfHelper {
-
   override def createConnectionFactory(options: JDBCOptions): Int => Connection = {
     (partitionId: Int) =>
       {
@@ -56,11 +55,15 @@ private object StarlakeDuckDbDialect extends JdbcDialect with SQLConfHelper {
     size: Int,
     md: MetadataBuilder
   ): Option[DataType] = {
-    if (sqlType == Types.TIMESTAMP_WITH_TIMEZONE) {
-      Some(TimestampType)
-    } else None
+    typeName.toLowerCase() match {
+      case "hugeint" => Some(LongType)
+      case _ =>
+        if (sqlType == Types.TIMESTAMP_WITH_TIMEZONE) {
+          Some(TimestampType)
+        } else
+          super.getCatalystType(sqlType, typeName, size, md)
+    }
   }
-
 }
 
 object StarlakeJdbcDialects {

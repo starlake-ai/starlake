@@ -5,9 +5,8 @@ import ai.starlake.config.Settings
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.lineage.TaskViewDependency
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.workflow.IngestionWorkflow
-import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
@@ -444,13 +443,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       )
       val job = new BigQuerySparkJob(config)
       val conf = job.prepareConf()
-
-      conf.get(
-        BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION.getKey()
-      ) shouldEqual "WRITE_TRUNCATE"
-      conf.get(
-        BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION.getKey()
-      ) shouldEqual "CREATE_IF_NEEDED"
 
       val delStatement = "DROP ALL ROW ACCESS POLICIES ON `DOMAIN.TABLE`"
       val createStatement =

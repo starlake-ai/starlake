@@ -2389,7 +2389,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     task: AutoTaskInfo,
     list: List[(TableAttribute, AttributeStatus)],
     optSql: Option[String]
-  ): Unit = {
+  ): AutoTaskInfo = {
     if (list.nonEmpty) {
       val updatedTask =
         task
@@ -2406,7 +2406,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       }
       logger.debug(s"Diff SQL attributes with YAML for task ${task.getName()}: $list")
       taskUpdated(task.domain, task.name)
-    }
+      this.taskOnly(task.fullName()).getOrElse(throw new Exception("Should not happen"))
+    } else
+      task
   }
 
   def syncPreviewSqlWithYaml(

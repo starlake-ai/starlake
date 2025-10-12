@@ -336,7 +336,6 @@ object Settings extends LazyLogging {
           "Environment",
           s"env.sl.comet not found in ${globalsCometPath.toString}"
         )
-      println(options)
       // Make sure we do not give twice the database name
       if (options.contains("db") && options.contains("database")) {
         errors = errors :+ ValidationMessage(

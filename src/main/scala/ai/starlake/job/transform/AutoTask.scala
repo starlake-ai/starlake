@@ -67,7 +67,8 @@ abstract class AutoTask(
   val resultPageNumber: Int,
   val accessToken: Option[String],
   conn: Option[java.sql.Connection],
-  val scheduledDate: Option[String]
+  val scheduledDate: Option[String],
+  syncSchema: Boolean
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
@@ -230,16 +231,20 @@ abstract class AutoTask(
           jdbcRunEngine,
           sinkConfig
         )
-        if (settings.appConfig.syncSqlWithYaml && taskDesc._auditTableName.isEmpty) {
-          val list = schemaHandler.syncPreviewSqlWithYaml(taskDesc.fullName(), None, None)
-          schemaHandler.syncApplySqlWithYaml(taskDesc, list, None)
-        }
+        val updatedTaskDesc =
+          if (
+            this.syncSchema && settings.appConfig.syncSqlWithYaml && taskDesc._auditTableName.isEmpty
+          ) {
+            val list = schemaHandler.syncPreviewSqlWithYaml(taskDesc.fullName(), None, None)
+            schemaHandler.syncApplySqlWithYaml(taskDesc, list, None)
+          } else
+            taskDesc
 
         // synched if ready for sync and syncYamlWithDb is true (SL_SYNC_YAML_WITH_DB=true) and not an audit table (to avoid recursion)
         if (
-          this.taskDesc.readyForSync() &&
+          updatedTaskDesc.readyForSync() &&
           settings.appConfig.syncYamlWithDb &&
-          taskDesc._auditTableName.isEmpty
+          updatedTaskDesc._auditTableName.isEmpty
         ) {
           logger.info(s"Main SQL: $mainSql")
           logger.info("Identifying new / altered columns for " + fullTableName)
@@ -250,9 +255,9 @@ abstract class AutoTask(
               // For Spark we do not need this since Spark is schema on read
               val (columnStatements, _) =
                 buildTableSchemaSQL(
-                  this.taskDesc.sparkSchema(schemaHandler),
+                  updatedTaskDesc.sparkSchema(schemaHandler),
                   this.fullTableName,
-                  this.taskDesc.getSyncStrategyValue()
+                  updatedTaskDesc.getSyncStrategyValue()
                 )
               logger.info(s"${columnStatements.length} Schema change(s) to apply:")
               columnStatements.foreach { stmt =>
@@ -580,7 +585,8 @@ object AutoTask extends LazyLogging {
         resultPageSize = 1000,
         resultPageNumber = 1,
         dryRun = false,
-        scheduledDate = scheduledDate
+        scheduledDate = scheduledDate,
+        syncSchema = false
       )(settings, settings.storageHandler(), settings.schemaHandler())
 
   }
@@ -607,7 +613,8 @@ object AutoTask extends LazyLogging {
           resultPageSize = 200,
           resultPageNumber = 1,
           dryRun = false,
-          scheduledDate = None // No scheduled date for unauthenticated tasks
+          scheduledDate = None, // No scheduled date for unauthenticated tasks
+          syncSchema = false
         )
       )
   }
@@ -644,7 +651,8 @@ object AutoTask extends LazyLogging {
     resultPageSize: Int,
     resultPageNumber: Int,
     dryRun: Boolean,
-    scheduledDate: Option[String]
+    scheduledDate: Option[String],
+    syncSchema: Boolean
   )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
@@ -666,7 +674,8 @@ object AutoTask extends LazyLogging {
           resultPageSize = resultPageSize,
           resultPageNumber = resultPageNumber,
           dryRun = dryRun,
-          scheduledDate = scheduledDate
+          scheduledDate = scheduledDate,
+          syncSchema = syncSchema
         )
       case Engine.JDBC
           if sinkConfig
@@ -684,7 +693,8 @@ object AutoTask extends LazyLogging {
           resultPageSize = resultPageSize,
           resultPageNumber = resultPageNumber,
           conn = None,
-          scheduledDate = scheduledDate
+          scheduledDate = scheduledDate,
+          syncSchema = syncSchema
         )
       case _ =>
         sinkConfig match {
@@ -716,7 +726,8 @@ object AutoTask extends LazyLogging {
               resultPageSize = resultPageSize,
               resultPageNumber = resultPageNumber,
               logExecution = logExecution,
-              scheduledDate = scheduledDate
+              scheduledDate = scheduledDate,
+              syncSchema = syncSchema
             )
         }
     }
@@ -799,7 +810,18 @@ object AutoTask extends LazyLogging {
           connection
             .getJdbcEngine()
             .flatMap(
-              _.describe
+              _.describe.map { describeSql =>
+                describeSql
+                  .richFormat(
+                    Map(
+                      "domain" -> domain,
+                      "schema" -> domain,
+                      "table"  -> table,
+                      "quote"  -> quote
+                    ),
+                    Map.empty
+                  )
+              }
             )
             .getOrElse(s"DESCRIBE TABLE $quote$domain$quote.$quote$table$quote")
 
@@ -840,7 +862,8 @@ object AutoTask extends LazyLogging {
       resultPageSize = pageSize,
       resultPageNumber = pageNumber,
       dryRun = false,
-      scheduledDate = scheduledDate
+      scheduledDate = scheduledDate,
+      syncSchema = false
     )
     t.run() match {
       case Success(jobResult) =>

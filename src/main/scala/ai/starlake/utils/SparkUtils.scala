@@ -17,7 +17,7 @@ import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils.getJdbcType
 import org.apache.spark.sql.execution.datasources.jdbc.{JdbcOptionsInWrite, JdbcUtils}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcDialects}
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.*
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import java.sql.{Connection, SQLException}
@@ -41,22 +41,30 @@ object SparkUtils extends LazyLogging {
     StructType(fields)
   }
 
-  def alterTableDropColumnsString(fields: StructType, tableName: String): Seq[String] = {
+  def alterTableDropColumnsString(
+    engineName: String,
+    fields: StructType,
+    tableName: String
+  ): Seq[String] = {
     val dropFields = fields.map(_.name)
-    dropFields.map(dropColumn => s"ALTER TABLE $tableName DROP COLUMN $dropColumn")
+    // Some engines do not support IF EXISTS
+    val ifExists = if (engineName.toLowerCase() == "redshift") "" else "IF EXISTS"
+    dropFields.map(dropColumn => s"ALTER TABLE $tableName DROP COLUMN $ifExists $dropColumn")
   }
 
   def alterTableAddColumnsString(
+    engineName: String,
     allFields: StructType,
     tableName: String,
     attributesWithDDLType: Map[String, String]
   ): Seq[String] = {
     allFields.fields
-      .flatMap(alterTableAddColumnString(_, tableName, attributesWithDDLType))
+      .flatMap(alterTableAddColumnString(engineName, _, tableName, attributesWithDDLType))
       .toIndexedSeq
   }
 
   def alterTableAddColumnString(
+    engineName: String,
     field: StructField,
     tableName: String,
     attributesWithDDLType: Map[String, String]
@@ -72,10 +80,16 @@ object SparkUtils extends LazyLogging {
     val nullable =
       "" // Always nullable since it is added on top of existing data [if (!field.nullable) "NOT NULL" else ""]
 
-    addJdbcType.map(jdbcType => s"ALTER TABLE $tableName ADD COLUMN $addField $jdbcType $nullable")
+    // Some engines do not support IF NOT EXISTS
+    val ifNotExists =
+      if (engineName.toLowerCase() == "redshift") "" else "IF NOT EXISTS"
+    addJdbcType.map(jdbcType =>
+      s"ALTER TABLE $tableName ADD COLUMN $ifNotExists $addField $jdbcType $nullable"
+    )
   }
 
   def updateJdbcTableSchema(
+    engineName: String,
     conn: Connection,
     jdbcOptions: Map[String, String],
     domainAndTableName: String,
@@ -83,6 +97,7 @@ object SparkUtils extends LazyLogging {
     attributesWithDDLType: Map[String, String]
   ): Unit = {
     buildUpdateJdbcTableSchemaSQL(
+      engineName,
       conn,
       jdbcOptions,
       domainAndTableName,
@@ -93,6 +108,7 @@ object SparkUtils extends LazyLogging {
   }
 
   def buildUpdateJdbcTableSchemaSQL(
+    engineName: String,
     conn: Connection,
     jdbcOptions: Map[String, String],
     domainAndTableName: String,
@@ -107,7 +123,7 @@ object SparkUtils extends LazyLogging {
       val deletedColumns =
         SparkUtils.dropped(incomingSparkSchema, existingSchema.getOrElse(incomingSparkSchema))
       val alterTableDropColumns =
-        SparkUtils.alterTableDropColumnsString(deletedColumns, domainAndTableName)
+        SparkUtils.alterTableDropColumnsString(engineName, deletedColumns, domainAndTableName)
       if (alterTableDropColumns.nonEmpty) {
         logger.info(
           s"alter table ${domainAndTableName} with ${alterTableDropColumns.size} columns to drop"
@@ -116,6 +132,7 @@ object SparkUtils extends LazyLogging {
       }
       val alterTableAddColumns =
         SparkUtils.alterTableAddColumnsString(
+          engineName,
           addedSColumns,
           domainAndTableName,
           attributesWithDDLType
@@ -178,6 +195,7 @@ object SparkUtils extends LazyLogging {
   /** Creates a table with a given schema. Updated from Spark 3.0.1
     */
   def createTable(
+    engineName: String,
     conn: Connection,
     domainAndTableName: String,
     schema: StructType,
@@ -188,6 +206,7 @@ object SparkUtils extends LazyLogging {
   )(implicit settings: Settings): Unit = {
     val (createSchemaSql, createTableSql, commentSql) =
       buildCreateTableSQL(
+        engineName,
         domainAndTableName,
         schema,
         caseSensitive,
@@ -216,6 +235,7 @@ object SparkUtils extends LazyLogging {
   /** Creates a table with a given schema. Updated from Spark 3.0.1
     */
   def buildCreateTableSQL(
+    engineName: String,
     domainAndTableName: String,
     schema: StructType,
     caseSensitive: Boolean,

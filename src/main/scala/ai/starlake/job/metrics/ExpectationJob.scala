@@ -288,7 +288,8 @@ class ExpectationJob(
               resultPageSize = 200,
               resultPageNumber = 1,
               dryRun = false,
-              scheduledDate = None // No scheduled date for expectations jobs
+              scheduledDate = None, // No scheduled date for expectations jobs
+              syncSchema = false
             )(settings, storageHandler, schemaHandler)
           val res = task.run()
           Utils.logFailure(res, logger)

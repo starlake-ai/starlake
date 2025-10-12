@@ -12,7 +12,7 @@ import com.typesafe.scalalogging.LazyLogging
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.util.Locale
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success}
 
 object GcpUtils extends LazyLogging {

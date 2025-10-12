@@ -36,7 +36,8 @@ class JdbcAutoTask(
   resultPageSize: Int,
   resultPageNumber: Int,
   conn: Option[java.sql.Connection],
-  scheduledDate: Option[String]
+  scheduledDate: Option[String],
+  syncSchema: Boolean
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,
@@ -50,7 +51,8 @@ class JdbcAutoTask(
       resultPageNumber,
       accessToken,
       conn,
-      scheduledDate
+      scheduledDate,
+      syncSchema
     ) {
 
   def applyJdbcAcl(connection: Connection, forceApply: Boolean): Try[Unit] =
@@ -462,7 +464,11 @@ class JdbcAutoTask(
                   existingSchema.getOrElse(incomingSchema)
                 )
               val columnsToDrop =
-                SparkUtils.alterTableDropColumnsString(deletedSchema, tableName)
+                SparkUtils.alterTableDropColumnsString(
+                  sinkConnection.getJdbcEngineName().toString,
+                  deletedSchema,
+                  tableName
+                )
               if (columnsToDrop.nonEmpty) {
                 logger.info(
                   s"alter table $tableName with ${columnsToDrop.size} columns to drop"
@@ -476,7 +482,12 @@ class JdbcAutoTask(
           val alterTableAddColumns =
             if (syncStrategy == TableSync.ALL || syncStrategy == TableSync.ADD) {
               val columnsToAdd =
-                SparkUtils.alterTableAddColumnsString(addedSchema, tableName, Map.empty)
+                SparkUtils.alterTableAddColumnsString(
+                  sinkConnection.getJdbcEngineName().toString,
+                  addedSchema,
+                  tableName,
+                  Map.empty
+                )
               if (columnsToAdd.nonEmpty) {
                 logger.info(
                   s"alter table $tableName with ${columnsToAdd.size} columns to add"
@@ -500,6 +511,7 @@ class JdbcAutoTask(
           )
           val (createSchema, createTable, commentSQL) =
             SparkUtils.buildCreateTableSQL(
+              sinkConnection.getJdbcEngineName().toString,
               tableName,
               incomingSchemaWithSCD2,
               caseSensitive = false,

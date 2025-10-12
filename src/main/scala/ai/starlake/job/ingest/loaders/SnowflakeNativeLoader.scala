@@ -92,23 +92,24 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                 resultPageSize = 200,
                 resultPageNumber = 1,
                 Some(conn),
-                scheduledDate = scheduledDate
+                scheduledDate = scheduledDate,
+                syncSchema = false
               )(
                 settings,
                 storageHandler,
                 schemaHandler
               )
 
-            val runResult = job.runJDBC(df = None, sqlConnection = Some(conn))
-
             job.updateJdbcTableSchema(
-              starlakeSchema.sparkSchemaWithIgnoreAndScript(
+              starlakeSchema.sparkSchemaWithoutIgnore(
                 schemaHandler,
                 withFinalName = true
               ),
               targetTableFullName,
               TableSync.ALL
             )
+
+            val runResult = job.runJDBC(df = None, sqlConnection = Some(conn))
 
             // TODO archive if set
             tempTables.foreach { tempTable =>
@@ -366,6 +367,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       case WriteStrategyType.APPEND =>
         if (tableExists) {
           SparkUtils.updateJdbcTableSchema(
+            "snowflake",
             conn,
             sinkConnection.options,
             domainAndTableName,
@@ -374,6 +376,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
           )
         } else {
           SparkUtils.createTable(
+            "snowflake",
             conn,
             domainAndTableName,
             incomingSparkSchema,
@@ -386,6 +389,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
       case _ => //  WriteStrategyType.OVERWRITE or first step of other strategies
         JdbcDbUtils.dropTable(conn, domainAndTableName)
         SparkUtils.createTable(
+          "snowflake",
           conn,
           domainAndTableName,
           incomingSparkSchema,

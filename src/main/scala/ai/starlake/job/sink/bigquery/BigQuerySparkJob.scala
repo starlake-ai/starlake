@@ -1,10 +1,9 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.model._
-import ai.starlake.utils._
-import com.google.cloud.bigquery.{JobInfo, Schema => BQSchema, StandardTableDefinition}
-import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
+import ai.starlake.schema.model.*
+import ai.starlake.utils.*
+import com.google.cloud.bigquery.{Schema as BQSchema, StandardTableDefinition}
 import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.GoogleCredentials
 import com.google.common.io.BaseEncoding
 import org.apache.hadoop.conf.Configuration
@@ -15,8 +14,8 @@ import org.apache.spark.storage.StorageLevel
 
 import java.nio.charset.StandardCharsets
 import scala.collection.mutable
-import scala.jdk.CollectionConverters._
-import scala.util.{Success, Try}
+import scala.jdk.CollectionConverters.*
+import scala.util.{Failure, Success, Try}
 
 class BigQuerySparkJob(
   override val cliConfig: BigQueryLoadConfig,
@@ -75,16 +74,6 @@ class BigQuerySparkJob(
       session.conf.set("temporaryGcsBucket", bucketName)
     }
 
-    val writeDisposition = JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition)
-
-    conf.set(
-      BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION.getKey(),
-      writeDisposition.toString
-    )
-    conf.set(
-      BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION.getKey(),
-      cliConfig.createDisposition
-    )
     // Authentication
     logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
     cliConfig.accessToken match {
@@ -141,19 +130,25 @@ class BigQuerySparkJob(
         case Nil    => None
         case fields => Some(ClusteringInfo(fields.toList))
       }
-      getOrCreateTable(
-        cliConfig.domainDescription,
-        TableInfo(
-          tableId,
-          maybeTableDescription,
-          maybeBqSchema,
-          partitionField,
-          clusteringFields,
-          attributesDesc
-        ),
-        Some(sourceDF)
-      )
-        .map { case (table, _) => sourceDF -> table }
+      getOrCreateDataset(cliConfig.domainDescription) match {
+        case Success(dataset) =>
+          getOrCreateTable(
+            TableInfo(
+              tableId,
+              maybeTableDescription,
+              maybeBqSchema,
+              partitionField,
+              clusteringFields,
+              attributesDesc
+            ),
+            Some(sourceDF)
+          )
+            .map { case (table, _) => sourceDF -> table }
+        case Failure(exception) =>
+          logger.error(s"BigQuery Cannot use or create dataset ${cliConfig.domainDescription}")
+          Failure(exception)
+      }
+
     }.flatMap { case (sourceDF, table) =>
       val stdTableDefinition =
         bigquery(accessToken = cliConfig.accessToken)

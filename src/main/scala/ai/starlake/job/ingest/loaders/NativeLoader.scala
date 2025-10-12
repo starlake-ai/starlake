@@ -127,7 +127,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
         resultPageSize = 200,
         resultPageNumber = 1,
         dryRun = false,
-        scheduledDate = scheduledDate
+        scheduledDate = scheduledDate,
+        syncSchema = false
       )(
         settings,
         storageHandler,
@@ -279,7 +280,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           resultPageSize = 200,
           resultPageNumber = 1,
           dryRun = false,
-          scheduledDate = scheduledDate
+          scheduledDate = scheduledDate,
+          syncSchema = false
         )(
           settings,
           storageHandler,
@@ -385,6 +387,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     val stepMap =
       if (twoSteps) {
         val (tempCreateSchemaSql, tempCreateTableSql, _) = SparkUtils.buildCreateTableSQL(
+          sinkConnection.getJdbcEngineName().toString,
           tempTableName,
           tempSparkSchema,
           caseSensitive = false,
@@ -432,6 +435,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           )
       } else {
         val (createSchemaSql, createTableSql, _) = SparkUtils.buildCreateTableSQL(
+          sinkConnection.getJdbcEngineName().toString,
           targetFullTableName,
           finalSparkSchema,
           caseSensitive = false,

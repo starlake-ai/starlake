@@ -292,7 +292,8 @@ object AuditLog extends LazyLogging {
               resultPageSize = 200,
               resultPageNumber = 1,
               dryRun = false,
-              scheduledDate = scheduledDate
+              scheduledDate = scheduledDate,
+              syncSchema = false
             )
           Some(task)
       }

@@ -1,0 +1,6 @@
+---
+version: 1
+load:
+  name: "rnwdata_raw"
+  metadata:
+    directory: "{{root_path}}/incoming/schema_dom"
