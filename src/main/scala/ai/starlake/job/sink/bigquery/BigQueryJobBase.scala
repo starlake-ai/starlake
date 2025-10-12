@@ -138,7 +138,7 @@ trait BigQueryJobBase extends LazyLogging {
             cliConfig,
             rlsStatement,
             jobTimeoutMs = Some(settings.appConfig.shortJobTimeoutMs)
-          ).runInteractiveQuery() match {
+          ).runBigQueryJob() match {
             case Failure(e) =>
               throw e
             case Success(BigQueryJobResult(_, _, Some(job)))
@@ -491,49 +491,45 @@ trait BigQueryJobBase extends LazyLogging {
     *   the table and the source dataframe
     */
   def getOrCreateTable(
-    domainDescription: scala.Option[String],
     tableInfo: model.TableInfo,
     dataFrame: scala.Option[DataFrame],
     outputTableId: Option[TableId] = None
   )(implicit settings: Settings): Try[(Table, StandardTableDefinition)] = {
     val targetTableId = outputTableId.getOrElse(tableId)
-    getOrCreateDataset(domainDescription).flatMap { _ =>
-      val tryResult = BigQueryJobBase.recoverBigqueryException {
+    val tryResult = BigQueryJobBase.recoverBigqueryException {
+      val table =
+        if (tableExists(targetTableId)) {
+          val table = bigquery(accessToken = cliConfig.accessToken).getTable(targetTableId)
+          updateTableDescription(table, tableInfo.maybeTableDescription.orNull)
+        } else {
+          val tableDefinition = newTableDefinition(tableInfo, dataFrame)
+          val bqTableInfoBuilder = BQTableInfo
+            .newBuilder(targetTableId, tableDefinition)
+            .setDescription(tableInfo.maybeTableDescription.orNull)
 
-        val table =
-          if (tableExists(targetTableId)) {
-            val table = bigquery(accessToken = cliConfig.accessToken).getTable(targetTableId)
-            updateTableDescription(table, tableInfo.maybeTableDescription.orNull)
-          } else {
-            val tableDefinition = newTableDefinition(tableInfo, dataFrame)
-            val bqTableInfoBuilder = BQTableInfo
-              .newBuilder(targetTableId, tableDefinition)
-              .setDescription(tableInfo.maybeTableDescription.orNull)
-
-            tableInfo.maybeDurationMs.foreach(d =>
-              bqTableInfoBuilder.setExpirationTime(System.currentTimeMillis() + d)
-            )
-
-            val bqTableInfo = bqTableInfoBuilder.build
-            logger.info(s"Creating table ${targetTableId.getDataset}.${targetTableId.getTable}")
-            val result = bigquery(accessToken = cliConfig.accessToken).create(bqTableInfo)
-            logger.info(
-              s"Table ${targetTableId.getDataset}.${targetTableId.getTable} created successfully"
-            )
-            result
-          }
-        setTagsOnTable(table)
-        (table, table.getDefinition[StandardTableDefinition])
-      }
-      tryResult match {
-        case Failure(exception) =>
-          logger.info(
-            s"Table ${targetTableId.getDataset}.${targetTableId.getTable} was not created / retrieved."
+          tableInfo.maybeDurationMs.foreach(d =>
+            bqTableInfoBuilder.setExpirationTime(System.currentTimeMillis() + d)
           )
-          Utils.logException(logger, exception)
-          tryResult
-        case Success(_) => tryResult
-      }
+
+          val bqTableInfo = bqTableInfoBuilder.build
+          logger.info(s"Creating table ${targetTableId.getDataset}.${targetTableId.getTable}")
+          val result = bigquery(accessToken = cliConfig.accessToken).create(bqTableInfo)
+          logger.info(
+            s"Table ${targetTableId.getDataset}.${targetTableId.getTable} created successfully"
+          )
+          result
+        }
+      setTagsOnTable(table)
+      (table, table.getDefinition[StandardTableDefinition])
+    }
+    tryResult match {
+      case Failure(exception) =>
+        logger.info(
+          s"Table ${targetTableId.getDataset}.${targetTableId.getTable} was not created / retrieved."
+        )
+        Utils.logException(logger, exception)
+        tryResult
+      case Success(_) => tryResult
     }
   }
 

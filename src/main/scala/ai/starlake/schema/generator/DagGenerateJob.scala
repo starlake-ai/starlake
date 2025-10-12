@@ -208,7 +208,8 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 resultPageSize = 1,
                 resultPageNumber = 1,
                 dryRun = false,
-                scheduledDate = None // No scheduled date for task dags
+                scheduledDate = None, // No scheduled date for task dags
+                syncSchema = false
               )(settings, settings.storageHandler(), schemaHandler)
               Try {
                 AutoTaskQueries(task)

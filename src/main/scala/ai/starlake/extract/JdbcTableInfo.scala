@@ -29,6 +29,7 @@ class JdbcTableInfo {
         val query = lastModifiedQuery.richFormat(
           Map(
             "table"  -> tablesInSet,
+            "domain" -> schema,
             "schema" -> schema
           ),
           Map.empty

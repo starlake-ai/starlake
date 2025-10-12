@@ -109,21 +109,22 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             resultPageSize = 200,
             resultPageNumber = 1,
             conn = None,
-            scheduledDate = scheduledDate
+            scheduledDate = scheduledDate,
+            syncSchema = false
           )(
             settings,
             storageHandler,
             schemaHandler
           )
-        job.run()
         job.updateJdbcTableSchema(
-          schema.sparkSchemaWithIgnoreAndScript(
+          schema.sparkSchemaWithoutIgnore(
             schemaHandler,
             withFinalName = true
           ),
           targetFullTableName,
           TableSync.ALL
         )
+        job.run()
 
         // TODO archive if set
         tempTables.foreach { tempTable =>
@@ -233,6 +234,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           case WriteStrategyType.APPEND =>
             if (tableExists) {
               SparkUtils.updateJdbcTableSchema(
+                "duckdb",
                 conn,
                 sinkConnection.options,
                 domainAndTableName,
@@ -241,6 +243,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
               )
             } else {
               SparkUtils.createTable(
+                "duckdb",
                 conn,
                 domainAndTableName,
                 incomingSparkSchema,
@@ -253,6 +256,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           case _ => //  WriteStrategyType.OVERWRITE or first step of other strategies
             JdbcDbUtils.dropTable(conn, domainAndTableName)
             SparkUtils.createTable(
+              "duckdb",
               conn,
               domainAndTableName,
               incomingSparkSchema,

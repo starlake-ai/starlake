@@ -211,7 +211,7 @@ trait IngestionJob extends SparkJob {
 
         sqls.foreach { sql =>
           val compiledSql = sql.richFormat(schemaHandler.activeEnvVars(), options)
-          bqNativeJob(tableId, compiledSql).runInteractiveQuery()
+          bqNativeJob(tableId, compiledSql).runBigQueryJob()
         }
 
       case Engine.JDBC =>
@@ -874,7 +874,8 @@ trait IngestionJob extends SparkJob {
               accessToken = accessToken,
               resultPageSize = 200,
               resultPageNumber = 1,
-              scheduledDate = scheduledDate
+              scheduledDate = scheduledDate,
+              syncSchema = false
             )(
               settings,
               storageHandler,

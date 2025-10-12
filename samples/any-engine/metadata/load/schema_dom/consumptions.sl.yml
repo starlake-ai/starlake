@@ -1,0 +1,43 @@
+---
+version: 1
+table:
+  name: "consumptions"
+  pattern: "consumptions.*.csv"
+  attributes:
+    - name: "user_id"
+      type: "decimal"
+      array: false
+      sample: "9.0"
+    - name: "DateTime"
+      type: "timestamp"
+      array: false
+      sample: "2026-01-01 16:00:00"
+    - name: "conso_house_kw"
+      type: "double"
+      array: false
+      sample: "4.1479998"
+    - name: "conso_vroum_kw"
+      type: "double"
+      array: false
+      sample: "3.0"
+    - name: "CONSO"
+      type: "double"
+      array: false
+      rename: "conso"
+      sample: "4.1479998"
+    - name: "inserted_at"
+      type: "timestamp"
+      array: false
+      script: "CURRENT_TIMESTAMP"
+  metadata:
+    format: "DSV"
+    encoding: "UTF-8"
+    array: false
+    withHeader: false
+    separator: ","
+    writeStrategy:
+      type: "OVERWRITE"
+  comment: "consumptions_30min_house_EV"
+  primaryKey:
+    - "DateTime"
+    - "user_id"

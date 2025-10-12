@@ -84,11 +84,11 @@ object JdbcDbUtils extends LazyLogging {
       val driver = connectionOptions("driver")
       val url = connectionOptions("url")
 
-      if (url.contains(":duckdb:")) {
+      if (url.contains(":duckdb :")) {
         // No connection pool for duckdb. This is a single user database on write.
         // We need to release the connection asap
         val properties = new Properties()
-        (connectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account" - "allowUnderscoresInHost")
+        (connectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account" - "allowUnderscoresInHost" - "database" - "db")
           .foreach { case (k, v) =>
             properties.setProperty(k, v)
           }
@@ -118,6 +118,7 @@ object JdbcDbUtils extends LazyLogging {
         val (finalConnectionOptions, finalUrl) =
           if (
             url.contains(":snowflake:") &&
+            connectionOptions.get("authenticator").contains("oauth") &&
             connectionOptions.contains("sl_access_token") &&
             connectionOptions("sl_access_token").count(_ == ':') >= 2
           ) {
@@ -130,16 +131,15 @@ object JdbcDbUtils extends LazyLogging {
             val accessToken =
               accountUserAndToken
                 .drop(2)
-                .mkString(":") // in case the token contains the ':' char which should not happen
+                .mkString(":") // in case the token contains the ':'
             val url = s"jdbc:snowflake://$account.snowflakecomputing.com"
-            val finalCOnnectionOptions = connectionOptions
-              .updated("authenticator", "oauth")
+            val finalConnectionOptions = connectionOptions
               .updated("account", account)
-              .updated("user", user)
               .updated("password", accessToken)
               .updated("allowUnderscoresInHost", "true")
               .updated("url", url)
-            (finalCOnnectionOptions, url)
+              .removed("user")
+            (finalConnectionOptions, url)
             // password is the token in Snowflake 3.13+
             // properties.setProperty("user", ...)
             // properties.setProperty("role", ...)
@@ -148,12 +148,53 @@ object JdbcDbUtils extends LazyLogging {
           } else {
             (connectionOptions, url)
           }
-
         val javaProperties = new Properties()
-        (finalConnectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account")
-          .foreach { case (k, v) =>
-            javaProperties.setProperty(k, v)
+        finalConnectionOptions.foreach { case (k, v) =>
+          logger.info(s"Connection option $k=$v")
+          if (url.contains(":duckdb")) {
+            if (
+              !Set(
+                "user",
+                "driver",
+                "dbtable",
+                "numpartitions",
+                "sl_access_token",
+                "account",
+                "authenticator",
+                "allowUnderscoresInHost",
+                "password",
+                "url"
+              )
+                .contains(k)
+            )
+              javaProperties.setProperty(k, v)
+
+          } else {
+            if (
+              !Set(
+                "driver",
+                "dbtable", // Spark only
+                "numpartitions", // Spark only
+                "sl_access_token"
+              ).contains(k)
+            ) {
+              if (
+                k != "authenticator" || !finalConnectionOptions
+                  .get("authenticator")
+                  .contains("programmatic_access_token")
+              )
+                javaProperties.setProperty(k, v)
+            }
+
           }
+        }
+
+        val (finalDriver, dataBranchUrl) = StarlakeJdbcOps.driverAndUrl(
+          dataBranch,
+          driver,
+          finalUrl
+        )
+
         val connection =
           if (System.getenv("SL_USE_CONNECTION_POOLING") == "true") {
             logger.info("Using connection pooling")
@@ -164,11 +205,10 @@ object JdbcDbUtils extends LazyLogging {
                 poolKey, {
                   val config = new HikariConfig()
                   javaProperties.forEach { case (k, v) =>
-                    logger.info(s"Adding property $k")
                     config.addDataSourceProperty(k.toString, v.toString)
                   }
-                  config.setJdbcUrl(finalUrl)
-                  config.setDriverClassName(driver)
+                  config.setJdbcUrl(dataBranchUrl)
+                  config.setDriverClassName(finalDriver)
                   config.setMinimumIdle(1)
                   config.setMaximumPoolSize(
                     100
@@ -182,18 +222,9 @@ object JdbcDbUtils extends LazyLogging {
             connection
           } else {
             logger.info("Not using connection pooling")
-            javaProperties.forEach { case (k, v) =>
-              println(s"connecting using property $k=$v")
-            }
-            DriverManager.getConnection(finalUrl, javaProperties)
+            DriverManager.getConnection(dataBranchUrl, javaProperties)
           }
         //
-        val (finalDriver, dataBranchUrl) = StarlakeJdbcOps.driverAndUrl(
-          dataBranch,
-          driver,
-          finalUrl
-        )
-
         if (dataBranchUrl.startsWith("jdbc:starlake:")) {
           dataBranch match {
             case Some(branch) if branch.nonEmpty => StarlakeJdbcOps.branchStart(branch, connection)

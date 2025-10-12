@@ -208,7 +208,8 @@ class MetricsJob(
             logExecution = false,
             resultPageSize = 200,
             resultPageNumber = 1,
-            scheduledDate = None // No scheduled date for metrics jobs
+            scheduledDate = None,
+            syncSchema = false
           )(
             settings,
             storageHandler,

@@ -48,7 +48,8 @@ class BigQueryAutoTask(
   resultPageSize: Int,
   resultPageNumber: Int,
   dryRun: Boolean,
-  scheduledDate: Option[String]
+  scheduledDate: Option[String],
+  syncSchema: Boolean
 )(implicit settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends AutoTask(
       appId,
@@ -62,7 +63,8 @@ class BigQueryAutoTask(
       resultPageNumber,
       accessToken,
       None,
-      scheduledDate
+      scheduledDate,
+      syncSchema
     ) {
 
   private lazy val bqSink = taskDesc.sink
@@ -164,7 +166,7 @@ class BigQueryAutoTask(
 
   private def runSqls(sqls: List[String]): List[Try[BigQueryJobResult]] = {
     sqls.map { req =>
-      bqNativeJob(bigQuerySinkConfig, req).runInteractiveQuery()
+      bqNativeJob(bigQuerySinkConfig, req).runBigQueryJob()
     }
   }
   def runOnDFOnLoad(loadedDF: DataFrame, sparkSchema: Option[StructType]): Try[JobResult] = {
@@ -254,8 +256,7 @@ class BigQueryAutoTask(
                                     .mkString("_")
                                 logger.info(s"Processing shard $shard")
                                 // We update the schema for each shard in case the schema evolved (each shard => different table)
-                                sparkSchema
-                                  .foreach(schema => updateBigQueryTableSchema(schema, Some(shard)))
+                                updateBigQueryTableSchema(sparkSchema, Some(shard))
                                 val shardHead = shardColumns.head
                                 val shardTail = shardColumns.tail
                                 val conditions = shardTail
@@ -274,7 +275,7 @@ class BigQueryAutoTask(
                           failure.getOrElse(allResult.head)
                         case None =>
                           // No sharding, we need to update a single table schema
-                          sparkSchema.foreach(schema => updateBigQueryTableSchema(schema))
+                          updateBigQueryTableSchema(sparkSchema)
                           // No shard just a single table to update
                           val saveResult = saveDF(df, None)
                           saveResult
@@ -305,7 +306,7 @@ class BigQueryAutoTask(
                         val res = bqNativeJob(
                           config,
                           shardsQuery
-                        ).runInteractiveQuery(dryRun = dryRun, pageSize = Some(1000))
+                        ).runBigQueryJob(dryRun = dryRun, pageSize = Some(1000))
 
                         // We get all the distinct values for the shard columns
                         val uniqueValues =
@@ -351,11 +352,9 @@ class BigQueryAutoTask(
                                 // we update the schema for each shard in case the schema evolved (each shard => different table)
                                 // The code below means that we do not support schema evolution in native mode since we assume that
                                 // the incoming schema is provided by the caller
-                                sparkSchema.foreach(schema =>
-                                  updateBigQueryTableSchema(
-                                    schema,
-                                    Some(shardValue.mkString("_"))
-                                  )
+                                updateBigQueryTableSchema(
+                                  sparkSchema,
+                                  Some(shardValue.mkString("_"))
                                 )
                                 val resultApplyCLS = saveNative(config, shardSql)
                                 logger.info(
@@ -381,7 +380,7 @@ class BigQueryAutoTask(
                     // We need to infer the incoming schema from the sql query if the schema is not specified
                     // We have the schema only in load mode.
                     // For transform, this is done in th emain() function during the call to buildALlSQLQueries
-                    sparkSchema.foreach(schema => updateBigQueryTableSchema(schema, None))
+                    updateBigQueryTableSchema(sparkSchema, None)
                     val allSql =
                       preSql.mkString(";\n") + mainSql() + ";\n" + postSql.mkString(";\n")
                     saveNative(config, allSql)
@@ -449,7 +448,7 @@ class BigQueryAutoTask(
           val res = bqNativeJob(
             config,
             limitSql
-          ).runInteractiveQuery(dryRun = dryRun, pageSize = Some(1000))
+          ).runBigQueryJob(dryRun = dryRun, pageSize = Some(1000))
 
           res.foreach { _ =>
             if (settings.appConfig.autoExportSchema) {
@@ -543,7 +542,7 @@ class BigQueryAutoTask(
       config,
       mainSql
     )
-    val result = bqJob.runInteractiveQuery(dryRun = dryRun)
+    val result = bqJob.runBigQueryJob(dryRun = dryRun)
     result.map { job =>
       bqJob.applyRLSAndCLS() match {
         case Success(_) =>
@@ -662,7 +661,7 @@ class BigQueryAutoTask(
     tableName: String,
     syncStrategy: TableSync
   ): (List[String], Boolean) = {
-    updateBigQueryTableSchema(incomingSchema)
+    updateBigQueryTableSchema(Some(incomingSchema))
     (Nil, true)
   }
 
@@ -710,65 +709,80 @@ class BigQueryAutoTask(
   }
 
   def updateBigQueryTableSchema(
-    incomingSparkSchema: StructType,
+    incomingSparkSchema: Option[StructType],
     sharding: Option[String] = None
   ): Unit = {
+
     val bigqueryJob = bqNativeJob(bigQuerySinkConfig, "ignore sql")
-    val tableId =
-      BigQueryJobBase.extractProjectDatasetAndTable(
-        taskDesc.getDatabase(),
-        taskDesc.domain,
-        taskDesc.table + sharding.map("_" + _).getOrElse(""),
-        sinkOptions.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
-      )
-
-    val tableExists = bigqueryJob.tableExists(tableId)
-
-    if (tableExists) {
-      val bqTable = bigqueryJob.getTable(tableId)
-      bqTable
-        .map { table =>
-          // This will raise an exception if schemas are not compatible.
-          val existingSchema = BigQuerySchemaConverters.toSpark(
-            table.getDefinition[StandardTableDefinition].getSchema
+    bigqueryJob.getOrCreateDataset(taskDesc._dbComment) match {
+      case Failure(exception) =>
+        throw exception
+      case Success(dataset) => // Dataset exists or created
+        val tableId =
+          BigQueryJobBase.extractProjectDatasetAndTable(
+            taskDesc.getDatabase(),
+            taskDesc.domain,
+            taskDesc.table + sharding.map("_" + _).getOrElse(""),
+            sinkOptions.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
           )
 
-          // val incomingSchema = BigQueryUtils.normalizeSchema(schema.sparkSchemaWithoutIgnore(schemaHandler))
-          // MergeUtils.computeCompatibleSchema(existingSchema, incomingSchema)
-          val finalSparkSchema =
-            BigQueryUtils.normalizeCompatibleSchema(incomingSparkSchema, existingSchema)
-          logger.whenInfoEnabled {
-            logger.info("Final target table schema")
-            logger.info(finalSparkSchema.toString)
+        val tableExists = bigqueryJob.tableExists(tableId)
+        incomingSparkSchema.foreach { incomingSparkSchema =>
+          if (tableExists) {
+            val bqTable = bigqueryJob.getTable(tableId)
+            bqTable
+              .map { table =>
+                // This will raise an exception if schemas are not compatible.
+                val existingSchema = BigQuerySchemaConverters.toSpark(
+                  table.getDefinition[StandardTableDefinition].getSchema
+                )
+
+                // val incomingSchema = BigQueryUtils.normalizeSchema(schema.sparkSchemaWithoutIgnore(schemaHandler))
+                // MergeUtils.computeCompatibleSchema(existingSchema, incomingSchema)
+                val finalSparkSchema =
+                  BigQueryUtils.normalizeCompatibleSchema(incomingSparkSchema, existingSchema)
+                logger.whenInfoEnabled {
+                  logger.info("Final target table schema")
+                  logger.info(finalSparkSchema.toString)
+                }
+
+                val newBqSchema = bqSchemaWithSCD2(BigQueryUtils.bqSchema(finalSparkSchema))
+                val updatedTableDefinition =
+                  table
+                    .getDefinition[StandardTableDefinition]
+                    .toBuilder
+                    .setSchema(newBqSchema)
+                    .build()
+                val updatedTable =
+                  table.toBuilder.setDefinition(updatedTableDefinition).build()
+                updatedTable.update()
+              }
+          } else {
+            val bqSchema = BigQueryUtils.bqSchema(incomingSparkSchema)
+            val sink = sinkConfig.asInstanceOf[BigQuerySink]
+
+            val partitionField = sink.getPartitionColumn().map { partitionField =>
+              FieldPartitionInfo(
+                partitionField,
+                sink.days,
+                sink.requirePartitionFilter.getOrElse(false)
+              )
+            }
+            val clusteringFields = sink.clustering.flatMap { fields =>
+              Some(ClusteringInfo(fields.toList))
+            }
+            val newSchema = bqSchemaWithSCD2(bqSchema)
+            val tableInfo = TableInfo(
+              tableId,
+              taskDesc.comment,
+              Some(newSchema),
+              partitionField,
+              clusteringFields
+            )
+            val targetTableId = sharding.map(_ => tableId)
+            bigqueryJob.getOrCreateTable(tableInfo, None, targetTableId)
           }
-
-          val newBqSchema = bqSchemaWithSCD2(BigQueryUtils.bqSchema(finalSparkSchema))
-          val updatedTableDefinition =
-            table.getDefinition[StandardTableDefinition].toBuilder.setSchema(newBqSchema).build()
-          val updatedTable =
-            table.toBuilder.setDefinition(updatedTableDefinition).build()
-          updatedTable.update()
         }
-    } else {
-      val bqSchema = BigQueryUtils.bqSchema(incomingSparkSchema)
-      val sink = sinkConfig.asInstanceOf[BigQuerySink]
-
-      val partitionField = sink.getPartitionColumn().map { partitionField =>
-        FieldPartitionInfo(partitionField, sink.days, sink.requirePartitionFilter.getOrElse(false))
-      }
-      val clusteringFields = sink.clustering.flatMap { fields =>
-        Some(ClusteringInfo(fields.toList))
-      }
-      val newSchema = bqSchemaWithSCD2(bqSchema)
-      val tableInfo = TableInfo(
-        tableId,
-        taskDesc.comment,
-        Some(newSchema),
-        partitionField,
-        clusteringFields
-      )
-      val targetTableId = sharding.map(_ => tableId)
-      bigqueryJob.getOrCreateTable(taskDesc._dbComment, tableInfo, None, targetTableId)
     }
   }
 }

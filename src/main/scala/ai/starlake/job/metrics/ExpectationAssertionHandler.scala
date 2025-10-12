@@ -30,7 +30,7 @@ class BigQueryExpectationAssertionHandler(runner: BigQueryNativeJob)
   override def handle(sql: String)(implicit
     settings: Settings
   ): Int = {
-    runner.runInteractiveQuery(Some(sql)) match {
+    runner.runBigQueryJob(Some(sql)) match {
       case Success(result) =>
         result.tableResult
           .map { tableResult =>

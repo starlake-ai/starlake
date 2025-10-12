@@ -59,27 +59,63 @@ object Dependencies {
   )
 
   val spark3 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark3 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-sql" % Versions.spark3 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-hive" % Versions.spark3 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark3 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-core" % Versions.spark3 % "provided" exclude (
+      "com.google.guava",
+      "guava"
+    ) excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-sql" % Versions.spark3 % "provided" exclude (
+      "com.google.guava",
+      "guava"
+    ) excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-hive" % Versions.spark3 % "provided" exclude (
+      "com.google.guava",
+      "guava"
+    ) excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-mllib" % Versions.spark3 % "provided" exclude (
+      "com.google.guava",
+      "guava"
+    ) excludeAll (jacksonExclusions: _*),
     "com.databricks" %% "spark-xml" % Versions.sparkXML excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3 excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-avro" % Versions.spark3 excludeAll (jacksonExclusions: _*),
-    "io.delta" %% "delta-spark" % Versions.deltaSpark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*)
+    "io.delta" %% "delta-spark" % Versions.deltaSpark3d0 % "provided" exclude (
+      "com.google.guava",
+      "guava"
+    ) excludeAll (jacksonExclusions: _*)
   )
 
   val hadoop = Seq(
-    "org.apache.hadoop" % "hadoop-common" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "org.apache.hadoop" % "hadoop-hdfs" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "org.apache.hadoop" % "hadoop-yarn-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "org.apache.hadoop" % "hadoop-mapreduce-client-app" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "org.apache.hadoop" % "hadoop-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
+    "org.apache.hadoop" % "hadoop-common" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude (
+      "com.google.guava",
+      "guava"
+    ),
+    "org.apache.hadoop" % "hadoop-hdfs" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude (
+      "com.google.guava",
+      "guava"
+    ),
+    "org.apache.hadoop" % "hadoop-yarn-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude (
+      "com.google.guava",
+      "guava"
+    ),
+    "org.apache.hadoop" % "hadoop-mapreduce-client-app" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude (
+      "com.google.guava",
+      "guava"
+    ),
+    "org.apache.hadoop" % "hadoop-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude (
+      "com.google.guava",
+      "guava"
+    )
   )
 
   val azure = Seq(
-    "org.apache.hadoop" % "hadoop-azure" % "3.4.2" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "com.microsoft.azure" % "azure-storage" % "8.6.6" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
+    "org.apache.hadoop" % "hadoop-azure" % "3.4.2" % "provided" excludeAll (jacksonExclusions: _*) exclude (
+      "com.google.guava",
+      "guava"
+    ),
+    "com.microsoft.azure" % "azure-storage" % "8.6.6" % "provided" excludeAll (jacksonExclusions: _*) exclude (
+      "com.google.guava",
+      "guava"
+    )
   )
 
   val snowflake = Seq(
@@ -140,7 +176,10 @@ object Dependencies {
   )
 
   val esSpark212 = Seq(
-    "org.elasticsearch" %% "elasticsearch-spark-30" % Versions.esSpark % "provided" exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
+    "org.elasticsearch" %% "elasticsearch-spark-30" % Versions.esSpark % "provided" exclude (
+      "com.google.guava",
+      "guava"
+    ) excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
     "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )
 
@@ -153,7 +192,10 @@ object Dependencies {
   )
 
   val scalate = Seq(
-    "org.scalatra.scalate" %% "scalate-core" % Versions.scalate exclude ("org.scala-lang.modules", "scala-xml_2.12")
+    "org.scalatra.scalate" %% "scalate-core" % Versions.scalate exclude (
+      "org.scala-lang.modules",
+      "scala-xml_2.12"
+    )
   )
 
   val kafkaClients = Seq(
@@ -181,13 +223,22 @@ object Dependencies {
   )
 
   val jinja = Seq(
-    "com.hubspot.jinjava" % "jinjava" % Versions.jinja excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava") exclude ("org.apache.commons", "commons-lang3")
+    "com.hubspot.jinjava" % "jinjava" % Versions.jinja excludeAll (jacksonExclusions: _*) exclude (
+      "com.google.guava",
+      "guava"
+    ) exclude ("org.apache.commons", "commons-lang3")
   )
 
   val jSqlTranspiler = Seq(
     "com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser,
-    "ai.starlake.jsqltranspiler" % "jsqltranspiler" % Versions.jSqlTranspiler exclude ("org.apache.commons", "commons-io"),
-    "ai.starlake.jdbc" % "starlakejdbc" % Versions.starlakejdbc exclude ("org.apache.commons", "commons-io"),
+    "ai.starlake.jsqltranspiler" % "jsqltranspiler" % Versions.jSqlTranspiler exclude (
+      "org.apache.commons",
+      "commons-io"
+    ),
+    "ai.starlake.jdbc" % "starlakejdbc" % Versions.starlakejdbc exclude (
+      "org.apache.commons",
+      "commons-io"
+    ),
     "com.manticore-projects.jsqlformatter" % "jsqlformatter" % Versions.jSqlFormatter
   )
 
@@ -223,6 +274,7 @@ object Dependencies {
   val starlakeStreaming = Seq(
     "ai.starlake" %% "starlake-streaming" % "1.3.5" % "provided"
   )
+
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++

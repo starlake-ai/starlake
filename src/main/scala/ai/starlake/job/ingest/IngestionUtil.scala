@@ -93,7 +93,8 @@ object IngestionUtil {
           logExecution = false,
           resultPageSize = 200,
           resultPageNumber = 1,
-          scheduledDate = scheduledDate
+          scheduledDate = scheduledDate,
+          syncSchema = false
         )
         val res = autoTask.sink(rejectedDF)
         if (res) {

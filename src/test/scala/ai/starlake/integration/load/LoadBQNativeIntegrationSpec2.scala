@@ -3,7 +3,7 @@ package ai.starlake.integration.load
 import ai.starlake.integration.BigQueryIntegrationSpecBase
 import ai.starlake.job.Main
 
-class LoadBQNativeIntegrationSpec extends BigQueryIntegrationSpecBase {
+class LoadBQNativeIntegrationSpec2 extends BigQueryIntegrationSpecBase {
   override def sampleDataDir = theSampleFolder / "sample-data"
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
     "Import / Load / Transform BQ NATIVE" should "succeed" in {

@@ -980,7 +980,8 @@ class IngestionWorkflow(
       resultPageSize = config.pageSize,
       resultPageNumber = config.pageNumber,
       dryRun = config.dryRun,
-      scheduledDate = config.scheduledDate
+      scheduledDate = config.scheduledDate,
+      syncSchema = true
     )(
       settings,
       storageHandler,
