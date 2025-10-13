@@ -139,6 +139,7 @@ object JdbcDbUtils extends LazyLogging {
               .updated("allowUnderscoresInHost", "true")
               .updated("url", url)
               .removed("user")
+              .removed("sl_access_token")
             (finalConnectionOptions, url)
             // password is the token in Snowflake 3.13+
             // properties.setProperty("user", ...)
