@@ -4,6 +4,7 @@ import ai.starlake.config.Settings.{ConnectionInfo, JdbcEngine}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.core.utils.StringUtils
 import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
+import ai.starlake.jdbc.StarlakeDriver
 import ai.starlake.job.Main
 import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
@@ -31,6 +32,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try, Using}
 
 object JdbcDbUtils extends LazyLogging {
+  DriverManager.registerDriver(new StarlakeDriver())
   val appType = Option(System.getenv("SL_API_APP_TYPE")).getOrElse("web")
 
   type TableName = String
