@@ -172,7 +172,7 @@ class SQLUtilsSpec extends TestHelper {
 
       val refs = SQLUtils.extractTableNames(selectWithCTE)
       refs should contain theSameElementsAs (List(
-        "\"domain\".sellers",
+        "domain.sellers",
         "orders",
         "y"
       ))
@@ -198,9 +198,9 @@ class SQLUtilsSpec extends TestHelper {
     "Extract table names from select" should "return all CTE names" in {
       val refs = SQLUtils.extractTableNames(selectWithCTEs)
       refs should contain theSameElementsAs (List(
-        "`starlake-325712`.`starlake_tbl`.`transactions`",
-        "`starlake-325712`.`starlake_tbl`.`locations`",
-        "`starlake-325712`.`starlake_tbl`.`sellers`"
+        "starlake-325712.starlake_tbl.transactions",
+        "starlake-325712.starlake_tbl.locations",
+        "starlake-325712.starlake_tbl.sellers"
       ))
     }
 
