@@ -58,6 +58,7 @@ class ExtractBigQuerySchema(config: TablesExtractConfig)(implicit settings: Sett
     schemaHandler: SchemaHandler,
     tablesToExtract: Map[String, List[String]]
   ): List[DomainInfo] = {
+    // case insensitive extraction
     val datasetNames = tablesToExtract.keys.toList
     val lowercaseDatasetNames = tablesToExtract.keys.map(_.toLowerCase()).toList
     val filteredDatasets =

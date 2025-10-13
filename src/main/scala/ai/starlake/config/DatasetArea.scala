@@ -228,6 +228,9 @@ object DatasetArea extends LazyLogging {
   def expectations(implicit settings: Settings): Path =
     new Path(metadata, "expectations")
 
+  def semantic(implicit settings: Settings): Path =
+    new Path(metadata, "semantic")
+
   def macros(implicit settings: Settings): Path =
     new Path(settings.appConfig.macros)
 
@@ -277,7 +280,8 @@ object DatasetArea extends LazyLogging {
       incoming,
       build,
       worksheets,
-      macros
+      macros,
+      semantic
     )
 
   /** @param storage

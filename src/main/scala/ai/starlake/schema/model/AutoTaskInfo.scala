@@ -15,6 +15,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructType
 
 import scala.jdk.CollectionConverters.*
+import scala.util.{Failure, Success, Try}
 
 case class TaskDesc(version: Int, task: AutoTaskInfo)
 
@@ -297,66 +298,69 @@ case class AutoTaskInfo(
       (thisTableName +: allTableNames).distinct
         .flatMap { fullTableName =>
           val components = fullTableName.split('.')
-          assert(
-            components.length >= 2,
-            s"Table name $fullTableName should be composed of domain and table name separated by a dot"
-          )
-          val domainName = components(components.length - 2)
-          val schemaName = components(components.length - 1)
-          schemaHandler
-            .taskByTableName(domainName, schemaName)
-            .filter(it => it.attributes.nonEmpty)
-            .map { t =>
-              logger.info(
-                s"Found task ${t.name} for table $fullTableName with attributes ${t.attributes.map(_.name).mkString(", ")}"
-              )
-              (t.domain, t.table)
-            }
-            .orElse {
-              schemaHandler.tableByFinalName(domainName, schemaName).map { t =>
+          if (components.length == 1) { // This is probably a temporary view
+            logger.warn(
+              s"Table name $fullTableName does not contain a domain. Assuming it is a temporary view"
+            )
+            None
+          } else {
+            val domainName = components(components.length - 2)
+            val schemaName = components(components.length - 1)
+            schemaHandler
+              .taskByTableName(domainName, schemaName)
+              .filter(it => it.attributes.nonEmpty)
+              .map { t =>
                 logger.info(
-                  s"Found table ${t.name} for table $fullTableName with attributes ${t.attributes.map(_.name).mkString(", ")}"
+                  s"Found task ${t.name} for table $fullTableName with attributes ${t.attributes.map(_.name).mkString(", ")}"
                 )
-                (domainName, schemaName)
+                (t.domain, t.table)
               }
-            }
-            .orElse {
-              schemaHandler.external(domainName, schemaName).map { t =>
-                logger.info(
-                  s"Found external table ${t.name} for table $fullTableName with attributes ${t.attributes.map(_.name).mkString(", ")}"
-                )
-                (domainName, schemaName)
-              }
-            }
-            .orElse {
-              val connectionInfo =
-                settings.appConfig.getConnection(settings.appConfig.connectionRef)
-              // getting metadata from snowflake is definitely too slow
-              if (connectionInfo.isSnowflake()) {
-                JdbcDbUtils
-                  .existsTableUsingInformationSchema(
-                    connectionInfo,
-                    domainName,
-                    schemaName
+              .orElse {
+                schemaHandler.tableByFinalName(domainName, schemaName).map { t =>
+                  logger.info(
+                    s"Found table ${t.name} for table $fullTableName with attributes ${t.attributes.map(_.name).mkString(", ")}"
                   )
-                  .toOption
-                  .filter(identity)
-                  .map { _ =>
-                    (domainName, schemaName)
-                  }
-              } else {
-                new ExtractSchema(schemaHandler)
-                  .extractTable(fullTableName, None, accessToken)
-                  .toOption
-                  .filter(_.tables.nonEmpty)
-                  .map { it =>
-                    logger.info(
-                      s"Found extracted table ${it.tables.head.name} for table $fullTableName with attributes ${it.tables.head.attributes.map(_.name).mkString(", ")}"
-                    )
-                    (it.finalName, it.tables.head.finalName)
-                  }
+                  (domainName, schemaName)
+                }
               }
-            }
+              .orElse {
+                schemaHandler.external(domainName, schemaName).map { t =>
+                  logger.info(
+                    s"Found external table ${t.name} for table $fullTableName with attributes ${t.attributes.map(_.name).mkString(", ")}"
+                  )
+                  (domainName, schemaName)
+                }
+              }
+              .orElse {
+                val connectionInfo =
+                  settings.appConfig.getConnection(settings.appConfig.connectionRef)
+                // getting metadata from snowflake is definitely too slow
+                if (connectionInfo.isSnowflake()) {
+                  JdbcDbUtils
+                    .existsTableUsingInformationSchema(
+                      connectionInfo,
+                      domainName,
+                      schemaName
+                    )
+                    .toOption
+                    .filter(identity)
+                    .map { _ =>
+                      (domainName, schemaName)
+                    }
+                } else {
+                  new ExtractSchema(schemaHandler)
+                    .extractTable(fullTableName, None, accessToken)
+                    .toOption
+                    .filter(_.tables.nonEmpty)
+                    .map { it =>
+                      logger.info(
+                        s"Found extracted table ${it.tables.head.name} for table $fullTableName with attributes ${it.tables.head.attributes.map(_.name).mkString(", ")}"
+                      )
+                      (it.finalName, it.tables.head.finalName)
+                    }
+                }
+              }
+          }
         }
         .groupBy { case (domain, _) =>
           domain
@@ -380,8 +384,18 @@ case class AutoTaskInfo(
     logger.info(sqlWithParametersTranspiled)
 
     val statementColumns =
-      new JSQLSchemaDiff(dbSchemas)
-        .getDiff(sqlWithParametersTranspiled, s"${this.domain}.${this.table}")
+      Try {
+        new JSQLSchemaDiff(dbSchemas)
+          .getDiff(sqlWithParametersTranspiled.trim, s"${this.domain}.${this.table}")
+      } match {
+        case Failure(exception) =>
+          logger.error(
+            s"Failed to extract columns from SQL statement for task ${this.name}. Returning empty list of attributes",
+            exception
+          )
+          Nil.asJava
+        case Success(value) => value
+      }
 
     val result =
       statementColumns.asScala.toList.filter(_.getStatus != diff.AttributeStatus.REMOVED).map {

@@ -43,7 +43,7 @@ class ConnectionJobsSpec extends TestHelper {
       val businessTask1 = AutoTaskInfo(
         name = "",
         sql = Some(
-          "(with user_View as (select * from myusers.myusers) select firstname, lastname from user_View where age = {{age}})"
+          "with user_View as (select * from myusers.myusers) select firstname, lastname from user_View where age = {{age}}"
         ),
         database = None,
         domain = "myusers",
