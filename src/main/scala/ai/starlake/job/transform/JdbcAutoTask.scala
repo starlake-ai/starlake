@@ -69,9 +69,7 @@ class JdbcAutoTask(
     val exists =
       JdbcDbUtils.withJDBCConnection(
         this.schemaHandler.dataBranch(),
-        JdbcDbUtils
-          .readOnlyConnection(sinkConnection)(settings)
-          .options
+        sinkConnection.options
       ) { conn =>
         val url = sinkConnection.options("url")
         val exists = JdbcDbUtils.tableExists(conn, url, fullTableName)
@@ -125,9 +123,7 @@ class JdbcAutoTask(
 
   override protected lazy val sinkConnection: Settings.ConnectionInfo = {
     if (interactive.isDefined) {
-      JdbcDbUtils.readOnlyConnection(
-        settings.appConfig.connections(sinkConnectionRef).withAccessToken(accessToken)
-      )(settings)
+      settings.appConfig.connections(sinkConnectionRef).withAccessToken(accessToken)
     } else {
       settings.appConfig.connections(sinkConnectionRef).withAccessToken(accessToken)
     }

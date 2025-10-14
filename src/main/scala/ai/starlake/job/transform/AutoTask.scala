@@ -763,7 +763,7 @@ object AutoTask extends LazyLogging {
           table,
           sql,
           summarizeOnly,
-          JdbcDbUtils.readOnlyConnection(conn),
+          conn,
           accessToken,
           Some(connectionName),
           test,
