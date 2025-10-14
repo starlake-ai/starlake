@@ -16,6 +16,7 @@ import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.jdbc.JdbcType
 import org.apache.spark.sql.types.*
+import org.duckdb.DuckDBConnection
 
 import java.sql.{
   Connection,
@@ -100,7 +101,7 @@ object JdbcDbUtils extends LazyLogging {
           val sqlConn = DriverManager.getConnection(url, properties)
           sqlConn
         } else {
-          duckDbPool.getOrElse(
+          val mainConnection = duckDbPool.getOrElse(
             dbKey, {
               duckDbPool.find { case (key, value) =>
                 key.startsWith(url)
@@ -115,6 +116,13 @@ object JdbcDbUtils extends LazyLogging {
               sqlConn
             }
           )
+          mainConnection match {
+            case c: DuckDBConnection => c.duplicate()
+            case _ =>
+              throw new RuntimeException(
+                "Expecting a duck db connection in this case but got" + mainConnection.getClass.getName
+              )
+          }
         }
       } else {
         val (finalConnectionOptions, finalUrl) =
@@ -337,24 +345,6 @@ object JdbcDbUtils extends LazyLogging {
           case Success(value) => value
         }
     }
-  }
-  def readOnlyConnection(
-    connection: ConnectionInfo
-  )(implicit settings: Settings): ConnectionInfo = {
-
-    val options =
-      if (connection.isDuckDb()) {
-        val duckDbEnableExternalAccess =
-          settings.appConfig.duckDbEnableExternalAccess || connection.isMotherDuckDb()
-        connection.options
-          .updated("duckdb.read_only", "true")
-          .updated("access_mode", "READ_ONLY")
-          .updated("enable_external_access", duckDbEnableExternalAccess.toString)
-
-      } else {
-        connection.options
-      }
-    connection.copy(options = options)
   }
 
   def truncateTable(conn: java.sql.Connection, tableName: String): Unit = {
@@ -633,7 +623,7 @@ object JdbcDbUtils extends LazyLogging {
       withJDBCConnection(
         // We ignore the branch when reading the information schema
         None, // settings.schemaHandler().dataBranch(),
-        readOnlyConnection(connectionSettings).options
+        connectionSettings.options
       ) { connection =>
         val statement = connection.prepareStatement("""
               |SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -664,7 +654,7 @@ object JdbcDbUtils extends LazyLogging {
     withJDBCConnection(
       // We ignore the branch when reading the information schema
       None, // settings.schemaHandler().dataBranch(),
-      readOnlyConnection(connectionSettings).options
+      connectionSettings.options
     ) { connection =>
       val statement = connection.prepareStatement(s"""
                                                      |SELECT COLUMN_NAME, DATA_TYPE, NUMERIC_PRECISION, NUMERIC_SCALE FROM INFORMATION_SCHEMA.COLUMNS
@@ -698,7 +688,7 @@ object JdbcDbUtils extends LazyLogging {
     withJDBCConnection(
       // We ignore the branch when reading the information schema
       None, // settings.schemaHandler().dataBranch(),
-      readOnlyConnection(connectionSettings).options
+      connectionSettings.options
     ) { connection =>
       val statement = connection.prepareStatement(s"""
                                                      |SELECT COUNT(*) as CNT FROM INFORMATION_SCHEMA.TABLES
@@ -742,7 +732,7 @@ object JdbcDbUtils extends LazyLogging {
       withJDBCConnection(
         // We ignore the branch when extracting tables
         None, // settings.schemaHandler().dataBranch(),
-        readOnlyConnection(connectionSettings).options
+        connectionSettings.options
       ) { connection =>
         val catalog = connectionSettings.getCatalog()
         val databaseMetaData = connection.getMetaData()
@@ -878,7 +868,7 @@ object JdbcDbUtils extends LazyLogging {
     val schemaAndTableNames = ParUtils.runOneInExecutionContext {
       withJDBCConnection(
         settings.schemaHandler().dataBranch(),
-        readOnlyConnection(connectionSettings).options
+        connectionSettings.options
       ) { connection =>
         val databaseMetaData = connection.getMetaData()
         extractCaseInsensitiveSchemaName(
@@ -960,7 +950,7 @@ object JdbcDbUtils extends LazyLogging {
                         )
                         withJDBCConnection(
                           settings.schemaHandler().dataBranch(),
-                          readOnlyConnection(connectionSettings).options
+                          connectionSettings.options
                         ) { tableExtractConnection =>
                           val jdbcColumnMetadata: JdbcColumnMetadata =
                             jdbcSchema.tables

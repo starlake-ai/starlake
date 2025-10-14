@@ -4,6 +4,7 @@
 # 1.5.3:
 __Improvement__:
 - handle jsonSchema type in openapi schema extraction
+- enable concurrency for duckdb connection
 
 
 __Bug fix__:
