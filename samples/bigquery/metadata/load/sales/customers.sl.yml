@@ -1,3 +1,4 @@
+version: 1
 table:
     name: "customers"
     pattern: "customers-.*.psv"
