@@ -282,13 +282,13 @@ case class AutoTaskInfo(
   /** Extracts attributes from the SQL statement.
     * @param settings
     * @return
-    *   * List of tuples containing the attribute name and its type. The type is set to "undefined"
-    *   as
+    *   * List of tuples containing the attribute name and its (type, is array). The type is set to
+    *   "undefined" as
     */
   def attributesInSqlStatement(
     sqlStatement: Option[String],
     accessToken: Option[String]
-  )(implicit settings: Settings): List[(String, String)] = {
+  )(implicit settings: Settings): List[(String, (String, Option[Boolean]))] = {
     val schemaHandler = settings.schemaHandler()
     val sqlWithParametersTranspiled = sqlStatement.getOrElse(getTranspiledSql())
 
@@ -400,7 +400,7 @@ case class AutoTaskInfo(
     val result =
       statementColumns.asScala.toList.filter(_.getStatus != diff.AttributeStatus.REMOVED).map {
         col =>
-          col.getName -> col.getType
+          col.getName -> (col.getType, Option(col.isArray))
       }
 
     result
@@ -431,7 +431,10 @@ case class AutoTaskInfo(
               if (existingAttr.`type` == sqlAttr.`type`) {
                 existingAttr -> AttributeStatus.UNCHANGED
               } else {
-                existingAttr.copy(`type` = sqlAttr.`type`) -> AttributeStatus.MODIFIED
+                existingAttr.copy(
+                  `type` = sqlAttr.`type`,
+                  array = sqlAttr.array
+                ) -> AttributeStatus.MODIFIED
               }
             val (updateTypeAndComment, status2) =
               if (sqlAttr.comment.nonEmpty) {
@@ -459,8 +462,9 @@ case class AutoTaskInfo(
     if (parseSQL.getOrElse(true)) {
       // Extract attributes from the SQL statement
       val sqlStatementAttributes =
-        this.attributesInSqlStatement(sqlStatement, accessToken).map { case (name, typ) =>
-          TableAttribute(name, typ)
+        this.attributesInSqlStatement(sqlStatement, accessToken).map {
+          case (name, (typ, isArray)) =>
+            TableAttribute(name, typ, isArray)
         }
       // Sync attributes with the SQL statement attributes
       this.diffSqlAttributesWithYaml(sqlStatementAttributes, accessToken)
@@ -493,7 +497,11 @@ case class AutoTaskInfo(
     val addAndUpdatedAttributes = incomingAttributes.map { newAttr =>
       this.attributes.find(_.name.equalsIgnoreCase(newAttr.name)) match {
         case Some(existingAttr) =>
-          existingAttr.copy(`type` = newAttr.`type`, comment = newAttr.comment)
+          existingAttr.copy(
+            `type` = newAttr.`type`,
+            array = newAttr.array,
+            comment = newAttr.comment
+          )
         case None => newAttr
       }
     }
