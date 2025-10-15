@@ -5,6 +5,7 @@
 __Improvement__:
 - handle jsonSchema type in openapi schema extraction
 - enable concurrency for duckdb connection
+- add PollException to bigquery retryable exception 
 
 
 __Bug fix__:
