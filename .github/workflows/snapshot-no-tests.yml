@@ -77,7 +77,7 @@ jobs:
             await github.rest.actions.createWorkflowDispatch({
             owner: 'starlake-ai',
             repo: 'starlake-api',
-            workflow_id: 'docker-hub.yml',
+            workflow_id: 'docker-hub-amd-arm.yml',
             ref: 'main'})
 
   docker-build:
