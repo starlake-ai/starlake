@@ -9,6 +9,7 @@ import ai.starlake.utils.{GcpCredentials, Utils}
 import better.files.File
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.gax.core.FixedCredentialsProvider
+import com.google.api.gax.retrying.PollException
 import com.google.cloud.bigquery.{Schema as BQSchema, TableInfo as BQTableInfo, *}
 import com.google.cloud.datacatalog.v1.*
 import com.google.cloud.hadoop.repackaged.gcs.com.google.auth.oauth2.{
@@ -1174,6 +1175,8 @@ object BigQueryJobBase extends LazyLogging {
       ex match {
         case be: GoogleJsonResponseException if be.getStatusCode >= 500 =>
           true
+        case _: PollException =>
+          true
         case be: BigQueryException
             if scala
               .Option(be.getError)
@@ -1206,7 +1209,10 @@ object BigQueryJobBase extends LazyLogging {
       }.recoverWith {
         case ex: Throwable if retry < maxAttemps && isRetryableException(ex) => retryOneMoreTime(ex)
         case ex: Throwable if retry >= maxAttemps && isRetryableException(ex) =>
-          logger.error(s"Failed to recover from exception after $maxAttemps attempts")
+          logger.error(s"Failed to recover from exception after $maxAttemps attempts", ex)
+          Failure(ex)
+        case ex: Throwable =>
+          logger.error(s"Could not recover from exception", ex)
           Failure(ex)
       }
     }
