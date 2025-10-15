@@ -48,7 +48,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
     Try(settings.storageHandler().exists(extractConfigPath)) match {
       case Failure(_) | Success(false) =>
         throw new FileNotFoundException(
-          s"Could not found extract config ${userConfig.extractConfig}. Please check its existence."
+          s"Could not found extract userConfig ${userConfig.extractConfig}. Please check its existence."
         )
       case _ => // do nothing
     }
@@ -66,17 +66,11 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
       jdbcSchemas.auditConnectionRef.getOrElse(settings.appConfig.audit.getConnectionRef())
 
     val auditConnectionSettings = settings.appConfig.getConnection(auditConnectionRef)
-    val config = if (auditConnectionSettings.isDuckDb() || dataConnectionSettings.isDuckDb()) {
-      logger.info(
-        "Forcing parallelism to 1 since we don't support parallel extraction at the moment when duckdb is used."
-      )
-      userConfig.copy(parallelism = Some(1))
-    } else userConfig
     val fileFormat = jdbcSchemas.output.getOrElse(FileFormat()).fillWithDefault()
     logger.info(s"Extraction will be formatted following $fileFormat")
 
     implicit val implicitSchemaHandler: SchemaHandler = schemaHandler
-    ParUtils.withExecutor(config.parallelism) { implicit extractEC =>
+    ParUtils.withExecutor(userConfig.parallelism) { implicit extractEC =>
       implicit val extractExecutionContext =
         new ExtractExecutionContext(extractEC)
       val auditColumns = initExportAuditTable(auditConnectionSettings)
@@ -85,7 +79,7 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
           jdbcSchemas.jdbcSchemas
             .getOrElse(Nil)
             .filter { s =>
-              (config.includeSchemas, config.excludeSchemas) match {
+              (userConfig.includeSchemas, userConfig.excludeSchemas) match {
                 case (Nil, Nil) => true
                 case (inc, Nil) => inc.map(_.toLowerCase).contains(s.schema.toLowerCase)
                 case (Nil, exc) => !exc.map(_.toLowerCase).contains(s.schema.toLowerCase)
@@ -95,23 +89,23 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
                   )
               }
             },
-          config.parallelism
+          userConfig.parallelism
         ) { jdbcSchema =>
-          assert(config.numPartitions > 0)
+          assert(userConfig.numPartitions > 0)
           extractData(
             ExtractJdbcDataConfig(
               jdbcSchema,
-              dataOutputDir(config.outputDir),
-              config.limit,
-              config.numPartitions,
-              config.parallelism,
-              config.fullExport,
-              config.ifExtractedBefore
+              dataOutputDir(userConfig.outputDir),
+              userConfig.limit,
+              userConfig.numPartitions,
+              userConfig.parallelism,
+              userConfig.fullExport,
+              userConfig.ifExtractedBefore
                 .map(userTimestamp => lastTimestamp => lastTimestamp < userTimestamp),
-              config.ignoreExtractionFailure,
-              config.cleanOnExtract,
-              config.includeTables,
-              config.excludeTables ++ jdbcSchema.exclude,
+              userConfig.ignoreExtractionFailure,
+              userConfig.cleanOnExtract,
+              userConfig.includeTables,
+              userConfig.excludeTables ++ jdbcSchema.exclude,
               fileFormat,
               dataConnectionSettings.mergeOptionsWith(jdbcSchema.connectionOptions),
               auditConnectionSettings
