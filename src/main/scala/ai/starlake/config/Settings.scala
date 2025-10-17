@@ -913,7 +913,8 @@ object Settings extends LazyLogging {
     ack: Option[String],
     duckDbEnableExternalAccess: Boolean,
     syncSqlWithYaml: Boolean,
-    syncYamlWithDb: Boolean
+    syncYamlWithDb: Boolean,
+    onExceptionRetries: Int
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
