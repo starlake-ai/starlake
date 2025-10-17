@@ -70,7 +70,7 @@ class BigQueryNativeJob(
                 // We upload local files first.
                 val localFiles = uri.startsWith("file:")
                 BigQueryJobBase
-                  .recoverBigqueryException {
+                  .recoverBigqueryException(settings.appConfig.onExceptionRetries) {
                     val job = {
                       if (localFiles) {
                         loadLocalFilePathsToBQ(bqSchema, formatOptions, sourceURIList)
@@ -90,6 +90,8 @@ class BigQueryNativeJob(
                     logger.info(s"Waiting for job ${job.getJobId}")
                     // Blocks until this load table job completes its execution, either failing or succeeding.
                     BigQueryJobBase.recoverBigqueryException(
+                      settings.appConfig.onExceptionRetries
+                    )(
                       job.waitFor(
                         RetryOption.totalTimeout(
                           org.threeten.bp.Duration.ofMillis(
@@ -315,7 +317,7 @@ class BigQueryNativeJob(
 
       val result =
         BigQueryJobBase
-          .recoverBigqueryException {
+          .recoverBigqueryException(settings.appConfig.onExceptionRetries) {
             val jobId = newJobIdWithLocation()
             val queryJob =
               bigquery(accessToken = cliConfig.accessToken).create(
@@ -521,7 +523,7 @@ class BigQueryNativeJob(
         logger.info(s"Executing BQ Query $sql")
         val finalConfiguration = queryConfigWithUDF.setDestinationTable(tableId).build()
         BigQueryJobBase
-          .recoverBigqueryException {
+          .recoverBigqueryException(settings.appConfig.onExceptionRetries) {
             val jobId = newJobIdWithLocation()
             val jobInfo =
               bigquery(accessToken = cliConfig.accessToken).create(

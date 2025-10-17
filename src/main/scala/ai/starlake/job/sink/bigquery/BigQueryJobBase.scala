@@ -439,38 +439,40 @@ trait BigQueryJobBase extends LazyLogging {
     domainDescription: scala.Option[String],
     datasetName: scala.Option[String] = None
   )(implicit settings: Settings): Try[Dataset] = {
-    val tryResult = BigQueryJobBase.recoverBigqueryException {
-      val datasetId = datasetName match {
-        case Some(name) =>
-          DatasetId.of(
-            BigQueryJobBase.projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase),
-            name
-          )
-        case None => this.datasetId
-      }
-      val existingDataset =
-        scala.Option(bigquery(accessToken = cliConfig.accessToken).getDataset(datasetId))
-      val labels = Utils.extractTags(cliConfig.domainTags).toMap
-      existingDataset match {
-        case Some(ds) =>
-          updateDatasetInfo(ds, domainDescription, labels)
-        case None =>
-          val datasetInfo = DatasetInfo
-            .newBuilder(datasetId)
-            .setLocation(
-              connectionOptions.getOrElse(
-                "location",
-                throw new Exception(
-                  s"location is required but not present in connection $connectionName"
+    val tryResult =
+      BigQueryJobBase.recoverBigqueryException(settings.appConfig.onExceptionRetries) {
+        val datasetId = datasetName match {
+          case Some(name) =>
+            DatasetId.of(
+              BigQueryJobBase
+                .projectId(connectionOptions.get("projectId"), cliConfig.outputDatabase),
+              name
+            )
+          case None => this.datasetId
+        }
+        val existingDataset =
+          scala.Option(bigquery(accessToken = cliConfig.accessToken).getDataset(datasetId))
+        val labels = Utils.extractTags(cliConfig.domainTags).toMap
+        existingDataset match {
+          case Some(ds) =>
+            updateDatasetInfo(ds, domainDescription, labels)
+          case None =>
+            val datasetInfo = DatasetInfo
+              .newBuilder(datasetId)
+              .setLocation(
+                connectionOptions.getOrElse(
+                  "location",
+                  throw new Exception(
+                    s"location is required but not present in connection $connectionName"
+                  )
                 )
               )
-            )
-            .setDescription(domainDescription.orNull)
-            .setLabels(labels.asJava)
-            .build
-          bigquery(accessToken = cliConfig.accessToken).create(datasetInfo)
+              .setDescription(domainDescription.orNull)
+              .setLabels(labels.asJava)
+              .build
+            bigquery(accessToken = cliConfig.accessToken).create(datasetInfo)
+        }
       }
-    }
     tryResult match {
       case Failure(exception) =>
         logger.error(s"Dataset ${datasetId.getDataset} was not created / retrieved.")
@@ -497,32 +499,33 @@ trait BigQueryJobBase extends LazyLogging {
     outputTableId: Option[TableId] = None
   )(implicit settings: Settings): Try[(Table, StandardTableDefinition)] = {
     val targetTableId = outputTableId.getOrElse(tableId)
-    val tryResult = BigQueryJobBase.recoverBigqueryException {
-      val table =
-        if (tableExists(targetTableId)) {
-          val table = bigquery(accessToken = cliConfig.accessToken).getTable(targetTableId)
-          updateTableDescription(table, tableInfo.maybeTableDescription.orNull)
-        } else {
-          val tableDefinition = newTableDefinition(tableInfo, dataFrame)
-          val bqTableInfoBuilder = BQTableInfo
-            .newBuilder(targetTableId, tableDefinition)
-            .setDescription(tableInfo.maybeTableDescription.orNull)
+    val tryResult =
+      BigQueryJobBase.recoverBigqueryException(settings.appConfig.onExceptionRetries) {
+        val table =
+          if (tableExists(targetTableId)) {
+            val table = bigquery(accessToken = cliConfig.accessToken).getTable(targetTableId)
+            updateTableDescription(table, tableInfo.maybeTableDescription.orNull)
+          } else {
+            val tableDefinition = newTableDefinition(tableInfo, dataFrame)
+            val bqTableInfoBuilder = BQTableInfo
+              .newBuilder(targetTableId, tableDefinition)
+              .setDescription(tableInfo.maybeTableDescription.orNull)
 
-          tableInfo.maybeDurationMs.foreach(d =>
-            bqTableInfoBuilder.setExpirationTime(System.currentTimeMillis() + d)
-          )
+            tableInfo.maybeDurationMs.foreach(d =>
+              bqTableInfoBuilder.setExpirationTime(System.currentTimeMillis() + d)
+            )
 
-          val bqTableInfo = bqTableInfoBuilder.build
-          logger.info(s"Creating table ${targetTableId.getDataset}.${targetTableId.getTable}")
-          val result = bigquery(accessToken = cliConfig.accessToken).create(bqTableInfo)
-          logger.info(
-            s"Table ${targetTableId.getDataset}.${targetTableId.getTable} created successfully"
-          )
-          result
-        }
-      setTagsOnTable(table)
-      (table, table.getDefinition[StandardTableDefinition])
-    }
+            val bqTableInfo = bqTableInfoBuilder.build
+            logger.info(s"Creating table ${targetTableId.getDataset}.${targetTableId.getTable}")
+            val result = bigquery(accessToken = cliConfig.accessToken).create(bqTableInfo)
+            logger.info(
+              s"Table ${targetTableId.getDataset}.${targetTableId.getTable} created successfully"
+            )
+            result
+          }
+        setTagsOnTable(table)
+        (table, table.getDefinition[StandardTableDefinition])
+      }
     tryResult match {
       case Failure(exception) =>
         logger.info(
@@ -536,7 +539,7 @@ trait BigQueryJobBase extends LazyLogging {
 
   protected def setTagsOnTable(table: Table): Unit = {
     cliConfig.starlakeSchema.foreach { schema =>
-      BigQueryJobBase.recoverBigqueryException {
+      BigQueryJobBase.recoverBigqueryException(settings.appConfig.onExceptionRetries) {
         val tags = Utils.extractTags(schema.tags)
         val tableTagPairs = tags map { case (k, v) => (k.toLowerCase, v.toLowerCase) }
         if (table.getLabels.asScala.toSet != tableTagPairs) {
@@ -555,7 +558,7 @@ trait BigQueryJobBase extends LazyLogging {
   protected def updateTableDescription(bqTable: Table, description: String)(implicit
     settings: Settings
   ): Table = {
-    BigQueryJobBase.recoverBigqueryException {
+    BigQueryJobBase.recoverBigqueryException(settings.appConfig.onExceptionRetries) {
       if (scala.Option(bqTable.getDescription) != scala.Option(description)) {
         // Update dataset description only when description is explicitly set
         logger.info("Table's description has changed")
@@ -675,7 +678,7 @@ trait BigQueryJobBase extends LazyLogging {
   def updateColumnsDescription(
     schema: BQSchema
   )(implicit settings: Settings): Table = {
-    BigQueryJobBase.recoverBigqueryException {
+    BigQueryJobBase.recoverBigqueryException(settings.appConfig.onExceptionRetries) {
       val tableTarget = bigquery(accessToken = cliConfig.accessToken).getTable(tableId)
       val tableSchema = tableTarget.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
       def buildSchema(
@@ -1195,8 +1198,7 @@ object BigQueryJobBase extends LazyLogging {
 
   /** Retry on retryable bigquery exception.
     */
-  def recoverBigqueryException[T](bigqueryProcess: => T): Try[T] = {
-    val maxAttemps = 3
+  def recoverBigqueryException[T](maxAttempts: Int)(bigqueryProcess: => T): Try[T] = {
     def processWithRetry(retry: Int = 0, bigqueryProcess: => T): Try[T] = {
       def retryOneMoreTime(be: Throwable) = {
         val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
@@ -1207,9 +1209,10 @@ object BigQueryJobBase extends LazyLogging {
       Try {
         bigqueryProcess
       }.recoverWith {
-        case ex: Throwable if retry < maxAttemps && isRetryableException(ex) => retryOneMoreTime(ex)
-        case ex: Throwable if retry >= maxAttemps && isRetryableException(ex) =>
-          logger.error(s"Failed to recover from exception after $maxAttemps attempts", ex)
+        case ex: Throwable if retry < maxAttempts && isRetryableException(ex) =>
+          retryOneMoreTime(ex)
+        case ex: Throwable if retry >= maxAttempts && isRetryableException(ex) =>
+          logger.error(s"Failed to recover from exception after $maxAttempts attempts", ex)
           Failure(ex)
         case ex: Throwable =>
           logger.error(s"Could not recover from exception", ex)
