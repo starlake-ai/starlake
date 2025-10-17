@@ -232,8 +232,18 @@ object Settings extends LazyLogging {
         .map(accessToken =>
           this.copy(options = this.options.updated("sl_access_token", accessToken))
         )
-        .getOrElse(this)
-      // .getOrElse(this.copy(options = this.options.removed("sl_access_token")))
+        .getOrElse {
+          if (
+            this.options.get("account").contains("SL_STARLAKE_ACCOUNT") && this.options
+              .get("user")
+              .contains("SL_STARLAKE_USERNAME") && this.options
+              .get("password")
+              .contains("SL_STARLAKE_PASSWORD")
+          )
+            this
+          else
+            this.copy(options = this.options.removed("sl_access_token"))
+        }
     }
 
     @JsonIgnore
