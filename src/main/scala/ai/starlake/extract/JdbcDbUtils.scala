@@ -128,7 +128,7 @@ object JdbcDbUtils extends LazyLogging {
         val (finalConnectionOptions, finalUrl) =
           if (
             url.contains(":snowflake:") &&
-            connectionOptions.get("authenticator").contains("oauth") &&
+            connectionOptions.get("authenticator").map(_.toLowerCase()).contains("oauth") &&
             connectionOptions.contains("sl_access_token") &&
             connectionOptions("sl_access_token").count(_ == ':') >= 2
           ) {

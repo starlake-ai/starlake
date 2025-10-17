@@ -222,12 +222,18 @@ object Settings extends LazyLogging {
       }
     }
     def asMap(): Map[String, String] = this.options
+
+    /** Set the access token in the connection options if defined
+      * @param accessToken
+      * @return
+      */
     def withAccessToken(accessToken: Option[String]): ConnectionInfo = {
       accessToken
         .map(accessToken =>
           this.copy(options = this.options.updated("sl_access_token", accessToken))
         )
-        .getOrElse(this.copy(options = this.options.removed("sl_access_token")))
+        .getOrElse(this)
+      // .getOrElse(this.copy(options = this.options.removed("sl_access_token")))
     }
 
     @JsonIgnore
