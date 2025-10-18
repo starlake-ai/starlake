@@ -6,6 +6,7 @@ __Improvement__:
 - handle jsonSchema type in openapi schema extraction
 - enable concurrency for duckdb connection
 - add PollException to bigquery retryable exception 
+- add new parameters SL_ON_EXCEPTION_RETRIES to specify the number of attempts of a retryable task on eligible exceptions
 
 
 __Bug fix__:

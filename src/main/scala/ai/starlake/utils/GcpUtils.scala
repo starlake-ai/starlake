@@ -139,7 +139,9 @@ object GcpUtils extends LazyLogging {
       chunks.foreach { chunk =>
         logging.write(chunk.asJava)
         // Optional - flush any pending log entries just before Logging is closed
-        BigQueryJobBase.recoverBigqueryException(logging.flush()) match {
+        BigQueryJobBase.recoverBigqueryException(settings.appConfig.onExceptionRetries)(
+          logging.flush()
+        ) match {
           case Failure(exception: VerifyException)
               if Utils.hasCauseInStack[LoggingException](exception) =>
             logger.error("Failed to log entries " + chunk, exception)

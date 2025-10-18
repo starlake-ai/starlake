@@ -159,7 +159,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
           archiveTableTask(database, schema, table, info).foreach(_.run())
         }
         Try(ParUtils.runInParallel(tempTableIds, Some(settings.appConfig.maxParTask)) { tableId =>
-          BigQueryJobBase.recoverBigqueryException {
+          BigQueryJobBase.recoverBigqueryException(settings.appConfig.onExceptionRetries) {
             new BigQueryNativeJob(targetConfig, "").dropTable(tableId)
           }
         })
