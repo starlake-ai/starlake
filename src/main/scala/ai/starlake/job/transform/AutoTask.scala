@@ -174,11 +174,32 @@ abstract class AutoTask(
 
   private val taskSQL = SQLUtils.stripComments(taskDesc.getSql())
 
+  def buildAllSQLQueriesMerged(
+    sql: Option[String],
+    tableExistsForcedValue: Option[Boolean] = None,
+    forceNative: Boolean = false
+  ) = {
+    val (alterSqlOpt, mainSql) = buildAllSQLQueries(
+      sql,
+      tableExistsForcedValue,
+      forceNative
+    )
+    val alterSql = alterSqlOpt.getOrElse("")
+    alterSql + mainSql
+  }
+
+  /** * Build all SQL queries needed to run the task
+    * @param sql
+    * @param tableExistsForcedValue
+    * @param forceNative
+    * @return
+    *   alter tables + mainSql
+    */
   def buildAllSQLQueries(
     sql: Option[String],
     tableExistsForcedValue: Option[Boolean] = None,
     forceNative: Boolean = false
-  ): String = {
+  ): (Option[String], String) = {
     val runConnection =
       if (forceNative) {
         this.taskDesc.getRunConnection().copy(sparkFormat = None)
@@ -249,7 +270,7 @@ abstract class AutoTask(
           logger.info(s"Main SQL: $mainSql")
           logger.info("Identifying new / altered columns for " + fullTableName)
           val columnStatements =
-            if (tableExists) {
+            if (tblExists) {
               // the alter column table are returned by buildTableSchemaSQL in JDBC case
               // but in BigQuery this is done inside the build table schema sql function because we do it using the bq api
               // For Spark we do not need this since Spark is schema on read
@@ -268,14 +289,14 @@ abstract class AutoTask(
               logger.info("No schema changes to apply for " + fullTableName)
               Nil
             }
-          if (columnStatements.isEmpty) mainSql
+          if (columnStatements.isEmpty) (None, mainSql)
           else
-            columnStatements.mkString("", ";\n", ";\n") + mainSql
+            (Option(columnStatements.mkString("", ";\n", ";\n")), mainSql)
         } else {
-          mainSql
+          (None, mainSql)
         }
       } else {
-        inputSQL
+        (None, inputSQL)
       }
     } else {
       // Interactive request (just display result of the SQL Select statement)
@@ -287,9 +308,9 @@ abstract class AutoTask(
             allVars,
             this.test
           )
-        sqlWithParametersTranspiledIfInTest
+        (None, sqlWithParametersTranspiledIfInTest)
       } else {
-        inputSQL
+        (None, inputSQL)
       }
     }
   }
@@ -488,8 +509,8 @@ abstract class AutoTask(
         List.empty
       }
 
-    val mainSqlIfExists = buildAllSQLQueries(None, Some(true)).splitSql()
-    val mainSqlIfNotExists = buildAllSQLQueries(None, Some(false)).splitSql()
+    val mainSqlIfExists = buildAllSQLQueriesMerged(None, Some(true)).splitSql()
+    val mainSqlIfNotExists = buildAllSQLQueriesMerged(None, Some(false)).splitSql()
 
     val connectionPreActions =
       sinkOptions.get("preActions").map(_.split(';')).getOrElse(Array.empty).toList

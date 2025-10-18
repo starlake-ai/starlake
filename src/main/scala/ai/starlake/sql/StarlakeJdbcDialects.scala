@@ -23,7 +23,7 @@ private object StarlakeSnowflakeDialect extends JdbcDialect with SQLConfHelper {
     case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
     case TimestampType =>
       Some(JdbcType(sys.env.getOrElse("SF_TIMEZONE", "TIMESTAMP"), java.sql.Types.TIMESTAMP))
-    case _ => JdbcDbUtils.getCommonJDBCType(dt)
+    case _ => JdbcDbUtils.getCommonJDBCType(dt)._1
   }
 }
 
@@ -47,7 +47,7 @@ private object StarlakeDuckDbDialect extends JdbcDialect with SQLConfHelper {
   // override def quoteIdentifier(column: String): String = column
   override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
     case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
-    case _           => JdbcDbUtils.getCommonJDBCType(dt)
+    case _           => JdbcDbUtils.getCommonJDBCType(dt)._1
   }
   override def getCatalystType(
     sqlType: Int,

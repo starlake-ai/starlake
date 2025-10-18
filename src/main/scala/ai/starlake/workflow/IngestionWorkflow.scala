@@ -999,8 +999,8 @@ class IngestionWorkflow(
   def compileAutoJob(config: TransformConfig): Try[(String, String)] = Try {
     val action = buildTask(config)
     // TODO Interactive compilation should check table existence
-    val sqlWhenTableDontExist = action.buildAllSQLQueries(None, Some(false))
-    val sqlWhenTableExist = action.buildAllSQLQueries(None, Some(true))
+    val sqlWhenTableDoesNotExist = action.buildAllSQLQueriesMerged(None, Some(false))
+    val sqlWhenTableExist = action.buildAllSQLQueriesMerged(None, Some(true))
     // Create audit table if it does not exist
     val tableExists = Try(action.tableExists)
 
@@ -1012,16 +1012,16 @@ class IngestionWorkflow(
 
     val (formattedDontExist, formattedExist) =
       if (config.format) {
-        val index1 = sqlWhenTableDontExist.toLowerCase().indexOf("select")
+        val index1 = sqlWhenTableDoesNotExist.toLowerCase().indexOf("select")
         val finalSqlDontExist =
           if (index1 >= 0) {
-            sqlWhenTableDontExist.substring(0, index1) + "\n" +
+            sqlWhenTableDoesNotExist.substring(0, index1) + "\n" +
             SQLUtils.format(
-              sqlWhenTableDontExist.substring(index1),
+              sqlWhenTableDoesNotExist.substring(index1),
               JSQLFormatter.OutputFormat.PLAIN
             )
           } else {
-            sqlWhenTableDontExist
+            sqlWhenTableDoesNotExist
           }
         val index2 = sqlWhenTableExist.toLowerCase().indexOf("select")
         val finalSqlExist =
@@ -1029,7 +1029,7 @@ class IngestionWorkflow(
             sqlWhenTableExist.substring(0, index2) + "\n" +
             SQLUtils.format(sqlWhenTableExist.substring(index2), JSQLFormatter.OutputFormat.PLAIN)
           } else {
-            sqlWhenTableDontExist
+            sqlWhenTableDoesNotExist
           }
 
         (
@@ -1038,7 +1038,7 @@ class IngestionWorkflow(
         )
       } else {
         (
-          addPrePostSql(sqlWhenTableDontExist),
+          addPrePostSql(sqlWhenTableDoesNotExist),
           addPrePostSql(sqlWhenTableExist)
         )
       }

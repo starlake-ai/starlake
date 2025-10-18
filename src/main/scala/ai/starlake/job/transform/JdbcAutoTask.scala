@@ -147,7 +147,7 @@ class JdbcAutoTask(
     }
 
     val res = Try {
-      val mainSql =
+      val (alters, mainSql) =
         if (df.isEmpty) {
           buildAllSQLQueries(None)
         } else {
@@ -157,7 +157,7 @@ class JdbcAutoTask(
             taskDesc.getRunConnection(),
             allVars
           )
-          mainSql
+          (None, mainSql)
         }
 
       interactive match {
@@ -240,9 +240,11 @@ class JdbcAutoTask(
                 sqlConnection
               ) { conn =>
                 Try {
-                  conn.setAutoCommit(false)
+                  conn.setAutoCommit(sinkConnection.isDuckDb())
                   runPreActions(conn, parsedPreActions.splitSql(";"))
                   runSqls(conn, preSql, "Pre")
+                  alters.foreach(it => runSqls(conn, it.splitSql(), "Alters"))
+                  conn.setAutoCommit(false)
                   val finalSqls = mainSql.splitSql()
                   runSqls(conn, finalSqls, "Main")
                 } match {
