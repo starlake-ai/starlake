@@ -1374,7 +1374,7 @@ object YamlConfigGenerators {
       duckdbPath              <- Gen.option(arbitrary[String])
       syncSqlWithYaml         <- arbitrary[Boolean]
       syncYamlWithDb          <- arbitrary[Boolean]
-
+      onExceptionRetries      <- arbitrary[Int]
     } yield AppConfig(
       env = env,
       datasets = datasets,
@@ -1460,7 +1460,8 @@ object YamlConfigGenerators {
       duckDbEnableExternalAccess = false,
       duckdbExtensions = "json,spatial",
       syncSqlWithYaml = syncSqlWithYaml,
-      syncYamlWithDb = syncYamlWithDb
+      syncYamlWithDb = syncYamlWithDb,
+      onExceptionRetries = onExceptionRetries
     )
   }
 
