@@ -72,10 +72,21 @@ object SparkUtils extends LazyLogging {
     val addField = field.name
     val addFieldType = field.dataType
 
+    val (jdbcType, isArray) = JdbcDbUtils.getCommonJDBCType(addFieldType)
+    val typeStr = jdbcType.map(_.databaseTypeDefinition)
+    val withArray =
+      if (isArray) {
+        engineName match {
+          case "snowflake" => typeStr.map(_ => "ARRAY") // Snowflake has its own ARRAY <VARIANT>
+          case "duckdb"    => typeStr.map(_ + "[]")
+          case _           => typeStr // ignore array info
+        }
+      } else
+        typeStr
     val addJdbcType =
       attributesWithDDLType
         .get(addField)
-        .orElse(JdbcDbUtils.getCommonJDBCType(addFieldType).map(_.databaseTypeDefinition))
+        .orElse(withArray)
 
     val nullable =
       "" // Always nullable since it is added on top of existing data [if (!field.nullable) "NOT NULL" else ""]

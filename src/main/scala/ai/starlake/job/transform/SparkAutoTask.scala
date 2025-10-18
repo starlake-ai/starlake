@@ -288,7 +288,7 @@ class SparkAutoTask(
             (sql, taskDesc.python) match {
               case (_, None) =>
                 // we need to generate the insert / merge / create table except when exporting to csv & xls
-                val sqlToRun = buildAllSQLQueries(Some(sql))
+                val sqlToRun = buildAllSQLQueriesMerged(Some(sql))
                 val result = runSqls(sqlToRun.splitSql(), "Main")
                 result
 

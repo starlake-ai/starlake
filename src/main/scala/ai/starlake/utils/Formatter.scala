@@ -62,7 +62,7 @@ trait Formatter {
     }
 
     def splitSql(separator: String = ";\n"): List[String] = {
-      str.split(separator).filter(_.trim.nonEmpty).toList
+      (str + "\n").split(separator).filter(_.trim.nonEmpty).toList
     }
   }
 }

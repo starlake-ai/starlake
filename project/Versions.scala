@@ -46,7 +46,7 @@ object Versions {
   val derbyVersion =
     "10.15.2.0" // last version compatible with Java 11, see https://db.apache.org/derby/derby_downloads.html
   val jSqlParser = "5.4-SNAPSHOT"
-  val jSqlTranspiler = "1.1-SNAPSHOT"
+  val jSqlTranspiler = "1.3-SNAPSHOT"
   val starlakejdbc = "0.3-SNAPSHOT"
   val jSqlFormatter = "5.4-SNAPSHOT"
 }

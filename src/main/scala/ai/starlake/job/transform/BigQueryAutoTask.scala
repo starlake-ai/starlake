@@ -202,7 +202,7 @@ class BigQueryAutoTask(
           // We are in native mode (no Spark Dataframe)
           // We build the query
           // This will not return  alter table to add/remove columns if needed + the main sql transpiled to insert/update/create/merge
-          buildAllSQLQueries(None, tableExistsForcedValue = None, forceNative = true)
+          buildAllSQLQueriesMerged(None, tableExistsForcedValue = None, forceNative = true)
         } else {
           // We are in Spark mode, we just need to substitute the variables in the main SQL
           // We do not rewrite it with insert/update/create/merge as we will use the spark dataframe write capabilities
