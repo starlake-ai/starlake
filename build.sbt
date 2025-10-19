@@ -12,6 +12,7 @@ javacOptions ++= Seq(
   "-Xlint"
 )
 
+updateOptions := updateOptions.value.withLatestSnapshots(true)
 
 Test / javaOptions ++= Seq("-Dfile.encoding=UTF-8")
 

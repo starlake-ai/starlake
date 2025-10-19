@@ -67,7 +67,7 @@ jobs:
       - name: Use gcloud CLI
         run: gcloud info
       - name: Publish Snapshot on Sonatype Spark 3 for scala 2.13
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.13 sbt clean compile publish
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" RELEASE_SONATYPE=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.13 sbt update clean compile publish
       - name: trigger-starlake-api
         if: ${{ success() }}
         uses: actions/github-script@v6
