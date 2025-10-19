@@ -39,7 +39,7 @@ jobs:
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           SBT_OPTS: "-Xss8M -Xmx16g -XX:+UseG1GC"
-        run: sbt clean compile publish
+        run: sbt update clean compile publish
       - name: trigger-starlake-api
         if: ${{ success() }}
         uses: actions/github-script@v6
