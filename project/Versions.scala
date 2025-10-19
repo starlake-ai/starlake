@@ -25,7 +25,7 @@ object Versions {
   // val gcsConnector = "3.0.4"
   val gcsConnector = "hadoop3-2.2.29"
   val hadoop = "3.3.6"
-  val sparkBigqueryWithDependencies = "0.42.4"
+  val sparkBigqueryWithDependencies = "0.43.0"
   val bigqueryConnector = "hadoop3-1.2.0"
   val h2 = "2.3.232" // Test only
   val poi = "4.1.2"
