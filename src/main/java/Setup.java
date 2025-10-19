@@ -147,9 +147,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             ENABLE_REDSHIFT,
             ENABLE_POSTGRESQL,
             ENABLE_DUCKDB,
-            ENABLE_KAFKA,
-            ENABLE_MARIADB,
-            ENABLE_CLICKHOUSE
+            ENABLE_KAFKA
     };
 
     private static final boolean ENABLE_API = envIsTrueWithDefaultTrue("ENABLE_API");
