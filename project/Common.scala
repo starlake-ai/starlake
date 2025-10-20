@@ -27,8 +27,9 @@ import sbtassembly.AssemblyKeys._
 import sbtbuildinfo.{BuildInfoKey, BuildInfoPlugin}
 import sbtbuildinfo.BuildInfoPlugin.autoImport.buildInfoKeys
 
-import java.time.ZonedDateTime
+import java.time.{LocalDateTime, ZoneId}
 import java.time.format.DateTimeFormatter
+import java.time.ZonedDateTime
 
 object Common {
 
@@ -95,7 +96,11 @@ object Common {
           } else currentVersion
         },
         BuildInfoKey.action("buildTime") {
-          System.currentTimeMillis
+          val readableFormat: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' hh:mm:ss a z")
+          val now: LocalDateTime = LocalDateTime.now()
+          val zonedDateTime = now.atZone(ZoneId.systemDefault())
+          zonedDateTime.format(readableFormat)
         } // re-computed each time at compile
       )
     ) ++ gitSettings ++ assemlySettings

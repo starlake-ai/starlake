@@ -125,16 +125,11 @@ class Main extends LazyLogging {
   import Main.commands
   def printUsage(): Unit = {
     // scalastyle:off println
-    val localDateTime: LocalDateTime = Instant
-      .ofEpochMilli(BuildInfo.buildTime)
-      .atZone(ZoneId.systemDefault())
-      .toLocalDateTime
 
     // Format the output (optional)
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-    val formattedDateTime = localDateTime.format(formatter)
 
-    println(s"Starlake Version ${BuildInfo.version} built on $formattedDateTime")
+    println(s"Starlake Version ${BuildInfo.version} built on ${BuildInfo.buildTime}")
     println("Usage:")
     println(s"\t${Main.shell} [command]")
     println("Available commands =>")
