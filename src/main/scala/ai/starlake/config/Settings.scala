@@ -521,11 +521,37 @@ object Settings extends LazyLogging {
 
     @nowarn
     def datawareOptions(): Map[String, String] =
-      options.filterKeys(!ConnectionInfo.allstorageOptions.contains(_)).toMap
+      options.view.filterKeys(!ConnectionInfo.allstorageOptions.contains(_)).toMap
 
     @nowarn
     def authOptions(): Map[String, String] =
-      options.filterKeys(ConnectionInfo.allstorageOptions.contains(_)).toMap
+      options.view.filterKeys(ConnectionInfo.allstorageOptions.contains(_)).toMap
+
+    @JsonIgnore
+    def getDatabaseName(): Option[String] = {
+      def extractFromUrl(url: String): Option[String] = {
+        // extract last part of path before teh query string
+        val path = url.split("\\?")(0)
+        if (path.nonEmpty) {
+          val segments = path.split("/").filter(_.nonEmpty)
+          segments.lastOption
+        } else
+          None
+      }
+      this.getJdbcEngineName().toString match {
+        case "duckdb" =>
+          // duckdb url example: jdbc:duckdb:/path/to/database.db returns database
+          extractFromUrl(options("url"))
+        case "snowflake" =>
+          options
+            .get("sfDatabase")
+            .orElse(options.get("db"))
+            .orElse(options.get("database"))
+        case "redshift" =>
+          extractFromUrl(options("url"))
+        case _ => None
+      }
+    }
 
     @JsonIgnore
     def getJdbcEngineName(): Engine = {
