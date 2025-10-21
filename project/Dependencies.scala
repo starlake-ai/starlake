@@ -275,9 +275,16 @@ object Dependencies {
     "ai.starlake" %% "starlake-streaming" % "1.3.5" % "provided"
   )
 
+  val templates = Seq(
+    "ai.starlake" % "starlake-airflow" % Versions.airflowTemplates,
+    "ai.starlake" % "starlake-dagster" % Versions.dagsterTemplates,
+    "ai.starlake" % "starlake-orchestration" % Versions.orchestrationTemplates,
+    "ai.starlake" % "starlake-snowflake" % Versions.snowflakeTemplates
+  )
+
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++
     pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler ++ cache ++ swaggerParser ++
-    starlakeStreaming
+    starlakeStreaming ++ templates
 }

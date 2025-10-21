@@ -1,2 +1,0 @@
-from ai.starlake.job import StarlakeExecutionEnvironment
-execution_environment = StarlakeExecutionEnvironment.CLOUD_RUN
