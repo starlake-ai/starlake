@@ -22,11 +22,11 @@ package ai.starlake.schema.model
 
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Severity.*
-import ai.starlake.transpiler.diff.Attribute as DiffAttribute
+import ai.starlake.transpiler.diff.{Attribute as DiffAttribute, AttributeStatus}
 import ai.starlake.utils.DataTypeEx.*
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.*
 
 import java.util.regex.Pattern
 import scala.annotation.tailrec
@@ -136,7 +136,7 @@ case class TableAttribute(
   }
 
   def toDiffAttribute(): DiffAttribute = {
-    new DiffAttribute(getFinalName(), `type`)
+    new DiffAttribute(getFinalName(), `type`, this.resolveArray(), null, AttributeStatus.UNCHANGED)
   }
   @JsonIgnore
   def isNestedOrRepeatedField(): Boolean = {

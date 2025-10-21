@@ -158,7 +158,8 @@ trait TransformCmd extends Cmd[TransformConfig] {
       val list = schemaHandler.syncPreviewSqlWithYaml(config.name, config.query, config.accessToken)
       println(s"Previewing SQL attributes for task: ${config.name}")
       list.foreach { case (attribute, status) =>
-        println(s"\tAttribute: ${attribute.name}, Status: $status")
+        val typ = if (attribute.resolveArray()) s"${attribute.`type`}[]" else attribute.`type`
+        println(s"\tAttribute: ${attribute.name}: $typ, Status: $status")
       }
 
     }
