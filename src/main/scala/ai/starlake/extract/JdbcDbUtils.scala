@@ -125,7 +125,7 @@ object JdbcDbUtils extends LazyLogging {
           }
         }
       } else {
-        val (finalConnectionOptions, finalUrl) =
+        val (adjustedConnectionOptions, finalUrl) = {
           if (
             !connectionOptions.get("SL_APP_TYPE").contains("snowflake_native_app") &&
             url.contains(":snowflake:") &&
@@ -159,6 +159,14 @@ object JdbcDbUtils extends LazyLogging {
           } else {
             (connectionOptions, url)
           }
+        }
+
+        val finalConnectionOptions =
+          if (adjustedConnectionOptions.get("authenticator").contains("programmatic_access_token"))
+            adjustedConnectionOptions.removed("authenticator")
+          else
+            adjustedConnectionOptions
+
         val javaProperties = new Properties()
         finalConnectionOptions.foreach { case (k, v) =>
           logger.info(s"Connection option $k=$v")

@@ -541,7 +541,11 @@ object Settings extends LazyLogging {
       this.getJdbcEngineName().toString match {
         case "duckdb" =>
           // duckdb url example: jdbc:duckdb:/path/to/database.db returns database
-          extractFromUrl(options("url"))
+          val uri = extractFromUrl(options("url"))
+          uri.map { u =>
+            val dbName = u.split("\\.")(0)
+            dbName
+          }
         case "snowflake" =>
           options
             .get("sfDatabase")
