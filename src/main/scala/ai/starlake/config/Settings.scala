@@ -1390,7 +1390,7 @@ object Settings extends LazyLogging {
     val applicationConfSettings =
       if (settings.appConfig.duckdbMode) duckDBMode(decryptedLoadedSettings)
       else {
-        adjustDuckDBProperties(decryptedLoadedSettings)
+        adjustConnectionProperties(decryptedLoadedSettings)
       }
 
     // Reload Storage Handler with the authentication settings
@@ -1590,12 +1590,18 @@ object Settings extends LazyLogging {
       Some(new Path(file))
   }
 
-  def adjustDuckDBProperties(settings: Settings): Settings = {
+  def adjustConnectionProperties(settings: Settings): Settings = {
     val connections = settings.appConfig.connections
     val updatedConnections =
       connections.map { case (name, connection) =>
         val updatedConnection =
-          if (connection.isDuckDb())
+          if (connection.isSnowflake()) {
+            val options = connection.options
+            if (options.get("authenticator").contains("user/password"))
+              connection.copy(options = options.removed("authenticator"))
+            else
+              connection
+          } else if (connection.isDuckDb())
             connection.copy(sparkFormat = None) // spark mode not supported in duckdb
           else connection
         name -> updatedConnection
