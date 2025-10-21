@@ -127,6 +127,7 @@ object JdbcDbUtils extends LazyLogging {
       } else {
         val (finalConnectionOptions, finalUrl) =
           if (
+            !connectionOptions.get("SL_APP_TYPE").contains("snowflake_native_app") &&
             url.contains(":snowflake:") &&
             connectionOptions.get("authenticator").map(_.toLowerCase()).contains("oauth") &&
             connectionOptions.contains("sl_access_token") &&
@@ -134,7 +135,6 @@ object JdbcDbUtils extends LazyLogging {
           ) {
             // SnowflakeOAuth account:clientid
             // this is the case for Snowflake OAuth as a web app not as a native app.
-            // even if we are inside a native app this is considered as a webapp
             val accountUserAndToken = connectionOptions("sl_access_token").split(":")
             val account = accountUserAndToken(0)
             val user = accountUserAndToken(1)
