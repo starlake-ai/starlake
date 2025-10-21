@@ -162,7 +162,7 @@ object JdbcDbUtils extends LazyLogging {
         }
 
         val finalConnectionOptions =
-          if (adjustedConnectionOptions.get("authenticator").contains("programmatic_access_token"))
+          if (adjustedConnectionOptions.get("authenticator").contains("user/password"))
             adjustedConnectionOptions.removed("authenticator")
           else
             adjustedConnectionOptions
@@ -200,7 +200,7 @@ object JdbcDbUtils extends LazyLogging {
               if (
                 k != "authenticator" || !finalConnectionOptions
                   .get("authenticator")
-                  .contains("programmatic_access_token")
+                  .contains("user/password")
               )
                 javaProperties.setProperty(k, v)
             }
