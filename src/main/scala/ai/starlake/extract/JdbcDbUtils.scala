@@ -125,14 +125,23 @@ object JdbcDbUtils extends LazyLogging {
           }
         }
       } else {
+        val isSnowflakeWebOAuth =
+          !connectionOptions.get("SL_APP_TYPE").contains("snowflake_native_app") &&
+          url.contains(":snowflake:") &&
+          connectionOptions.get("authenticator").map(_.toLowerCase()).contains("oauth") &&
+          connectionOptions.contains("sl_access_token") &&
+          connectionOptions("sl_access_token").count(_ == ':') >= 2
+        val isSnowflakeNativeApp =
+          connectionOptions.get("SL_APP_TYPE").contains("snowflake_native_app")
         val (adjustedConnectionOptions, finalUrl) = {
-          if (
-            !connectionOptions.get("SL_APP_TYPE").contains("snowflake_native_app") &&
-            url.contains(":snowflake:") &&
-            connectionOptions.get("authenticator").map(_.toLowerCase()).contains("oauth") &&
-            connectionOptions.contains("sl_access_token") &&
-            connectionOptions("sl_access_token").count(_ == ':') >= 2
-          ) {
+          if (isSnowflakeNativeApp) {
+            val nativeOptions =
+              connectionOptions
+                .updated("password", connectionOptions("sl_access_token"))
+                .updated("authenticator", "oauth")
+                .removed("sl_access_token")
+            (nativeOptions, url)
+          } else if (isSnowflakeWebOAuth) {
             // SnowflakeOAuth account:clientid
             // this is the case for Snowflake OAuth as a web app not as a native app.
             val accountUserAndToken = connectionOptions("sl_access_token").split(":")
