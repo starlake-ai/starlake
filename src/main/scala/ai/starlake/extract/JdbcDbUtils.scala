@@ -131,13 +131,25 @@ object JdbcDbUtils extends LazyLogging {
           connectionOptions.get("authenticator").map(_.toLowerCase()).contains("oauth") &&
           connectionOptions.contains("sl_access_token") &&
           connectionOptions("sl_access_token").count(_ == ':') >= 2
+
         val isSnowflakeNativeApp =
-          connectionOptions.get("SL_APP_TYPE").contains("snowflake_native_app")
+          connectionOptions.get("SL_APP_TYPE").contains("snowflake_native_app") &&
+          connectionOptions.get("authenticator").map(_.toLowerCase()).contains("oauth")
+
         val (adjustedConnectionOptions, finalUrl) = {
           if (isSnowflakeNativeApp) {
+            val accountUserAndToken = connectionOptions("sl_access_token").split(":")
+            val accessToken =
+              if (accountUserAndToken.length >= 2)
+                accountUserAndToken
+                  .drop(2)
+                  .mkString(":") // in case the token contains the ':'
+              else
+                connectionOptions("sl_access_token")
+
             val nativeOptions =
               connectionOptions
-                .updated("password", connectionOptions("sl_access_token"))
+                .updated("password", accessToken)
                 .updated("authenticator", "oauth")
                 .removed("sl_access_token")
             (nativeOptions, url)
