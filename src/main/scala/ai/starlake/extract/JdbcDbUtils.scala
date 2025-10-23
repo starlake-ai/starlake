@@ -139,7 +139,7 @@ object JdbcDbUtils extends LazyLogging {
 
         val (adjustedConnectionOptions, finalUrl) = {
           if (isSnowflakeNativeApp) {
-            val accountUserAndToken = connectionOptions("sl_access_token").split(":")
+            val accountUserAndToken = connectionOptions("sl_access_token").split("°")
             val accessToken =
               if (accountUserAndToken.length >= 2)
                 accountUserAndToken
@@ -157,7 +157,7 @@ object JdbcDbUtils extends LazyLogging {
           } else if (isSnowflakeWebOAuth) {
             // SnowflakeOAuth account:clientid
             // this is the case for Snowflake OAuth as a web app not as a native app.
-            val accountUserAndToken = connectionOptions("sl_access_token").split(":")
+            val accountUserAndToken = connectionOptions("sl_access_token").split("°")
             val account = accountUserAndToken(0)
             val user = accountUserAndToken(1)
             val accessToken =
@@ -191,7 +191,6 @@ object JdbcDbUtils extends LazyLogging {
 
         val javaProperties = new Properties()
         finalConnectionOptions.foreach { case (k, v) =>
-          logger.info(s"Connection option $k=$v")
           if (url.contains(":duckdb")) {
             if (
               !Set(
@@ -213,29 +212,29 @@ object JdbcDbUtils extends LazyLogging {
           } else {
             if (
               !Set(
-                "driver",
+                "driver", // don't pass driver to DriverManager. No need
                 "dbtable", // Spark only
                 "numpartitions", // Spark only
-                "sl_access_token"
+                "sl_access_token" // used internally only
               ).contains(k)
             ) {
               if (
                 k != "authenticator" || !finalConnectionOptions
                   .get("authenticator")
-                  .contains("user/password")
+                  .contains(
+                    "user/password"
+                  ) // we don't pass user/password authenticator to DriverManager this is internal
               )
                 javaProperties.setProperty(k, v)
             }
 
           }
         }
-
         val (finalDriver, dataBranchUrl) = StarlakeJdbcOps.driverAndUrl(
           dataBranch,
           driver,
           finalUrl
         )
-
         val connection =
           if (System.getenv("SL_USE_CONNECTION_POOLING") == "true") {
             logger.info("Using connection pooling")
@@ -266,7 +265,6 @@ object JdbcDbUtils extends LazyLogging {
             javaProperties.asScala.toMap.foreach { case (key, value) =>
               logger.info(s"Key: $key, Value: $value")
             }
-
             DriverManager.getConnection(dataBranchUrl, javaProperties)
           }
         //
