@@ -129,7 +129,7 @@ abstract class AutoTask(
         duckDbEnableExternalAccess.toString
       )
     } else {
-      sinkConnection.options
+      sinkConnection.withAccessToken(accessToken).options
     }
   def fullTableName: String
 
