@@ -30,6 +30,7 @@ import java.sql.{
 import java.util.Properties
 import java.util.regex.Pattern
 import scala.collection.mutable.ListBuffer
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try, Using}
 
 object JdbcDbUtils extends LazyLogging {
@@ -262,6 +263,10 @@ object JdbcDbUtils extends LazyLogging {
             connection
           } else {
             logger.info("Not using connection pooling")
+            javaProperties.asScala.toMap.foreach { case (key, value) =>
+              logger.info(s"Key: $key, Value: $value")
+            }
+
             DriverManager.getConnection(dataBranchUrl, javaProperties)
           }
         //
