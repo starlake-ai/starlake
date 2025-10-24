@@ -14,7 +14,7 @@ import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructType
 
-import scala.jdk.CollectionConverters.*
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 case class TaskDesc(version: Int, task: AutoTaskInfo)
@@ -292,10 +292,11 @@ case class AutoTaskInfo(
     val schemaHandler = settings.schemaHandler()
     val sqlWithParametersTranspiled = sqlStatement.getOrElse(getTranspiledSql())
 
-    val allTableNames = SQLUtils.extractTableNames(sqlWithParametersTranspiled)
+    // table names in from clause
+    val tableNamesInFromClause = SQLUtils.extractTableNames(sqlWithParametersTranspiled)
     val thisTableName = s"${this.domain}.${this.table}"
     val tablesGroupedByDomain: List[(String, List[String])] =
-      (thisTableName +: allTableNames).distinct
+      (thisTableName +: tableNamesInFromClause).distinct
         .flatMap { fullTableName =>
           val components = fullTableName.split('.')
           if (components.length == 1) { // This is probably a temporary view
@@ -383,27 +384,39 @@ case class AutoTaskInfo(
     logger.info(YamlSerde.serialize(dbSchemas))
     logger.info(sqlWithParametersTranspiled)
 
-    val statementColumns =
-      Try {
-        new JSQLSchemaDiff(dbSchemas)
-          .getDiff(sqlWithParametersTranspiled.trim, s"${this.domain}.${this.table}")
-      } match {
-        case Failure(exception) =>
-          logger.error(
-            s"Failed to extract columns from SQL statement for task ${this.name}. Returning empty list of attributes",
-            exception
-          )
-          Nil.asJava
-        case Success(value) => value
+    // check if dbschema contains an attribute of type "struct"
+    val isDeep = dbSchemas.asScala.exists { dbSchema =>
+      dbSchema.getTables.values().asScala.exists { attrs =>
+        attrs.asScala.exists(it => it.getType().equalsIgnoreCase("struct"))
       }
+    }
 
-    val result =
-      statementColumns.asScala.toList.filter(_.getStatus != diff.AttributeStatus.REMOVED).map {
-        col =>
-          col.getName -> (col.getType, Option(col.isArray))
-      }
+    // We ignore deep schemas for now
+    if (!isDeep) {
+      val statementColumns =
+        Try {
+          new JSQLSchemaDiff(dbSchemas)
+            .getDiff(sqlWithParametersTranspiled.trim, s"${this.domain}.${this.table}")
+        } match {
+          case Failure(exception) =>
+            logger.error(
+              s"Failed to extract columns from SQL statement for task ${this.name}. Returning empty list of attributes",
+              exception
+            )
+            Nil.asJava
+          case Success(value) => value
+        }
 
-    result
+      val result =
+        statementColumns.asScala.toList.filter(_.getStatus != diff.AttributeStatus.REMOVED).map {
+          col =>
+            col.getName -> (col.getType, Option(col.isArray))
+        }
+
+      result
+    } else {
+      Nil
+    }
   }
 
   /** Extracts attributes from the SQL statement and compares them with the existing attributes in
@@ -423,6 +436,7 @@ case class AutoTaskInfo(
     accessToken: Option[String]
   )(implicit settings: Settings): List[(TableAttribute, AttributeStatus)] = {
 
+    var nochange: Boolean = true
     val addedAndModifiedAttributes = sqlStatementAttributes
       .map { sqlAttr =>
         this.attributes.find(_.name.equalsIgnoreCase(sqlAttr.name)) match {
@@ -431,6 +445,7 @@ case class AutoTaskInfo(
               if (existingAttr.`type` == sqlAttr.`type`) {
                 existingAttr -> AttributeStatus.UNCHANGED
               } else {
+                nochange = false
                 existingAttr.copy(
                   `type` = sqlAttr.`type`,
                   array = sqlAttr.array
@@ -438,19 +453,28 @@ case class AutoTaskInfo(
               }
             val (updateTypeAndComment, status2) =
               if (sqlAttr.comment.nonEmpty) {
+                nochange = false
                 updatedType.copy(comment = sqlAttr.comment) -> AttributeStatus.MODIFIED
               } else {
                 updatedType -> status
               }
             (updateTypeAndComment, status2)
           case None =>
+            nochange = false
             sqlAttr -> AttributeStatus.ADDED
         }
       }
     val deletedAttributes = this.attributes
       .filterNot(attDesc => sqlStatementAttributes.exists(_.name.equalsIgnoreCase(attDesc.name)))
       .map(attDesc => attDesc -> AttributeStatus.REMOVED)
-    addedAndModifiedAttributes ++ deletedAttributes
+    if (deletedAttributes.nonEmpty)
+      nochange = false
+
+    // we do not return anything if nothing has changed
+    if (nochange)
+      Nil
+    else
+      addedAndModifiedAttributes ++ deletedAttributes
   }
 
   def diffSqlAttributesWithYaml(
@@ -467,7 +491,10 @@ case class AutoTaskInfo(
             TableAttribute(name, typ, isArray)
         }
       // Sync attributes with the SQL statement attributes
-      this.diffSqlAttributesWithYaml(sqlStatementAttributes, accessToken)
+      if (sqlStatementAttributes.isEmpty)
+        Nil
+      else
+        this.diffSqlAttributesWithYaml(sqlStatementAttributes, accessToken)
     } else {
       logger.info(
         s"Skipping diff Sql Attributes With Yaml for task ${this.name} as parseSQL is set to false"
