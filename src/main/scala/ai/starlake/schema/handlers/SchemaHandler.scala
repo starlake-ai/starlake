@@ -2390,6 +2390,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     list: List[(TableAttribute, AttributeStatus)],
     optSql: Option[String]
   ): AutoTaskInfo = {
+    logger.debug(s"Diff SQL attributes with YAML for task ${task.getName()}: $list")
     if (list.nonEmpty) {
       val updatedTask =
         task
@@ -2404,11 +2405,17 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       optSql.foreach { sql =>
         storage.write(sql, sqlPath)
       }
-      logger.debug(s"Diff SQL attributes with YAML for task ${task.getName()}: $list")
       taskUpdated(task.domain, task.name)
       this.taskOnly(task.fullName()).getOrElse(throw new Exception("Should not happen"))
-    } else
+    } else {
+      val sqlPath = new Path(DatasetArea.transform, s"${task.domain}/${task.name}.sql")
+      optSql.foreach { sql =>
+        storage.write(sql, sqlPath)
+      }
+      taskUpdated(task.domain, task.name)
+      this.taskOnly(task.fullName()).getOrElse(throw new Exception("Should not happen"))
       task
+    }
   }
 
   def syncPreviewSqlWithYaml(
