@@ -34,19 +34,8 @@ class BigQueryExpectationAssertionHandler(runner: BigQueryNativeJob)
       case Success(result) =>
         result.tableResult
           .map { tableResult =>
-            if (tableResult.hasNextPage) {
-              val iterator = tableResult.getValues.iterator()
-              if (iterator.hasNext) {
-                val field = iterator.next()
-                if (iterator.hasNext) // More than one line this is a mistake!
-                  Integer.MIN_VALUE
-                else
-                  Try(field.get(0).getLongValue.toInt).getOrElse(Integer.MIN_VALUE)
-              } else
-                Integer.MIN_VALUE
-            } else {
-              Integer.MIN_VALUE
-            }
+            val row = tableResult.iterateAll().iterator().next()
+            Try(row.get(0).getLongValue.toInt).getOrElse(Integer.MIN_VALUE)
           }
           .getOrElse(
             throw new Exception("Query did not return result object. Should never happen !!!")

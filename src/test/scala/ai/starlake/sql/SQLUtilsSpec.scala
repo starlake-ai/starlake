@@ -204,6 +204,17 @@ class SQLUtilsSpec extends TestHelper {
       ))
     }
 
+    "Extract table names from select 2" should "return theh table in from" in {
+      val sql =
+        """
+          |SELECT dom.table.x from mytable t
+          |""".stripMargin
+      val refs = SQLUtils.extractTableNames(sql)
+      refs should contain theSameElementsAs (List(
+        "mytable"
+      ))
+    }
+
     "Extract CTE from select" should "return all CTE names" in {
       val refs = SQLUtils.extractCTENames(selectWithCTEs)
       refs should contain theSameElementsAs (List(
