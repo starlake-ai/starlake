@@ -383,9 +383,9 @@ object SparkUtils extends LazyLogging {
                   val fields =
                     sqlSchema(struct, caseSensitive, url, sparkToSqlTypeMappings, level + 1)
                   if (repeated) {
-                    s"$name STRUCT($fields)[]"
+                    s"$name STRUCT(${fields.mkString(",")})[]"
                   } else {
-                    s"$name STRUCT($fields)"
+                    s"$name STRUCT(${fields.mkString(",")})"
                   }
                 case decimal: DecimalType =>
                   if (repeated) {
