@@ -248,12 +248,8 @@ object Dependencies {
     "com.networknt" % "json-schema-validator" % Versions.jsonSchemaValidator excludeAll (jacksonExclusions: _*)
   )
 
-  val scala212LibsOnly = Seq(
-    "io.github.spark-redshift-community" %% "spark-redshift" % "6.3.0-spark_3.5" % Test
-  )
-
   val scala213LibsOnly = Seq(
-    "ai.starlake" %% "spark-redshift" % "6.3.0-spark_3.5-SNAPSHOT" % Test
+    "ai.starlake" %% "spark-redshift" % "6.5.0-spark_3.5-SNAPSHOT" % Test
   )
 
   val scalaCompat = Seq(
