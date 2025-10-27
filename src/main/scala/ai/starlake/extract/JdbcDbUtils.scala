@@ -263,7 +263,14 @@ object JdbcDbUtils extends LazyLogging {
           } else {
             logger.info("Not using connection pooling")
             javaProperties.asScala.toMap.foreach { case (key, value) =>
-              logger.info(s"Key: $key, Value: $value")
+              if (
+                key
+                  .toLowerCase()
+                  .contains("password") || key.toLowerCase().contains("sl_access_token")
+              ) {
+                logger.info(s"Key: $key, Value: ****")
+              } else
+                logger.info(s"Key: $key, Value: $value")
             }
             DriverManager.getConnection(dataBranchUrl, javaProperties)
           }
