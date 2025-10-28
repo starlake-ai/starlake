@@ -205,6 +205,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.33");
     private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("6.5.0-spark_3.5-SNAPSHOT");
 
+    // KAFKA CONFLUENT
     private static final String CONFLUENT_VERSION = getEnv("CONFLUENT_VERSION").orElse("7.7.2");
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
