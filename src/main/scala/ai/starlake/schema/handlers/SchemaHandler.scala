@@ -141,6 +141,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     errs ++ domainsVarsValidity ++ jobsVarsValidity
   }
 
+  def orchestratorName(): Option[String] = {
+    val (targetOrchestrator, _) = checkDagsValidity()
+    targetOrchestrator
+  }
+
   def checkDagsValidity(): (Option[String], List[Either[List[ValidationMessage], Boolean]]) = {
     val dagConfigs = this.loadDagGenerationConfigs()
     val domainDags =

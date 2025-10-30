@@ -22,9 +22,6 @@ import scala.util.Try
 
 class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
 
-  def run(args: Array[String])(implicit settings: Settings): Try[Unit] =
-    DagGenerateCmd.run(args.toIndexedSeq, schemaHandler).map(_ => ())
-
   case class TableWithDagConfig(
     domain: DomainInfo,
     table: SchemaInfo,
