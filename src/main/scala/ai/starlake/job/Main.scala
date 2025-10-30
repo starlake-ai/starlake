@@ -33,7 +33,6 @@ import com.typesafe.scalalogging.LazyLogging
 
 import java.io.ByteArrayOutputStream
 import java.time.format.DateTimeFormatter
-import java.time.{Instant, LocalDateTime, ZoneId}
 import scala.annotation.nowarn
 import scala.util.{Failure, Success, Try}
 
@@ -111,6 +110,7 @@ object Main extends LazyLogging {
     ProjectCompareCmd,
     MainServerCmd,
     DagGenerateCmd,
+    DagDeployCmd,
     ConsoleCmd,
     StarlakeTestCmd,
     MigrateCmd,

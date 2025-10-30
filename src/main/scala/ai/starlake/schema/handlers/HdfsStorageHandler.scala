@@ -125,6 +125,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
             )
             bucketName
         }
+
         // https://github.com/GoogleCloudDataproc/hadoop-connectors/blob/master/gcs/CONFIGURATION.md
         Map(
           "fs.defaultFS"                  -> bucket,
@@ -469,7 +470,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   def delete(path: Path): Boolean = {
     pathSecurityCheck(path)
     val currentFS = fs(path)
-    currentFS.delete(path, true)
+    currentFS.delete(path, true) // recursive delete
   }
 
   /** Create folder if it does not exist including any intermediary non-existent folder
