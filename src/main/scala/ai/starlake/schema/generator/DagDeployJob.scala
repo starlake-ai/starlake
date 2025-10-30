@@ -18,26 +18,34 @@ class DagDeployJob(schemaHandler: SchemaHandler) extends StrictLogging {
 
     logger.info(s"Orchestrator Name: $orchestratorName")
 
-    val outputPath = new Path(config.outputDir)
+    val baseOutputPath = new Path(config.outputDir)
+    val dagOutputPath =
+      config.dagDir.map(it => new Path(config.outputDir, it)).getOrElse(baseOutputPath)
     if (config.clean)
-      settings.storageHandler().delete(outputPath)
+      settings.storageHandler().delete(dagOutputPath)
 
-    val pythonCmd =
-      s"python3 -m pip install --break-system-packages --no-cache-dir --target ${inputDir} starlake-orchestration starlake-$orchestratorName"
-    val cmdResult = Utils.runCommand(pythonCmd)
-    cmdResult match {
-      case Success(result) =>
-        logger.info(s"DAG deployment command output: ${result.output}")
-        if (result.exit != 0) {
-          logger.error(s"DAG deployment command error (if any): ${result.error}")
-          throw new Exception(s"DAG deployment command failed: $pythonCmd\n${result.error}")
-        } else {
-          if (result.error.nonEmpty)
-            logger.info(result.error)
-        }
-        logger.info(s"DAG deployment command succeeded: $pythonCmd")
-      case _ =>
-        throw new Exception(s"DAG deployment command failed: $pythonCmd")
+    val libPath = new Path(baseOutputPath, "ai/starlake/orchestration/starlake_orchestration.py")
+    if (settings.storageHandler().exists(libPath)) {
+      logger.info(s"Orchestration library already deployed at: $libPath")
+    } else {
+      logger.info(s"Deploying orchestration library at: $libPath")
+      val pythonCmd =
+        s"python3 -m pip install --break-system-packages --no-cache-dir --target ${baseOutputPath.toString} starlake-orchestration starlake-$orchestratorName"
+      val cmdResult = Utils.runCommand(pythonCmd)
+      cmdResult match {
+        case Success(result) =>
+          logger.info(s"DAG deployment command output: ${result.output}")
+          if (result.exit != 0) {
+            logger.error(s"DAG deployment command error (if any): ${result.error}")
+            throw new Exception(s"DAG deployment command failed: $pythonCmd\n${result.error}")
+          } else {
+            if (result.error.nonEmpty)
+              logger.info(result.error)
+          }
+          logger.info(s"DAG deployment command succeeded: $pythonCmd")
+        case _ =>
+          throw new Exception(s"DAG deployment command failed: $pythonCmd")
+      }
     }
 
     val inputFileFolder = File(inputDir)
@@ -54,7 +62,7 @@ class DagDeployJob(schemaHandler: SchemaHandler) extends StrictLogging {
             path.substring(1)
           else path
         }
-        val targetPath = new Path(outputPath, relativePath)
+        val targetPath = new Path(dagOutputPath, relativePath)
         settings
           .storageHandler()
           .mkdirs(targetPath.getParent)
