@@ -142,7 +142,8 @@ class Yml2DagGenerateCommandSpec extends TestHelper {
           Some("account.sl.yml")
         )
         val schemaHandler = settings.schemaHandler()
-        new DagGenerateJob(schemaHandler).run(Array.empty)
+        DagGenerateCmd.run(Array.empty.toIndexedSeq, schemaHandler).map(_ => ())
+
         val dagPath = new Path(new Path(DatasetArea.build, "dags"), "position.py")
         settings.storageHandler().exists(dagPath) shouldBe true
         println(s"DAG file generated at $dagPath")
