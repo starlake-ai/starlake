@@ -29,7 +29,14 @@ object DagDeployCmd extends Cmd[DagDeployConfig] {
         .action((x, c) => c.copy(outputDir = x))
         .required()
         .text(
-          """Path where to deploy the DAG files.""".stripMargin
+          """Path where to deploy the library files. This is the root of all DAGs""".stripMargin
+        ),
+      builder
+        .opt[String]("dagDir")
+        .action((x, c) => c.copy(dagDir = Some(x)))
+        .optional()
+        .text(
+          """outputDir's sub-directory where to deploy the DAG files.""".stripMargin
         ),
       builder
         .opt[Unit]("clean")
