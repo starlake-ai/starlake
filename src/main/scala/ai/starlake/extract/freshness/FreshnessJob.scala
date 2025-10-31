@@ -31,12 +31,27 @@ case class FreshnessStatus(
 
 object FreshnessJob extends LazyLogging {
   val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S")
+  val epochMillisPattern = """^\d+(\.\d+)?$""".r
 
   private def formatTimestamp(dateString: String): Long = {
-    val localDateTime = LocalDateTime.parse(dateString, formatter)
-    val instant = localDateTime.toInstant(ZoneOffset.UTC)
-    val millis = instant.toEpochMilli
-    millis
+    // check if datestring is a decimal number (epoch millis)
+
+    if (epochMillisPattern.matches(dateString)) {
+      // check if value is in  millis or seconds
+      // get whole part length
+      val whole = dateString.split("\\.")(0)
+      if (whole.length <= 10) {
+        // seconds
+        dateString.toDouble.toLong * 1000
+      } else
+        // millis
+        dateString.toDouble.toLong
+    } else {
+      val localDateTime = LocalDateTime.parse(dateString, formatter)
+      val instant = localDateTime.toInstant(ZoneOffset.UTC)
+      val millis = instant.toEpochMilli
+      millis
+    }
   }
   def extractLastModifiedTime(
     config: TablesExtractConfig
