@@ -6,7 +6,7 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.JobResult
 import scopt.OParser
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 object DagDeployCmd extends Cmd[DagDeployConfig] {
   val command = "dag-deploy"
