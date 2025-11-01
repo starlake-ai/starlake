@@ -187,12 +187,19 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     }
 
     // (topic/partition, offset)
-    val res = offsets.keys.map { k =>
-      val tab = k.split('/')
-      (tab(0), tab(1), offsets(k))
-    } groupBy { case (topic, _, _) => topic } mapValues (_.map { case (topic, partition, offset) =>
-      (partition.toInt, offset.toLong)
-    }.toList) get topicConfigName
+    val res = offsets.keys
+      .map { k =>
+        val tab = k.split('/')
+        (tab(0), tab(1), offsets(k))
+      }
+      .groupBy { case (topic, _, _) => topic }
+      .view
+      .mapValues {
+        _.map { case (topic, partition, offset) =>
+          (partition.toInt, offset.toLong)
+        }.toList
+      }
+      .get(topicConfigName)
     res
 
   }

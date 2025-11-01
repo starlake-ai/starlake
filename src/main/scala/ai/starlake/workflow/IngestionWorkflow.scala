@@ -1073,7 +1073,7 @@ class IngestionWorkflow(
 
     val parJobs =
       ParUtils.makeParallel(dependencyTree)
-    val res = parJobs.map { jobContext =>
+    val res = parJobs.iterator.map { jobContext =>
       logger.info(s"Transforming ${jobContext.data.name}")
       val ok = transform(jobContext.children, options, scheduledDate)
       if (ok.isSuccess) {
