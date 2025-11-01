@@ -51,6 +51,13 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
         .optional()
         .text(
           """Whether to generate DAG file(s) for domains or not""".stripMargin
+        ),
+      builder
+        .opt[Unit]("withRoles")
+        .action((_, c) => c.copy(includeRoles = true))
+        .optional()
+        .text(
+          """Generate role definitions""".stripMargin
         )
     )
   }

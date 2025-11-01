@@ -267,7 +267,10 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       case Some(masterProjectId) =>
         options.put("sl_project_id", masterProjectId)
         options.put("sl_project_name", config.masterProjectName.getOrElse("[noname]"))
-        options.put("sl_airflow_access_control", airflowAccessControl(masterProjectId.toLong))
+        if (config.includeRoles)
+          options.put("sl_airflow_access_control", airflowAccessControl(masterProjectId.toLong))
+        else
+          options.put("sl_airflow_access_control", "None")
       case None =>
         options.put("sl_project_id", "-1")
         options.put("sl_project_name", "[noname]")
