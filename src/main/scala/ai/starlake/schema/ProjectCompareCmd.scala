@@ -96,7 +96,7 @@ object ProjectCompareCmd extends Cmd[ProjectCompareConfig] {
       "1",
       s"tags/${tagName}"
     )
-    val commitOfTagOutput = Utils.runCommand(commitOfTagCommand)
+    val commitOfTagOutput = Utils.runCommand(commitOfTagCommand.toIndexedSeq)
     commitOfTagOutput match {
       case Success(cmdOutput) =>
         cmdOutput.output
@@ -118,7 +118,7 @@ object ProjectCompareCmd extends Cmd[ProjectCompareConfig] {
       "--",
       "."
     )
-    val checkoutOutput = Utils.runCommand(checkoutCommand)
+    val checkoutOutput = Utils.runCommand(checkoutCommand.toIndexedSeq)
     checkoutOutput match {
       case Success(_) =>
         path

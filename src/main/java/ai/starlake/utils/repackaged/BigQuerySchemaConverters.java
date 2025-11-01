@@ -139,6 +139,7 @@ public class BigQuerySchemaConverters {
                             .setMode(Field.Mode.REQUIRED)
                             .build();
 
+            @SuppressWarnings("unchecked")
             List<Object> valueList = (List<Object>) value;
             return new GenericArrayData(
                     valueList.stream()
@@ -335,9 +336,7 @@ public class BigQuerySchemaConverters {
     }
 
     private static DataType getDataType(Field field) {
-        return getCustomDataType(field)
-                .map(udt -> (DataType) udt)
-                .orElseGet(() -> getStandardDataType(field));
+        return getCustomDataType(field).orElseGet(() -> getStandardDataType(field));
     }
 
     @VisibleForTesting
