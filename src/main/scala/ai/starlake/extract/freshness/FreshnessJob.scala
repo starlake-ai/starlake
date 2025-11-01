@@ -311,7 +311,7 @@ object FreshnessJob extends LazyLogging {
       val job = new SparkJob {
         override def name: String = "BigQueryFreshnessInfo"
 
-        override implicit def settings: Settings = settings
+        override implicit def settings: Settings = mySettings
 
         /** Just to force any job to implement its entry point using within the "run" method
           *
