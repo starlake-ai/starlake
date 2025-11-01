@@ -32,6 +32,7 @@ object TaskViewDependencyNode {
       relations
         .filter(_.name == entity.name)
         .groupBy(x => x.name + "." + x.parent)
+        .view
         .mapValues(_.head)
         .values
         .toList
