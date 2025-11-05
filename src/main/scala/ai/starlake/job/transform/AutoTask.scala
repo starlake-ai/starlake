@@ -575,9 +575,9 @@ abstract class AutoTask(
     ) {
       if (trimmedSql.endsWith(";")) {
         val noDelimiterSql = trimmedSql.dropRight(1)
-        s"$noDelimiterSql LIMIT $limit OFFSET ${pageSize * (pageNumber - 1)}"
+        s"$noDelimiterSql ORDER BY 1 LIMIT $limit OFFSET ${pageSize * (pageNumber - 1)}"
       } else
-        s"$sql LIMIT $limit OFFSET ${pageSize * (pageNumber - 1)}"
+        s"$sql ORDER BY 1 LIMIT $limit OFFSET ${pageSize * (pageNumber - 1)}"
     } else
       sql
   }
