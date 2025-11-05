@@ -218,12 +218,13 @@ object JdbcDbUtils extends LazyLogging {
                 "sl_access_token" // used internally only
               ).contains(k)
             ) {
+
               if (
-                k != "authenticator" || !finalConnectionOptions
-                  .get("authenticator")
-                  .contains(
-                    "user/password"
-                  ) // we don't pass user/password authenticator to DriverManager this is internal
+                k != "authenticator" ||
+                !Set("user/password", "programmatic_access_token").contains(
+                  finalConnectionOptions
+                    .getOrElse("authenticator", "other-value")
+                ) // we don't pass user/password or programmatic_access_token authenticator to DriverManager this is internal
               )
                 javaProperties.setProperty(k, v)
             }
