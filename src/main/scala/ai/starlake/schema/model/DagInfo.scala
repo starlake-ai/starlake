@@ -159,7 +159,10 @@ case class DagInfo(
           "Option value cannot contain '..'"
         )
       }
-      if (v.startsWith("/") && !v.startsWith(settings.appConfig.root)) {
+      if (
+        v.startsWith("/") &&
+        !k.equals("SL_STARLAKE_PATH") && !v.startsWith(settings.appConfig.root)
+      ) {
         errors = errors :+ ValidationMessage(
           Severity.Error,
           "options",
