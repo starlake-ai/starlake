@@ -6,11 +6,11 @@ import ai.starlake.job.transform.AutoTaskQueries
 import ai.starlake.lineage.TaskViewDependencyNode
 import ai.starlake.schema.generator.Yml2DagTemplateLoader
 import ai.starlake.utils.Formatter.RichFormatter
-import ai.starlake.utils.JsonSerializer
+import ai.starlake.utils.{JsonSerializer, Utils}
 
 import java.util
 import java.util.Calendar
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
 case class DagDesc(version: Int, dag: DagInfo)
@@ -55,6 +55,22 @@ case class DagInfo(
   filename: String,
   options: Map[String, String]
 ) {
+  def getSlRoot()(implicit settings: Settings): String = {
+    val slRoot =
+      this.options
+        .get("sl_env_var")
+        .flatMap { envVar =>
+          // parse envVar as Json
+          JsonSerializer.mapper
+            .readValue(envVar, classOf[Map[String, String]])
+            .get("SL_ROOT")
+        }
+        .getOrElse(settings.appConfig.root)
+    // In case SL_ROOT is defined using the SL_ROOT env var
+    Utils.parseJinja(slRoot, Map("SL_ROOT" -> settings.appConfig.root))
+
+  }
+
   def checkValidity()(implicit settings: Settings): List[ValidationMessage] = {
     var errors = List.empty[ValidationMessage]
     if (template.isEmpty) {
@@ -78,6 +94,7 @@ case class DagInfo(
         "Filename is required"
       )
     }
+
     if (template.contains("..")) {
       errors = errors :+ ValidationMessage(
         Severity.Error,

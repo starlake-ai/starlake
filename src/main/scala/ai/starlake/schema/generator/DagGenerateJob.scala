@@ -136,14 +136,15 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
     val depsEngine = new AutoTaskDependencies(settings, schemaHandler, settings.storageHandler())
     val taskConfigsGroupedByFilename = taskConfigs
       .map { taskConfig =>
-        val envVars = schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
-          "table"         -> taskConfig.taskDesc.table,
-          "domain"        -> taskConfig.taskDesc.domain,
-          "name"          -> taskConfig.taskDesc.fullName(), // deprecated
-          "task"          -> taskConfig.taskDesc.fullName(),
-          "schedule"      -> taskConfig.schedule.getOrElse("None"),
-          "sl_project_id" -> config.masterProjectId.getOrElse("-1")
-        )
+        val envVars =
+          schemaHandler.activeEnvVars(root = Option(taskConfig.dagConfig.getSlRoot())) ++ Map(
+            "table"         -> taskConfig.taskDesc.table,
+            "domain"        -> taskConfig.taskDesc.domain,
+            "name"          -> taskConfig.taskDesc.fullName(), // deprecated
+            "task"          -> taskConfig.taskDesc.fullName(),
+            "schedule"      -> taskConfig.schedule.getOrElse("None"),
+            "sl_project_id" -> config.masterProjectId.getOrElse("-1")
+          )
         val filename = Utils.parseJinja(
           taskConfig.dagConfig.filename,
           envVars
@@ -368,7 +369,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 )
 
               val envVars =
-                schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
+                schemaHandler.activeEnvVars(root = Option(dagConfig.getSlRoot())) ++ Map(
                   "schedule"      -> scheduleName,
                   "domain"        -> domain.name,
                   "finalDomain"   -> domain.finalName,
@@ -476,7 +477,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 getScheduleName(schedule.schedule, scheduleIndex)
               scheduleIndex = nextScheduleIndex
               val envVars =
-                schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
+                schemaHandler.activeEnvVars(root = Option(dagConfig.getSlRoot())) ++ Map(
                   "schedule"      -> scheduleValue,
                   "domain"        -> domain.name,
                   "renamedDomain" -> domain.finalName,
@@ -505,7 +506,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             }
           } else {
             val envVars =
-              schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
+              schemaHandler.activeEnvVars(root = Option(dagConfig.getSlRoot())) ++ Map(
                 "domain"        -> domain.name,
                 "renamedDomain" -> domain.finalName,
                 "finalDomain"   -> domain.finalName,
@@ -564,7 +565,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
           if (filenameVars.contains("schedule")) {
             dagSchedules.foreach { schedule =>
               val envVars =
-                schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
+                schemaHandler.activeEnvVars(root = Option(dagConfig.getSlRoot())) ++ Map(
                   "schedule"      -> schedule.schedule,
                   "sl_project_id" -> config.masterProjectId.getOrElse("-1")
                 )
@@ -588,7 +589,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             }
           } else {
             val envVars =
-              schemaHandler.activeEnvVars(root = Option(settings.appConfig.root)) ++ Map(
+              schemaHandler.activeEnvVars(root = Option(dagConfig.getSlRoot())) ++ Map(
                 "sl_project_id" -> config.masterProjectId.getOrElse("-1")
               )
             val options = dagConfig.options.map { case (k, v) => k -> Utils.parseJinja(v, envVars) }
