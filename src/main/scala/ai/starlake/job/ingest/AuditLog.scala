@@ -74,6 +74,14 @@ case class AuditLog(
   scheduledDate: Option[String]
 ) {
 
+  private val limitMessage = {
+    val maxLength = 8192 - 192
+    if (message.length > maxLength) {
+      message.take(maxLength) + s"...(truncated, original length=${message.length})"
+    } else {
+      message
+    }
+  }
   def asMap(): Map[String, Any] = {
     Map(
       "jobid"         -> jobid,
@@ -85,7 +93,7 @@ case class AuditLog(
       "countRejected" -> countRejected,
       "timestamp"     -> timestamp.getTime,
       "duration"      -> duration,
-      "message"       -> message,
+      "message"       -> limitMessage,
       "step"          -> step,
       "tenant"        -> tenant
     ) ++ List(
@@ -113,7 +121,7 @@ case class AuditLog(
         "countRejected" -> countRejected,
         "timestamp"     -> timestamp.toString(),
         "duration"      -> duration,
-        "message"       -> replaceQuote(message),
+        "message"       -> replaceQuote(limitMessage),
         "step"          -> step,
         "database"      -> database.getOrElse(""),
         "tenant"        -> replaceQuote(tenant),
@@ -136,7 +144,7 @@ case class AuditLog(
        |countRejected=$countRejected
        |timestamp=$timestamp
        |duration=$duration
-       |message=$message
+       |message=$limitMessage
        |step=$step
        |database=$database
        |tenant=$tenant
