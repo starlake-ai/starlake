@@ -7,14 +7,14 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Severity.Error
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.diff.{Attribute as DiffAttribute, DBSchema}
-import ai.starlake.transpiler.schema.CaseInsensitiveLinkedHashMap
+import ai.starlake.transpiler.schema.{CaseInsensitiveLinkedHashMap, JdbcMetaData}
 import ai.starlake.transpiler.{diff, JSQLSchemaDiff}
 import ai.starlake.utils.{SparkUtils, YamlSerde}
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructType
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
 case class TaskDesc(version: Int, task: AutoTaskInfo)
@@ -631,5 +631,50 @@ case class AutoTaskInfo(
 object AutoTaskInfo {
   def compare(existing: AutoTaskInfo, incoming: AutoTaskInfo): ListDiff[Named] = {
     AnyRefDiff.diffAnyRef(existing.name, existing, incoming)
+  }
+  def main(args: Array[String]): Unit = {
+    val sql = {
+      val res = scala.io.Source.fromFile("/Users/hayssams/tmp/test.sql").getLines()
+      val res2 = res.filter { it => !it.trim.startsWith("--") && !it.trim.isEmpty }.mkString("\n")
+      val res3 = SQLUtils.stripComments(res2)
+      println(res3)
+      res3
+    }
+    val itables = SQLUtils.extractTableNames(sql)
+    itables.foreach(println)
+
+    val ymlFile = new java.io.File("/Users/hayssams/tmp/test.yml")
+    val map =
+      YamlSerde.mapper.readValue(ymlFile, classOf[Array[Map[String, Any]]])
+
+    val diffSchemas: Array[DBSchema] =
+      map.map { schema =>
+        val name = schema("schemaName")
+        val tables =
+          schema("tables")
+            .asInstanceOf[
+              Map[String, List[Any]]
+            ]
+        val diffTables =
+          new CaseInsensitiveLinkedHashMap[java.util.Collection[DiffAttribute]]()
+        tables.foreach { table =>
+          val tableName = table._1
+          val attributes = table._2
+            .asInstanceOf[List[Map[String, Any]]]
+            .map { attr =>
+              val attrName = attr("name").asInstanceOf[String]
+              val attrType = attr("type").asInstanceOf[String]
+              new DiffAttribute(attrName, attrType)
+            }
+            .asJava
+          diffTables.put(tableName, attributes)
+        }
+        val dbSchema = new DBSchema("", name.asInstanceOf[String], diffTables)
+        dbSchema
+      }
+    val differ = new JSQLSchemaDiff(diffSchemas.toList.asJava)
+    val diff = differ
+      .getDiff(sql.trim, "domain1.table1")
+    println(diff)
   }
 }

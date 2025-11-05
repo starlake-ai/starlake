@@ -83,7 +83,7 @@ object ProjectCompareCmd extends Cmd[ProjectCompareConfig] {
           "0"
         )
         val latestTag = Utils
-          .runCommand(latestTagCommand)
+          .runCommand(latestTagCommand.toIndexedSeq)
           .getOrElse(throw new IllegalArgumentException("latest tag not found!"))
       } else
         tag
