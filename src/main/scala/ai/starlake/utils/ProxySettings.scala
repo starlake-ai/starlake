@@ -47,10 +47,20 @@ object ProxySettings {
     val httpsProxyProperty = Option(System.getProperty("https.proxyHost"))
     val httpProxyProperty = Option(System.getProperty("http.proxyHost"))
     if (httpsProxyProperty.isEmpty && httpProxyProperty.isEmpty) {
-      val httpsProxy = Option(System.getenv("https_proxy")).getOrElse("")
-      val httpProxy = Option(System.getenv("http_proxy")).getOrElse("")
+      val httpsProxy =
+        Option(System.getenv("https_proxy"))
+          .orElse(Option(System.getenv("HTTPS_PROXY")))
+          .getOrElse("")
+
+      val httpProxy = Option(System.getenv("http_proxy"))
+        .orElse(Option(System.getenv("HTTP_PROXY")))
+        .getOrElse("")
+
       val noProxy =
-        Option(System.getenv("no_proxy")).getOrElse("").replaceAll(",", "|")
+        Option(System.getenv("no_proxy"))
+          .orElse(Option(System.getenv("NO_PROXY")))
+          .getOrElse("")
+          .replaceAll(",", "|")
 
       if (httpsProxy.nonEmpty) {
         val proxySettings = parseProxy(httpsProxy)
