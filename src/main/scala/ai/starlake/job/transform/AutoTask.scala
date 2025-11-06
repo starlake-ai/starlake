@@ -576,8 +576,9 @@ abstract class AutoTask(
       val orderBy =
         trimmedSql.replaceAll("\n", " ").toUpperCase().indexOf(" FROM ") match {
           case -1 => ""
-          case idx =>
+          case idx if !upperCaseSQL.contains(" ORDER BY ") =>
             "ORDER BY 1"
+          case _ => ""
         }
       if (trimmedSql.endsWith(";")) {
         val noDelimiterSql = trimmedSql.dropRight(1)
