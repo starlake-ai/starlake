@@ -573,10 +573,11 @@ abstract class AutoTask(
       upperCaseSQL.indexOf(" LIMIT ") == -1 &&
       (upperCaseSQL.startsWith("SELECT ") || upperCaseSQL.startsWith("WITH "))
     ) {
-      if (trimmedSql.endsWith(";")) {
+      
+      if (trimmedSql.endsWith(";") && trimmedSql != "SELECT 1;") {
         val noDelimiterSql = trimmedSql.dropRight(1)
         s"$noDelimiterSql ORDER BY 1 LIMIT $limit OFFSET ${pageSize * (pageNumber - 1)}"
-      } else
+      } else if (trimmedSql != "SELECT 1")
         s"$sql ORDER BY 1 LIMIT $limit OFFSET ${pageSize * (pageNumber - 1)}"
     } else
       sql
