@@ -43,6 +43,102 @@ if [[ -n "${https_proxy}" ]] || [[ -n "${http_proxy}" ]]; then
 fi
 
 
+parse_proxy_and_build_args() {
+    local type=$1
+    local url=$2
+
+    # If no protocol (e.g., "myproxy.com:8080"), add a default "http://"
+    # so the regex can parse it correctly.
+    if ! [[ $url == *"://"* ]]; then
+        echo "No protocol found in ${type}_PROXY. Assuming 'http://'." >&2
+        url="http://$url"
+    fi
+
+    # Use a regex to parse the URL components.
+    # This regex captures:
+    # 1: Protocol (which we ignore, using $type)
+    # 2: User-pass (optional)
+    # 3: Username (if user-pass exists)
+    # 4: Password (if user-pass exists)
+    # 5: Host (required)
+    # 6: Port (optional, with colon)
+    # 7: Port number (if port exists)
+    local regex="^([^:]+)://(([^:]+):([^@]+)@)?([^:/]+)(:([0-9]+))?/?$"
+
+    if [[ $url =~ $regex ]]; then
+        local host="${BASH_REMATCH[5]}"
+        local port="${BASH_REMATCH[7]}"
+        local user="${BASH_REMATCH[3]}"
+        local pass="${BASH_REMATCH[4]}"
+
+        local args=""
+
+        # Set host
+        if [ -n "$host" ]; then
+            args="-D${type}.proxyHost=${host}"
+        else
+            # If we can't find a host, the URL is invalid.
+            return
+        fi
+
+        # Set port
+        if [ -n "$port" ]; then
+            args="$args -D${type}.proxyPort=${port}"
+        fi
+
+        # Set username
+        if [ -n "$user" ]; then
+            # URL-decode the username (e.g., %40 -> @)
+            user_decoded=$(printf '%b' "${user//%/\\x}")
+            args="$args -D${type}.proxyUser=${user_decoded}"
+        fi
+
+        # Set password
+        if [ -n "$pass" ]; then
+            # URL-decode the password
+            pass_decoded=$(printf '%b' "${pass//%/\\x}")
+            args="$args -D${type}.proxyPassword=${pass_decoded}"
+        fi
+
+        echo "$args"
+    else
+        echo "Warning: Could not parse ${type} proxy URL: $url" >&2
+    fi
+}
+
+# All Java arguments will be collected in this array
+export JAVA_ARGS=()
+
+# 1. Check for HTTPS_PROXY
+if [ -n "$HTTPS_PROXY" ]; then
+    # Pass "https" as the type and the variable's value
+    https_args=$(parse_proxy_and_build_args "https" "$HTTPS_PROXY")
+    if [ -n "$https_args" ]; then
+        echo "Using HTTPS_PROXY: $HTTPS_PROXY"
+        # Add the arguments to our array
+        # We don't quote $https_args so that bash splits it into separate arguments
+        JAVA_ARGS+=($https_args)
+    fi
+fi
+
+# 2. Check for HTTP_PROXY
+if [ -n "$HTTP_PROXY" ]; then
+    # Pass "http" as the type and the variable's value
+    http_args=$(parse_proxy_and_build_args "http" "$HTTP_PROXY")
+    if [ -n "$http_args" ]; then
+        echo "Using HTTP_PROXY: $HTTP_PROXY"
+        JAVA_ARGS+=($http_args)
+    fi
+fi
+
+if [ -n "$SPARK_DRIVER_OPTIONS" ]; then
+  SPARK_DRIVER_OPTIONS="$SPARK_DRIVER_OPTIONS "
+else
+  SPARK_DRIVER_OPTIONS="${JAVA_ARGS[@]}"
+fi
+
+export JAVA_OPTS="$JAVA_OPTS ${JAVA_ARGS[@]}"
+
 get_binary_from_url() {
     local url=$1
     local target_file=$2
@@ -181,7 +277,7 @@ launch_starlake() {
 
 
 case "$1" in
-  --version)
+  --version|version)
 	  echo Starlake $SL_VERSION
 	  echo Duckdb JDBC driver ${DUCKDB_VERSION}
 	  echo BigQuery Spark connector ${SPARK_BQ_VERSION}
