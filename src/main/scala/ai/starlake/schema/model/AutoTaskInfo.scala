@@ -3,11 +3,12 @@ package ai.starlake.schema.model
 import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig, JdbcDbUtils}
+import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Severity.Error
-import ai.starlake.sql.SQLUtils
+import ai.starlake.sql.{SQLTypeMappings, SQLUtils}
 import ai.starlake.transpiler.diff.{Attribute as DiffAttribute, DBSchema}
-import ai.starlake.transpiler.schema.{CaseInsensitiveLinkedHashMap, JdbcMetaData}
+import ai.starlake.transpiler.schema.CaseInsensitiveLinkedHashMap
 import ai.starlake.transpiler.{diff, JSQLSchemaDiff}
 import ai.starlake.utils.{SparkUtils, YamlSerde}
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
@@ -432,8 +433,7 @@ case class AutoTaskInfo(
     *   - UNCHANGED: The attribute is present and its type and comment are unchanged
     */
   def diffSqlAttributesWithYaml(
-    sqlStatementAttributes: List[TableAttribute],
-    accessToken: Option[String]
+    sqlStatementAttributes: List[TableAttribute]
   )(implicit settings: Settings): List[(TableAttribute, AttributeStatus)] = {
 
     var nochange: Boolean = true
@@ -494,7 +494,67 @@ case class AutoTaskInfo(
       if (sqlStatementAttributes.isEmpty)
         Nil
       else
-        this.diffSqlAttributesWithYaml(sqlStatementAttributes, accessToken)
+        this.diffSqlAttributesWithYaml(sqlStatementAttributes)
+    } else {
+      logger.info(
+        s"Skipping diff Sql Attributes With Yaml for task ${this.name} as parseSQL is set to false"
+      )
+      Nil
+    }
+  }
+
+  def diffSqlAttributesWithSQL(
+    sqlStatement: Option[String] = None,
+    accessToken: Option[String] = None
+  )(implicit
+    settings: Settings
+  ): List[(TableAttribute, AttributeStatus)] = {
+    if (parseSQL.getOrElse(true)) {
+      val connection =
+        settings.appConfig
+          .connection(settings.appConfig.connectionRef)
+          .getOrElse(
+            throw new Exception(s"Connection not found ${settings.appConfig.connectionRef}")
+          )
+          .withAccessToken(accessToken)
+
+      val sqlSchema =
+        AutoTask.executeSelectSchema(
+          domain = "__ignore__",
+          table = "__ignore__",
+          sql = sqlStatement.getOrElse(this.getTranspiledSql()),
+          summarizeOnly = false,
+          connection = connection,
+          accessToken = accessToken,
+          connectionName = Some(settings.appConfig.connectionRef),
+          pageSize = 1,
+          pageNumber = 1,
+          test = false,
+          parseSQL = true,
+          scheduledDate = None
+        )(settings, settings.storageHandler(), settings.schemaHandler())
+
+      val engineName = connection.getJdbcEngineName()
+      val sqlAttributes =
+        sqlSchema match {
+          case Success(schema) =>
+            val sqlStatementAttributes = schema.map { case (name, typ) =>
+              val sparkType = SQLTypeMappings.getSparkType(typ, engineName.toString).getOrElse("")
+              TableAttribute(
+                name = name,
+                `type` = sparkType,
+                array = None
+              )
+            }
+            sqlStatementAttributes
+          case Failure(exception) =>
+            Nil
+        }
+
+      // Extract attributes from the SQL statement
+      val sqlStatementAttributesWithStatus =
+        this.diffSqlAttributesWithYaml(sqlAttributes)
+      sqlStatementAttributesWithStatus
     } else {
       logger.info(
         s"Skipping diff Sql Attributes With Yaml for task ${this.name} as parseSQL is set to false"

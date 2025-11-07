@@ -12,6 +12,20 @@ case class BigQueryJobResult(
   job: scala.Option[Job]
 ) extends JobResult {
 
+  override def sqlSchema(): List[(String, String)] = {
+    tableResult
+      .map { rows =>
+        val headers = rows.getSchema.getFields.iterator().asScala.toList
+        val result = headers.map { field =>
+          val fieldName = field.getName
+          val fieldType = field.getType.toString
+          (fieldName, fieldType)
+        }
+        result
+      }
+      .getOrElse(Nil)
+  }
+
   private def flatten(fieldList: List[Field], parentPath: String): List[List[(String, String)]] = {
     fieldList.flatMap { field =>
       val level = parentPath.count(_ == '/')

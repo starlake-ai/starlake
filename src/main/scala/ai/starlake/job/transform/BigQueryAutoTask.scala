@@ -256,7 +256,11 @@ class BigQueryAutoTask(
                                     .mkString("_")
                                 logger.info(s"Processing shard $shard")
                                 // We update the schema for each shard in case the schema evolved (each shard => different table)
-                                updateBigQueryTableSchema(sparkSchema, Some(shard))
+                                updateBigQueryTableSchema(
+                                  incomingSparkSchema = sparkSchema,
+                                  createIfAbsent = true,
+                                  sharding = Some(shard)
+                                )
                                 val shardHead = shardColumns.head
                                 val shardTail = shardColumns.tail
                                 val conditions = shardTail
@@ -275,7 +279,11 @@ class BigQueryAutoTask(
                           failure.getOrElse(allResult.head)
                         case None =>
                           // No sharding, we need to update a single table schema
-                          updateBigQueryTableSchema(sparkSchema)
+                          updateBigQueryTableSchema(
+                            incomingSparkSchema = sparkSchema,
+                            createIfAbsent = true,
+                            sharding = None
+                          )
                           // No shard just a single table to update
                           val saveResult = saveDF(df, None)
                           saveResult
@@ -353,8 +361,9 @@ class BigQueryAutoTask(
                                 // The code below means that we do not support schema evolution in native mode since we assume that
                                 // the incoming schema is provided by the caller
                                 updateBigQueryTableSchema(
-                                  sparkSchema,
-                                  Some(shardValue.mkString("_"))
+                                  incomingSparkSchema = sparkSchema,
+                                  createIfAbsent = true,
+                                  sharding = Some(shardValue.mkString("_"))
                                 )
                                 val resultApplyCLS = saveNative(config, shardSql)
                                 logger.info(
@@ -379,8 +388,12 @@ class BigQueryAutoTask(
                     // No Spark, No shard just native SQL job in bigquery
                     // We need to infer the incoming schema from the sql query if the schema is not specified
                     // We have the schema only in load mode.
-                    // For transform, this is done in th emain() function during the call to buildALlSQLQueries
-                    updateBigQueryTableSchema(sparkSchema, None)
+                    // For transform, this is done in the main() function during the call to buildALlSQLQueries
+                    updateBigQueryTableSchema(
+                      incomingSparkSchema = sparkSchema,
+                      createIfAbsent = true,
+                      sharding = None
+                    )
                     val allSql =
                       preSql.mkString(";\n") + mainSql() + ";\n" + postSql.mkString(";\n")
                     saveNative(config, allSql)
@@ -659,9 +672,10 @@ class BigQueryAutoTask(
   override def buildTableSchemaSQL(
     incomingSchema: StructType,
     tableName: String,
-    syncStrategy: TableSync
+    syncStrategy: TableSync,
+    createIfAbsent: Boolean
   ): (List[String], Boolean) = {
-    updateBigQueryTableSchema(Some(incomingSchema))
+    updateBigQueryTableSchema(Some(incomingSchema), createIfAbsent)
     (Nil, true)
   }
 
@@ -710,6 +724,7 @@ class BigQueryAutoTask(
 
   def updateBigQueryTableSchema(
     incomingSparkSchema: Option[StructType],
+    createIfAbsent: Boolean,
     sharding: Option[String] = None
   ): Unit = {
 
@@ -757,7 +772,7 @@ class BigQueryAutoTask(
                   table.toBuilder.setDefinition(updatedTableDefinition).build()
                 updatedTable.update()
               }
-          } else {
+          } else if (createIfAbsent) {
             val bqSchema = BigQueryUtils.bqSchema(incomingSparkSchema)
             val sink = sinkConfig.asInstanceOf[BigQuerySink]
 

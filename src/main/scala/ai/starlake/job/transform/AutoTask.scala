@@ -90,7 +90,8 @@ abstract class AutoTask(
   def buildTableSchemaSQL(
     incomingSchema: StructType,
     tableName: String,
-    syncStrategy: TableSync
+    syncStrategy: TableSync,
+    createIfAbsent: Boolean
   ): (List[String], Boolean) = (Nil, true)
 
   lazy val fullDomainName = taskDesc.database match {
@@ -256,7 +257,7 @@ abstract class AutoTask(
           if (
             this.syncSchema && settings.appConfig.syncSqlWithYaml && taskDesc._auditTableName.isEmpty
           ) {
-            val list = schemaHandler.syncPreviewSqlWithYaml(taskDesc.fullName(), None, None)
+            val list = schemaHandler.syncPreviewSqlWithDb(taskDesc.fullName(), None, None)
             schemaHandler.syncApplySqlWithYaml(taskDesc, list, None)
           } else
             taskDesc
@@ -276,9 +277,10 @@ abstract class AutoTask(
               // For Spark we do not need this since Spark is schema on read
               val (columnStatements, _) =
                 buildTableSchemaSQL(
-                  updatedTaskDesc.sparkSchema(schemaHandler),
-                  this.fullTableName,
-                  updatedTaskDesc.getSyncStrategyValue()
+                  incomingSchema = updatedTaskDesc.sparkSchema(schemaHandler),
+                  tableName = this.fullTableName,
+                  syncStrategy = updatedTaskDesc.getSyncStrategyValue(),
+                  createIfAbsent = false
                 )
               logger.info(s"${columnStatements.length} Schema change(s) to apply:")
               columnStatements.foreach { stmt =>
@@ -806,7 +808,7 @@ object AutoTask extends LazyLogging {
 
   }
 
-  def executeSelect(
+  private def executeSelectOnly(
     domain: String,
     table: String,
     sql: String,
@@ -823,7 +825,7 @@ object AutoTask extends LazyLogging {
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
-  ): Try[List[List[(String, Any)]]] = Try {
+  ): Try[JobResult] = Try {
     val quote =
       settings.appConfig.jdbcEngines
         .get(connection.getJdbcEngineName().toString)
@@ -895,6 +897,46 @@ object AutoTask extends LazyLogging {
     )
     t.run() match {
       case Success(jobResult) =>
+        jobResult
+      case Failure(e) =>
+        e.printStackTrace()
+        throw e
+    }
+  }
+
+  def executeSelect(
+    domain: String,
+    table: String,
+    sql: String,
+    summarizeOnly: Boolean,
+    connection: Settings.ConnectionInfo,
+    accessToken: Option[String],
+    connectionName: Option[String],
+    test: Boolean,
+    parseSQL: Boolean,
+    pageSize: Int,
+    pageNumber: Int,
+    scheduledDate: Option[String]
+  )(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): Try[List[List[(String, Any)]]] = Try {
+    executeSelectOnly(
+      domain,
+      table,
+      sql,
+      summarizeOnly,
+      connection,
+      accessToken,
+      connectionName,
+      test,
+      parseSQL,
+      pageSize,
+      pageNumber,
+      scheduledDate
+    ) match {
+      case Success(jobResult) =>
         jobResult.asList()
       case Failure(e) =>
         e.printStackTrace()
@@ -902,4 +944,45 @@ object AutoTask extends LazyLogging {
     }
   }
 
+  def executeSelectSchema(
+    domain: String,
+    table: String,
+    sql: String,
+    summarizeOnly: Boolean,
+    connection: Settings.ConnectionInfo,
+    accessToken: Option[String],
+    connectionName: Option[String],
+    test: Boolean,
+    parseSQL: Boolean,
+    pageSize: Int,
+    pageNumber: Int,
+    scheduledDate: Option[String]
+  )(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): Try[List[(String, String)]] =
+    Try {
+      val dryRunQuery = s"SELECT * FROM ($sql) WHERE 1=0"
+      executeSelectOnly(
+        domain,
+        table,
+        dryRunQuery,
+        summarizeOnly,
+        connection,
+        accessToken,
+        connectionName,
+        test,
+        parseSQL,
+        pageSize,
+        pageNumber,
+        scheduledDate
+      ) match {
+        case Success(jobResult) =>
+          jobResult.sqlSchema()
+        case Failure(e) =>
+          e.printStackTrace()
+          throw e
+      }
+    }
 }

@@ -444,6 +444,10 @@ object JdbcDbUtils extends LazyLogging {
       val statement = conn.prepareStatement(dialect.getTableExistsQuery(domainAndTablename))
       try {
         statement.executeQuery()
+      } catch {
+        case e: Exception =>
+          e.printStackTrace()
+          throw e
       } finally {
         statement.close()
       }

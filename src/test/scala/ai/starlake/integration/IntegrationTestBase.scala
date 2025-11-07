@@ -24,12 +24,12 @@ class IntegrationTestBase
 
   val starlakeDir = File(".")
   logger.info(starlakeDir.pathAsString)
-  def samplesFolder = starlakeDir / "samples"
-  def theSampleFolder = samplesFolder / "any-engine"
-  def theLinageFolder = samplesFolder / "lineage"
-  def incomingDir = theSampleFolder / "incoming"
-  def sampleDataDir = samplesFolder / "sample-data"
-  def migrationDir = starlakeDir / "migration"
+  def samplesFolder: File = starlakeDir / "samples"
+  def theSampleFolder: File = samplesFolder / "any-engine"
+  def theLinageFolder: File = samplesFolder / "lineage"
+  def incomingDir: File = theSampleFolder / "incoming"
+  def sampleDataDir: File = samplesFolder / "sample-data"
+  def migrationDir: File = starlakeDir / "migration"
 
   override protected def beforeAll() = {
     new Directory(new java.io.File(settings.appConfig.datasets)).deleteRecursively()

@@ -20,7 +20,7 @@ import org.apache.spark.sql.{DataFrame, SaveMode}
 import org.postgresql.copy.CopyManager
 import org.postgresql.core.BaseConnection
 
-import java.io.BufferedReader
+import java.io.{BufferedReader, FileReader}
 import java.sql.Timestamp
 import java.time.Instant
 import scala.util.{Failure, Success, Try}
@@ -755,14 +755,14 @@ class SparkAutoTask(
     }
      */
 
-    val twoSteps = writeStrategy.isMerge()
+    // do nothing just create the database
     if (sinkConnection.isDuckDb()) {
       JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnectionRefOptions) {
-        conn =>
-          // do nothing just create the database
+        _ =>
       }
-
     }
+
+    val twoSteps = writeStrategy.isMerge()
     val result =
       if (twoSteps) {
         val tablePartName = SQLUtils.temporaryTableName(taskDesc.table)
@@ -819,7 +819,7 @@ class SparkAutoTask(
                     s"COPY $firstStepTempTable FROM '$localFile' DELIMITER ',' CSV HEADER"
                   manager.copyIn(
                     copySql,
-                    new BufferedReader(new java.io.FileReader(localFile))
+                    new BufferedReader(new FileReader(localFile))
                   )
                 }
           }
@@ -878,15 +878,14 @@ class SparkAutoTask(
             storageHandler,
             schemaHandler
           )
-        if (
-          tableExists && !sinkConnection.isDuckDb()
-        ) // because DuckDB does not support standard merge statement
+        if (tableExists)
           secondStepAutoTask.updateJdbcTableSchema(
-            loadedDF.schema,
-            fullTableName,
-            TableSync.ALL
+            incomingSchema = loadedDF.schema,
+            tableName = fullTableName,
+            syncStrategy = TableSync.ALL,
+            createIfAbsent = false
           )
-
+        createDucklakePartitions()
         val jobResult = secondStepAutoTask.runJDBC(None)
         JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnectionRefOptions) {
           conn =>
@@ -917,11 +916,37 @@ class SparkAutoTask(
             scheduledDate = scheduledDate,
             syncSchema = false
           )
-        secondAutoStepTask.updateJdbcTableSchema(loadedDF.schema, fullTableName, TableSync.ALL)
+        secondAutoStepTask.updateJdbcTableSchema(
+          incomingSchema = loadedDF.schema,
+          tableName = fullTableName,
+          syncStrategy = TableSync.ALL,
+          createIfAbsent = true
+        )
+        createDucklakePartitions()
         val jobResult = secondAutoStepTask.runJDBC(Some(loadedDF))
         jobResult
       }
     result
+  }
+
+  private def createDucklakePartitions(): Unit = {
+    if (sinkConnection.isDucklake) {
+      schema.foreach { slSchema =>
+        val jdbcEngine = settings.appConfig.jdbcEngines("duckdb")
+        val partitionClause =
+          slSchema.metadata
+            .flatMap(_.sink.flatMap(_.toAllSinks().getPartitionByClauseSQL(jdbcEngine)))
+        partitionClause foreach { partitionClause =>
+          val sql = s"ALTER TABLE $fullTableName SET $partitionClause;"
+          JdbcDbUtils.withJDBCConnection(
+            this.schemaHandler.dataBranch(),
+            sinkConnection.options
+          ) { conn =>
+            JdbcDbUtils.execute(sql, conn)
+          }
+        }
+      }
+    }
   }
 
   override def buildRLSQueries(): List[String] = ???
