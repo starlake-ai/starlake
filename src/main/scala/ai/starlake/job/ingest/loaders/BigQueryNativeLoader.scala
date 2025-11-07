@@ -254,7 +254,10 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
     val bqTask = task.asInstanceOf[BigQueryAutoTask]
     val incomingSparkSchema =
       starlakeSchema.sparkSchemaWithoutIgnore(schemaHandler, withFinalName = true)
-    bqTask.updateBigQueryTableSchema(Some(incomingSparkSchema))
+    bqTask.updateBigQueryTableSchema(
+      incomingSparkSchema = Some(incomingSparkSchema),
+      createIfAbsent = true
+    )
     val jobResult = bqTask.run()
     jobResult
   }

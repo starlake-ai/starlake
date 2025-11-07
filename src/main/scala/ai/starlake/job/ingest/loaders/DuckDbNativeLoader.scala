@@ -5,7 +5,7 @@ import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.IngestionJob
 import ai.starlake.job.transform.JdbcAutoTask
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.{IngestionCounters, SparkUtils}
 import com.typesafe.scalalogging.LazyLogging
@@ -14,6 +14,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 
 import java.nio.charset.Charset
+import java.sql.Connection
 import scala.util.{Try, Using}
 
 class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
@@ -36,7 +37,11 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
   lazy val mergedMetadata: Metadata = ingestionJob.mergedMetadata
 
+  lazy val sinkConnection = mergedMetadata.getSinkConnection()
+
   lazy val scheduledDate: Option[String] = ingestionJob.scheduledDate
+
+  lazy val engineName: Engine = sinkConnection.getJdbcEngineName()
 
   private def requireTwoSteps(schema: SchemaInfo): Boolean = {
     // renamed attribute can be loaded directly so it's not in the condition
@@ -52,7 +57,6 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
   def run(): Try[List[IngestionCounters]] = {
     Try {
-      val sinkConnection = mergedMetadata.getSinkConnection()
       val twoSteps = requireTwoSteps(effectiveSchema)
       if (twoSteps) {
         val tempTables =
@@ -116,13 +120,15 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             storageHandler,
             schemaHandler
           )
+        val incomingSchema = schema.sparkSchemaWithoutIgnore(
+          schemaHandler,
+          withFinalName = true
+        )
         job.updateJdbcTableSchema(
-          schema.sparkSchemaWithoutIgnore(
-            schemaHandler,
-            withFinalName = true
-          ),
-          targetFullTableName,
-          TableSync.ALL
+          incomingSchema = incomingSchema,
+          tableName = targetFullTableName,
+          syncStrategy = TableSync.ALL,
+          createIfAbsent = true
         )
         job.run()
 
@@ -212,11 +218,22 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     }
   }
 
+  private def setPartition(connection: Connection, domainAndTableName: String) = {
+    if (sinkConnection.isDucklake) {
+      val jdbcEngine = settings.appConfig.jdbcEngines("duckdb")
+      val partitionClause =
+        mergedMetadata.getSink().toAllSinks().getPartitionByClauseSQL(jdbcEngine)
+      partitionClause.foreach { partitionClause =>
+        logger.info(s"Setting partition on $domainAndTableName : $partitionClause")
+        val sql = s"ALTER TABLE $domainAndTableName  SET $partitionClause;"
+        JdbcDbUtils.execute(sql, connection)
+      }
+    }
+  }
   def singleStepLoad(domain: String, table: String, schema: SchemaInfo, path: List[Path]) = {
-    val sinkConnection = mergedMetadata.getSinkConnection()
-    val temporary = table.startsWith("zztmp_")
+    val isTemporary = table.startsWith("zztmp_")
     val incomingSparkSchema =
-      schema.sparkSchemaWithIgnoreAndScript(schemaHandler, !temporary)
+      schema.sparkSchemaWithIgnoreAndScript(schemaHandler, !isTemporary)
     val domainAndTableName = domain + "." + table
     val optionsWrite =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, domainAndTableName, sinkConnection.options)
@@ -252,6 +269,9 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
                 optionsWrite,
                 ddlMap
               )
+              if (!isTemporary) {
+                setPartition(conn, domainAndTableName)
+              }
             }
           case _ => //  WriteStrategyType.OVERWRITE or first step of other strategies
             JdbcDbUtils.dropTable(conn, domainAndTableName)
@@ -265,6 +285,9 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
               optionsWrite,
               ddlMap
             )
+            if (!isTemporary) {
+              setPartition(conn, domainAndTableName)
+            }
         }
         val columnsString =
           attrsWithDDLTypes

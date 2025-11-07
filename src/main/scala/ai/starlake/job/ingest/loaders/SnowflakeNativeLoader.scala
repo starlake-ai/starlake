@@ -106,7 +106,8 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                 withFinalName = true
               ),
               targetTableFullName,
-              TableSync.ALL
+              TableSync.ALL,
+              true
             )
 
             val runResult = job.runJDBC(df = None, sqlConnection = Some(conn))

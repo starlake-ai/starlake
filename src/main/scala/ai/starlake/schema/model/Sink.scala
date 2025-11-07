@@ -185,7 +185,7 @@ final case class AllSinks(
     options.foreach(map += "sinkOptions" -> _.asJava)
 
     map += "sinkTableOptionsClause"    -> this.getTableOptionsClause(jdbcEngine)
-    map += "sinkTablePartitionClause"  -> this.getPartitionByClauseSQL(jdbcEngine)
+    map += "sinkTablePartitionClause"  -> this.getPartitionByClauseSQL(jdbcEngine).getOrElse("")
     map += "sinkTableClusteringClause" -> this.getClusterByClauseSQL(jdbcEngine)
 
     map.toMap
@@ -196,11 +196,11 @@ final case class AllSinks(
   }
 
   @JsonIgnore
-  def getPartitionByClauseSQL(jdbcEngine: JdbcEngine): String =
+  def getPartitionByClauseSQL(jdbcEngine: JdbcEngine): Option[String] =
     jdbcEngine.partitionBy match {
       case Some(partitionBy) =>
-        partition.map(_.mkString(s"$partitionBy (", ",", ")")) getOrElse ""
-      case None => ""
+        partition.map(_.mkString(s"$partitionBy (", ",", ")"))
+      case None => None
     }
 
   @JsonIgnore

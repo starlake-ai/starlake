@@ -29,6 +29,7 @@ case class IngestionCounters(
 }
 
 trait JobResult {
+  def sqlSchema(): List[(String, String)] = ???
   def asList(): List[List[(String, Any)]] = Nil
   def prettyPrint(format: String, dryRun: Boolean = false): String = ""
   def prettyPrint(
@@ -84,6 +85,14 @@ case class SparkJobResult(
   dataframe: Option[DataFrame],
   counters: Option[IngestionCounters]
 ) extends JobResult {
+
+  override def sqlSchema(): List[(String, String)] = {
+    dataframe
+      .map { dataFrame =>
+        dataFrame.schema.fields.map(field => field.name -> field.dataType.typeName).toList
+      }
+      .getOrElse(Nil)
+  }
   override def asList(): List[List[(String, Any)]] = {
     dataframe
       .map { dataFrame =>
@@ -114,18 +123,20 @@ case class SparkJobResult(
 
 }
 
-case class JdbcJobResult(headers: List[String], rows: List[List[String]] = Nil) extends JobResult {
+case class JdbcJobResult(headers: List[(String, String)], rows: List[List[String]] = Nil)
+    extends JobResult {
+  override def sqlSchema(): List[(String, String)] = headers
   override def prettyPrint(format: String, dryRun: Boolean = false): String = {
-    prettyPrint(format, headers, rows)
+    prettyPrint(format, headers.map(_._1), rows)
   }
 
   override def asList(): List[List[(String, Any)]] = {
-    rows.map { value => headers.zip(value) }
+    rows.map { value => headers.map(_._1).zip(value) }
 
   }
 
   def show(format: String): Unit = {
-    val result = prettyPrint(format, headers, rows)
+    val result = prettyPrint(format, headers.map(_._1), rows)
     println(result)
   }
 }

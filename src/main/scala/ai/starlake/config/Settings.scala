@@ -178,6 +178,8 @@ object Settings extends LazyLogging {
     options: Map[String, String] = Map.empty,
     _transpileDialect: Option[String] = None
   ) {
+    def isDucklake: Boolean =
+      this.options.getOrElse("preActions", "").contains("'ducklake:")
 
     def withEncryptedPassword(
       secretKey: String

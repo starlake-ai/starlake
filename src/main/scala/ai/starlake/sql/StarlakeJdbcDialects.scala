@@ -49,6 +49,9 @@ private object StarlakeDuckDbDialect extends JdbcDialect with SQLConfHelper {
     case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
     case _           => JdbcDbUtils.getCommonJDBCType(dt)._1
   }
+  override def getTableExistsQuery(table: String): String = {
+    s"SELECT count(*) as cnt FROM $table WHERE 1=0"
+  }
   override def getCatalystType(
     sqlType: Int,
     typeName: String,

@@ -44,6 +44,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractSchema, JdbcDbUtils}
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
+import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.model.*
 import ai.starlake.schema.model.Severity.*
 import ai.starlake.sql.SQLUtils
@@ -2443,7 +2444,28 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         logger.error("Failed to get task", exception)
         throw exception
     }
+  }
 
+  def syncPreviewSqlWithDb(
+    taskFullName: String,
+    query: Option[String],
+    accessToken: Option[String]
+  ): List[(TableAttribute, AttributeStatus)] = {
+    settings.schemaHandler().taskByFullName(taskFullName) match {
+      case Success(taskInfo) =>
+        val list: List[(TableAttribute, AttributeStatus)] =
+          taskInfo.diffSqlAttributesWithSQL(query, accessToken)
+        logger.debug(
+          s"Diff SQL attributes with YAML for task $taskFullName: ${list.length} attributes"
+        )
+        list.foreach { case (attribute, status) =>
+          logger.info(s"\tAttribute: ${attribute.name}, Status: $status")
+        }
+        list
+      case Failure(exception) =>
+        logger.error("Failed to get task", exception)
+        throw exception
+    }
   }
   // todo
   def upsertAttribute(

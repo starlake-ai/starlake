@@ -15,8 +15,9 @@ class StarbakeLoadSpec extends IntegrationTestBase {
   override def sampleDataDir = theSampleFolder / "sample-data"
   logger.info(theSampleFolder.pathAsString)
   "Autoload" should "succeed" in {
-    withEnvs("SL_ROOT" -> theSampleFolder.pathAsString, "SL_ENV" -> "SNOWFLAKE") {
+    withEnvs("SL_ROOT" -> theSampleFolder.pathAsString, "SL_ENV" -> "DUCKDB") {
       copyFilesToIncomingDir(sampleDataDir)
+      assert(new Main().run(Array("stage")))
       assert(new Main().run(Array("load")))
     }
   }

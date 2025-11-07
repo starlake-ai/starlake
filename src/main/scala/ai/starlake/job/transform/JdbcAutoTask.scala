@@ -177,6 +177,7 @@ class JdbcAutoTask(
             )
           df match {
             case Some(loadedDF) =>
+              val tblExists = this.tableExists
               JdbcDbUtils.withJDBCConnection(
                 this.schemaHandler.dataBranch(),
                 sinkOptions,
@@ -192,7 +193,8 @@ class JdbcAutoTask(
                     val jdbcUrl = sinkConnection.options("url")
                     // val dialect = SparkUtils.dialect(jdbcUrl)
                     // We always append to the table to keep the schema (Spark loose the schema otherwise). We truncate using the truncate query option
-                    JdbcDbUtils.truncateTable(conn, fullTableName)
+                    if (tblExists)
+                      JdbcDbUtils.truncateTable(conn, fullTableName)
                   }
                 } match {
                   case Success(_) =>
@@ -346,9 +348,13 @@ class JdbcAutoTask(
       val rs = stmt.executeQuery(mainSql)
       val result = new ListBuffer[List[String]]
       var i = 1
-      val headerAsSeq = new ListBuffer[String]
+      val resultingSchema = ListBuffer[(String, String)]()
+
       while (i <= rs.getMetaData.getColumnCount) {
-        headerAsSeq.append(rs.getMetaData.getColumnName(i))
+        val colName = rs.getMetaData.getColumnName(i)
+        val colType = rs.getMetaData.getColumnTypeName(i)
+        resultingSchema.append((colName, colType))
+
         i += 1
       }
       var rowCount = 0
@@ -362,7 +368,7 @@ class JdbcAutoTask(
         result.append(rowAsSeq.toList)
         rowCount = rowCount + 1
       }
-      JdbcJobResult(headerAsSeq.toList, result.toList)
+      JdbcJobResult(resultingSchema.toList, result.toList)
     } catch {
       case e: Exception =>
         throw new Exception(s"SQLException - Error running interactive SQL query: \n$mainSql\n", e)
@@ -393,13 +399,14 @@ class JdbcAutoTask(
   /** @param incomingSchema
     * @param tableName
     * @return
-    *   (list of sql to execute, if the table exists) if (table exists, sqls are actually alter
-    *   table statements, else these are create schema / table statements
+    *   (sqls to execute, tableExists? ) if (table exists, sqls are actually alter table statements,
+    *   else these are create schema / table statements
     */
   override def buildTableSchemaSQL(
     incomingSchema: StructType,
     tableName: String,
-    syncStrategy: TableSync
+    syncStrategy: TableSync,
+    createIfAbsent: Boolean
   ): (List[String], Boolean) = {
     // update target table schema if needed
     val isSCD2 = writeStrategy.getEffectiveType() == WriteStrategyType.SCD2
@@ -501,7 +508,7 @@ class JdbcAutoTask(
           // because in case all columns are dropped, an error is raised for a table without any columns.
           val allAlter = alterTableAddColumns ++ alterTableDropColumns
           (allAlter.toList, true)
-        } else {
+        } else if (createIfAbsent) {
           val optionsWrite =
             new JdbcOptionsInWrite(jdbcUrl, tableName, sinkConnectionRefOptions)
           logger.info(
@@ -519,6 +526,8 @@ class JdbcAutoTask(
             )
           val allSqls = List(createSchema, createTable, commentSQL.getOrElse(""))
           (allSqls, false)
+        } else {
+          (Nil, false)
         }
     }
   }
@@ -526,9 +535,10 @@ class JdbcAutoTask(
   def updateJdbcTableSchema(
     incomingSchema: StructType,
     tableName: String,
-    syncStrategy: TableSync
+    syncStrategy: TableSync,
+    createIfAbsent: Boolean
   ): Unit = {
-    buildTableSchemaSQL(incomingSchema, tableName, syncStrategy) match {
+    buildTableSchemaSQL(incomingSchema, tableName, syncStrategy, createIfAbsent) match {
       case (sqls, exists) =>
         JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnection.options) {
           conn =>

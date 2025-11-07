@@ -111,7 +111,7 @@ case class TableAttribute(
 
   override def toString: String =
     // we pretend the "settings" field does not exist
-    s"Attribute(${name},${`type`},${resolveArray()},${resolveRequired()},${resolvePrivacy()},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
+    s"TableAttribute(${name},${`type`},${resolveArray()},${resolveRequired()},${resolvePrivacy()},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
 
   def `type`(schemaHandler: SchemaHandler): Option[Type] =
     schemaHandler.types().find(_.name == `type`)
