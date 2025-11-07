@@ -44,7 +44,6 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractSchema, JdbcDbUtils}
 import ai.starlake.job.ingest.{AuditLog, RejectedRecord}
 import ai.starlake.job.metrics.ExpectationReport
-import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.model.*
 import ai.starlake.schema.model.Severity.*
 import ai.starlake.sql.SQLUtils
