@@ -1,7 +1,7 @@
 object Versions {
   val curator = "2.6.0"
-  val spark3 = "3.5.7"
-  val deltaSpark3d0 = "3.3.2"
+  val spark3 = "4.0.1"
+  val deltaSpark3d0 = "4.0.0"
   val scalatest = "3.2.19"
   val scalacheckForScalatest = "3.2.18.0"
   val sparkXML2d0 = "0.13.0"
@@ -15,7 +15,7 @@ object Versions {
   val log4s = "1.3.3"
   val swaggerParser = "2.1.34"
   val betterFiles = "3.9.2"
-  val jacksonForSpark3 = "2.15.2"
+  val jacksonForSpark3 = "2.18.2"
   val pureConfig = "0.17.9"
   val esSpark = "8.16.3"
   // starting 1.4.1, it uses 2.17.0 of jackson which is not compatible with provided version in spark
@@ -24,8 +24,8 @@ object Versions {
   val bigquery = "2.49.0"
   // val gcsConnector = "3.0.4"
   val gcsConnector = "hadoop3-2.2.29"
-  val hadoop = "3.3.6"
-  val sparkBigqueryWithDependencies = "0.42.4"
+  val hadoop = "3.4.1"
+  val sparkBigqueryWithDependencies = "0.43.1"
   val bigqueryConnector = "hadoop3-1.2.0"
   val h2 = "2.3.232" // Test only
   val poi = "4.1.2"
