@@ -259,7 +259,7 @@ class SparkAutoTask(
           session,
           s"CREATE SCHEMA IF NOT EXISTS ${taskDesc.domain} WITH DBPROPERTIES($tagsAsString)"
         )
-      } else {
+      } else if (taskDesc.domain != "__ignore__") {
         SparkUtils.createSchema(session, taskDesc.domain)
       }
       val jobResult = interactive match {
