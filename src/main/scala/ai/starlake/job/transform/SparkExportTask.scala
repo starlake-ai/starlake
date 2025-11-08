@@ -56,7 +56,7 @@ class SparkExportTask(
         dataset.write
           .format(fsSink.getStorageFormat())
           .mode(this.taskDesc.getWriteMode().toSaveMode)
-          .options(fsSink.getStorageOptions())
+          .options(fsSink.sparkStorageOptions())
           .save(location.toString)
         exportToCSV(
           taskDesc.domain,

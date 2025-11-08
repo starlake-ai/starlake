@@ -178,6 +178,7 @@ object Settings extends LazyLogging {
     options: Map[String, String] = Map.empty,
     _transpileDialect: Option[String] = None
   ) {
+    @JsonIgnore
     def isDucklake: Boolean =
       this.options.getOrElse("preActions", "").contains("'ducklake:")
 

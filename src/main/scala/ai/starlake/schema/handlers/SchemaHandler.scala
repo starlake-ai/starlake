@@ -2407,7 +2407,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         settings.storageHandler()
       )
       val sqlPath = new Path(DatasetArea.transform, s"${task.domain}/${task.name}.sql")
-      optSql.foreach { sql =>
+      optSql.orElse(task.sql).foreach { sql =>
         storage.write(sql, sqlPath)
       }
       taskUpdated(task.domain, task.name)
