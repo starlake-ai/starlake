@@ -375,7 +375,7 @@ class ExtractDataJobSpec extends TestHelper with BeforeAndAfterEach {
   }
 
   "extractPartitionToFile" should "extract data to a file without index when extract config is not partitionned" in {
-    pending
+    ignore
     new WithSettings() {
       private val extractDataJob = new ExtractDataJob(settings.schemaHandler())
       val jdbcConnection = settings.appConfig.connections("test-pg")

@@ -6,7 +6,7 @@ import ai.starlake.job.Main
 class LoadPgIntegrationSpec extends JDBCIntegrationSpecBase {
   if (sys.env.getOrElse("SL_LOCAL_TEST", "false").toBoolean) {
     "Import / Load / Transform PG" should "succeed" in {
-      pending
+      ignore
       withEnvs(
         "SL_ROOT" -> theSampleFolder.pathAsString,
         "SL_ENV"  -> "PG"
@@ -26,7 +26,7 @@ class LoadPgIntegrationSpec extends JDBCIntegrationSpecBase {
       }
     }
     "Import / Load / Transform PG 2" should "succeed" in {
-      pending
+      ignore
       withEnvs(
         "SL_ROOT" -> theSampleFolder.pathAsString,
         "SL_ENV"  -> "PG"

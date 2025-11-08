@@ -202,12 +202,14 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       sparkSession.sql("DROP TABLE IF EXISTS user.user")
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
-      workflow.autoJob(TransformConfig("user.user", scheduledDate = None))
+      workflow.autoJob(TransformConfig("user.user", scheduledDate = None, reload = true))
+
+      sparkSession.table("user.user").show()
 
       val result = sparkSession
         .table("user.user")
         .select("firstname", "lastname", "age")
-        .take(2)
+        .collect()
 
       result.length shouldBe 1
       result

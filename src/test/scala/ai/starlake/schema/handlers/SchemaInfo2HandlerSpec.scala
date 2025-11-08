@@ -170,7 +170,7 @@ class SchemaInfo2HandlerSpec extends TestHelper {
     // TODO Helper (to delete)
     "Ingest CSV" should "produce file in accepted" in {
       // ES Load in standby
-      pending
+      ignore
       new SpecTrait(
         sourceDomainOrJobPathname = s"/sample/elasticsearch/DOMAIN.sl.yml",
         datasetDomainName = "DOMAIN",

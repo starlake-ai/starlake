@@ -366,7 +366,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
   }
 
   it should "round-trip any Yaml Transform Config" in {
-    pending
+    ignore
     import YamlConfigGenerators.*
     forAll { (yamlTransformConfig: TransformDesc) =>
       val mapperWithEmptyString =

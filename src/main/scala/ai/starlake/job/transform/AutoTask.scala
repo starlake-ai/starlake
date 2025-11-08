@@ -253,7 +253,9 @@ abstract class AutoTask(
           jdbcRunEngine,
           sinkConfig
         )
-        val updatedTaskDesc =
+        val updatedTaskDesc = taskDesc
+
+        /*
           if (
             this.syncSchema && settings.appConfig.syncSqlWithYaml && taskDesc._auditTableName.isEmpty
           ) {
@@ -261,6 +263,7 @@ abstract class AutoTask(
             schemaHandler.syncApplySqlWithYaml(taskDesc, list, None)
           } else
             taskDesc
+         */
 
         // synched if ready for sync and syncYamlWithDb is true (SL_SYNC_YAML_WITH_DB=true) and not an audit table (to avoid recursion)
         if (
