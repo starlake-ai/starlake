@@ -1369,10 +1369,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           case "sl.yml" =>
             Try {
               val taskPath = new Path(folder, taskFilename)
+              val content = storage.read(taskPath)
               val taskDesc = YamlSerde
                 .deserializeYamlTask(
                   Utils
-                    .parseJinja(storage.read(taskPath), activeEnvVars()),
+                    .parseJinja(content, activeEnvVars()),
                   taskPath.toString
                 )
                 .copy(name = taskFileNameWithoutExt)
