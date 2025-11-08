@@ -78,9 +78,6 @@ class SparkEnv private (
             config.set("spark.sql.warehouse.dir", datasetsArea)
             config.set("spark.sql.catalogImplementation", "hive")
 
-          case "none" =>
-            // Default Spark catalog implementation
-            logger.info("Using default Spark catalog implementation")
           case "delta" if !Utils.isDeltaAvailable() && !Utils.isRunningInDatabricks() =>
             logger.warn(
               "Delta catalog requested but Delta package not found. Using default Spark catalog implementation"
@@ -146,6 +143,9 @@ class SparkEnv private (
 
           case other if other != "none" =>
             logger.warn(s"Unknown local catalog $other. Using default Spark catalog implementation")
+          case "none" =>
+            // Default Spark catalog implementation
+            logger.info("Using default Spark catalog implementation")
           case _ =>
             logger.info("Using default Spark catalog implementation")
         }
