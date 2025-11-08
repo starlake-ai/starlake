@@ -180,6 +180,7 @@ object SparkUtils extends LazyLogging {
       try {
         Some(
           JdbcUtils.getSchema(
+            conn,
             statement.executeQuery(),
             dialect,
             isTimestampNTZ = preferTimestampNTZ
@@ -270,7 +271,11 @@ object SparkUtils extends LazyLogging {
         strSchema.replaceAll("\"", "")
 
     val domainName = domainAndTableName.split('.').head
-    val createSchemaSQL = s"CREATE SCHEMA IF NOT EXISTS $domainName"
+    val createSchemaSQL =
+      if (domainName != "__ignore__")
+        s"CREATE SCHEMA IF NOT EXISTS $domainName"
+      else
+        ""
     val temporary = if (temporaryTable) "TEMP" else ""
     val createTableSQL =
       s"CREATE $temporary TABLE IF NOT EXISTS $domainAndTableName ($finalStrSchema) $createTableOptions"
@@ -475,10 +480,8 @@ object SparkUtils extends LazyLogging {
     } match {
       case Success(_) =>
         true
-      case Failure(_: NoSuchTableException) =>
-        false
       case Failure(e) =>
-        throw e
+        false
     }
 
   }

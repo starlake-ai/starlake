@@ -157,7 +157,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
       }
     }
     "Extract Table infos" should "succeed" in {
-      pending
+      ignore
       val logTime = java.sql.Timestamp.from(Instant.now)
       val start = System.currentTimeMillis()
       val infos = BigQueryInfo.extractInfo(TablesExtractConfig())
