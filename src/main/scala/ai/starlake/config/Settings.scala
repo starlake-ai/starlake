@@ -1415,9 +1415,22 @@ object Settings extends LazyLogging {
     }
 
     val withDefaultWriteFormat =
-      withDefaultSchedules.copy(appConfig =
-        withDefaultSchedules.appConfig.copy(defaultWriteFormat = localCatalog)
-      )
+      if (localCatalog != "none")
+        withDefaultSchedules.copy(appConfig =
+          withDefaultSchedules.appConfig.copy(
+            defaultWriteFormat = localCatalog,
+            defaultRejectedWriteFormat = localCatalog,
+            defaultAuditWriteFormat = localCatalog
+          )
+        )
+      else
+        withDefaultSchedules.copy(appConfig =
+          withDefaultSchedules.appConfig.copy(
+            defaultWriteFormat = "parquet",
+            defaultRejectedWriteFormat = "parquet",
+            defaultAuditWriteFormat = "parquet"
+          )
+        )
 
     withDefaultWriteFormat
   }
