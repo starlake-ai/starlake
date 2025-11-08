@@ -5,7 +5,7 @@ import ai.starlake.job.sink.bigquery.BigQueryJobResult
 import ai.starlake.job.transform.SparkAutoTask
 import ai.starlake.job.validator.SimpleRejectedRecord
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.utils.GcpUtils
 import com.google.cloud.bigquery.LegacySQLTypeName
 import org.apache.hadoop.fs.Path
@@ -13,6 +13,7 @@ import org.apache.spark.sql.types.{StringType, TimestampType}
 import org.apache.spark.sql.{Dataset, Row, SparkSession}
 
 import java.sql.Timestamp
+import scala.collection.immutable.ArraySeq
 import scala.util.{Failure, Success, Try}
 object IngestionUtil {
 
@@ -62,7 +63,7 @@ object IngestionUtil {
       case ConnectionType.GCPLOG =>
         val logName = settings.appConfig.audit.getDomainRejected()
         GcpUtils.sinkToGcpCloudLogging(
-          limitedRejectedTypedDS.collect().map(_.asMap()),
+          ArraySeq.unsafeWrapArray(limitedRejectedTypedDS.collect()).map(_.asMap()),
           "rejected",
           logName
         )

@@ -2401,6 +2401,10 @@
         "syncYamlWithDb": {
           "description": "Update database with YAML transform is run. Default to true",
           "type": "boolean"
+        },
+        "onExceptionRetries": {
+          "description": "Number of retries on transient exceptions",
+          "type": "integer"
         }
       }
     },

@@ -91,7 +91,8 @@ sealed abstract class Sink {
   val connectionRef: Option[String]
   def toAllSinks(): AllSinks
 
-  def asMap(jdbcEngine: JdbcEngine): Map[String, Object] = toAllSinks().asMap(jdbcEngine)
+  def asMap(jdbcEngine: JdbcEngine)(implicit settings: Settings): Map[String, Object] =
+    toAllSinks().asMap(jdbcEngine)
 
   def getConnectionType()(implicit
     settings: Settings
@@ -167,7 +168,7 @@ final case class AllSinks(
 
   def this() = this(None)
 
-  def asMap(jdbcEngine: JdbcEngine): Map[String, Object] = {
+  def asMap(jdbcEngine: JdbcEngine)(implicit settings: Settings): Map[String, Object] = {
     val map = scala.collection.mutable.Map.empty[String, Object]
     connectionRef.foreach(map += "sinkConnectionRef" -> _)
     sharding.foreach(map += "sinkShardSuffix" -> _.asJava)
@@ -196,10 +197,23 @@ final case class AllSinks(
   }
 
   @JsonIgnore
-  def getPartitionByClauseSQL(jdbcEngine: JdbcEngine): Option[String] =
+  def getConnection()(implicit
+    settings: Settings
+  ): ConnectionInfo = {
+    val ref = connectionRef.getOrElse(settings.appConfig.connectionRef)
+    settings.appConfig.connections(ref)
+  }
+
+  @JsonIgnore
+  def getPartitionByClauseSQL(jdbcEngine: JdbcEngine)(implicit settings: Settings): Option[String] =
     jdbcEngine.partitionBy match {
       case Some(partitionBy) =>
-        partition.map(_.mkString(s"$partitionBy (", ",", ")"))
+        val connection = this.getConnection()
+        // duckdb without ducklake does not support partitioned tables
+        if (!connection.isDuckDb() || connection.isDucklake)
+          partition.map(_.mkString(s"$partitionBy (", ",", ")"))
+        else
+          None
       case None => None
     }
 
@@ -491,7 +505,7 @@ case class FsSink(
       format.getOrElse(settings.appConfig.defaultWriteFormat)
   }
 
-  def getStorageOptions(): Map[String, String] = {
+  def sparkStorageOptions(): Map[String, String] = {
     getOptions() +
     ("delimiter"  -> delimiter.getOrElse("µ")) +
     ("withHeader" -> "false")
@@ -503,13 +517,16 @@ case class FsSink(
     exportFormats.contains(format)
   }
 
-  def getPartitionByClauseSQL(): String =
+  // Get the partition clause for Spark SQL only
+  def sparkPartitionByClauseSQL(): String =
     partition.map(_.mkString("PARTITIONED BY (", ",", ")")) getOrElse ""
 
-  def getClusterByClauseSQL(): String =
+  // Get the cluster clause for Spark SQL only
+  def sparkClusterByClauseSQL(): String =
     clustering.map(_.mkString("CLUSTERED BY (", ",", ")")) getOrElse ""
 
-  def getTableOptionsClause(): String = {
+  // Get the options clause for Spark SQL only
+  def sparkTableOptionsClause(): String = {
     val opts = getOptions()
     if (opts.isEmpty) {
       ""

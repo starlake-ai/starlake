@@ -556,9 +556,9 @@ class SparkAutoTask(
       val ddlTable =
         s"""CREATE TABLE $fullTableName($fields)
            |USING ${sink.getStorageFormat()}
-           |${sink.getTableOptionsClause()}
-           |${sink.getPartitionByClauseSQL()}
-           |${sink.getClusterByClauseSQL()}
+           |${sink.sparkTableOptionsClause()}
+           |${sink.sparkPartitionByClauseSQL()}
+           |${sink.sparkClusterByClauseSQL()}
            |$comment
            |$tblProperties
            |""".stripMargin

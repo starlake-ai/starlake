@@ -6,7 +6,7 @@ import ai.starlake.job.Main
 class FreshnessSnowflakeIntegrationSpec extends JDBCIntegrationSpecBase {
 
   override def sampleDataDir = theSampleFolder / "sample-data"
-  if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
+  if (sys.env.getOrElse(" ", "false").toBoolean) {
     if (sys.env.contains("SNOWFLAKE_ACCOUNT")) {
       "Import / Load / Transform Snowflake" should "succeed" in {
         withEnvs(

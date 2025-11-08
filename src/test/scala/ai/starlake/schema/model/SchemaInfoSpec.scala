@@ -94,7 +94,7 @@ class SchemaInfoSpec extends TestHelper {
         ValidationMessage(
           Error,
           "Attribute.primitiveType in table ignore.",
-          "Attribute Attribute(attr,struct,true,true,ApproxLong(20),None,None,None,List(),None,None,Set()) : Struct types must have at least one attribute."
+          "Attribute TableAttribute(attr,struct,true,true,ApproxLong(20),None,None,None,List(),None,None,Set()) : Struct types must have at least one attribute."
         )
       )
 
