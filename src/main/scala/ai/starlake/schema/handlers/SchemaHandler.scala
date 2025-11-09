@@ -2424,28 +2424,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def syncPreviewSqlWithYaml(
-    taskFullName: String,
-    query: Option[String],
-    accessToken: Option[String]
-  ): List[(TableAttribute, AttributeStatus)] = {
-    settings.schemaHandler().taskByFullName(taskFullName) match {
-      case Success(taskInfo) =>
-        val list: List[(TableAttribute, AttributeStatus)] =
-          taskInfo.diffSqlAttributesWithYaml(query, accessToken)
-        logger.debug(
-          s"Diff SQL attributes with YAML for task $taskFullName: ${list.length} attributes"
-        )
-        list.foreach { case (attribute, status) =>
-          logger.info(s"\tAttribute: ${attribute.name}, Status: $status")
-        }
-        list
-      case Failure(exception) =>
-        logger.error("Failed to get task", exception)
-        throw exception
-    }
-  }
-
   def syncPreviewSqlWithDb(
     taskFullName: String,
     query: Option[String],
