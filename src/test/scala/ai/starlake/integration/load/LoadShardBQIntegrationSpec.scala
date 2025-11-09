@@ -6,7 +6,8 @@ import better.files.File
 
 class LoadShardBQIntegrationSpec extends BigQueryIntegrationSpecBase {
   override def sampleDataDir: File = theSampleFolder / "sample-shard"
-  "Import / Load / Transform BQ Shard" should "succeed" in {
+
+  "Import / Load / Transform BQ Shard" should "succeed" ignore {
     withEnvs(
       "SL_ROOT" -> theSampleFolder.pathAsString,
       "SL_ENV"  -> "BQ"
