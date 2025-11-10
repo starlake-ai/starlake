@@ -147,7 +147,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def checkDagsValidity(): (Option[String], List[Either[List[ValidationMessage], Boolean]]) = {
-    val dagConfigs = this.loadDagGenerationConfigs()
+    val dagConfigs = this.loadDagGenerationConfigs(instantiateVars = false)
     val domainDags =
       this
         .domains()
@@ -971,9 +971,25 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     * Override of dag generation config can be done inside domain config file at domain or table
     * level.
     */
-  def loadDagGenerationConfigs(): Map[String, DagInfo] = {
+  def loadDagGenerationConfigs(instantiateVars: Boolean): Map[String, DagInfo] = {
     if (storage.exists(DatasetArea.dags)) {
-      deserializedDagGenerationConfigs(DatasetArea.dags)
+      val dagMap = deserializedDagGenerationConfigs(DatasetArea.dags)
+      dagMap.map { case (dagName, dagInfo) =>
+        if (instantiateVars) {
+          val scriptDir = Option(System.getenv("SL_SCRIPT_DIR"))
+          val starlakePath = dagInfo.options.get("SL_STARLAKE_PATH")
+          if (
+            scriptDir.isDefined &&
+            (starlakePath.contains("starlake") || starlakePath.isEmpty)
+          ) {
+            dagName -> dagInfo.copy(options =
+              dagInfo.options.updated("SL_STARLAKE_PATH", s"$scriptDir/starlake")
+            )
+          } else
+            dagName -> dagInfo
+        } else
+          dagName -> dagInfo
+      }
     } else {
       logger.info("No dags config provided. Use only configuration defined in domain config files.")
       Map.empty[String, DagInfo]

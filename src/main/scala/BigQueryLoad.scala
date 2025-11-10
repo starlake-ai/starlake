@@ -25,9 +25,9 @@ object BigqueryLoad {
     // Define the schema
     val schema = StructType(
       Array(
-        StructField("name", StringType, true),
-        StructField("age", IntegerType, true),
-        StructField("test", StringType, false)
+        StructField("name", StringType, nullable = true),
+        StructField("age", IntegerType, nullable = true),
+        StructField("test", StringType, nullable = false)
       )
     )
 
