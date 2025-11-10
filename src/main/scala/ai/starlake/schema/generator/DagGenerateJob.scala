@@ -127,7 +127,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       config.outputDir.getOrElse(DatasetArea.build.toString + "/dags/")
     )
 
-    val dagConfigs = schemaHandler.loadDagGenerationConfigs()
+    val dagConfigs = schemaHandler.loadDagGenerationConfigs(instantiateVars = true)
     val taskConfigs = taskWithDagConfigs(dagConfigs, config.tags.toSet)
     val env = schemaHandler.activeEnvVars(root = Option(settings.appConfig.root))
     val jEnv = env.map { case (k, v) =>
@@ -313,7 +313,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       config.outputDir.getOrElse(DatasetArea.build.toString + "/dags/")
     )
 
-    val dagConfigs = schemaHandler.loadDagGenerationConfigs()
+    val dagConfigs = schemaHandler.loadDagGenerationConfigs(instantiateVars = true)
     val tableConfigs = tableWithDagConfigs(dagConfigs, config.tags.toSet)
     val groupedDags = groupByDagConfigScheduleDomain(tableConfigs)
 

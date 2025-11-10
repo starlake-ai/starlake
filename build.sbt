@@ -242,7 +242,6 @@ sonatypeCredentialHost := sonatypeCentralHost
 
 ThisBuild / publishTo := {
   val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
-  println("--> Publishing to " + (if (isSnapshot.value) "central-snapshots" else "local staging"))
   if (isSnapshot.value) Some("central-snapshots" at centralSnapshots)
   else localStaging.value
 }
