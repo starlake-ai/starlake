@@ -607,8 +607,8 @@ object TestHelper extends LazyLogging {
   def stopSession() = {
     if (_session != null) {
 
-      _session.stop()
-      _session = null
+      // _session.stop()
+      // _session = null
     }
 
   }
@@ -638,8 +638,8 @@ object TestHelper extends LazyLogging {
 
   def closeSession(): Unit = {
     if (_session != null) {
-      _session.stop()
-      _session = null
+      // _session.stop()
+      // _session = null
     }
   }
 
@@ -664,8 +664,8 @@ object TestHelper extends LazyLogging {
 
   def sparkSessionReset(implicit isettings: Settings): SparkSession = {
     if (_session != null) {
-      _session.stop()
-      _session = null
+      // _session.stop()
+      // _session = null
       // BetterFile("metastore_db").delete(swallowIOExceptions = true)
     }
     val job = new SparkJob {

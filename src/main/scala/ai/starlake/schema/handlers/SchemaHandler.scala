@@ -147,7 +147,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def checkDagsValidity(): (Option[String], List[Either[List[ValidationMessage], Boolean]]) = {
-    val dagConfigs = this.loadDagGenerationConfigs()
+    val dagConfigs = this.loadDagGenerationConfigs(instantiateVars = false)
     val domainDags =
       this
         .domains()
@@ -971,9 +971,25 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     * Override of dag generation config can be done inside domain config file at domain or table
     * level.
     */
-  def loadDagGenerationConfigs(): Map[String, DagInfo] = {
+  def loadDagGenerationConfigs(instantiateVars: Boolean): Map[String, DagInfo] = {
     if (storage.exists(DatasetArea.dags)) {
-      deserializedDagGenerationConfigs(DatasetArea.dags)
+      val dagMap = deserializedDagGenerationConfigs(DatasetArea.dags)
+      dagMap.map { case (dagName, dagInfo) =>
+        if (instantiateVars) {
+          val scriptDir = Option(System.getenv("SL_SCRIPT_DIR"))
+          val starlakePath = dagInfo.options.get("SL_STARLAKE_PATH")
+          if (
+            scriptDir.isDefined &&
+            (starlakePath.contains("starlake") || starlakePath.isEmpty)
+          ) {
+            dagName -> dagInfo.copy(options =
+              dagInfo.options.updated("SL_STARLAKE_PATH", s"$scriptDir/starlake")
+            )
+          } else
+            dagName -> dagInfo
+        } else
+          dagName -> dagInfo
+      }
     } else {
       logger.info("No dags config provided. Use only configuration defined in domain config files.")
       Map.empty[String, DagInfo]
@@ -2421,28 +2437,6 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       taskUpdated(task.domain, task.name)
       this.taskOnly(task.fullName()).getOrElse(throw new Exception("Should not happen"))
       task
-    }
-  }
-
-  def syncPreviewSqlWithYaml(
-    taskFullName: String,
-    query: Option[String],
-    accessToken: Option[String]
-  ): List[(TableAttribute, AttributeStatus)] = {
-    settings.schemaHandler().taskByFullName(taskFullName) match {
-      case Success(taskInfo) =>
-        val list: List[(TableAttribute, AttributeStatus)] =
-          taskInfo.diffSqlAttributesWithYaml(query, accessToken)
-        logger.debug(
-          s"Diff SQL attributes with YAML for task $taskFullName: ${list.length} attributes"
-        )
-        list.foreach { case (attribute, status) =>
-          logger.info(s"\tAttribute: ${attribute.name}, Status: $status")
-        }
-        list
-      case Failure(exception) =>
-        logger.error("Failed to get task", exception)
-        throw exception
     }
   }
 

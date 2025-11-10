@@ -302,23 +302,10 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
               if (ps.startsWith("file:"))
                 StorageHandler.localFile(p).pathAsString
               else if (ps.contains { "://" }) {
-                val defaultEndpoint =
-                  ps.substring(2) match {
-                    case "gs" => "storage.googleapis.com"
-                    case "s3" => "s3.amazonaws.com"
-                    case _    => "s3.amazonaws.com"
-                  }
-                val endpoint =
-                  sinkConnection.options.getOrElse("s3_endpoint", defaultEndpoint)
-                val keyid =
-                  sinkConnection.options("s3_access_key_id")
-                val secret =
-                  sinkConnection.options("s3_secret_access_key")
+                // For accessing secured storage like S3 with DuckDB HTTPFS extension,
+                // user needs to have created a secret with the proper configuration
                 JdbcDbUtils.execute("INSTALL httpfs;", conn)
                 JdbcDbUtils.execute("LOAD httpfs;", conn)
-                JdbcDbUtils.execute(s"SET s3_endpoint='$endpoint';", conn)
-                JdbcDbUtils.execute(s"SET s3_access_key_id='$keyid';", conn)
-                JdbcDbUtils.execute(s"SET s3_secret_access_key='$secret';", conn)
                 ps
               } else {
                 ps

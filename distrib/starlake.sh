@@ -4,6 +4,8 @@ set -e
 
 SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
 
+export SL_SCRIPT_DIR="$SCRIPT_DIR"
+
 API_BIN_DIR="$SCRIPT_DIR/bin/api/bin"
 
 SL_ROOT="${SL_ROOT:-`pwd`}"

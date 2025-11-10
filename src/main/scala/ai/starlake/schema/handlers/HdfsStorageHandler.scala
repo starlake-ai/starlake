@@ -104,6 +104,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   private def loadGCPExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
+    val gcpOptions = connectionOptions.filter { case (k, _) => k.startsWith("google.cloud") }
     val fsConfig =
       if (settings.appConfig.fileSystem.startsWith("file:")) {
         Map.empty[String, String]
@@ -135,10 +136,11 @@ class HdfsStorageHandler(fileSystem: String)(implicit
         )
       }
     val authConf = loadGCPAuthConf(connectionOptions)
-    fsConfig ++ authConf
+    fsConfig ++ authConf ++ gcpOptions
   }
 
   private def loadAzureExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
+    val azureOptions = connectionOptions.filter { case (k, _) => k.startsWith("fs.azure") }
     val azureStorageContainer = connectionOptions.getOrElse(
       "azureStorageContainer",
       throw new Exception("azureStorageContainer attribute is required for Azure Storage")
@@ -155,11 +157,30 @@ class HdfsStorageHandler(fileSystem: String)(implicit
       "fs.defaultFS" -> azureStorageContainer,
       s"fs.azure.account.auth.type.$azureStorageAccount.blob.core.windows.net" -> "SharedKey",
       s"fs.azure.account.key.$azureStorageAccount.blob.core.windows.net"       -> azureStorageKey
-    )
+    ) ++ azureOptions
   }
 
   private def loadS3ExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
-    throw new Exception("S3 credentials Not yet released")
+    val fsConfig =
+      if (settings.appConfig.fileSystem.startsWith("file:")) {
+        Map.empty[String, String]
+      } else {
+        val s3Options = connectionOptions.filter { case (k, _) => k.startsWith("fs.s3a") }
+        val accessKey =
+          connectionOptions.get("s3AccessKey").map(("fs.s3a.access.key", _)).toList.toMap
+        val secretKey =
+          connectionOptions.get("s3SecretKey").map(("fs.s3a.secret.key", _)).toList.toMap
+
+        // https://github.com/GoogleCloudDataproc/hadoop-connectors/blob/master/gcs/CONFIGURATION.md
+        Map(
+          "fs.s3a.endpoint"          -> "s3.amazonaws.com",
+          "fs.s3a.fast.upload"       -> "true",
+          "fs.s3a.path.style.access" -> "true",
+          "fs.s3a.aws.credentials.provider" -> "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
+          "fs.s3a.impl" -> "org.apache.hadoop.fs.s3a.S3AFileSystem"
+        ) ++ accessKey ++ secretKey ++ s3Options
+      }
+    fsConfig
   }
 
   override def loadExtraConf(): Map[String, String] = {
@@ -170,9 +191,12 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
     if (options.contains("authType") || options.contains("gcsBucket"))
       loadGCPExtraConf(options)
-    else if (options.contains("s3Bucket"))
+    else if (options.exists(it => it._1.startsWith("s3") || it._1.startsWith("fs.s3")))
       loadS3ExtraConf(options)
-    else if (options.contains("azureStorageContainer"))
+    else if (
+      options
+        .exists(it => it._1.startsWith("azureStorageContainer") || it._1.startsWith("fs.azure"))
+    )
       loadAzureExtraConf(options)
     else
       Map.empty
