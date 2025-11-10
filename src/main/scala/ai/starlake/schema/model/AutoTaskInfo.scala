@@ -2,21 +2,21 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig, JdbcDbUtils}
+import ai.starlake.extract.{ExtractSchema, ExtractSchemaConfig}
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Severity.Error
 import ai.starlake.sql.{SQLTypeMappings, SQLUtils}
+import ai.starlake.transpiler.JSQLSchemaDiff
 import ai.starlake.transpiler.diff.{Attribute as DiffAttribute, DBSchema}
 import ai.starlake.transpiler.schema.CaseInsensitiveLinkedHashMap
-import ai.starlake.transpiler.{diff, JSQLSchemaDiff}
 import ai.starlake.utils.{SparkUtils, YamlSerde}
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructType
 
 import scala.jdk.CollectionConverters.*
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 case class TaskDesc(version: Int, task: AutoTaskInfo)
 
