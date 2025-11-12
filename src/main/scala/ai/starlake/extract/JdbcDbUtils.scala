@@ -63,18 +63,24 @@ object JdbcDbUtils extends LazyLogging {
     private val duckDbPool = scala.collection.concurrent.TrieMap[String, Connection]()
 
     private def getHikariPoolKey(url: String, options: Map[String, String]): String = {
-      val keysToConsider =
-        options.get("sl_access_token") match {
-          case Some(_) =>
-            options.filter { case (k, v) =>
-              Set("password", "sl_access_token", "user").contains(k) && v.nonEmpty
-            }
-          case None =>
-            options.filter { case (k, v) =>
-              Set("password", "user", "authenticator").contains(k) && v.nonEmpty
-            }
+      val poolKey = options
+        .map { case (k, v) =>
+          if (
+            k.toLowerCase().contains("password") || k.toLowerCase().contains("token") || k
+              .toLowerCase()
+              .contains("sl_access_token")
+          )
+            s"$k=****"
+          else
+            s"$k=$v"
         }
-      url + "?" + keysToConsider.toList.sortBy(_._1).map { case (k, v) => s"$k=$v" }.mkString("&")
+        .toList
+        .sorted
+        .mkString("&") + "@" + url
+      // get MD5 hash of the pool key to avoid too long names
+      val md = java.security.MessageDigest.getInstance("MD5")
+      val hash = md.digest(poolKey.getBytes).map("%02x".format(_)).mkString
+      hash
     }
 
     def getConnection(
@@ -88,11 +94,13 @@ object JdbcDbUtils extends LazyLogging {
       val driver = connectionOptions("driver")
       val url = connectionOptions("url")
 
-      if (url.contains(":duckdb :")) {
+      if (url.contains(":duckdb:")) {
         // No connection pool for duckdb. This is a single user database on write.
         // We need to release the connection asap
+        val duckOptions =
+          connectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account" - "allowUnderscoresInHost" - "database" - "db"
         val properties = new Properties()
-        (connectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account" - "allowUnderscoresInHost" - "database" - "db")
+        duckOptions
           .foreach { case (k, v) =>
             properties.setProperty(k, v)
           }
@@ -330,7 +338,7 @@ object JdbcDbUtils extends LazyLogging {
         // run preActions
         val preActions = connectionOptions.get("preActions")
         preActions.foreach { actions =>
-          actions.split(";").foreach { action =>
+          actions.split(";").filter(_.trim.nonEmpty).foreach { action =>
             Try {
               val statement = connection.createStatement()
               statement.execute(action)

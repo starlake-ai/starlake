@@ -1,0 +1,80 @@
+---
+version: 1
+table:
+  name: "CUSTOMER"
+  pattern: "CUSTOMER-.*.csv"
+  attributes:
+  - name: "C_CUSTKEY"
+    type: "int"
+    array: false
+    sample: "99999"
+  - name: "C_NAME"
+    type: "string"
+    array: false
+    sample: "Customer#000150000"
+  - name: "C_ADDRESS"
+    type: "string"
+    array: false
+    sample: "zzxGktzXTMKS1BxZlgQ9nqQ"
+  - name: "C_NATIONKEY"
+    type: "int"
+    array: false
+    sample: "9"
+  - name: "C_PHONE"
+    type: "string"
+    array: false
+    sample: "34-999-618-6881"
+  - name: "C_ACCTBAL"
+    type: "double"
+    array: false
+    sample: "9999.99"
+  - name: "C_MKTSEGMENT"
+    type: "string"
+    array: false
+    sample: "MACHINERY"
+  - name: "C_COMMENT"
+    type: "string"
+    array: false
+    sample: "zzle. blithely regular instructions cajol"
+  metadata:
+    format: "DSV"
+    encoding: "UTF-8"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "APPEND"
+    sink:
+      partition:
+        - "C_NATIONKEY"
+  sample: "[60001,Customer#000060001,9Ii4zQn9cX,14,24-678-784-9652,9957.56,HOUSEHOLD,l\
+    \ theodolites boost slyly at the platelets: permanently ironic packages wake slyly\
+    \ pend]\n[60002,Customer#000060002,ThGBMjDwKzkoOxhz,15,25-782-500-8435,742.46,BUILDING,beans.\
+    \ fluffily regular packages]\n[60003,Customer#000060003,Ed hbPtTXMTAsgGhCr4HuTzK,Md2,16,26-859-847-7640,2526.92,BUILDING,fully\
+    \ pending deposits sleep quickly. blithely unusual accounts across the blithely\
+    \ bold requests are quickly]\n[60004,Customer#000060004,NivCT2RVaavl,yUnKwBjDyMvB42WayXCnky,10,20-573-674-7999,7975.22,AUTOMOBILE,furiously\
+    \ above the ironic packages. slyly brave ideas boost. final platelets detect according\
+    \ to the ironi]\n[60005,Customer#000060005,1F3KM3ccEXEtI, B22XmCMOWJMl,12,22-741-208-1316,2504.74,MACHINERY,express\
+    \ instructions sleep quickly. ironic braids cajole furiously fluffily p]\n[60006,Customer#000060006,3isiXW651fa8p,22,32-618-195-8029,9051.40,MACHINERY,carefully\
+    \ quickly even theodolites. boldly]\n[60007,Customer#000060007,sp6KJmx,TiSWbMPvhkQwFwTuhSi4a5OLNImpcGI,12,22-491-919-9470,6017.17,FURNITURE,bold\
+    \ packages. regular sheaves mold. blit]\n[60008,Customer#000060008,3VteHZYOfbgQioA96tUeL0R7i,2,12-693-562-7122,5621.44,AUTOMOBILE,nal\
+    \ courts. carefully regular Tiresias lose quickly unusual packages. regular, bold\
+    \ i]\n[60009,Customer#000060009,S60sNpR6wnacPBLeOxjxhvehf,9,19-578-776-2699,9548.01,FURNITURE,efully\
+    \ even dependencies haggle furiously along the express packages. final requests\
+    \ boost]\n[60010,Customer#000060010,c4vEEaV1tdqLdw2oVuXp BN,21,31-677-809-6961,3497.91,HOUSEHOLD,fter\
+    \ the quickly silent requests. slyly special theodolites along the even, even\
+    \ requests boos]\n[60011,Customer#000060011,Y GqUG1QEdWr8 zkApzAXLkjOe,XMnJvV6,,8,18-421-991-6811,3422.48,BUILDING,se\
+    \ carefully even deposits. carefully pending requests cajole furiously p]\n[60012,Customer#000060012,q2JnIlgSVKxmu4be,23,33-106-408-1520,671.60,FURNITURE,ly.\
+    \ furiously regular deposits haggle about the carefully thin packages. carefull]\n\
+    [60013,Customer#000060013,i3t71FC4ucTs8fIEfmPwJky,0,10-394-817-3861,-485.69,MACHINERY,ecial\
+    \ foxes are blithely fluffily even pinto beans. ironic accounts boost. blithely\
+    \ regular packages h]\n[60014,Customer#000060014,4PiiMY zaWY1W4hVpXEzdkRQrskLaq,16,26-322-873-9166,7932.15,FURNITURE,ic\
+    \ ideas along the bold packages u]\n[60015,Customer#000060015,B8yKNFkXHwpxjlVkt,9,19-719-262-9343,4622.39,FURNITURE,unts.\
+    \ blithely special excuses haggle slyly express theodolites. quietly unusual packages\
+    \ sleep sly]\n[60016,Customer#000060016,i5JCEL8FRYSLvOs1Lkqn30a,1jherLDP,2,12-259-973-3236,4480.97,HOUSEHOLD,ongside\
+    \ of the final, pending dolphins? final theodolites ha]\n[60017,Customer#000060017,kBV62efx6B6Iw2VsRxqEr1sKQ,1,11-139-952-4191,3653.17,AUTOMOBILE,inal\
+    \ packages. ironic dinos cajole against the care]\n[60018,Customer#000060018,lQ8PB9FGW53C36XQX2uq0,0,10-310-354-8579,5759.83,BUILDING,ckly\
+    \ bold deposits. carefully bold accounts integrat]\n[60019,Customer#000060019,kSI6njhnR\
+    \ ApXo031vtmCAaXo,1,11-624-666-9689,3444.77,MACHINERY,ncies. blithely silent gifts\
+    \ above the carefully]\n[60020,Customer#000060020,JlAdCcLE8wEqFc0,15,25-432-919-9170,1187.30,FURNITURE,equests\
+    \ use slyly after the ironic accounts. regular deposits haggle. ironically unusual\
+    \ theod]"

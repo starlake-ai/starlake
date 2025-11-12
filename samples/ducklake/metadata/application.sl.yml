@@ -1,0 +1,39 @@
+version: 1
+application:
+  loader: native
+  connectionRef: "{{ACTIVE_CONNECTION}}"
+  connections:
+    ducklake_local:
+      type: jdbc
+      options:
+        url: "jdbc:duckdb:"
+        driver: "org.duckdb.DuckDBDriver"
+        preActions: >
+            INSTALL ducklake;
+            LOAD ducklake;
+            ATTACH IF NOT EXISTS 'ducklake:/Users/hayssams/git/public/starlake/samples/ducklake/datasets/metadata.ducklake' As my_ducklake
+                (DATA_PATH '/Users/hayssams/git/public/starlake/samples/ducklake/datasets/data_files/');
+            USE my_ducklake;
+    ducklake_cloud:
+      type: jdbc
+      options:
+        url: "jdbc:postgresql://your_postgres_host/ducklake_catalog"
+        driver: "org.postgresql.Driver"
+        preActions: >   
+            INSTALL POSTGRES;
+            INSTALL ducklake;
+            LOAD POSTGRES;
+            LOAD ducklake;
+            CREATE OR REPLACE SECRET (
+                type gcs, 
+                key_id '{{DUCKLAKE_HMAC_ACCESS_KEY_ID}}', 
+                secret '{{DUCKLAKE_HMAC_SECRET_ACCESS_KEY}}' 
+                SCOPE 'gs://ducklake_bucket/data_files/');
+            ATTACH IF NOT EXISTS 'ducklake:postgres:
+                    dbname=ducklake_catalog 
+                    host=your_postgres_host 
+                    port=5432 
+                    user=dbuser 
+                    password={{DUCKLAKE_PASSWORD}}' AS my_ducklake
+                (DATA_PATH 'gs://ducklake_bucket/data_files/');
+

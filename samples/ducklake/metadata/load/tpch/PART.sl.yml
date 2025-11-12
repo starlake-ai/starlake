@@ -1,0 +1,80 @@
+---
+version: 1
+table:
+  name: "PART"
+  pattern: "PART-.*.csv"
+  attributes:
+  - name: "P_PARTKEY"
+    type: "int"
+    array: false
+    sample: "99999"
+  - name: "P_NAME"
+    type: "string"
+    array: false
+    sample: "yellow white seashell lavender black"
+  - name: "P_MFGR"
+    type: "string"
+    array: false
+    sample: "Manufacturer#5"
+  - name: "P_BRAND"
+    type: "string"
+    array: false
+    sample: "Brand#55"
+  - name: "P_TYPE"
+    type: "string"
+    array: false
+    sample: "STANDARD POLISHED TIN"
+  - name: "P_SIZE"
+    type: "int"
+    array: false
+    sample: "9"
+  - name: "P_CONTAINER"
+    type: "string"
+    array: false
+    sample: "WRAP PKG"
+  - name: "P_RETAILPRICE"
+    type: "double"
+    array: false
+    sample: "999.09"
+  - name: "P_COMMENT"
+    type: "string"
+    array: false
+    sample: "zzle. quickly si"
+  metadata:
+    format: "DSV"
+    encoding: "UTF-8"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "APPEND"
+    sink:
+      partition:
+        - "P_SIZE"
+  sample: "[40001,cream steel purple royal goldenrod,Manufacturer#3,Brand#34,MEDIUM\
+    \ BURNISHED COPPER,27,JUMBO PKG,941.00,lly slow depende]\n[40002,almond cyan forest\
+    \ midnight khaki,Manufacturer#3,Brand#34,ECONOMY POLISHED TIN,32,WRAP BOX,942.00,ng\
+    \ to]\n[40003,drab thistle navajo light purple,Manufacturer#5,Brand#55,SMALL ANODIZED\
+    \ NICKEL,17,JUMBO PKG,943.00,slyl]\n[40004,midnight magenta metallic drab bisque,Manufacturer#3,Brand#34,LARGE\
+    \ BRUSHED COPPER,29,LG BOX,944.00,uthlessly al]\n[40005,green cornflower tomato\
+    \ tan dark,Manufacturer#3,Brand#34,STANDARD PLATED TIN,45,MED CAN,945.00,nusual,\
+    \ reg]\n[40006,seashell lace rosy midnight tan,Manufacturer#3,Brand#33,PROMO BRUSHED\
+    \ NICKEL,36,MED JAR,946.00,counts cajole carefull]\n[40007,rose lace yellow burlywood\
+    \ lawn,Manufacturer#4,Brand#43,LARGE BURNISHED STEEL,45,MED CASE,947.00,furiously\
+    \ among the]\n[40008,navy red puff lawn olive,Manufacturer#3,Brand#32,SMALL BRUSHED\
+    \ BRASS,41,WRAP BAG,948.00,carefully fina]\n[40009,tan dark red rosy bisque,Manufacturer#3,Brand#35,MEDIUM\
+    \ ANODIZED BRASS,45,JUMBO PKG,949.00,stealthily unusual de]\n[40010,turquoise\
+    \ tan maroon slate rose,Manufacturer#5,Brand#52,LARGE BRUSHED NICKEL,35,SM DRUM,950.01,s\
+    \ the regular,]\n[40011,lace orchid mint cornflower peru,Manufacturer#4,Brand#41,LARGE\
+    \ BURNISHED TIN,3,MED PKG,951.01,boost slyly carefull]\n[40012,linen bisque magenta\
+    \ rosy mint,Manufacturer#5,Brand#55,ECONOMY POLISHED NICKEL,48,LG DRUM,952.01,ironic\
+    \ dep]\n[40013,frosted mint puff smoke grey,Manufacturer#5,Brand#53,LARGE PLATED\
+    \ TIN,39,WRAP CAN,953.01,ular de]\n[40014,violet lace papaya ghost cornsilk,Manufacturer#5,Brand#54,SMALL\
+    \ PLATED COPPER,1,MED CAN,954.01,le blithely blithel]\n[40015,orchid cyan indian\
+    \ yellow grey,Manufacturer#1,Brand#11,STANDARD ANODIZED TIN,39,JUMBO DRUM,955.01,ly\
+    \ ironic pl]\n[40016,mint lemon saddle honeydew green,Manufacturer#1,Brand#12,STANDARD\
+    \ BRUSHED TIN,7,LG CAN,956.01,c instru]\n[40017,red chocolate cyan powder puff,Manufacturer#5,Brand#52,PROMO\
+    \ BRUSHED BRASS,25,LG DRUM,957.01,ans. bol]\n[40018,dim medium slate almond plum,Manufacturer#4,Brand#42,LARGE\
+    \ POLISHED STEEL,34,WRAP CASE,958.01,e boldly. quickly s]\n[40019,cornsilk burlywood\
+    \ medium hot orange,Manufacturer#4,Brand#41,ECONOMY BURNISHED STEEL,20,SM PKG,959.01,sts.\
+    \ fluffily expre]\n[40020,almond peru bisque lavender seashell,Manufacturer#1,Brand#12,SMALL\
+    \ POLISHED COPPER,34,LG DRUM,960.02,. ironic pin]"

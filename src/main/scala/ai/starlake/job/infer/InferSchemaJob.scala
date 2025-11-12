@@ -443,7 +443,7 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
           domainName,
           Some(
             Metadata(
-              directory = Some(s"{{incoming_path}}/$domainName")
+              directory = Some(s"{{SL_DATASETS}}/incoming/$domainName")
             )
           ),
           schemas = List(schema)
