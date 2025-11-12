@@ -1,0 +1,13 @@
+---
+version: 1
+dag:
+    comment: "dag for loading all {{domain}} tables"
+    template: "load/airflow__scheduled_table__shell.py.j2"
+    filename: "{{domain}}_tables_{{sl_project_id}}.py"
+    options:
+        sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
+        SL_STARLAKE_PATH: "starlake"
+        pre_load_strategy: "none" # pending, imported, ack, none - default is none
+        global_ack_file_path: "{{SL_ROOT}}/datasets/pending/{{domain}}/GO.ack"
+        ack_wait_timeout: "60" # in seconds, default is 60*60 (1 hour)
+        tags: "{{domain}}"

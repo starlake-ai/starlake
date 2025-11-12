@@ -642,7 +642,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
   override def open(path: Path): Option[InputStream] = {
     pathSecurityCheck(path)
-    Try(fs(path).open(path)) match {
+    val currentFS = fs(path)
+    Try(currentFS.open(path)) match {
       case Success(is) => Some(is)
       case Failure(f) =>
         logger.error(f.getMessage)
