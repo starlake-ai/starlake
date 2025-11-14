@@ -1637,20 +1637,34 @@ object Settings extends LazyLogging {
         val connectionWithTranspileInfo = SQLUtils.transpilerDialect(v) match {
           case JSQLTranspiler.Dialect.DUCK_DB =>
             val urlParts = v.jdbcUrl.split(":")
-            assert(urlParts.length == 3, "DuckDB JDBC URL should be in the form jdbc:duckdb:dbname")
-            val dbName = urlParts(2)
-            assert(!dbName.contains(".."), "DuckDB database name should not contain '..'")
-            val validPath = new Path(settings.appConfig.datasets, s"$k.db")
-            val duckDbPath = new Path(settings.appConfig.datasets, s"duckdb.db").toString
             assert(
-              (k == "sl_duckdb" && urlParts(2) == duckDbPath) ||
-              dbName == validPath.toString ||
-              dbName == s"$k.db",
-              s"Invalid DuckDB database URL: $k:$dbName. It should match the connection name or be 'duckdb.db' for 'sl_duckdb'."
+              urlParts.length == 2 || urlParts.length == 3,
+              "DuckDB JDBC URL should be in the form jdbc:duckdb:dbname"
             )
-            val pathAsString =
-              DatasetArea.secureDuckdbPath(dbName.split('/').last)(settings).toUri.getPath
-            v.copy(options = v.options.updated("url", s"jdbc:duckdb:$pathAsString"))
+            if (urlParts.length == 2) {
+              // make sure it's ducklake
+              if (
+                !v.options.get("preActions").exists(preActions => preActions.contains("ducklake:"))
+              )
+                throw new Exception(
+                  s"DuckDB JDBC URL without database name is only allowed for ducklake connections. Please specify a database name for connection $k."
+                )
+              v // in-memory database, nothing to secure
+            } else {
+              val dbName = urlParts(2)
+              assert(!dbName.contains(".."), "DuckDB database name should not contain '..'")
+              val validPath = new Path(settings.appConfig.datasets, s"$k.db")
+              val duckDbPath = new Path(settings.appConfig.datasets, s"duckdb.db").toString
+              assert(
+                (k == "sl_duckdb" && urlParts(2) == duckDbPath) ||
+                dbName == validPath.toString ||
+                dbName == s"$k.db",
+                s"Invalid DuckDB database URL: $k:$dbName. It should match the connection name or be 'duckdb.db' for 'sl_duckdb'."
+              )
+              val pathAsString =
+                DatasetArea.secureDuckdbPath(dbName.split('/').last)(settings).toUri.getPath
+              v.copy(options = v.options.updated("url", s"jdbc:duckdb:$pathAsString"))
+            }
           case _ =>
             v
         }
