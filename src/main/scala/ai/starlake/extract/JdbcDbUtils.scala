@@ -454,7 +454,6 @@ object JdbcDbUtils extends LazyLogging {
         statement.executeQuery()
       } catch {
         case e: Exception =>
-          e.printStackTrace()
           throw e
       } finally {
         statement.close()
