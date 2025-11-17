@@ -1634,7 +1634,11 @@ object Settings extends LazyLogging {
   def secureDuckDbPath(settings: Settings): Settings = {
     val updatedConnections = settings.appConfig.connections
       .map { case (k, v) =>
+        val isDuckLake =
+          v.options.get("preActions").exists(preActions => preActions.contains("ducklake:"))
         val connectionWithTranspileInfo = SQLUtils.transpilerDialect(v) match {
+          case JSQLTranspiler.Dialect.DUCK_DB if isDuckLake =>
+            v.copy(options = v.options.updated("url", s"jdbc:duckdb:"))
           case JSQLTranspiler.Dialect.DUCK_DB =>
             val urlParts = v.jdbcUrl.split(":")
             assert(
@@ -1645,8 +1649,6 @@ object Settings extends LazyLogging {
             assert(!dbName.contains(".."), "DuckDB database name should not contain '..'")
             val validPath = new Path(settings.appConfig.datasets, s"$k.db")
             val duckDbPath = new Path(settings.appConfig.datasets, s"duckdb.db").toString
-            val isDuckLake =
-              v.options.get("preActions").exists(preActions => preActions.contains("ducklake:"))
 
             assert(
               isDuckLake ||
@@ -1657,10 +1659,7 @@ object Settings extends LazyLogging {
             )
             val pathAsString =
               DatasetArea.secureDuckdbPath(dbName.split('/').last)(settings).toUri.getPath
-            if (isDuckLake)
-              v.copy(options = v.options.updated("url", s"jdbc:duckdb:"))
-            else
-              v.copy(options = v.options.updated("url", s"jdbc:duckdb:$pathAsString"))
+            v.copy(options = v.options.updated("url", s"jdbc:duckdb:$pathAsString"))
           case _ =>
             v
         }
