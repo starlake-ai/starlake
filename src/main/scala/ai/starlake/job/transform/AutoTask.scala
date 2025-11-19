@@ -964,9 +964,8 @@ object AutoTask extends LazyLogging {
   ): Try[List[(String, String)]] =
     Try {
       // remove ';' as last char if any to avoid syntax error in subquery
-      val removeFromSQL =
-        if (sql.trim.endsWith(";")) sql.trim.dropRight(1) else sql.trim
-      val dryRunQuery = s"SELECT * FROM ($removeFromSQL) WHERE 1=0"
+      val removeFromSQL = SQLUtils.stripComments(sql)
+      val dryRunQuery = s"SELECT * FROM (\n$removeFromSQL\n) WHERE 1=0"
       executeSelectOnly(
         domain,
         table,
