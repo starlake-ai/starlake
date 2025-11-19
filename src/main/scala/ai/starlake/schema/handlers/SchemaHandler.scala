@@ -340,7 +340,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }.toMap
   }
 
-  def getAttributesWithDDLType(schema: SchemaInfo, dbName: String): Map[String, String] = {
+  def getAttributesWithDDLType(schema: SchemaInfo, dbName: String): List[(String, String)] = {
     schema.attributes.flatMap { attr =>
       val ddlMapping = types().find(_.name == attr.`type`).map(_.ddlMapping)
       ddlMapping match {
@@ -363,7 +363,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           // we found the primitive type but it has no ddlMapping
           throw new Exception(s"${attr.name}: ${attr.`type`} DDL mapping not found (None)")
       }
-    }.toMap
+    }
   }
 
   def loadTypes(filename: String): List[Type] = {
