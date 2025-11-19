@@ -61,9 +61,11 @@ case class DagInfo(
         .get("sl_env_var")
         .flatMap { envVar =>
           // parse envVar as Json
-          JsonSerializer.mapper
-            .readValue(envVar, classOf[Map[String, String]])
-            .get("SL_ROOT")
+          Try {
+            JsonSerializer.mapper
+              .readValue(envVar, classOf[Map[String, String]])
+              .get("SL_ROOT")
+          }.toOption.flatten
         }
         .getOrElse(settings.appConfig.root)
     // In case SL_ROOT is defined using the SL_ROOT env var
