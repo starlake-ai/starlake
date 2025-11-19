@@ -91,6 +91,8 @@ object SqlCommentStripper {
   }
 
   def removeEmptyLines(input: String): String = {
-    input.linesIterator.filter(_.trim.nonEmpty).mkString("\n")
+    val res = input.linesIterator.filter(_.trim.nonEmpty).mkString("\n")
+    // remove last ';' if any
+    if (res.trim.endsWith(";")) res.trim.dropRight(1) else res
   }
 }
