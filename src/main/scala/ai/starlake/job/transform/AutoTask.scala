@@ -579,7 +579,7 @@ abstract class AutoTask(
         trimmedSql.replaceAll("\n", " ").toUpperCase().indexOf(" FROM ") match {
           case -1 => ""
           case idx if !upperCaseSQL.contains(" ORDER BY ") =>
-            "ORDER BY 1"
+            "" // "ORDER BY 1" because it won't work if col1 is a nested/repeated column
           case _ => ""
         }
       if (trimmedSql.endsWith(";")) {
