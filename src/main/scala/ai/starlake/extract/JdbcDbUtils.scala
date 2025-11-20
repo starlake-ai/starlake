@@ -76,6 +76,16 @@ object JdbcDbUtils extends LazyLogging {
     private val hikariPools = scala.collection.concurrent.TrieMap[String, HikariDataSource]()
     private val duckDbPool = scala.collection.concurrent.TrieMap[String, Connection]()
 
+    def clearDuckdbPool() = {
+      duckDbPool.values.foreach { conn =>
+        Try(conn.close()) match {
+          case Success(_) =>
+          case Failure(exception) =>
+            logger.warn(s"Could not close duckdb connection", exception)
+        }
+      }
+      duckDbPool.clear()
+    }
     private def getHikariPoolKey(url: String, options: Map[String, String]): String = {
       val poolKey = options
         .map { case (k, v) =>
