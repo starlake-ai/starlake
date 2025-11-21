@@ -5,7 +5,7 @@
 {% set createTable = 'CREATE TABLE ' + tableFullName %}
 {% endif %}
 
-{{ createTable }} AS SELECT * FROM ({{selectStatement }}) WHERE 1=0;
+{{ createTable }} AS SELECT * FROM ({{ selectStatement }}) WHERE 1=0;
 
 
 {%  if sinkTablePartitionClause == '' %}

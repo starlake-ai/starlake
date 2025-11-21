@@ -1,0 +1,6 @@
+---
+version: 1
+load:
+  name: "tpch"
+  metadata:
+    directory: "{{SL_DATASETS}}/incoming/tpch"

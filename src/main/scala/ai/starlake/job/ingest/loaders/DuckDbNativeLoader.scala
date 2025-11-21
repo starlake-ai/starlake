@@ -256,7 +256,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
                 sinkConnection.options,
                 domainAndTableName,
                 incomingSparkSchema,
-                attrsWithDDLTypes
+                attrsWithDDLTypes.toMap
               )
             } else {
               SparkUtils.createTable(

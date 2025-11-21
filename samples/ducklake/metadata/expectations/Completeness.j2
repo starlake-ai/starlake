@@ -1,0 +1,57 @@
+{% macro expect_column_values_to_be_null(table_name, column_name, mostly) %}
+-- This macro generates a SQL query that checks if the percentage of null values in a column meets a threshold.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_name: The column to check for null values.
+-- mostly: The minimum fraction of null values required for success.
+--
+-- Returns:
+-- 1 if the percentage of null values in the specified column meets or exceeds the threshold, otherwise 0.
+--
+-- Example:
+-- SELECT COUNT(*) AS null_count
+-- FROM table_name
+-- WHERE column_name IS NULL;
+
+WITH null_count AS (
+    SELECT COUNT(*) AS null_values
+    FROM {{ table_name }}
+    WHERE {{ column_name }} IS NULL
+),
+total_count AS (
+    SELECT COUNT(*) AS total_values
+    FROM {{ table_name }}
+)
+SELECT 
+    CASE 
+        WHEN (CAST(null_count.null_values AS FLOAT) / total_count.total_values) >= {{ mostly }}
+        THEN 0
+        ELSE 1
+    END AS success
+FROM null_count, total_count;
+{% endmacro %}
+
+{% macro expect_column_values_to_not_be_null(table_name, column_name) %}
+-- This macro generates a SQL query that checks if the values in a specified column are not null.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_name: The name of the column to check for non-null values.
+--
+-- Returns:
+-- The values in the specified column that are null.
+--
+-- This will generate a query like:
+-- SELECT column_name
+-- FROM table_name
+-- WHERE column_name IS NULL;
+
+SELECT 
+    CASE 
+        WHEN COUNT(*) = 0 THEN 0  -- No NULLs found
+        ELSE 1  -- There are NULLs
+    END AS result
+FROM {{ table_name }}
+WHERE {{ column_name }} IS NULL;
+{% endmacro %}

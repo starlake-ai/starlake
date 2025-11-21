@@ -52,7 +52,7 @@ parse_proxy_and_build_args() {
     # If no protocol (e.g., "myproxy.com:8080"), add a default "http://"
     # so the regex can parse it correctly.
     if ! [[ $url == *"://"* ]]; then
-        echo "No protocol found in ${type}_PROXY. Assuming 'http://'." >&2
+        echo "No protocol found in ${type^^}_PROXY. Assuming 'http://'." >&2
         url="http://$url"
     fi
 

@@ -1,0 +1,142 @@
+{% macro expect_column_distinct_values_to_be_in_set(table_name, column_name, values) %}
+SELECT 
+    CASE 
+        WHEN (
+            SELECT COUNT(DISTINCT {{ column_name }})
+            FROM {{ table_name }}
+            WHERE {{ column_name }} NOT IN ({{ values | map('string') | join(', ') }})
+        ) > 0 
+        THEN 1 
+        ELSE 0 
+    END AS result;
+{% endmacro %}
+
+{% macro expect_column_distinct_values_to_contain_set(table_name, column_name, values) %}
+SELECT 
+    CASE 
+        WHEN (
+            SELECT COUNT(*)
+            FROM ( 
+                {% for val in values %}
+                SELECT '{{ val }}' AS v {% if not loop.last %} UNION ALL {% endif %}
+                {% endfor %}
+            ) AS value_list
+            WHERE v NOT IN (SELECT DISTINCT {{ column_name }} FROM {{ table_name }})
+        ) > 0 
+        THEN 1 
+        ELSE 0 
+    END AS result;
+{% endmacro %}
+
+{% macro expect_column_distinct_values_to_equal_set(table_name, column_name, values) %}
+SELECT 
+    CASE 
+        WHEN (
+            WITH DistinctValues AS (
+                SELECT DISTINCT {{ column_name }}
+                FROM {{ table_name }}
+            ),
+            ExpectedValues AS (
+                {% for value in values %}
+                SELECT '{{ value | replace("'", "''") }}' AS value
+                {% if not loop.last %} UNION ALL {% endif %}
+                {% endfor %}
+            )
+            SELECT COUNT(*) 
+            FROM (
+                SELECT value FROM ExpectedValues
+                WHERE value NOT IN (SELECT {{ column_name }} FROM DistinctValues)
+                UNION ALL
+                SELECT {{ column_name }}
+                FROM DistinctValues
+                WHERE {{ column_name }} NOT IN (SELECT value FROM ExpectedValues)
+            ) AS mismatched
+        ) = 0 
+        THEN 0
+        ELSE 1
+    END AS result;
+{% endmacro %}
+
+{% macro expect_column_proportion_of_unique_values_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
+WITH UniqueValueCount AS (
+    SELECT COUNT(DISTINCT {{ column_name }}) AS unique_count
+    FROM {{ table_name }}
+),
+TotalValueCount AS (
+    SELECT COUNT({{ column_name }}) AS total_count
+    FROM {{ table_name }}
+)
+SELECT 
+    CASE 
+        WHEN (CAST(unique_count AS FLOAT) / total_count) BETWEEN {{ lower_bound }} AND {{ upper_bound }}
+        THEN 0
+        ELSE 1
+    END AS result
+FROM UniqueValueCount, TotalValueCount;
+{% endmacro %}
+
+{% macro expect_column_unique_value_count_to_be_between(table_name, column_name, lower_bound, upper_bound) %}
+SELECT 
+    CASE 
+        WHEN (
+            SELECT COUNT(DISTINCT {{ column_name }})
+            FROM {{ table_name }}
+        ) BETWEEN {{ lower_bound }} AND {{ upper_bound }}
+        THEN 0
+        ELSE 1
+    END AS result;
+{% endmacro %}
+
+{% macro expect_column_values_to_be_unique(table_name, column_name) %}
+SELECT 
+    CASE 
+        WHEN EXISTS (
+            SELECT {{ column_name }}
+            FROM {{ table_name }}
+            GROUP BY {{ column_name }}
+            HAVING COUNT({{ column_name }}) > 1
+        )
+        THEN 1
+        ELSE 0
+    END AS result;
+{% endmacro %}
+
+{% macro expect_compound_columns_to_be_unique(table_name, columns) %}
+SELECT 
+    CASE 
+        WHEN EXISTS (
+            SELECT {{ columns | join(', ') }}
+            FROM {{ table_name }}
+            GROUP BY {{ columns | join(', ') }}
+            HAVING COUNT(*) > 1
+        )
+        THEN 1
+        ELSE 0
+    END AS result;
+{% endmacro %}
+
+{% macro expect_select_column_values_to_be_unique_within_record(table_name, columns) %}
+WITH UniqueRows AS (
+    SELECT *,
+        CASE
+            WHEN 
+            {% for i in range(columns | length) %}
+                {% for j in range(i + 1, columns | length) %}
+                    {{ columns[i] }} = {{ columns[j] }}
+                    {% if not (i == columns | length - 2 and j == columns | length - 1) %}
+                    OR
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+            THEN 1
+            ELSE 0
+        END AS unique_row
+    FROM {{ table_name }}
+)
+SELECT 
+    CASE 
+        WHEN SUM(CASE WHEN unique_row = 1 THEN 1 ELSE 0 END) > 0 THEN 1
+        ELSE 0
+    END AS uniqueness_status
+FROM UniqueRows;
+{% endmacro %}

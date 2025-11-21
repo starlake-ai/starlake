@@ -37,6 +37,8 @@ get_installation_directory() {
 
 if [[ -n "${https_proxy}" ]] || [[ -n "${http_proxy}" ]]; then
   PROXY=${https_proxy:-$http_proxy}
+elif [[ -n "${HTTPS_PROXY}" ]] || [[ -n "${HTTP_PROXY}" ]]; then
+  PROXY=${HTTPS_PROXY:-$HTTP_PROXY}
 fi
 
 get_from_url() {

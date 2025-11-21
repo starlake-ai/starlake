@@ -373,7 +373,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
             sinkConnection.options,
             domainAndTableName,
             incomingSparkSchema,
-            attrsWithDDLTypes
+            attrsWithDDLTypes.toMap
           )
         } else {
           SparkUtils.createTable(

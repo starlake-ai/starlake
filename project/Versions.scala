@@ -38,7 +38,7 @@ object Versions {
   val jinja = "2.7.4" // forces dependency override on guava
   val snowflakeSpark: String = "3.1.5"
   val snowflakeJDBC = "3.26.1"
-  val duckdb = "1.4.1.0"
+  val duckdb = "1.4.2.0"
   val bigQueue = "0.7.0"
   val redshiftJDBC = "2.1.0.34"
   val scalaCompat = "2.12.0"
@@ -46,7 +46,7 @@ object Versions {
   val derbyVersion =
     "10.15.2.0" // last version compatible with Java 11, see https://db.apache.org/derby/derby_downloads.html
   val jSqlParser = "5.4-SNAPSHOT"
-  val jSqlTranspiler = "1.3-SNAPSHOT"
+  val jSqlTranspiler = "1.5-SNAPSHOT"
   val starlakejdbc = "0.3-SNAPSHOT"
   val jSqlFormatter = "5.4-SNAPSHOT"
   val airflowTemplates = "0.4.4.2"
