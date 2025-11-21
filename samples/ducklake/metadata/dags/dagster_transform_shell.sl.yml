@@ -1,0 +1,11 @@
+---
+version: 1
+dag:
+    comment: "dag for transforming all {{domain}} tasks"
+    template: "transform/dagster__scheduled_task__shell.py.j2"
+    filename: "{{domain}}_tasks_{{sl_project_id}}.py"
+    options:
+        sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
+        SL_STARLAKE_PATH: "starlake"
+        run_dependencies_first: "False" # load all dependencies for each transform job, 'False' by default
+        tags: "{{domain}}"

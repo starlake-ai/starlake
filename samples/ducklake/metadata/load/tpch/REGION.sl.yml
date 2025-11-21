@@ -1,0 +1,32 @@
+---
+version: 1
+table:
+  name: "REGION"
+  pattern: "REGION-.*.csv"
+  attributes:
+  - name: "R_REGIONKEY"
+    type: "int"
+    array: false
+    sample: "4"
+  - name: "R_NAME"
+    type: "string"
+    array: false
+    sample: "MIDDLE EAST"
+  - name: "R_COMMENT"
+    type: "string"
+    array: false
+    sample: "uickly special accounts cajole carefully blithely close requests. carefully\
+      \ final asymptotes haggle furiousl"
+  metadata:
+    format: "DSV"
+    encoding: "UTF-8"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "APPEND"
+  sample: "[0,AFRICA,lar deposits. blithely final packages cajole. regular waters\
+    \ are final requests. regular accounts are according to]\n[1,AMERICA,hs use ironic,\
+    \ even requests. s]\n[2,ASIA,ges. thinly even pinto beans ca]\n[3,EUROPE,ly final\
+    \ courts cajole furiously final excuse]\n[4,MIDDLE EAST,uickly special accounts\
+    \ cajole carefully blithely close requests. carefully final asymptotes haggle\
+    \ furiousl]"

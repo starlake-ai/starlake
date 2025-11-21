@@ -13,7 +13,7 @@ class TransformStrategiesBuilder extends LazyLogging {
 
   def buildSqlWithJ2(
     strategy: WriteStrategy,
-    selectStatement: String,
+    selectStatementInput: String,
     tableComponents: TableComponents,
     targetTableExists: Boolean,
     truncate: Boolean,
@@ -22,6 +22,10 @@ class TransformStrategiesBuilder extends LazyLogging {
     sinkConfig: Sink,
     action: String
   )(implicit settings: Settings): String = {
+    val selectStatement = {
+      val trimmed = selectStatementInput.trim
+      if (trimmed.endsWith(";")) trimmed.dropRight(1) else trimmed
+    }
     val context = TransformStrategiesBuilder.StrategiesGenerationContext(
       strategy,
       selectStatement,

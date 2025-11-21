@@ -340,7 +340,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }.toMap
   }
 
-  def getAttributesWithDDLType(schema: SchemaInfo, dbName: String): Map[String, String] = {
+  def getAttributesWithDDLType(schema: SchemaInfo, dbName: String): List[(String, String)] = {
     schema.attributes.flatMap { attr =>
       val ddlMapping = types().find(_.name == attr.`type`).map(_.ddlMapping)
       ddlMapping match {
@@ -363,7 +363,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           // we found the primitive type but it has no ddlMapping
           throw new Exception(s"${attr.name}: ${attr.`type`} DDL mapping not found (None)")
       }
-    }.toMap
+    }
   }
 
   def loadTypes(filename: String): List[Type] = {
@@ -493,6 +493,27 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       case _                                                   => None
     }
 
+  /*
+  area {
+  incoming = "incoming"
+  incoming = ${?SL_AREA_INCOMING}
+  incoming = ${?SL_INCOMING}
+  stage = "stage"
+  stage = ${?SL_AREA_STAGE}
+  unresolved = "unresolved"
+  unresolved = ${?SL_AREA_UNRESOLVED}
+  archive = "archive"
+  archive = ${?SL_AREA_ARCHIVE}
+  ingesting = "ingesting"
+  ingesting = ${?SL_AREA_INGESTING}
+  replay = "replay"
+  replay = ${?SL_AREA_REPLAY}
+  hiveDatabase = "${domain}_${area}"
+  hiveDatabase = ${?SL_AREA_HIVE_DATABASE}
+}
+
+   */
+
   def activeEnvVars(
     reload: Boolean = false,
     env: Option[String] = None,
@@ -507,10 +528,27 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         }
       }
     if (reload || _activeEnvVars == null) loadActiveEnvVars(currentEnv, root)
-    root match {
-      case Some(value) => _activeEnvVars + ("SL_ROOT" -> value)
-      case None        => this._activeEnvVars
-    }
+    val withRootValue =
+      root match {
+        case Some(value) => _activeEnvVars + ("SL_ROOT" -> value)
+        case None        => this._activeEnvVars
+      }
+    val pathEnvVars = Map(
+      "SL_AREA_INCOMING"      -> settings.appConfig.area.incoming,
+      "SL_INCOMING"           -> settings.appConfig.area.incoming,
+      "SL_AREA_STAGE"         -> settings.appConfig.area.stage,
+      "SL_AREA_UNRESOLVED"    -> settings.appConfig.area.unresolved,
+      "SL_AREA_ARCHIVE"       -> settings.appConfig.area.archive,
+      "SL_AREA_INGESTING"     -> settings.appConfig.area.ingesting,
+      "SL_AREA_HIVE_DATABASE" -> settings.appConfig.area.hiveDatabase,
+      "SL_DATASETS"           -> settings.appConfig.datasets,
+      "SL_METADATA"           -> settings.appConfig.metadata,
+      "SL_DAGS"               -> settings.appConfig.dags,
+      "SL_TESTS"              -> settings.appConfig.tests,
+      "SL_TYPES"              -> settings.appConfig.types,
+      "SL_MACROS"             -> settings.appConfig.macros
+    )
+    withRootValue ++ pathEnvVars
   }
 
   def refs(reload: Boolean = false): RefDesc = {

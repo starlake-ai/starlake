@@ -1,0 +1,193 @@
+{% macro expect_column_to_exist(table_name, column_name) %}
+-- This macro generates a SQL query that checks if a specified column exists in a table.
+--
+-- Parameters:
+-- table_name: The name of the table to check.
+-- column_name: The name of the column to check for existence.
+--
+-- Returns:
+-- The name of the column if it exists in the specified table.
+
+SELECT 
+    CASE 
+        WHEN COUNT(*) > 0 THEN 0  -- Column exists
+        ELSE 1  -- Column does not exist
+    END AS result
+FROM pragma_table_info('{{ table_name }}')
+WHERE name = '{{ column_name }}';
+{% endmacro %}
+
+{% macro expect_column_values_to_be_in_type_list(table_name, column_name, type_list) %}
+-- This macro generates a SQL query that checks if the values in a specified column match the types in a given type list.
+SELECT 
+    CASE 
+        WHEN COUNT(*) > 0 AND 
+             COUNT(CASE 
+                        WHEN typeof({{ column_name }}) IN ({% for type in type_list %}'{{ type }}'{% if not loop.last %}, {% endif %}{% endfor %}) 
+                        THEN 1 
+                        ELSE NULL 
+                    END) = COUNT(*) 
+        THEN 0  -- All values match the expected types
+        ELSE 1  -- Some values don't match the expected types
+    END AS result
+FROM {{ table_name }}
+{% endmacro %}
+
+{% macro expect_column_values_to_be_in_set(table_name, column_name, values) %}
+-- This macro generates a SQL query that checks if the values in a specified column are within a given set.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_name: The name of the column to check the values for.
+-- values: A list of values that the column values should be within.
+--
+-- Returns:
+-- The values in the specified column that are not within the given set.
+
+SELECT {{ column_name }}
+FROM {{ table_name }}
+WHERE {{ column_name }} NOT IN ({{ values | join(', ') }});
+{% endmacro %}
+
+{% macro expect_column_values_to_be_of_type(table_name, column_name, expected_type) %}
+-- This macro generates a SQL query that checks if the values in a specified column are of a given data type.
+--
+-- Parameters:
+-- table_name: The name of the table to query.
+-- column_name: The name of the column to check the data type for.
+-- expected_type: The expected data type of the column values.
+--
+-- Returns:
+-- 0 if all values are of the expected data type, 1 if some values are not of the expected data type.
+
+SELECT 
+    CASE 
+        WHEN COUNT(*) > 0 AND 
+             COUNT(CASE 
+                        WHEN typeof({{ column_name }}) = '{{ expected_type }}' 
+                        THEN 1 
+                        ELSE NULL 
+                    END) = COUNT(*) 
+        THEN 0  -- All values match the expected type
+        ELSE 1  -- Some values don't match the expected type
+    END AS result
+FROM {{ table_name }}
+{% endmacro %}
+
+{% macro expect_table_column_count_to_be_between(table_name, min_value, max_value) %}
+-- This macro generates a SQL query that checks if the number of columns in a table is between a given range.
+--
+-- Parameters:
+-- table_name: The name of the table to check.
+-- min_value: The minimum number of columns.
+-- max_value: The maximum number of columns.
+--
+-- Returns:
+-- 0 if the column count is between the given range, 1 if it is not.
+
+SELECT 
+    CASE 
+        WHEN COUNT(*) BETWEEN {{ min_value }} AND {{ max_value }} 
+        THEN 0  
+        ELSE 1 
+    END AS result
+FROM pragma_table_info('{{ table_name }}');
+{% endmacro %}
+
+{% macro expect_table_column_count_to_equal(table_name, expected_value) %}
+-- This macro generates a SQL query that checks if the number of columns in a table equals a specified value.
+--
+-- Parameters:
+-- table_name: The name of the table to check.
+-- expected_value: The expected number of columns.
+--
+-- Returns:
+-- 0 if the column count equals the expected value, 1 if it does not.
+
+SELECT 
+    CASE 
+        WHEN COUNT(*) = {{ expected_value }} 
+        THEN 0 
+        ELSE 1 
+    END AS result
+FROM pragma_table_info('{{ table_name }}');
+{% endmacro %}
+
+{% macro expect_table_columns_to_match_ordered_list(table_name, expected_columns) %}
+-- This macro generates a SQL query that checks if the columns in a table match a specified ordered list.
+--
+-- Parameters:
+-- table_name: The name of the table to check.
+-- expected_columns: A list of tuples representing the expected columns and their positions.
+--
+-- Returns:
+-- 0 if the columns match the expected ordered list, 1 if they do not.
+
+WITH TableColumns AS (
+    SELECT name AS column_name, cid + 1 AS ordinal_position 
+    FROM pragma_table_info('{{ table_name }}')
+),
+ExpectedColumns AS (
+    {% for column, position in expected_columns %}
+    SELECT '{{ column }}' AS column_name, {{ position }} AS ordinal_position
+    {% if not loop.last %}
+    UNION ALL
+    {% endif %}
+    {% endfor %}
+)
+SELECT 
+    CASE 
+        WHEN COUNT(TableColumns.column_name) = COUNT(ExpectedColumns.column_name) 
+             AND NOT EXISTS (
+                SELECT 1
+                FROM TableColumns
+                FULL OUTER JOIN ExpectedColumns
+                ON TableColumns.column_name = ExpectedColumns.column_name
+                AND TableColumns.ordinal_position = ExpectedColumns.ordinal_position
+                WHERE TableColumns.column_name IS NULL
+                OR ExpectedColumns.column_name IS NULL
+             )
+        THEN 0  -- Columns match the expected ordered list
+        ELSE 1  -- Columns do not match the expected ordered list
+    END AS result
+FROM TableColumns, ExpectedColumns;
+{% endmacro %}
+
+{% macro expect_table_columns_to_match_set(table_name, expected_columns) %}
+-- This macro generates a SQL query that checks if the columns in a table match a specified set, regardless of order.
+--
+-- Parameters:
+-- table_name: The name of the table to check.
+-- expected_columns: A list of expected columns.
+--
+-- Returns:
+-- 0 if the columns match the expected set, 1 if they do not.
+
+WITH TableColumns AS (
+    SELECT name AS column_name
+    FROM pragma_table_info('{{ table_name }}')
+),
+ExpectedColumns AS (
+    {% for column in expected_columns %}
+    SELECT '{{ column }}' AS column_name
+    {% if not loop.last %}
+    UNION ALL
+    {% endif %}
+    {% endfor %}
+)
+SELECT 
+    CASE 
+        WHEN COUNT(TableColumns.column_name) = COUNT(ExpectedColumns.column_name) 
+             AND NOT EXISTS (
+                SELECT 1
+                FROM TableColumns
+                FULL OUTER JOIN ExpectedColumns
+                ON TableColumns.column_name = ExpectedColumns.column_name
+                WHERE TableColumns.column_name IS NULL
+                OR ExpectedColumns.column_name IS NULL
+             )
+        THEN 0  -- Columns match the expected set
+        ELSE 1  -- Columns do not match the expected set
+    END AS result
+FROM TableColumns, ExpectedColumns;
+{% endmacro %}

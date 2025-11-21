@@ -582,7 +582,7 @@ abstract class AutoTask(
         trimmedSql.replaceAll("\n", " ").toUpperCase().indexOf(" FROM ") match {
           case -1 => ""
           case idx if !upperCaseSQL.contains(" ORDER BY ") =>
-            "ORDER BY 1"
+            "" // "ORDER BY 1" because it won't work if col1 is a nested/repeated column
           case _ => ""
         }
       if (trimmedSql.endsWith(";")) {
@@ -967,9 +967,8 @@ object AutoTask extends LazyLogging {
   ): Try[List[(String, String)]] =
     Try {
       // remove ';' as last char if any to avoid syntax error in subquery
-      val removeFromSQL =
-        if (sql.trim.endsWith(";")) sql.trim.dropRight(1) else sql.trim
-      val dryRunQuery = s"SELECT * FROM ($removeFromSQL) WHERE 1=0"
+      val removeFromSQL = SQLUtils.stripComments(sql)
+      val dryRunQuery = s"SELECT * FROM (\n$removeFromSQL\n) WHERE 1=0"
       executeSelectOnly(
         domain,
         table,
