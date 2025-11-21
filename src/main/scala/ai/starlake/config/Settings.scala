@@ -1411,7 +1411,7 @@ object Settings extends LazyLogging {
     localCatalog match {
       case "none"              => // do nothing
       case "iceberg" | "delta" =>
-
+      case "hive"              => // do nothing
     }
 
     val withDefaultWriteFormat =
