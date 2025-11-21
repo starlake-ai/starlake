@@ -64,6 +64,7 @@ class SparkEnv private (
       val sysProps = System.getProperties()
       if (!SparkSessionBuilder.isSparkConnectActive) {
         val localCatalog = jobConf.getOption("spark.localCatalog").getOrElse("none")
+        val warehouseDir = jobConf.getOption("spark.sql.warehouse.dir").getOrElse(datasetsArea)
         // sys.env.getOrElse("SL_SPARK_LOCAL_CATALOG", "none")
 
         // We need to avoid in-memory catalog implementation otherwise delta will fail to work
@@ -74,8 +75,8 @@ class SparkEnv private (
             // Handled by configuration
             logger.info("Using Hive as local catalog")
 
-            sysProps.setProperty("derby.system.home", datasetsArea)
-            config.set("spark.sql.warehouse.dir", datasetsArea)
+            sysProps.setProperty("derby.system.home", warehouseDir)
+            config.set("spark.sql.warehouse.dir", warehouseDir)
             config.set("spark.sql.catalogImplementation", "hive")
 
           case "delta" if !Utils.isDeltaAvailable() && !Utils.isRunningInDatabricks() =>
@@ -89,8 +90,8 @@ class SparkEnv private (
           case "delta" =>
             logger.info("Using Delta as local catalog")
 
-            sysProps.setProperty("derby.system.home", datasetsArea + "/delta")
-            config.set("spark.sql.warehouse.dir", datasetsArea + "/delta")
+            sysProps.setProperty("derby.system.home", warehouseDir)
+            config.set("spark.sql.warehouse.dir", warehouseDir)
             config.set("spark.sql.catalogImplementation", "hive")
 
             config.set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
@@ -109,8 +110,8 @@ class SparkEnv private (
             // Handled by configuration
             logger.info("Using Iceberg as local catalog")
 
-            sysProps.setProperty("derby.system.home", datasetsArea)
-            config.set("spark.sql.warehouse.dir", datasetsArea)
+            sysProps.setProperty("derby.system.home", warehouseDir)
+            config.set("spark.sql.warehouse.dir", warehouseDir)
             config.set("spark.sql.catalogImplementation", "hive")
 
             config.set(
@@ -131,9 +132,9 @@ class SparkEnv private (
               config.set("spark.sql.catalog.local.type", "hadoop")
 
             if (config.get("spark.sql.catalog.spark_catalog.warehouse", "").isEmpty)
-              config.set("spark.sql.catalog.spark_catalog.warehouse", datasetsArea + "/iceberg")
+              config.set("spark.sql.catalog.spark_catalog.warehouse", warehouseDir)
             if (config.get("spark.sql.catalog.local.warehouse", "").isEmpty)
-              config.set("spark.sql.catalog.local.warehouse", datasetsArea + "/iceberg")
+              config.set("spark.sql.catalog.local.warehouse", warehouseDir)
 
             if (config.get("spark.sql.defaultCatalog", "").isEmpty)
               config.set("spark.sql.defaultCatalog", "local")
