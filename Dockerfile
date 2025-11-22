@@ -33,4 +33,11 @@ COPY starlake/bin /app/bin
 COPY starlake/starlake.sh /app/starlake.sh
 COPY starlake/versions.sh /app/versions.sh
 
+# Allow arbitrary UID
+RUN chgrp -R 0 /app && chmod -R g=u /app && \
+    chmod 755 /app/starlake.sh && \
+    useradd starlake -u 1001 -g 0 -m -s /bin/bash
+
+USER 1001
+
 ENTRYPOINT ["/app/starlake.sh"]
