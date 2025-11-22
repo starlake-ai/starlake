@@ -48,6 +48,28 @@ object DucklakeAttachment {
 }
 
 object JdbcDbUtils extends LazyLogging {
+  // Properties that should not be passed to DuckDB connections
+  val nonDuckDbProperties = Set(
+    "url",
+    "driver",
+    "dbtable",
+    "numpartitions",
+    "sl_access_token",
+    "account",
+    "allowUnderscoresInHost",
+    "database",
+    "db",
+    "authenticator",
+    "user",
+    "password",
+    "preActions"
+  )
+  def removeNonDuckDbProperties(
+    options: Map[String, String]
+  ): Map[String, String] = {
+    options.filterNot { case (k, _) => nonDuckDbProperties.contains(k) }
+  }
+
   DriverManager.registerDriver(new StarlakeDriver())
   val appType = Option(System.getenv("SL_API_APP_TYPE")).getOrElse("web")
 
@@ -121,8 +143,7 @@ object JdbcDbUtils extends LazyLogging {
       if (url.contains(":duckdb:")) {
         // No connection pool for duckdb. This is a single user database on write.
         // We need to release the connection asap
-        val duckOptions =
-          connectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account" - "allowUnderscoresInHost" - "database" - "db" - "authenticator" - "user" - "password" - "preActions"
+        val duckOptions = removeNonDuckDbProperties(connectionOptions)
         val properties = new Properties()
         duckOptions
           .foreach { case (k, v) =>
@@ -223,44 +244,23 @@ object JdbcDbUtils extends LazyLogging {
 
         val javaProperties = new Properties()
         finalConnectionOptions.foreach { case (k, v) =>
-          if (url.contains(":duckdb")) {
+          if (
+            !Set(
+              "driver", // don't pass driver to DriverManager. No need
+              "dbtable", // Spark only
+              "numpartitions", // Spark only
+              "sl_access_token" // used internally only
+            ).contains(k)
+          ) {
+
             if (
-              !Set(
-                "user",
-                "driver",
-                "dbtable",
-                "numpartitions",
-                "sl_access_token",
-                "account",
-                "authenticator",
-                "allowUnderscoresInHost",
-                "password",
-                "url"
-              )
-                .contains(k)
+              k != "authenticator" ||
+              !Set("user/password", "programmatic_access_token").contains(
+                finalConnectionOptions
+                  .getOrElse("authenticator", "other-value")
+              ) // we don't pass user/password or programmatic_access_token authenticator to DriverManager this is internal
             )
               javaProperties.setProperty(k, v)
-
-          } else {
-            if (
-              !Set(
-                "driver", // don't pass driver to DriverManager. No need
-                "dbtable", // Spark only
-                "numpartitions", // Spark only
-                "sl_access_token" // used internally only
-              ).contains(k)
-            ) {
-
-              if (
-                k != "authenticator" ||
-                !Set("user/password", "programmatic_access_token").contains(
-                  finalConnectionOptions
-                    .getOrElse("authenticator", "other-value")
-                ) // we don't pass user/password or programmatic_access_token authenticator to DriverManager this is internal
-              )
-                javaProperties.setProperty(k, v)
-            }
-
           }
         }
         val (finalDriver, dataBranchUrl) = StarlakeJdbcOps.driverAndUrl(
