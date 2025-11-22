@@ -15,7 +15,7 @@ title: {{ programName }}
 
 Parameter|Cardinality|Description
 ---|---|---
-{% for option in options %}--{{option.name}}:`{{option.value}}`|*{{option.required}}{{option.unbounded}}*|{{option.description}}
+{% for option in options %}--{{option.name}} `{{option.value}}`|*{{option.required}}{{option.unbounded}}*|{{option.description}}
 {% endfor %}
 
 
