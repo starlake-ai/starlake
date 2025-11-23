@@ -49,6 +49,7 @@ object DucklakeAttachment {
 
 object JdbcDbUtils extends LazyLogging {
   // Properties that should not be passed to DuckDB connections
+  // todo get it from settings
   val nonDuckDbProperties = Set(
     "url",
     "driver",
@@ -67,7 +68,8 @@ object JdbcDbUtils extends LazyLogging {
   def removeNonDuckDbProperties(
     options: Map[String, String]
   ): Map[String, String] = {
-    options.filterNot { case (k, _) => nonDuckDbProperties.contains(k) }
+    val filtered = options.filterNot { case (k, _) => nonDuckDbProperties.contains(k) }
+    filtered
   }
 
   DriverManager.registerDriver(new StarlakeDriver())
@@ -141,8 +143,6 @@ object JdbcDbUtils extends LazyLogging {
       val url = connectionOptions("url")
 
       if (url.contains(":duckdb:")) {
-        // No connection pool for duckdb. This is a single user database on write.
-        // We need to release the connection asap
         val duckOptions = removeNonDuckDbProperties(connectionOptions)
         val properties = new Properties()
         duckOptions
@@ -150,7 +150,21 @@ object JdbcDbUtils extends LazyLogging {
             properties.setProperty(k, v)
           }
 
-        val dbKey = url + properties.toString
+        val dbKey =
+          if (connectionOptions.get("preActions").exists(_.contains("ducklake:"))) {
+            val ducklakeAttachment =
+              connectionOptions("preActions")
+                .split(";")
+                .find(_.contains("ducklake:"))
+                .getOrElse("Should never happen")
+            ducklakeAttachment.replaceAll("\\s+", " ")
+          } else {
+            // No connection pool for duckdb. This is a single user database on write.
+            // We need to release the connection asap
+            url + "?" + properties.toString
+          }
+
+        logger.debug(s"DuckDB Connection Key: $dbKey")
         val mainConnection =
           duckDbPool.get(dbKey) match {
             case Some(existingConn) =>

@@ -218,7 +218,7 @@ class JdbcAutoTask(
                   .save(tablePath.toString)
                 JdbcDbUtils.withJDBCConnection(
                   this.schemaHandler.dataBranch(),
-                  sinkConnection.options.updated("enable_external_access", "true"),
+                  sinkConnection.options,
                   sqlConnection
                 ) { conn =>
                   val sql =
