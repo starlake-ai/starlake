@@ -832,7 +832,7 @@ class SparkAutoTask(
             .save(tablePath.toString)
           JdbcDbUtils.withJDBCConnection(
             this.schemaHandler.dataBranch(),
-            sinkConnection.options.updated("enable_external_access", "true")
+            sinkConnection.options
           ) { conn =>
             val sql =
               s"INSERT INTO $firstStepTempTable SELECT ${colNames.mkString(",")} FROM '$tablePath/*.parquet'"
