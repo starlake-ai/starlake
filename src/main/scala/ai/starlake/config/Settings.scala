@@ -1408,30 +1408,27 @@ object Settings extends LazyLogging {
     val withDefaultSchedules = addDefaultSchedules(withSparkConfig)
 
     val localCatalog = jobConf.get("spark.localCatalog", "none")
-    localCatalog match {
-      case "none"              => // do nothing
-      case "iceberg" | "delta" =>
-      case "hive"              => // do nothing
-    }
+    val writeFormat =
+      localCatalog match {
+        case "none" => // do nothing
+          "parquet"
+        case "iceberg" | "delta" =>
+          localCatalog
+        case "hive" => // do nothing
+          "parquet"
+        case other =>
+          logger.warn(s"Unknown localCatalog type: $other")
+          other
+      }
 
     val withDefaultWriteFormat =
-      if (localCatalog != "none")
-        withDefaultSchedules.copy(appConfig =
-          withDefaultSchedules.appConfig.copy(
-            defaultWriteFormat = localCatalog,
-            defaultRejectedWriteFormat = localCatalog,
-            defaultAuditWriteFormat = localCatalog
-          )
+      withDefaultSchedules.copy(appConfig =
+        withDefaultSchedules.appConfig.copy(
+          defaultWriteFormat = writeFormat,
+          defaultRejectedWriteFormat = writeFormat,
+          defaultAuditWriteFormat = writeFormat
         )
-      else
-        withDefaultSchedules.copy(appConfig =
-          withDefaultSchedules.appConfig.copy(
-            defaultWriteFormat = "parquet",
-            defaultRejectedWriteFormat = "parquet",
-            defaultAuditWriteFormat = "parquet"
-          )
-        )
-
+      )
     withDefaultWriteFormat
   }
 
