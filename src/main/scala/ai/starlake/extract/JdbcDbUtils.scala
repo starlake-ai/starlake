@@ -37,7 +37,7 @@ object DucklakeAttachment {
   case class AttachValues(metadataLocation: String, dbName: String, dataPathValue: String)
   def extract(inputString: String): Option[AttachValues] = {
     val pattern =
-      "\\s*(?:==>\\s*)?ATTACH\\s+'ducklake:([^']+?)'\\s+AS\\s+([^\\s(]+?)\\s*\\(\\s*DATA_PATH\\s+([^)]+?)\\s*\\)\\s*;?\\s*$".r
+      "\\s*(?:==>\\s*)?ATTACH\\s+IF\\s+NOT\\s+EXISTS\\s+'ducklake:([^']+?)'\\s+AS\\s+([^\\s(]+?)\\s*\\(\\s*DATA_PATH\\s+([^)]+?)\\s*\\)\\s*;?\\s*$".r
     inputString.trim match {
       case pattern(value1, value2, value3) =>
         Some(AttachValues(value1.trim, value2.trim, value3.trim))
@@ -48,6 +48,28 @@ object DucklakeAttachment {
 }
 
 object JdbcDbUtils extends LazyLogging {
+  // Properties that should not be passed to DuckDB connections
+  val nonDuckDbProperties = Set(
+    "url",
+    "driver",
+    "dbtable",
+    "numpartitions",
+    "sl_access_token",
+    "account",
+    "allowUnderscoresInHost",
+    "database",
+    "db",
+    "authenticator",
+    "user",
+    "password",
+    "preActions"
+  )
+  def removeNonDuckDbProperties(
+    options: Map[String, String]
+  ): Map[String, String] = {
+    options.filterNot { case (k, _) => nonDuckDbProperties.contains(k) }
+  }
+
   DriverManager.registerDriver(new StarlakeDriver())
   val appType = Option(System.getenv("SL_API_APP_TYPE")).getOrElse("web")
 
@@ -121,8 +143,7 @@ object JdbcDbUtils extends LazyLogging {
       if (url.contains(":duckdb:")) {
         // No connection pool for duckdb. This is a single user database on write.
         // We need to release the connection asap
-        val duckOptions =
-          connectionOptions - "url" - "driver" - "dbtable" - "numpartitions" - "sl_access_token" - "account" - "allowUnderscoresInHost" - "database" - "db" - "authenticator" - "user" - "password" - "preActions"
+        val duckOptions = removeNonDuckDbProperties(connectionOptions)
         val properties = new Properties()
         duckOptions
           .foreach { case (k, v) =>
@@ -223,44 +244,23 @@ object JdbcDbUtils extends LazyLogging {
 
         val javaProperties = new Properties()
         finalConnectionOptions.foreach { case (k, v) =>
-          if (url.contains(":duckdb")) {
+          if (
+            !Set(
+              "driver", // don't pass driver to DriverManager. No need
+              "dbtable", // Spark only
+              "numpartitions", // Spark only
+              "sl_access_token" // used internally only
+            ).contains(k)
+          ) {
+
             if (
-              !Set(
-                "user",
-                "driver",
-                "dbtable",
-                "numpartitions",
-                "sl_access_token",
-                "account",
-                "authenticator",
-                "allowUnderscoresInHost",
-                "password",
-                "url"
-              )
-                .contains(k)
+              k != "authenticator" ||
+              !Set("user/password", "programmatic_access_token").contains(
+                finalConnectionOptions
+                  .getOrElse("authenticator", "other-value")
+              ) // we don't pass user/password or programmatic_access_token authenticator to DriverManager this is internal
             )
               javaProperties.setProperty(k, v)
-
-          } else {
-            if (
-              !Set(
-                "driver", // don't pass driver to DriverManager. No need
-                "dbtable", // Spark only
-                "numpartitions", // Spark only
-                "sl_access_token" // used internally only
-              ).contains(k)
-            ) {
-
-              if (
-                k != "authenticator" ||
-                !Set("user/password", "programmatic_access_token").contains(
-                  finalConnectionOptions
-                    .getOrElse("authenticator", "other-value")
-                ) // we don't pass user/password or programmatic_access_token authenticator to DriverManager this is internal
-              )
-                javaProperties.setProperty(k, v)
-            }
-
           }
         }
         val (finalDriver, dataBranchUrl) = StarlakeJdbcOps.driverAndUrl(
@@ -366,37 +366,7 @@ object JdbcDbUtils extends LazyLogging {
         depth = depth + 1
         // run preActions
         val preActions = connectionOptions.get("preActions")
-        val isDucklake = preActions.exists(preActions => preActions.contains("ducklake:"))
-        preActions.foreach { actions =>
-          actions.split(";").filter(_.trim.nonEmpty).foreach { actionIn =>
-            val action =
-              if (isDucklake) {
-                DucklakeAttachment.extract(actionIn) match {
-                  case None => actionIn
-                  case Some(attachValues) =>
-                    val attachSQL = {
-                      if (!attachValues.dataPathValue.contains("OVERRIDE_DATA_PATH"))
-                        s"ATTACH IF NOT EXISTS 'ducklake:${attachValues.metadataLocation}' AS ${attachValues.dbName} (DATA_PATH ${attachValues.dataPathValue}, OVERRIDE_DATA_PATH true)"
-                      else
-                        s"ATTACH IF NOT EXISTS 'ducklake:${attachValues.metadataLocation}' AS ${attachValues.dbName} (DATA_PATH ${attachValues.dataPathValue})"
-                    }
-                    attachSQL
-                }
-              } else {
-                actionIn
-              }
-            Try {
-              val statement = connection.createStatement()
-              statement.execute(action)
-              statement.close()
-            } match {
-              case Failure(exception) =>
-                logger.error(s"Error running preAction $action", exception)
-                throw exception
-              case Success(value) =>
-            }
-          }
-        }
+        runDuckLakePreActions(connection, preActions)
         val result = Try {
           f(connection)
         } match {
@@ -438,6 +408,40 @@ object JdbcDbUtils extends LazyLogging {
             throw exception
           case Success(value) => value
         }
+    }
+  }
+
+  def runDuckLakePreActions(connection: java.sql.Connection, preActions: Option[String]): Unit = {
+    val isDucklake = preActions.exists(preActions => preActions.contains("ducklake:"))
+    preActions.foreach { actions =>
+      actions.split(";").filter(_.trim.nonEmpty).foreach { actionIn =>
+        val action =
+          if (isDucklake) {
+            DucklakeAttachment.extract(actionIn) match {
+              case None => actionIn
+              case Some(attachValues) =>
+                val attachSQL = {
+                  if (!attachValues.dataPathValue.contains("OVERRIDE_DATA_PATH"))
+                    s"ATTACH IF NOT EXISTS 'ducklake:${attachValues.metadataLocation}' AS ${attachValues.dbName} (DATA_PATH ${attachValues.dataPathValue}, OVERRIDE_DATA_PATH true)"
+                  else
+                    s"ATTACH IF NOT EXISTS 'ducklake:${attachValues.metadataLocation}' AS ${attachValues.dbName} (DATA_PATH ${attachValues.dataPathValue})"
+                }
+                attachSQL
+            }
+          } else {
+            actionIn
+          }
+        Try {
+          val statement = connection.createStatement()
+          statement.execute(action)
+          statement.close()
+        } match {
+          case Failure(exception) =>
+            logger.error(s"Error running preAction $action", exception)
+            throw exception
+          case Success(value) =>
+        }
+      }
     }
   }
 
@@ -495,7 +499,8 @@ object JdbcDbUtils extends LazyLogging {
   def tableExists(conn: Connection, url: String, domainAndTablename: String): Boolean = {
     val dialect = SparkUtils.dialectForUrl(url)
     Try {
-      val statement = conn.prepareStatement(dialect.getTableExistsQuery(domainAndTablename))
+      val existQuery = dialect.getTableExistsQuery(domainAndTablename)
+      val statement = conn.prepareStatement(existQuery)
       try {
         statement.executeQuery()
       } catch {
