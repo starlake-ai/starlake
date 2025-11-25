@@ -583,13 +583,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         case Some(root) => // root is forced by the user
           sys.env ++ slVarsAsProperties ++ Map("SL_ROOT" -> root)
       }
-    val externalProps =
-      root match {
-        case None => sys.env ++ slVarsAsProperties
-        case Some(root) =>
-          sys.env ++ slVarsAsProperties ++ Map("SL_ROOT" -> root)
-      }
-    
+
     // We first load all variables defined in the common environment file.
     // variables defined here are default values.
     val globalsCometPath = DatasetArea.env()
