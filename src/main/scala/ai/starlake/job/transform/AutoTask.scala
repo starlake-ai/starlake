@@ -123,12 +123,7 @@ abstract class AutoTask(
 
   val sinkOptions =
     if (sinkConnection.isDuckDb()) {
-      val duckDbEnableExternalAccess =
-        settings.appConfig.duckDbEnableExternalAccess || sinkConnection.isMotherDuckDb()
-      sinkConnection.options.updated(
-        "enable_external_access",
-        duckDbEnableExternalAccess.toString
-      )
+      sinkConnection.options
     } else {
       sinkConnection.withAccessToken(accessToken).options
     }
