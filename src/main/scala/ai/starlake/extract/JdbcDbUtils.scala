@@ -440,6 +440,7 @@ object JdbcDbUtils extends LazyLogging {
                   else
                     s"ATTACH IF NOT EXISTS 'ducklake:${attachValues.metadataLocation}' AS ${attachValues.dbName} (DATA_PATH ${attachValues.dataPathValue})"
                 }
+                logger.info(attachSQL)
                 attachSQL
             }
           } else {
