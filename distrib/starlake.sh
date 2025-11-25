@@ -1,216 +1,343 @@
-@echo off
-setlocal enabledelayedexpansion
+#!/usr/bin/env bash
 
-set "SCRIPT_DIR=%~dp0"
-set "SL_SCRIPT_DIR=%SCRIPT_DIR%"
-set "API_BIN_DIR=%SCRIPT_DIR%\bin\api\bin"
+set -e
 
-if not defined SL_ROOT (
-    set "SL_ROOT=%cd%"
-    set "SL_ROOT=!SL_ROOT:\=/!"
-)
+SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
 
-if /i "%1" == "reinstall" (
-    if exist "%SCRIPT_DIR%versions.bat" del "%SCRIPT_DIR%versions.bat"
-    if exist "%SCRIPT_DIR%bin\spark" rmdir /s /q "%SCRIPT_DIR%bin\spark"
-) else (
-    if exist "%SCRIPT_DIR%versions.bat" (
-        call "%SCRIPT_DIR%versions.bat"
-    )
-)
+export SL_SCRIPT_DIR="$SCRIPT_DIR"
 
-set "SL_ARTIFACT_NAME=starlake-core_%SCALA_VERSION%"
-set "SPARK_DIR_NAME=spark-%SPARK_VERSION%-bin-hadoop%HADOOP_VERSION%"
-set "SPARK_TARGET_FOLDER=%SCRIPT_DIR%bin\spark"
-set "SPARK_EXTRA_LIB_FOLDER=%SCRIPT_DIR%bin"
-set "DEPS_EXTRA_LIB_FOLDER=%SPARK_EXTRA_LIB_FOLDER%\deps"
-set "STARLAKE_EXTRA_LIB_FOLDER=%SPARK_EXTRA_LIB_FOLDER%\sl"
+API_BIN_DIR="$SCRIPT_DIR/bin/api/bin"
 
-if not defined SPARK_DRIVER_MEMORY set "SPARK_DRIVER_MEMORY=4g"
-set "SL_MAIN=ai.starlake.job.Main"
-if not defined SPARK_MASTER_URL set "SPARK_MASTER_URL=local[*]"
+SL_ROOT="${SL_ROOT:-`pwd`}"
 
-if defined SL_VERSION (
-    set "SL_JAR_NAME=%SL_ARTIFACT_NAME%-%SL_VERSION%-assembly.jar"
-)
+case "$1" in
+  reinstall)
+    rm "$SCRIPT_DIR/versions.sh"
+    rm -rf "$SCRIPT_DIR/bin/spark"
+    ;;
+  *)
+    if [ -f "$SCRIPT_DIR/versions.sh" ]
+    then
+      source "$SCRIPT_DIR/versions.sh"
+    fi
+    ;;
+esac
 
-set "PROXY="
-if defined https_proxy (
-    set "PROXY=%https_proxy%"
-) else if defined http_proxy (
-    set "PROXY=%http_proxy%"
-)
+SL_ARTIFACT_NAME=starlake-core_$SCALA_VERSION
+SPARK_DIR_NAME=spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION
+SPARK_TARGET_FOLDER=$SCRIPT_DIR/bin/spark
+SPARK_EXTRA_LIB_FOLDER=$SCRIPT_DIR/bin
+DEPS_EXTRA_LIB_FOLDER=$SPARK_EXTRA_LIB_FOLDER/deps
+STARLAKE_EXTRA_LIB_FOLDER=$SPARK_EXTRA_LIB_FOLDER/sl
+SL_SQL_WH="${SL_DATASETS:-$SL_ROOT/datasets}"
 
-set "JAVA_ARGS="
-if defined HTTPS_PROXY (
-    echo Using HTTPS_PROXY: %HTTPS_PROXY%
-    set "JAVA_ARGS=%JAVA_ARGS% -Dhttps.proxyHost=%HTTPS_PROXY_HOST% -Dhttps.proxyPort=%HTTPS_PROXY_PORT%"
-    if defined HTTPS_PROXY_USER set "JAVA_ARGS=%JAVA_ARGS% -Dhttps.proxyUser=%HTTPS_PROXY_USER%"
-    if defined HTTPS_PROXY_PASS set "JAVA_ARGS=%JAVA_ARGS% -Dhttps.proxyPassword=%HTTPS_PROXY_PASS%"
-)
-if defined HTTP_PROXY (
-    echo Using HTTP_PROXY: %HTTP_PROXY%
-    set "JAVA_ARGS=%JAVA_ARGS% -Dhttp.proxyHost=%HTTP_PROXY_HOST% -Dhttp.proxyPort=%HTTP_PROXY_PORT%"
-    if defined HTTP_PROXY_USER set "JAVA_ARGS=%JAVA_ARGS% -Dhttp.proxyUser=%HTTP_PROXY_USER%"
-    if defined HTTP_PROXY_PASS set "JAVA_ARGS=%JAVA_ARGS% -Dhttp.proxyPassword=%HTTP_PROXY_PASS%"
-)
+export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4g}"
+export SL_MAIN=ai.starlake.job.Main
+export SPARK_MASTER_URL="${SPARK_MASTER_URL:-local[*]}"
 
-if defined SPARK_DRIVER_OPTIONS (
-    set "SPARK_DRIVER_OPTIONS=%SPARK_DRIVER_OPTIONS% %JAVA_ARGS%"
-) else (
-    set "SPARK_DRIVER_OPTIONS=%JAVA_ARGS%"
-)
+if [ -n "$SL_VERSION" ]
+then
+  SL_JAR_NAME=$SL_ARTIFACT_NAME-$SL_VERSION-assembly.jar
+fi
 
-set "JAVA_OPTS=%JAVA_OPTS% %JAVA_ARGS%"
+if [[ -n "${https_proxy}" ]] || [[ -n "${http_proxy}" ]]; then
+  PROXY=${https_proxy:-$http_proxy}
+fi
 
-goto :handle_command
 
-:launch_setup
-    set "setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar"
-    echo Downloading %setup_url% to %SCRIPT_DIR%setup.jar
-    if defined PROXY (
-        if defined SL_INSECURE (
-            curl --insecure --proxy "%PROXY%" -s -o "%SCRIPT_DIR%setup.jar" "%setup_url%"
-        ) else (
-            curl --proxy "%PROXY%" -s -o "%SCRIPT_DIR%setup.jar" "%setup_url%"
-        )
-    ) else (
-        curl -s -o "%SCRIPT_DIR%setup.jar" "%setup_url%"
-    )
-    if errorlevel 1 (
-        echo Error: Failed to retrieve data from %setup_url%.
-        exit /b 1
-    )
+parse_proxy_and_build_args() {
+    local type=$1
+    local url=$2
 
-    set "RUNNER="
-    if defined JAVA_HOME (
-        set "RUNNER=%JAVA_HOME%\bin\java.exe"
-    ) else (
-        for %%X in (java.exe) do (set RUNNER=%%~dp$PATH:X)
-        if not defined RUNNER (
-            echo JAVA_HOME is not set and java not in PATH
-            exit /b 1
-        )
-    )
-    "%RUNNER%" -cp "%SCRIPT_DIR%setup.jar" Setup "%SCRIPT_DIR%" "windows"
+    # If no protocol (e.g., "myproxy.com:8080"), add a default "http://"
+    # so the regex can parse it correctly.
+    if ! [[ $url == *"://"* ]]; then
+        echo "No protocol found in ${type^^}_PROXY. Assuming 'http://'." >&2
+        url="http://$url"
+    fi
 
-    if exist "%API_BIN_DIR%" (
-        for %%f in ("%API_BIN_DIR%\local-*") do (
-            rem In Windows, .bat/.cmd files are executable by default.
-            echo Granting execute permission to %%f is not necessary on Windows.
-        )
-    )
-goto :eof
+    # Use a regex to parse the URL components.
+    # This regex captures:
+    # 1: Protocol (which we ignore, using $type)
+    # 2: User-pass (optional)
+    # 3: Username (if user-pass exists)
+    # 4: Password (if user-pass exists)
+    # 5: Host (required)
+    # 6: Port (optional, with colon)
+    # 7: Port number (if port exists)
+    local regex="^([^:]+)://(([^:]+):([^@]+)@)?([^:/]+)(:([0-9]+))?/?$"
 
-:launch_starlake
-    if not exist "%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%" (
-        echo Starlake jar %SL_JAR_NAME% does not exist. Please install it.
-        exit /b 1
-    )
+    if [[ $url =~ $regex ]]; then
+        local host="${BASH_REMATCH[5]}"
+        local port="${BASH_REMATCH[7]}"
+        local user="${BASH_REMATCH[3]}"
+        local pass="${BASH_REMATCH[4]}"
 
-    if defined SL_ENV (
-        echo - SL_ENV=%SL_ENV%
-    )
+        local args=""
 
-    if defined SL_DEBUG (
-        set "SPARK_DRIVER_OPTIONS=%SPARK_DRIVER_OPTIONS% -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
-    )
+        # Set host
+        if [ -n "$host" ]; then
+            args="-D${type}.proxyHost=${host}"
+        else
+            # If we can't find a host, the URL is invalid.
+            return
+        fi
 
-    set "SL_RUN_MODE="
-    if /i "%1" == "import" set SL_RUN_MODE=main
-    if /i "%1" == "xls2yml" set SL_RUN_MODE=main
-    if /i "%1" == "yml2xls" set SL_RUN_MODE=main
+        # Set port
+        if [ -n "$port" ]; then
+            args="$args -D${type}.proxyPort=${port}"
+        fi
 
-    if /i "%SL_RUN_MODE%" == "main" (
-        set "SL_ROOT=!SL_ROOT!"
-        java --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED -Dlog4j.configurationFile="%SPARK_TARGET_FOLDER%/conf/log4j2.properties" -cp "%SPARK_TARGET_FOLDER%\jars\*;%DEPS_EXTRA_LIB_FOLDER%\*;%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%" %SL_MAIN% %*
-    ) else (
-        set "extra_classpath=%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%"
-        set "extra_jars=%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%"
-        set "SPARK_SUBMIT=%SPARK_TARGET_FOLDER%\bin\spark-submit.cmd"
+        # Set username
+        if [ -n "$user" ]; then
+            # URL-decode the username (e.g., %40 -> @)
+            user_decoded=$(printf '%b' "${user//%/\\x}")
+            args="$args -D${type}.proxyUser=${user_decoded}"
+        fi
 
-        set "deps_jars="
-        for %%f in ("%DEPS_EXTRA_LIB_FOLDER%\*.jar") do (
-            if defined deps_jars (
-                call set "deps_jars=%%deps_jars%%,%%f"
-            ) else (
-                set "deps_jars=%%f"
-            )
-        )
+        # Set password
+        if [ -n "$pass" ]; then
+            # URL-decode the password
+            pass_decoded=$(printf '%b' "${pass//%/\\x}")
+            args="$args -D${type}.proxyPassword=${pass_decoded}"
+        fi
 
-        if /i "%SPARK_MASTER_URL:~0,5%" == "local" (
-            if defined deps_jars (
-                set "extra_classpath=%extra_classpath%;%deps_jars:,=;%"
-            )
-            set "SPARK_LOCAL_HOSTNAME=127.0.0.1"
-            set "SPARK_HOME=%SCRIPT_DIR%bin\spark"
-            set "SL_ROOT=!SL_ROOT!"
-            call "%SPARK_SUBMIT%" %SPARK_EXTRA_PACKAGES% --driver-java-options "%SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --driver-class-path "%extra_classpath%" --class "%SL_MAIN%" --master "%SPARK_MASTER_URL%" "%SPARK_TARGET_FOLDER%\README.md" %*
-        ) else (
-            if defined deps_jars (
-                set "extra_classpath=%deps_jars:,=;%"
-                set "extra_jars=%extra_jars%,%deps_jars%"
-            )
-            set "SPARK_HOME=%SCRIPT_DIR%bin\spark"
-            set "SL_ROOT=!SL_ROOT!"
-            call "%SPARK_SUBMIT%" %SPARK_EXTRA_PACKAGES% %SPARK_CONF_OPTIONS% --driver-java-options "%SPARK_DRIVER_OPTIONS%" --driver-class-path "%extra_classpath%" --class "%SL_MAIN%" --master "%SPARK_MASTER_URL%" --jars "%extra_jars%" "%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%" %*
-        )
-    )
-goto :eof
+        echo "$args"
+    else
+        echo "Warning: Could not parse ${type} proxy URL: $url" >&2
+    fi
+}
 
-:handle_command
-    if /i "%1" == "--version" goto :version_command
-    if /i "%1" == "version" goto :version_command
-    if /i "%1" == "install" goto :install_command
-    if /i "%1" == "reinstall" goto :install_command
-    if /i "%1" == "serve" goto :serve_command
-    goto :default_command
+# All Java arguments will be collected in this array
+export JAVA_ARGS=()
 
-:version_command
-    echo Starlake %SL_VERSION%
-    echo Duckdb JDBC driver %DUCKDB_VERSION%
-    echo BigQuery Spark connector %SPARK_BQ_VERSION%
-    echo Hadoop for Azure %HADOOP_AZURE_VERSION%
-    echo Azure Storage %AZURE_STORAGE_VERSION%
-    echo Spark %SPARK_VERSION%
-    echo Hadoop %HADOOP_VERSION%
-    echo Snowflake Spark connector %SPARK_SNOWFLAKE_VERSION%
-    echo Snowflake JDBC driver %SNOWFLAKE_JDBC_VERSION%
-    echo Postgres JDBC driver %POSTGRESQL_VERSION%
-    echo AWS SDK %AWS_JAVA_SDK_VERSION%
-    echo Hadoop for AWS %HADOOP_AWS_VERSION%
-    echo Redshift JDBC driver %REDSHIFT_JDBC_VERSION%
-    echo Redshift Spark connector %SPARK_REDSHIFT_VERSION%
-    goto :eof
+# 1. Check for HTTPS_PROXY
+if [ -n "$HTTPS_PROXY" ]; then
+    # Pass "https" as the type and the variable's value
+    https_args=$(parse_proxy_and_build_args "https" "$HTTPS_PROXY")
+    if [ -n "$https_args" ]; then
+        echo "Using HTTPS_PROXY: $HTTPS_PROXY"
+        # Add the arguments to our array
+        # We don't quote $https_args so that bash splits it into separate arguments
+        JAVA_ARGS+=($https_args)
+    fi
+fi
 
-:install_command
-    call :launch_setup
-    echo.
-    echo Installation done. You're ready to enjoy Starlake!
+# 2. Check for HTTP_PROXY
+if [ -n "$HTTP_PROXY" ]; then
+    # Pass "http" as the type and the variable's value
+    http_args=$(parse_proxy_and_build_args "http" "$HTTP_PROXY")
+    if [ -n "$http_args" ]; then
+        echo "Using HTTP_PROXY: $HTTP_PROXY"
+        JAVA_ARGS+=($http_args)
+    fi
+fi
+
+if [ -n "$SPARK_DRIVER_OPTIONS" ]; then
+  SPARK_DRIVER_OPTIONS="$SPARK_DRIVER_OPTIONS "
+else
+  SPARK_DRIVER_OPTIONS="${JAVA_ARGS[@]}"
+fi
+
+export JAVA_OPTS="$JAVA_OPTS ${JAVA_ARGS[@]}"
+
+get_binary_from_url() {
+    local url=$1
+    local target_file=$2
+    if [ -n "$PROXY" ] && [ -n "$SL_INSECURE" ]; then
+        echo "Downloading $url to $target_file using proxy $PROXY"
+        local response=$(curl --insecure --proxy "$PROXY" -s -w "%{http_code}" -o "$target_file" "$url")
+    else
+        local response=$(curl -s -w "%{http_code}" -o "$target_file" "$url")
+    fi
+    local status_code=${response: -3}
+
+    if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then
+        echo "Error: Failed to retrieve data from $url. HTTP status code: $status_code"
+        exit 1
+    fi
+}
+
+launch_setup() {
+  local setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar
+  get_binary_from_url $setup_url "$SCRIPT_DIR/setup.jar"
+
+  if [ -n "${JAVA_HOME}" ]; then
+    RUNNER="${JAVA_HOME}/bin/java"
+  else
+    if [ "$(command -v java)" ]; then
+      RUNNER="java"
+    else
+      echo "JAVA_HOME is not set" >&2
+      exit 1
+    fi
+  fi
+  $RUNNER -cp "$SCRIPT_DIR/setup.jar" Setup "$SCRIPT_DIR" unix
+
+  # if API_BIN_DIR exists set all files starting with local- as executable
+  if [ -d "$API_BIN_DIR" ]; then
+    for file in "$API_BIN_DIR"/local-*; do
+      if [ -f "$file" ]; then
+        chmod +x "$file"
+      fi
+    done
+  fi
+}
+
+launch_starlake() {
+  if [ -f "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" ]
+  then
+    if  [ -n "$SL_LOG_LEVEL" ] && [ "$SL_LOG_LEVEL" != "error" ]; then
+      echo "- JAVA_HOME=$JAVA_HOME"
+      echo "- SL_ROOT=$SL_ROOT"
+    fi
+    if [ "$SL_ENV" != "" ]; then
+      echo "- SL_ENV=$SL_ENV"
+    fi
+#    echo "- SL_MAIN=$SL_MAIN"
+#    echo "- SL_VALIDATE_ON_LOAD=$SL_VALIDATE_ON_LOAD"
+#    echo "- SPARK_DRIVER_MEMORY=$SPARK_DRIVER_MEMORY"
+#    echo Make sure your java home path does not contain space
+
+
+    #if [[ $SL_FS = abfs:* ]] || [[ $SL_FS = wasb:* ]] || [[ $SL_FS = wasbs:* ]]
+    #then
+    #  if [[ -z "$AZURE_STORAGE_ACCOUNT" ]]
+    #  then
+    #    echo "AZURE_STORAGE_ACCOUNT should reference storage account name"
+    #    exit 1
+    #  fi
+    #  if [[ -z "$AZURE_STORAGE_KEY" ]]
+    #  then
+    #    echo "AZURE_STORAGE_KEY should reference the storage account key"
+    #    exit 1
+    #  fi
+    #  export SL_STORAGE_CONF="fs.azure.account.auth.type.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net=SharedKey,
+    #                  fs.azure.account.key.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net="$AZURE_STORAGE_KEY",
+    #                  fs.default.name=$SL_FS,
+    #                  fs.defaultFS=$SL_FS"
+    #fi
+
+    if [[ -z "$SL_DEBUG" ]]
+    then
+      SPARK_DRIVER_OPTIONS="$SPARK_DRIVER_OPTIONS" # "-Dlog4j.configuration=$SPARK_TARGET_FOLDER/conf/log4j2.properties"
+    else
+      SPARK_DRIVER_OPTIONS="$SPARK_DRIVER_OPTIONS -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005" # -Dlog4j.configuration=$SPARK_TARGET_FOLDER/conf/log4j2.properties"
+    fi
+
+    if [[ "$1" =~ ^(import|xls2yml|yml2xls)$ ]]
+    then
+      SL_RUN_MODE=main
+    fi
+
+    if [[ "$SL_RUN_MODE" == "main" ]]
+    then
+      SL_ROOT=$SL_ROOT java \
+                          --add-opens=java.base/java.lang=ALL-UNNAMED \
+                          --add-opens=java.base/java.lang.invoke=ALL-UNNAMED \
+                          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+                          --add-opens=java.base/java.io=ALL-UNNAMED \
+                          --add-opens=java.base/java.net=ALL-UNNAMED \
+                          --add-opens=java.base/java.nio=ALL-UNNAMED \
+                          --add-opens=java.base/java.util=ALL-UNNAMED \
+                          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+                          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+                          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+                          --add-opens=java.base/sun.nio.cs=ALL-UNNAMED \
+                          --add-opens=java.base/sun.security.action=ALL-UNNAMED \
+                          --add-opens=java.base/sun.util.calendar=ALL-UNNAMED \
+                          --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+                          -Dlog4j.configurationFile="$SPARK_TARGET_FOLDER/conf/log4j2.properties" \
+                          -cp "$SPARK_TARGET_FOLDER/jars/*:$DEPS_EXTRA_LIB_FOLDER/*:$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" $SL_MAIN $@
+    else
+      extra_classpath="$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME"
+      extra_jars="$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME"
+      SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
+      # the command below requires --jars "$extra_jars" to run on distributed modes
+      if [[ $SPARK_MASTER_URL == local* ]]
+      then
+        if [ $(ls "$DEPS_EXTRA_LIB_FOLDER/"*.jar | wc -l) -ne 0 ]
+        then
+          extra_classpath="$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME:$(echo "$DEPS_EXTRA_LIB_FOLDER/"*.jar | tr ' ' ':')"
+        fi
+        SPARK_LOCAL_HOSTNAME="127.0.0.1" SPARK_HOME="$SCRIPT_DIR/bin/spark" SL_ROOT="$SL_ROOT" "$SPARK_SUBMIT" $SPARK_EXTRA_PACKAGES --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --driver-class-path "$extra_classpath" --class "$SL_MAIN" --master "$SPARK_MASTER_URL" "$SPARK_TARGET_FOLDER/README.md" "$@"
+      else
+        if [ $(ls "$DEPS_EXTRA_LIB_FOLDER/"*.jar | wc -l) -ne 0 ]
+        then
+          extra_classpath="$(echo "$DEPS_EXTRA_LIB_FOLDER/"*.jar | tr ' ' ':')"
+          extra_jars="$(echo "$DEPS_EXTRA_LIB_FOLDER/"*.jar | tr ' ' ',')"
+
+        fi
+         SPARK_HOME="$SCRIPT_DIR/bin/spark" SL_ROOT="$SL_ROOT" "$SPARK_SUBMIT" $SPARK_EXTRA_PACKAGES $SPARK_CONF_OPTIONS --driver-java-options "$SPARK_DRIVER_OPTIONS" --driver-class-path "$extra_classpath" --class "$SL_MAIN" --master "$SPARK_MASTER_URL"  --jars $extra_jars "$STARLAKE_EXTRA_LIB_FOLDER/$SL_JAR_NAME" "$@"
+      fi
+    fi
+  else
+    echo "Starlake jar $SL_JAR_NAME does not exists. Please install it."
+    exit 1
+  fi
+}
+
+
+case "$1" in
+  --version|version)
+	  echo Starlake $SL_VERSION
+	  echo Duckdb JDBC driver ${DUCKDB_VERSION}
+	  echo BigQuery Spark connector ${SPARK_BQ_VERSION}
+	  echo Hadoop for Azure ${HADOOP_AZURE_VERSION}
+	  echo Azure Storage ${AZURE_STORAGE_VERSION}
+	  echo Spark ${SPARK_VERSION}
+	  echo Hadoop ${HADOOP_VERSION}
+	  echo Snowflake Spark connector ${SPARK_SNOWFLAKE_VERSION}
+	  echo Snowflake JDBC driver ${SNOWFLAKE_JDBC_VERSION}
+	  echo Postgres JDBC driver ${POSTGRESQL_VERSION}
+	  echo AWS SDK ${AWS_JAVA_SDK_VERSION}
+	  echo Hadoop for AWS ${HADOOP_AWS_VERSION}
+	  echo Redshift JDBC driver ${REDSHIFT_JDBC_VERSION}
+	  echo Redshift Spark connector ${SPARK_REDSHIFT_VERSION}
+    ;;
+  install|reinstall)
+    launch_setup
+    echo
+    echo "Installation done. You're ready to enjoy Starlake!"
     echo If any errors happen during installation. Please try to install again or open an issue.
-    goto :eof
+    ;;
+  serve)
+    chmod +x $SCRIPT_DIR/bin/api/git/*.sh
+    chmod +x $SCRIPT_DIR/bin/api/bin/*
+    if [[ -z "$SL_API_DEBUG" ]]
+    then
+      export JAVA_OPTS="$JAVA_OPTS"
+    else
+      export JAVA_OPTS="$JAVA_OPTS -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
+    fi
+    $SCRIPT_DIR/bin/api/bin/local-run-api $SCRIPT_DIR dummy
 
-:serve_command
-    if defined SL_API_DEBUG (
-        set "JAVA_OPTS=%JAVA_OPTS% -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
-    )
-    call "%SCRIPT_DIR%bin\api\bin\local-run-api.bat" "%SCRIPT_DIR%" dummy
-    goto :eof
+    ;;
+  *)
+    if [[ -z "$SL_HTTP_PORT" ]]
+    then
+      launch_starlake "$@"
+    else
+      SL_HTTP_HOST=${SL_HTTP_HOST:-127.0.0.1}
+      SL_SERVE_URI=http://$SL_HTTP_HOST:$SL_HTTP_PORT
+      for value in validation run transform compile
+      do
+        log=$SL_ROOT/out/$value.log
+        if [[ -f $log ]]
+        then
+          rm -f $log
+        fi
+      done
+      curl  "$SL_SERVE_URI?ROOT=$SL_ROOT&PARAMS=$@"
+      for value in validation run transform compile
+      do
+        log=$SL_ROOT/out/$value.log
+        if [[ -f $log ]]
+        then
+          cat  $log
+        fi
+      done
 
-:default_command
-    if not defined SL_HTTP_PORT (
-        call :launch_starlake %*
-    ) else (
-        if not defined SL_HTTP_HOST set "SL_HTTP_HOST=127.0.0.1"
-        set "SL_SERVE_URI=http://%SL_HTTP_HOST%:%SL_HTTP_PORT%"
-        for %%v in (validation run transform compile) do (
-            set "log=!SL_ROOT!\out\%%v.log"
-            if exist "!log!" del "!log!"
-        )
-        curl "%SL_SERVE_URI%?ROOT=!SL_ROOT!&PARAMS=%*"
-        for %%v in (validation run transform compile) do (
-            set "log=!SL_ROOT!\out\%%v.log"
-            if exist "!log!" type "!log!"
-        )
-    )
-    goto :eof
+    fi
+    ;;
+esac
