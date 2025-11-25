@@ -44,7 +44,7 @@
       "oneOf": [
         {
           "const": "TARGET",
-          "description": "Merge operation will be applied on the target table only"
+          "description": "Merge operation will be applied on the target table only but not on the incoming data"
         },
         {
           "const": "SOURCE_AND_TARGET",
@@ -195,11 +195,11 @@
       "oneOf": [
         {
           "const": "TABLE",
-          "description": "SQl Table"
+          "description": "SQL Table"
         },
         {
           "const": "VIEW",
-          "description": "SQl View"
+          "description": "SQL View"
         },
         {
           "const": "SYSTEM TABLE",
@@ -236,7 +236,7 @@
         },
         {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "Any valid table types",
+          "description": "Exclude the these table types",
           "not": {
             "$ref": "#/definitions/TableTypeBase"
           }
@@ -313,11 +313,11 @@
         },
         "loader": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "Loader we should use with this connection. Superseded by the loader defined in the file metadata"
+          "description": "Loader we should use with this connection. Superseded by the loader defined in the YAML table metadata"
         },
         "quote": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "Set only if you want to use the Spark engine"
+          "description": "Charatcer to use when quoting columns"
         },
         "separator": {
           "$ref": "#/definitions/ConvertibleToString",
