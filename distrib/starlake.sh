@@ -304,6 +304,12 @@ case "$1" in
   serve)
     chmod +x $SCRIPT_DIR/bin/api/git/*.sh
     chmod +x $SCRIPT_DIR/bin/api/bin/*
+    if [[ -z "$SL_API_DEBUG" ]]
+    then
+      export JAVA_OPTS="$JAVA_OPTS"
+    else
+      export JAVA_OPTS="$JAVA_OPTS -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
+    fi
     $SCRIPT_DIR/bin/api/bin/local-run-api $SCRIPT_DIR dummy
 
     ;;
