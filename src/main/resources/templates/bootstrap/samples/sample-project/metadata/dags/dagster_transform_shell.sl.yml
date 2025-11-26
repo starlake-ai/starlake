@@ -9,3 +9,4 @@ dag:
         SL_STARLAKE_PATH: "starlake"
         run_dependencies_first: "False" # load all dependencies for each transform job, 'False' by default
         tags: "{{domain}}"
+        sl_include_env_vars: GOOGLE_APPLICATION_CREDENTIALS,AWS_KEY_ID,AWS_SECRET_KEY

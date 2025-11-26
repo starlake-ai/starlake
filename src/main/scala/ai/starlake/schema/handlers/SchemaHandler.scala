@@ -613,7 +613,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val localEnvVars =
       if (activeEnvName.nonEmpty && activeEnvName != "None") {
         val envsCometPath = DatasetArea.env(activeEnvName)
-        
+
         // We subsittute values defined in the current profile with variables defined
         // in the default env file
         val allVars = externalProps ++ globalEnvVars ++ slDateVars
