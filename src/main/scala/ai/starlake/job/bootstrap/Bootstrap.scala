@@ -102,6 +102,16 @@ object Bootstrap extends LazyLogging {
         val bootstrapFiles = JarUtil.getResourceFiles(templatePath)
         copyToFolder(bootstrapFiles, templatePath, rootFolder)
 
+        // copy starlake.json schema file to metadata folder for IDE support
+        val starlakeJsonResource = "starlake.json"
+        val starlakeJsonSource = Source.fromResource(starlakeJsonResource)
+        if (starlakeJsonSource != null) {
+          val starlakeJsonContent = starlakeJsonSource.getLines().mkString("\n")
+          val starlakeJsonTarget = metadataFolder / starlakeJsonResource
+          starlakeJsonTarget.overwrite(starlakeJsonContent)
+          logger.info(s"Copied $starlakeJsonResource to ${starlakeJsonTarget.pathAsString}")
+        }
+
         // copy vscode settings
         val vscodeExtensionFiles = List(s"$TEMPLATES_DIR/extensions.json")
         val targetDir = rootFolder / ".vscode"
