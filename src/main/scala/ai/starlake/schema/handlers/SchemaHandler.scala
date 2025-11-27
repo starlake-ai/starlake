@@ -1016,10 +1016,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val dagMap = deserializedDagGenerationConfigs(DatasetArea.dags)
       dagMap.map { case (dagName, dagInfo) =>
         if (instantiateVars) {
-          val scriptDir = Option(System.getenv("SL_SCRIPT_DIR"))
+          val scriptDir = Option(System.getenv("SL_SCRIPT_DIR")).filter(_.nonEmpty)
           val starlakePath = dagInfo.options.get("SL_STARLAKE_PATH")
           if (
-            scriptDir.isDefined &&
+            scriptDir.nonEmpty &&
             (starlakePath.contains("starlake") || starlakePath.isEmpty)
           ) {
             dagName -> dagInfo.copy(options =
