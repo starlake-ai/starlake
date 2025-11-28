@@ -12,7 +12,7 @@ import ai.starlake.job.ingest.loaders.{
 }
 import ai.starlake.job.metrics.*
 import ai.starlake.job.sink.bigquery.*
-import ai.starlake.job.transform.{SparkAutoTask, SparkExportTask}
+import ai.starlake.job.transform.TransformContext
 import ai.starlake.job.validator.{CheckValidityResult, GenericRowValidator}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
@@ -608,28 +608,16 @@ trait IngestionJob extends SparkJob {
         runSparkExpectations(session)
     }
   }
-  private def runJdbcExpectations(
-    jdbcOptions: Map[String, String]
-  ): Try[JobResult] = {
-    if (settings.appConfig.expectations.active) {
 
-      new ExpectationJob(
-        Option(applicationId()),
-        schemaHandler.getDatabase(this.domain),
-        this.domain.finalName,
-        this.schema.finalName,
-        this.schema.expectations,
-        storageHandler,
-        schemaHandler,
-        new JdbcExpectationAssertionHandler(jdbcOptions),
-        false
-      ).run()
-    } else {
-      Success(SparkJobResult(None, None))
-    }
-  }
-
-  private def runSparkExpectations(session: SparkSession): Try[JobResult] = {
+  /** Runs expectations using the provided assertion handler. This is a unified method that replaces
+    * the duplicated runJdbcExpectations, runSparkExpectations, and runBigQueryExpectations methods.
+    *
+    * @param handler
+    *   The expectation assertion handler to use
+    * @return
+    *   Success with job result if expectations pass, Failure otherwise
+    */
+  private def runExpectationsWithHandler(handler: ExpectationAssertionHandler): Try[JobResult] = {
     if (settings.appConfig.expectations.active) {
       new ExpectationJob(
         Option(applicationId()),
@@ -639,7 +627,7 @@ trait IngestionJob extends SparkJob {
         this.schema.expectations,
         storageHandler,
         schemaHandler,
-        new SparkExpectationAssertionHandler(session),
+        handler,
         false
       ).run()
     } else {
@@ -647,25 +635,14 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  def runBigQueryExpectations(
-    job: BigQueryNativeJob
-  ): Try[JobResult] = {
-    if (settings.appConfig.expectations.active) {
-      new ExpectationJob(
-        Option(applicationId()),
-        schemaHandler.getDatabase(this.domain),
-        this.domain.finalName,
-        this.schema.finalName,
-        this.schema.expectations,
-        storageHandler,
-        schemaHandler,
-        new BigQueryExpectationAssertionHandler(job),
-        false
-      ).run()
-    } else {
-      Success(SparkJobResult(None, None))
-    }
-  }
+  private def runJdbcExpectations(jdbcOptions: Map[String, String]): Try[JobResult] =
+    runExpectationsWithHandler(new JdbcExpectationAssertionHandler(jdbcOptions))
+
+  private def runSparkExpectations(session: SparkSession): Try[JobResult] =
+    runExpectationsWithHandler(new SparkExpectationAssertionHandler(session))
+
+  def runBigQueryExpectations(job: BigQueryNativeJob): Try[JobResult] =
+    runExpectationsWithHandler(new BigQueryExpectationAssertionHandler(job))
 
   private def runMetrics(acceptedDF: DataFrame) = {
     if (settings.appConfig.metrics.active) {
@@ -842,45 +819,28 @@ trait IngestionJob extends SparkJob {
         writeStrategy = Some(strategy),
         connectionRef = Option(mergedMetadata.getSinkConnectionRef())
       )
+      val context = TransformContext(
+        appId = Option(applicationId()),
+        taskDesc = taskDesc,
+        commandParameters = Map.empty,
+        interactive = None,
+        truncate = false,
+        test = test,
+        logExecution = false,
+        accessToken = accessToken,
+        resultPageSize = 200,
+        resultPageNumber = 1,
+        dryRun = false,
+        scheduledDate = scheduledDate,
+        syncSchema = false
+      )(settings, storageHandler, schemaHandler)
+
       val autoTask =
         taskDesc.getSinkConfig() match {
           case fsSink: FsSink if fsSink.isExport() && !strategy.isMerge() =>
-            new SparkExportTask(
-              appId = Option(applicationId()),
-              taskDesc = taskDesc,
-              commandParameters = Map.empty,
-              interactive = None,
-              truncate = false,
-              test = test,
-              logExecution = false,
-              resultPageSize = 200,
-              resultPageNumber = 1,
-              scheduledDate = scheduledDate
-            )(
-              settings,
-              storageHandler,
-              schemaHandler
-            )
+            TransformContext.createSparkExportTask(context)
           case _ =>
-            new SparkAutoTask(
-              appId = Option(applicationId()),
-              taskDesc = taskDesc,
-              commandParameters = Map.empty,
-              interactive = None,
-              truncate = false,
-              test = test,
-              logExecution = false,
-              schema = Some(schema),
-              accessToken = accessToken,
-              resultPageSize = 200,
-              resultPageNumber = 1,
-              scheduledDate = scheduledDate,
-              syncSchema = false
-            )(
-              settings,
-              storageHandler,
-              schemaHandler
-            )
+            TransformContext.createSparkTask(context, Some(schema))
         }
       if (autoTask.sink(mergedDF, Some(this.schema))) {
         Success(0L)
