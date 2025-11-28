@@ -2,7 +2,7 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractSchemaCmd, ExtractSchemaConfig, JdbcDbUtils}
-import ai.starlake.job.metrics.{ExpectationJob, ExpectationReport, JdbcExpectationAssertionHandler}
+import ai.starlake.job.metrics.{ExpectationAssertionHandler, JdbcExpectationAssertionHandler}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{
   AccessControlEntry,
@@ -24,6 +24,38 @@ import java.time.Instant
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
+/** JdbcAutoTask executes SQL transformations natively on JDBC databases.
+  *
+  * ==Overview==
+  * This task type executes SQL directly on any JDBC-compatible database, without requiring a Spark
+  * cluster. Supported databases include:
+  *   - PostgreSQL, MySQL, MariaDB
+  *   - Oracle, SQL Server
+  *   - Snowflake, Redshift
+  *   - DuckDB (embedded analytics)
+  *
+  * ==Key Features==
+  *   - Native JDBC SQL execution (no Spark overhead)
+  *   - Transaction support with commit/rollback
+  *   - Connection pooling via HikariCP
+  *   - Schema synchronization with YAML definitions
+  *   - Support for all write strategies (APPEND, OVERWRITE, MERGE, SCD2)
+  *
+  * ==Connection Reuse==
+  * The `conn` parameter allows reusing an existing JDBC connection, which is useful for:
+  *   - Transaction management across multiple tasks
+  *   - Connection pooling optimization
+  *   - Native loader integration (Snowflake, DuckDB)
+  *
+  * ==Write Strategies==
+  *   - '''APPEND''': INSERT INTO ... SELECT ...
+  *   - '''OVERWRITE''': TRUNCATE + INSERT or DROP + CREATE
+  *   - '''MERGE''': MERGE INTO ... USING ... (database-specific syntax)
+  *   - '''SCD2''': Slowly Changing Dimension Type 2 with start/end timestamps
+  *
+  * @param conn
+  *   Optional existing JDBC connection to reuse (for transactions)
+  */
 class JdbcAutoTask(
   appId: Option[String],
   taskDesc: AutoTaskInfo,
@@ -129,12 +161,35 @@ class JdbcAutoTask(
     }
   }
 
+  /** Main JDBC execution method.
+    *
+    * ==Execution Modes==
+    *   1. '''Native Mode''' (df = None): Builds and executes SQL entirely in JDBC 2. '''Spark
+    *      Mode''' (df = Some): Uses Spark DataFrame, writes via JDBC connector
+    *
+    * ==Processing Flow==
+    *   1. Create schema if it doesn't exist (optional) 2. Build SQL statements (ALTER + main SQL)
+    *      3. For interactive: Execute query and return paginated results 4. For batch:
+    *      a. Disable auto-commit for transaction support b. Execute pre-actions (engine-specific
+    *         setup) c. Execute pre-SQL statements d. Write DataFrame or execute main SQL e. Execute
+    *         post-SQL statements f. Commit transaction (or rollback on failure)
+    *
+    * ==Transaction Handling==
+    * All batch operations run within a transaction. If any step fails, the entire transaction is
+    * rolled back to maintain data consistency.
+    *
+    * @param df
+    *   Optional Spark DataFrame (None for native JDBC execution)
+    * @param sqlConnection
+    *   Optional existing connection to reuse
+    */
   def runJDBC(
     df: Option[DataFrame],
     sqlConnection: Option[java.sql.Connection] = None
   ): Try[JdbcJobResult] = {
     val start = Timestamp.from(Instant.now())
 
+    // Create schema if configured and not in interactive mode
     if (interactive.isEmpty && settings.appConfig.createSchemaIfNotExists) {
       // Creating a schema requires its own connection if called before a Spark save
       JdbcDbUtils.withJDBCConnection(
@@ -312,33 +367,8 @@ class JdbcAutoTask(
     res
   }
 
-  def runAndSinkExpectations(): Try[JobResult] = {
-    new ExpectationJob(
-      appId = Option(applicationId()),
-      database = taskDesc.database,
-      domainName = taskDesc.domain,
-      schemaName = taskDesc.table,
-      expectations = taskDesc.expectations,
-      storageHandler = storageHandler,
-      schemaHandler = schemaHandler,
-      sqlRunner = new JdbcExpectationAssertionHandler(sinkOptions),
-      interactive = false
-    ).run()
-  }
-
-  def runExpectations(): List[ExpectationReport] = {
-    new ExpectationJob(
-      appId = Option(applicationId()),
-      database = taskDesc.database,
-      domainName = taskDesc.domain,
-      schemaName = taskDesc.table,
-      expectations = taskDesc.expectations,
-      storageHandler = storageHandler,
-      schemaHandler = schemaHandler,
-      sqlRunner = new JdbcExpectationAssertionHandler(sinkOptions),
-      interactive = true
-    ).runExpectations()
-  }
+  override protected def expectationAssertionHandler: ExpectationAssertionHandler =
+    new JdbcExpectationAssertionHandler(sinkOptions)
 
   private def runInteractive(conn: Connection, mainSql: String): JdbcJobResult = {
     val limitSQL = limitQuery(mainSql, resultPageSize, resultPageNumber)

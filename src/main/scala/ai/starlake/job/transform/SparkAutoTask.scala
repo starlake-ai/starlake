@@ -2,7 +2,7 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.{Settings, SparkSessionBuilder}
 import ai.starlake.extract.{JdbcDbUtils, SparkExtractorJob}
-import ai.starlake.job.metrics.{ExpectationJob, ExpectationReport, SparkExpectationAssertionHandler}
+import ai.starlake.job.metrics.{ExpectationAssertionHandler, SparkExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -25,6 +25,35 @@ import java.sql.Timestamp
 import java.time.Instant
 import scala.util.{Failure, Success, Try}
 
+/** SparkAutoTask executes SQL transformations using Apache Spark.
+  *
+  * ==Overview==
+  * This is the most versatile AutoTask implementation, capable of:
+  *   - Reading from Hive/Spark tables, JDBC databases, BigQuery, and filesystems
+  *   - Writing to Hive/Spark tables, JDBC databases, BigQuery, Elasticsearch, and Kafka
+  *   - Executing PySpark scripts
+  *   - Delegating to BigQueryAutoTask or JdbcAutoTask when native execution is required
+  *
+  * ==Execution Modes==
+  *   - '''Spark-to-Spark''': Both source and sink are Spark/Hive tables (fastest)
+  *   - '''Spark-to-Any''': Source is Spark, sink is external (JDBC, BigQuery, etc.)
+  *   - '''Any-to-Spark''': Source is external, sink is Spark (uses Spark connectors)
+  *
+  * ==Delegation Pattern==
+  * When the sink requires native execution (e.g., BigQuery MERGE, JDBC transactions), SparkAutoTask
+  * delegates to the appropriate native task using the `delegateContext()` helper method and
+  * `TransformContext` factory methods.
+  *
+  * ==Key Methods==
+  *   - `run()` - Main entry point, dispatches to appropriate execution method
+  *   - `runSparkOnSpark()` - Executes SQL entirely within Spark
+  *   - `runSparkOnAny()` - Builds DataFrame and sinks to external target
+  *   - `sinkToBigQuery()` - Delegates to BigQueryAutoTask for native BQ operations
+  *   - `sinkToJDBC()` - Delegates to JdbcAutoTask for native JDBC operations
+  *
+  * @param schema
+  *   Optional Starlake schema for the target table (used for type mapping)
+  */
 class SparkAutoTask(
   appId: Option[String],
   taskDesc: AutoTaskInfo,
@@ -56,24 +85,37 @@ class SparkAutoTask(
       syncSchema
     ) {
 
+  /** Main entry point for task execution.
+    *
+    * ==Execution Flow==
+    *   1. If interactive mode: Execute SQL and return results without materializing 2. If FS-to-FS
+    *      (Spark-to-Spark):
+    *      - Export mode: Use runSparkOnAny() to write to filesystem
+    *      - Table mode: Use runSparkOnSpark() for native Spark execution 3. Otherwise: Use
+    *        runSparkOnAny() which handles external sinks
+    */
   override def run(): Try[JobResult] = {
     val result =
       interactive match {
         case Some(_) =>
+          // Interactive mode: just execute the query and return results
           runSparkOnSpark(taskDesc.getSql())
         case None =>
+          // Batch mode: determine execution path based on source and sink types
           (taskDesc.getRunConnection().`type`, sinkConnection.`type`) match {
             case (
                   ConnectionType.FS,
                   ConnectionType.FS
-                ) => // databricks to databricks including fs (text, csv ...)
+                ) =>
+              // Both source and sink are filesystem/Spark - most efficient path
               if (sinkConfig.asInstanceOf[FsSink].isExport()) {
-                runSparkOnAny() // We exporting from Spark to the filesystem
+                runSparkOnAny() // Export to filesystem (CSV, JSON, Parquet files)
               } else {
-                runSparkOnSpark(taskDesc.getSql())
+                runSparkOnSpark(taskDesc.getSql()) // Native Spark table operations
               }
 
             case _ =>
+              // Mixed source/sink types - build DataFrame and sink to external target
               runSparkOnAny()
           }
       }
@@ -339,33 +381,8 @@ class SparkAutoTask(
     }
   }
 
-  def runAndSinkExpectations(): Try[JobResult] = {
-    new ExpectationJob(
-      Option(applicationId()),
-      taskDesc.database,
-      taskDesc.domain,
-      taskDesc.table,
-      taskDesc.expectations,
-      storageHandler,
-      schemaHandler,
-      new SparkExpectationAssertionHandler(session),
-      false
-    ).run()
-  }
-
-  def runExpectations(): List[ExpectationReport] = {
-    new ExpectationJob(
-      Option(applicationId()),
-      taskDesc.database,
-      taskDesc.domain,
-      taskDesc.table,
-      taskDesc.expectations,
-      storageHandler,
-      schemaHandler,
-      new SparkExpectationAssertionHandler(session),
-      true
-    ).runExpectations()
-  }
+  override protected def expectationAssertionHandler: ExpectationAssertionHandler =
+    new SparkExpectationAssertionHandler(session)
 
   private def runPySpark(pythonFile: Path): Option[DataFrame] = {
     SparkUtils.runPySpark(pythonFile, commandParameters)
@@ -406,6 +423,64 @@ class SparkAutoTask(
 
   }
 
+  /** Creates a TransformContext for delegating to other AutoTask types.
+    *
+    * ==Delegation Pattern==
+    * When SparkAutoTask needs to delegate to BigQueryAutoTask or JdbcAutoTask (e.g., for native
+    * MERGE operations or JDBC transactions), this helper method creates a TransformContext with the
+    * current task's parameters.
+    *
+    * This eliminates code duplication - instead of repeating 15+ constructor parameters for each
+    * delegation, we create a context and use factory methods:
+    * {{{
+    * // Before (20+ lines of duplicated code):
+    * val bqJob = new BigQueryAutoTask(appId, taskDesc, commandParameters, ...)
+    *
+    * // After (2 lines):
+    * val bqJob = TransformContext.createBigQueryTask(delegateContext())
+    * }}}
+    *
+    * @param taskDescOverride
+    *   Override the task description (e.g., for second-step tasks)
+    * @param commandParametersOverride
+    *   Override command parameters
+    * @param interactiveOverride
+    *   Override interactive mode
+    * @param truncateOverride
+    *   Override truncate flag
+    * @return
+    *   TransformContext configured for delegation
+    */
+  private def delegateContext(
+    taskDescOverride: AutoTaskInfo = this.taskDesc,
+    commandParametersOverride: Map[String, String] = Map.empty,
+    interactiveOverride: Option[String] = None,
+    truncateOverride: Boolean = false
+  ): TransformContext = {
+    TransformContext(
+      appId = Option(applicationId()),
+      taskDesc = taskDescOverride,
+      commandParameters = commandParametersOverride,
+      interactive = interactiveOverride,
+      truncate = truncateOverride,
+      test = test,
+      logExecution = logExecution,
+      accessToken = this.accessToken,
+      resultPageSize = resultPageSize,
+      resultPageNumber = resultPageNumber,
+      dryRun = false,
+      scheduledDate = scheduledDate,
+      syncSchema = false
+    )(settings, storageHandler, schemaHandler)
+  }
+
+  /** Checks if the target table exists in the sink.
+    *
+    * Delegates to the appropriate engine-specific check based on sink type:
+    *   - FsSink: Uses SparkUtils.tableExists (Hive metastore)
+    *   - BigQuerySink: Delegates to BigQueryAutoTask
+    *   - JdbcSink: Delegates to JdbcAutoTask
+    */
   override def tableExists: Boolean = {
     val sink = this.sinkConfig
     val result = {
@@ -419,48 +494,10 @@ class SparkAutoTask(
               exists
 
           case _: BigQuerySink =>
-            val bqJob =
-              new BigQueryAutoTask(
-                appId = Option(applicationId()),
-                taskDesc = this.taskDesc,
-                commandParameters = Map.empty,
-                interactive = None,
-                truncate = false,
-                test = test,
-                logExecution = logExecution,
-                accessToken = this.accessToken,
-                resultPageSize = resultPageSize,
-                resultPageNumber = resultPageNumber,
-                dryRun = false,
-                scheduledDate = scheduledDate,
-                syncSchema = false
-              )(
-                settings,
-                storageHandler,
-                schemaHandler
-              )
+            val bqJob = TransformContext.createBigQueryTask(delegateContext())
             bqJob.tableExists
           case _: JdbcSink =>
-            val jdbcJob =
-              new JdbcAutoTask(
-                appId = Option(applicationId()),
-                taskDesc = this.taskDesc,
-                commandParameters = Map.empty,
-                interactive = None,
-                truncate = false,
-                test = test,
-                logExecution = logExecution,
-                accessToken = this.accessToken,
-                resultPageSize = resultPageSize,
-                resultPageNumber = resultPageNumber,
-                None,
-                scheduledDate = scheduledDate,
-                syncSchema = false
-              )(
-                settings,
-                storageHandler,
-                schemaHandler
-              )
+            val jdbcJob = TransformContext.createJdbcTask(delegateContext())
             jdbcJob.tableExists
           case other =>
             throw new Exception(
@@ -601,6 +638,26 @@ class SparkAutoTask(
   ///////////////////////////////////////////////////
   ///////////////////////////////////////////////////
 
+  /** Sinks a DataFrame to BigQuery.
+    *
+    * ==Two-Step Process for MERGE Operations==
+    * When using MERGE/SCD2 write strategies, BigQuery requires a two-step process:
+    *   1. Write DataFrame to a temporary table using Spark BigQuery connector 2. Execute native
+    *      BigQuery MERGE statement via BigQueryAutoTask
+    *
+    * ==Direct vs Indirect Write==
+    *   - '''Direct''': Uses BigQuery Storage Write API (faster, but no variant support)
+    *   - '''Indirect''': Uses GCS staging (slower, but supports all types)
+    *
+    * ==Variant Type Handling==
+    * BigQuery's JSON type (variant) requires indirect write method. The code validates this and
+    * throws an error if direct write is attempted with variants.
+    *
+    * @param loadedDF
+    *   The DataFrame to sink to BigQuery
+    * @param slSchema
+    *   Optional Starlake schema for type mapping (especially variants)
+    */
   private def sinkToBQ(loadedDF: DataFrame, slSchema: Option[SchemaInfo] = None): Try[JobResult] = {
     val twoSteps = writeStrategy.isMerge()
     val isDirect = sinkConnection.options.getOrElse("writeMethod", "direct") == "direct"
@@ -658,26 +715,19 @@ class SparkAutoTask(
           val allAttributeNames = loadedDF.schema.fields.map(_.name)
           val attributesSelectAsString = allAttributeNames.mkString(",")
 
-          val secondStepTask = new BigQueryAutoTask(
-            Option(applicationId()),
-            taskDesc.copy(
-              name = fullTableName,
-              sql = Some(
-                s"SELECT $attributesSelectAsString FROM ${taskDesc.domain}.$tempTablePartName"
-              )
-            ),
-            commandParameters = commandParameters,
-            interactive = interactive,
-            truncate = truncate,
-            test = test,
-            logExecution = logExecution,
-            accessToken = accessToken,
-            resultPageSize = resultPageSize,
-            resultPageNumber = resultPageNumber,
-            dryRun = false,
-            scheduledDate = scheduledDate,
-            syncSchema = false
+          val secondStepTaskDesc = taskDesc.copy(
+            name = fullTableName,
+            sql = Some(
+              s"SELECT $attributesSelectAsString FROM ${taskDesc.domain}.$tempTablePartName"
+            )
           )
+          val secondStepContext = delegateContext(
+            taskDescOverride = secondStepTaskDesc,
+            commandParametersOverride = commandParameters,
+            interactiveOverride = interactive,
+            truncateOverride = truncate
+          )
+          val secondStepTask = TransformContext.createBigQueryTask(secondStepContext)
           val secondStepJobResult = secondStepTask.runNativeOnLoad(loadedDF.schema)
           sparkBigQueryJob.dropTable(firstStepTemplateTableId)
           secondStepJobResult
@@ -690,22 +740,13 @@ class SparkAutoTask(
         sql = None
       )
       // Update table schema
-      val secondStepTask =
-        new BigQueryAutoTask(
-          appId = Option(applicationId()),
-          taskDesc = secondStepDesc,
-          commandParameters = commandParameters,
-          interactive = interactive,
-          truncate = truncate,
-          test = test,
-          logExecution = logExecution,
-          accessToken = accessToken,
-          resultPageSize = resultPageSize,
-          resultPageNumber = resultPageNumber,
-          dryRun = false,
-          scheduledDate = scheduledDate,
-          syncSchema = false
-        )
+      val secondStepContext = delegateContext(
+        taskDescOverride = secondStepDesc,
+        commandParametersOverride = commandParameters,
+        interactiveOverride = interactive,
+        truncateOverride = truncate
+      )
+      val secondStepTask = TransformContext.createBigQueryTask(secondStepContext)
 
       val sparkSchema = loadedDF.schema
       val updateSchema = slSchema
@@ -739,6 +780,25 @@ class SparkAutoTask(
   //////////// JDBC SINK ///////////////////////////
   ///////////////////////////////////////////////////
   ///////////////////////////////////////////////////
+
+  /** Sinks a DataFrame to a JDBC database.
+    *
+    * ==Two-Step Process for MERGE Operations==
+    * When using MERGE/SCD2 write strategies, JDBC requires a two-step process:
+    *   1. Write DataFrame to a temporary table using Spark JDBC writer 2. Execute native MERGE
+    *      statement via JdbcAutoTask
+    *
+    * ==DuckDB Special Handling==
+    * DuckDB connections require special initialization to create the database file if it doesn't
+    * exist.
+    *
+    * ==PostgreSQL COPY Optimization==
+    * For PostgreSQL with APPEND strategy, uses COPY command for bulk loading which is significantly
+    * faster than row-by-row INSERT.
+    *
+    * @param loadedDF
+    *   The DataFrame to sink to the JDBC database
+    */
   def sinkToJDBC(loadedDF: DataFrame): Try[JobResult] = {
     val sinkConnectionRefOptions = sinkConnection.options
 
@@ -859,25 +919,7 @@ class SparkAutoTask(
           )
 
         val secondStepAutoTask =
-          new JdbcAutoTask(
-            appId = Option(applicationId()),
-            taskDesc = secondStepTaskDesc,
-            commandParameters = Map.empty,
-            interactive = None,
-            truncate = false,
-            test = test,
-            logExecution = logExecution,
-            accessToken = this.accessToken,
-            resultPageSize = resultPageSize,
-            resultPageNumber = resultPageNumber,
-            conn = None,
-            scheduledDate = scheduledDate,
-            syncSchema = false
-          )(
-            settings,
-            storageHandler,
-            schemaHandler
-          )
+          TransformContext.createJdbcTask(delegateContext(taskDescOverride = secondStepTaskDesc))
         if (tableExists)
           secondStepAutoTask.updateJdbcTableSchema(
             incomingSchema = loadedDF.schema,
@@ -901,21 +943,7 @@ class SparkAutoTask(
           sql = None
         )
         val secondAutoStepTask =
-          new JdbcAutoTask(
-            appId = Option(applicationId()),
-            taskDesc = secondStepDesc,
-            commandParameters = Map.empty,
-            interactive = None,
-            truncate = false,
-            test = test,
-            logExecution = logExecution,
-            accessToken = this.accessToken,
-            resultPageSize = resultPageSize,
-            resultPageNumber = resultPageNumber,
-            conn = None,
-            scheduledDate = scheduledDate,
-            syncSchema = false
-          )
+          TransformContext.createJdbcTask(delegateContext(taskDescOverride = secondStepDesc))
         secondAutoStepTask.updateJdbcTableSchema(
           incomingSchema = loadedDF.schema,
           tableName = fullTableName,

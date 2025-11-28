@@ -35,7 +35,7 @@ import ai.starlake.job.sink.bigquery.{
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{JdbcConnectionLoadConfig, SparkJdbcWriter}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.job.transform.{AutoTask, TransformConfig}
+import ai.starlake.job.transform.{AutoTask, TransformConfig, TransformContext}
 import ai.starlake.lineage.{
   AutoTaskDependencies,
   AutoTaskDependenciesConfig,
@@ -46,7 +46,6 @@ import ai.starlake.schema.generator.*
 import ai.starlake.schema.handlers.{FileInfo, SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
 import ai.starlake.schema.model.Engine.BQ
-import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.sql.SQLUtils
 import ai.starlake.tests.{
   StarlakeTestConfig,
@@ -744,129 +743,19 @@ class IngestionWorkflow(
 
     val ingestionResult = Try {
       val optionsAndEnvVars = schemaHandler.activeEnvVars() ++ options
-      metadata.resolveFormat() match {
-        case Format.PARQUET =>
-          new ParquetIngestionJob(
-            domain,
-            schema,
-            schemaHandler.types(),
-            ingestingPaths,
-            storageHandler,
-            schemaHandler,
-            optionsAndEnvVars,
-            accessToken,
-            test,
-            scheduledDate
-          ).run()
-        case Format.GENERIC =>
-          new GenericIngestionJob(
-            domain,
-            schema,
-            schemaHandler.types(),
-            ingestingPaths,
-            storageHandler,
-            schemaHandler,
-            optionsAndEnvVars,
-            accessToken,
-            test,
-            scheduledDate
-          ).run()
-        case Format.DSV =>
-          new DsvIngestionJob(
-            domain,
-            schema,
-            schemaHandler.types(),
-            ingestingPaths,
-            storageHandler,
-            schemaHandler,
-            optionsAndEnvVars,
-            accessToken,
-            test,
-            scheduledDate
-          ).run()
-        case Format.JSON_FLAT | Format.JSON =>
-          new JsonIngestionJob(
-            domain,
-            schema,
-            schemaHandler.types(),
-            ingestingPaths,
-            storageHandler,
-            schemaHandler,
-            optionsAndEnvVars,
-            accessToken,
-            test,
-            scheduledDate
-          ).run()
-        case Format.XML =>
-          new XmlIngestionJob(
-            domain,
-            schema,
-            schemaHandler.types(),
-            ingestingPaths,
-            storageHandler,
-            schemaHandler,
-            optionsAndEnvVars,
-            accessToken,
-            test,
-            scheduledDate
-          ).run()
-        case Format.TEXT_XML =>
-          new XmlSimplePrivacyJob(
-            domain,
-            schema,
-            schemaHandler.types(),
-            ingestingPaths,
-            storageHandler,
-            schemaHandler,
-            optionsAndEnvVars,
-            accessToken,
-            test,
-            scheduledDate
-          ).run()
-        case Format.POSITION =>
-          new PositionIngestionJob(
-            domain,
-            schema,
-            schemaHandler.types(),
-            ingestingPaths,
-            storageHandler,
-            schemaHandler,
-            optionsAndEnvVars,
-            accessToken,
-            test,
-            scheduledDate
-          ).run()
-        case Format.KAFKA =>
-          new KafkaIngestionJob(
-            domain,
-            schema,
-            schemaHandler.types(),
-            ingestingPaths,
-            storageHandler,
-            schemaHandler,
-            optionsAndEnvVars,
-            FILE,
-            accessToken,
-            test,
-            scheduledDate
-          ).run()
-        case Format.KAFKASTREAM =>
-          new KafkaIngestionJob(
-            domain,
-            schema,
-            schemaHandler.types(),
-            ingestingPaths,
-            storageHandler,
-            schemaHandler,
-            optionsAndEnvVars,
-            STREAM,
-            accessToken,
-            test,
-            scheduledDate
-          ).run()
-        case _ =>
-          throw new Exception("Should never happen")
-      }
+      val context = IngestionContext(
+        domain = domain,
+        schema = schema,
+        types = schemaHandler.types(),
+        path = ingestingPaths,
+        storageHandler = storageHandler,
+        schemaHandler = schemaHandler,
+        options = optionsAndEnvVars,
+        accessToken = accessToken,
+        test = test,
+        scheduledDate = scheduledDate
+      )
+      IngestionJobFactory.createJob(context).run()
     }
     ingestionResult match {
       case Success(Success(jobResult)) =>
@@ -967,26 +856,22 @@ class IngestionWorkflow(
         }
       }
     logger.debug(taskDesc.toString)
-    AutoTask.task(
-      None,
-      taskDesc,
-      config.options,
-      config.interactive,
-      config.truncate,
-      config.test,
-      taskDesc.getRunEngine(),
+    val context = TransformContext(
+      appId = None,
+      taskDesc = taskDesc,
+      commandParameters = config.options,
+      interactive = config.interactive,
+      truncate = config.truncate,
+      test = config.test,
       logExecution = true,
-      config.accessToken,
+      accessToken = config.accessToken,
       resultPageSize = config.pageSize,
       resultPageNumber = config.pageNumber,
       dryRun = config.dryRun,
       scheduledDate = config.scheduledDate,
       syncSchema = true
-    )(
-      settings,
-      storageHandler,
-      schemaHandler
-    )
+    )(settings, storageHandler, schemaHandler)
+    context.toTask(taskDesc.getRunEngine())
   }
 
   // TODO

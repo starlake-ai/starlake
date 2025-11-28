@@ -4,7 +4,7 @@ import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.job.common.{TaskSQLStatements, WorkflowStatements}
 import ai.starlake.job.ingest.{AuditLog, IngestionJob, Step}
 import ai.starlake.job.metrics.{ExpectationJob, JdbcExpectationAssertionHandler}
-import ai.starlake.job.transform.AutoTask
+import ai.starlake.job.transform.{AutoTask, TransformContext}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
@@ -114,14 +114,13 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
         connectionRef = Option(mergedMetadata.getSinkConnectionRef())
       )
 
-      val autoTask = AutoTask.task(
+      val context = TransformContext(
         appId = Option(ingestionJob.applicationId()),
         taskDesc = taskDesc,
-        configOptions = Map.empty,
+        commandParameters = Map.empty,
         interactive = None,
         truncate = false,
         test = false,
-        engine = engine,
         logExecution = true,
         accessToken = accessToken,
         resultPageSize = 200,
@@ -129,11 +128,8 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
         dryRun = false,
         scheduledDate = scheduledDate,
         syncSchema = false
-      )(
-        settings,
-        storageHandler,
-        schemaHandler
-      )
+      )(settings, storageHandler, schemaHandler)
+      val autoTask = context.toTask(engine)
       Some(autoTask)
     } else {
       None
@@ -266,28 +262,22 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       parseSQL = Some(true),
       connectionRef = Option(mergedMetadata.getSinkConnectionRef())
     )
-    val task =
-      AutoTask
-        .task(
-          Option(ingestionJob.applicationId()),
-          taskDesc,
-          Map.empty,
-          None,
-          truncate = false,
-          test = false,
-          engine = engine,
-          logExecution = true,
-          resultPageSize = 200,
-          resultPageNumber = 1,
-          dryRun = false,
-          scheduledDate = scheduledDate,
-          syncSchema = false
-        )(
-          settings,
-          storageHandler,
-          schemaHandler
-        )
-    task
+    val context = TransformContext(
+      appId = Option(ingestionJob.applicationId()),
+      taskDesc = taskDesc,
+      commandParameters = Map.empty,
+      interactive = None,
+      truncate = false,
+      test = false,
+      logExecution = true,
+      accessToken = None,
+      resultPageSize = 200,
+      resultPageNumber = 1,
+      dryRun = false,
+      scheduledDate = scheduledDate,
+      syncSchema = false
+    )(settings, storageHandler, schemaHandler)
+    context.toTask(engine)
   }
 
   def secondStepSQL(
