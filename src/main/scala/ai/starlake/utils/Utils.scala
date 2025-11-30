@@ -22,27 +22,22 @@ package ai.starlake.utils
 
 import ai.starlake.config.Settings
 import ai.starlake.job.Main
-import ai.starlake.schema.model.Severity._
+import ai.starlake.schema.model.Severity.*
 import ai.starlake.schema.model.{TableAttribute, ValidationMessage, WriteMode}
-import ai.starlake.utils.Formatter._
+import ai.starlake.utils.Formatter.*
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
-import com.fasterxml.jackson.core.JsonGenerator
-import com.fasterxml.jackson.databind.module.SimpleModule
-import com.fasterxml.jackson.databind.ser.std.StdSerializer
-import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper, SerializerProvider}
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
 import com.typesafe.scalalogging.{LazyLogging, Logger}
-import org.apache.hadoop.fs.Path
-import org.apache.spark.storage.StorageLevel
-import org.apache.spark.storage.StorageLevel._
 
 import java.io.{ByteArrayOutputStream, OutputStream, PrintWriter, StringWriter}
 import scala.collection.mutable
-import scala.jdk.CollectionConverters._
+import scala.collection.mutable.ListBuffer
+import scala.jdk.CollectionConverters.*
 import scala.reflect.runtime.universe
 import scala.sys.process.{Process, ProcessLogger}
 import scala.util.control.NonFatal
@@ -547,7 +542,7 @@ object Utils extends LazyLogging {
     outStream: OutputStream,
     errStream: OutputStream
   ): Int = {
-    logger.info(cmd.mkString(" "))
+    logger.info(ai.starlake.utils.Utils.obfuscate(cmd).mkString(" "))
     val stdoutWriter = new PrintWriter(outStream)
     val stderrWriter = new PrintWriter(errStream)
     val exitValue =
@@ -580,51 +575,30 @@ object Utils extends LazyLogging {
     if (Main.cliMode)
       println(s)
   }
-}
 
-class HadoopModule extends SimpleModule {
-  class HadoopPathSerializer(pathClass: Class[Path]) extends StdSerializer[Path](pathClass) {
-    def this() = {
-      this(classOf[Path])
-    }
+  private val obfuscateKeys: Set[String] = Set("pass", "token", "access", "aes")
 
-    override def serialize(value: Path, jGen: JsonGenerator, provider: SerializerProvider): Unit = {
-      jGen.writeString(value.toString)
-    }
-  }
-  this.addSerializer(new HadoopPathSerializer())
-}
-
-class StorageLevelModule extends SimpleModule {
-  class StorageLevelSerializer(storageLevelClass: Class[StorageLevel])
-      extends StdSerializer[StorageLevel](storageLevelClass) {
-    def this() = {
-      this(classOf[StorageLevel])
-    }
-
-    override def serialize(
-      value: StorageLevel,
-      jGen: JsonGenerator,
-      provider: SerializerProvider
-    ): Unit = {
-      def toString(s: StorageLevel): String = s match {
-        case NONE                  => "NONE"
-        case DISK_ONLY             => "DISK_ONLY"
-        case DISK_ONLY_2           => "DISK_ONLY_2"
-        case DISK_ONLY_3           => "DISK_ONLY_3"
-        case MEMORY_ONLY           => "MEMORY_ONLY"
-        case MEMORY_ONLY_2         => "MEMORY_ONLY_2"
-        case MEMORY_ONLY_SER       => "MEMORY_ONLY_SER"
-        case MEMORY_ONLY_SER_2     => "MEMORY_ONLY_SER_2"
-        case MEMORY_AND_DISK       => "MEMORY_AND_DISK"
-        case MEMORY_AND_DISK_2     => "MEMORY_AND_DISK_2"
-        case MEMORY_AND_DISK_SER   => "MEMORY_AND_DISK_SER"
-        case MEMORY_AND_DISK_SER_2 => "MEMORY_AND_DISK_SER_2"
-        case OFF_HEAP              => "OFF_HEAP"
-        case _ => throw new IllegalArgumentException(s"Invalid StorageLevel: $s")
-      }
-      jGen.writeString(toString(value))
+  def obfuscate(map: Map[String, String]): Map[String, String] = {
+    map.map { case (k, v) =>
+      if (obfuscateKeys.exists(k.toLowerCase.contains))
+        k -> "********"
+      else
+        k -> v
     }
   }
-  this.addSerializer(new StorageLevelSerializer())
+  def obfuscate(cmd: Seq[String]): Seq[String] = {
+    var result = ListBuffer[String]()
+    var isSensitiveKey = false
+    cmd.foreach { c =>
+      if (isSensitiveKey) {
+        result.append("********")
+        isSensitiveKey = false
+      } else if (obfuscateKeys.exists(c.toLowerCase.contains)) {
+        isSensitiveKey = true
+        result.append(c)
+      } else
+        result.append(c)
+    }
+    result.toList
+  }
 }
