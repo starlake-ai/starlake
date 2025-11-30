@@ -277,14 +277,10 @@ object AuditLog extends LazyLogging {
             _auditTableName = Some("audit"),
             taskTimeoutMs = Some(settings.appConfig.shortJobTimeoutMs)
           )
+          // When sparkFormat is true, we do not want to use spark to write the logs
           val engine =
-            auditTaskDesc.getSinkConnection().isJdbcUrl() match {
-              case true =>
-                // This handle the case when sparkFormat is true,
-                // we do not want to use spark to write the logs
-                Engine.JDBC
-              case false => auditTaskDesc.getSinkConnection().getEngine()
-            }
+            if (auditTaskDesc.getSinkConnection().isJdbcUrl()) Engine.JDBC
+            else auditTaskDesc.getSinkConnection().getEngine()
           val scheduledDate = productionLog.headOption.flatMap(_.scheduledDate)
           val context = TransformContext(
             appId = Option(jobId),

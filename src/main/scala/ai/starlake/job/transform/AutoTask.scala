@@ -766,7 +766,7 @@ object AutoTask extends LazyLogging {
       case Engine.SPARK =>
         SparkAutoTask.executeUpdate(sql, connectionRef /* ignored */, accessToken /* ignored */ )
       case _ =>
-        Failure(throw new Exception(s"Unsupported engine $engine"))
+        Failure(new Exception(s"Unsupported engine $engine"))
     }
   }
 

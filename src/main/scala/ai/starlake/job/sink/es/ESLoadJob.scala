@@ -170,7 +170,7 @@ class ESLoadJob(
       writer.save(getResource())
       Success(SparkJobResult(None, None))
     } else {
-      Failure(throw new Exception("Failed to create template"))
+      Failure(new Exception("Failed to create template"))
     }
   }
 }
