@@ -42,7 +42,7 @@ class SchemaInfo2HandlerSpec extends TestHelper {
     super.afterAll()
     // We need to start it manually because we need to access the HTTP mapped port
     // in the configuration below before any test get executed.
-    esContainer.stop()
+    // esContainer.stop()
   }
 
   override def beforeAll(): Unit = {
@@ -59,7 +59,7 @@ class SchemaInfo2HandlerSpec extends TestHelper {
       StructField("MONTH", IntegerType)
     )
   )
-
+  /*
   lazy val esConfiguration: Config = {
     val port = esContainer.httpHostAddress.substring(
       esContainer.httpHostAddress.lastIndexOf(':') + 1
@@ -93,7 +93,7 @@ class SchemaInfo2HandlerSpec extends TestHelper {
            |""".stripMargin)
       .withFallback(super.testConfiguration)
   }
-
+   */
   "Ingesting data" should "adapt write based on file attributes" in {
     new WithSettings() {
       new SpecTrait(

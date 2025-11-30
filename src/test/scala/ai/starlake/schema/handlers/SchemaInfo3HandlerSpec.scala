@@ -32,7 +32,7 @@ class SchemaInfo3HandlerSpec extends TestHelper {
     super.afterAll()
     // We need to start it manually because we need to access the HTTP mapped port
     // in the configuration below before any test get executed.
-    esContainer.stop()
+    // esContainer.stop()
   }
 
   override def beforeAll(): Unit = {
@@ -51,6 +51,7 @@ class SchemaInfo3HandlerSpec extends TestHelper {
     )
   )
 
+  /*
   lazy val esConfiguration: Config = {
     val port = esContainer.httpHostAddress.substring(
       esContainer.httpHostAddress.lastIndexOf(':') + 1
@@ -83,7 +84,7 @@ class SchemaInfo3HandlerSpec extends TestHelper {
            |}
            |""".stripMargin)
       .withFallback(super.testConfiguration)
-  }
+  }*/
 
   "Ingest Dream Contact CSV with ignore" should "produce file in accepted" in {
     new WithSettings() {

@@ -24,11 +24,11 @@ import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.job.ingest.LoadConfig
 import better.files.File
-import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
+import com.typesafe.config.ConfigValueFactory
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{Metadata => _, _}
+import org.apache.spark.sql.functions.*
+import org.apache.spark.sql.types.{Metadata as _, *}
 
 import scala.reflect.io.Directory
 
@@ -38,7 +38,7 @@ class SchemaInfo1HandlerSpec extends TestHelper {
     super.afterAll()
     // We need to start it manually because we need to access the HTTP mapped port
     // in the configuration below before any test get executed.
-    esContainer.stop()
+    // esContainer.stop()
   }
 
   override def beforeAll(): Unit = {
@@ -55,7 +55,7 @@ class SchemaInfo1HandlerSpec extends TestHelper {
       StructField("MONTH", IntegerType)
     )
   )
-
+  /*
   lazy val esConfiguration: Config = {
     val port = esContainer.httpHostAddress.substring(
       esContainer.httpHostAddress.lastIndexOf(':') + 1
@@ -89,7 +89,7 @@ class SchemaInfo1HandlerSpec extends TestHelper {
            |""".stripMargin)
       .withFallback(super.testConfiguration)
   }
-
+   */
   "Ingest Flat Locations JSON" should "produce file in accepted" in {
     new WithSettings() {
       // clean datasets folder
@@ -201,7 +201,7 @@ class SchemaInfo1HandlerSpec extends TestHelper {
 
         val session = sparkSession
 
-        import session.implicits._
+        import session.implicits.*
 
         val (seconds, millis) =
           acceptedDf
@@ -247,7 +247,7 @@ class SchemaInfo1HandlerSpec extends TestHelper {
 
         val session = sparkSession
 
-        import session.implicits._
+        import session.implicits.*
 
         val (seconds, millis) =
           acceptedDf
