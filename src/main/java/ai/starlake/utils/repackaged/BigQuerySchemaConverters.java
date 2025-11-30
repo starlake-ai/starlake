@@ -407,6 +407,15 @@ public class BigQuerySchemaConverters {
             return DataTypes.StringType;
         } else if (LegacySQLTypeName.JSON.equals(field.getType())) {
             return DataTypes.StringType;
+        } else if (LegacySQLTypeName.INTERVAL.equals(field.getType())) {
+            // INTERVAL is not supported in Spark
+            // According to the connector's engineering team (GitHub Issue #1292), this is a "won't fix" for the foreseeable future because of a fundamental mismatch:
+            // BigQuery has a single INTERVAL type that can store years, months, days, and time components all in one value (e.g., 1 YEAR 2 DAYS 3 HOURS).
+            // Spark (since version 3.2) splits intervals into two distinct, incompatible types:
+            // YearMonthIntervalType (years and months only)
+            // DayTimeIntervalType (days, hours, minutes, seconds)
+
+            return DataTypes.StringType;
         } else {
             throw new IllegalStateException("Unexpected type: " + field.getType());
         }
@@ -494,12 +503,14 @@ public class BigQuerySchemaConverters {
             fieldType = LegacySQLTypeName.RECORD;
             subFields =
                     FieldList.of(
-                            Field.newBuilder("key", toBigQueryType(mapType.keyType(), sparkField.metadata()))
-                                    .setMode(Field.Mode.REQUIRED)
-                                    .build(),
-                            Field.newBuilder("value", toBigQueryType(mapType.valueType(), sparkField.metadata()))
-                                    .setMode(mapType.valueContainsNull() ? Field.Mode.NULLABLE : Field.Mode.REQUIRED)
-                                    .build());
+                            buildMapTypeField(
+                                    "key", mapType.keyType(), sparkField.metadata(), Field.Mode.REQUIRED, depth),
+                            buildMapTypeField(
+                                    "value",
+                                    mapType.valueType(),
+                                    sparkField.metadata(),
+                                    mapType.valueContainsNull() ? Field.Mode.NULLABLE : Field.Mode.REQUIRED,
+                                    depth));
         } else if (sparkType instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) sparkType;
             int leftOfDotDigits = decimalType.precision() - decimalType.scale();
@@ -556,6 +567,17 @@ public class BigQuerySchemaConverters {
         return marker;
     }
 
+    private static Field buildMapTypeField(
+            String fieldName, DataType sparkType, Metadata metadata, Field.Mode fieldMode, int depth) {
+        LegacySQLTypeName sqlType = toBigQueryType(sparkType, metadata);
+        if (sqlType == LegacySQLTypeName.RECORD) {
+            FieldList subFields = sparkToBigQueryFields((StructType) sparkType, depth + 1);
+            return createBigQueryFieldBuilder(fieldName, sqlType, fieldMode, subFields).build();
+        } else {
+            return createBigQueryFieldBuilder(fieldName, sqlType, fieldMode, null).build();
+        }
+    }
+
     @VisibleForTesting
     protected static LegacySQLTypeName toBigQueryType(DataType elementType, Metadata metadata) {
         if (elementType instanceof BinaryType) {
@@ -584,6 +606,9 @@ public class BigQuerySchemaConverters {
         }
         if (elementType instanceof DateType) {
             return LegacySQLTypeName.DATE;
+        }
+        if (elementType instanceof StructType) {
+            return LegacySQLTypeName.RECORD;
         }
         throw new IllegalArgumentException("Data type not expected: " + elementType.simpleString());
     }

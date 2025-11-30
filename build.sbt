@@ -71,7 +71,7 @@ libraryDependencies ++= {
     }
   }
   dependencies ++ spark3 ++
-    jacksonForSpark3 ++ esSpark212 ++
+    jacksonForSpark3 ++ // esSpark212 ++ (exclude elasticsearch until spark 4 is supported
     pureConfig ++ scalaReflection(scalaVersion.value) ++
     versionSpecificLibs
 }

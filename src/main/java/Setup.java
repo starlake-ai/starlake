@@ -160,7 +160,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.5.3-SNAPSHOT");
 
     // SPARK
-    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.7");
+    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("4.0.1");
     private static final String HADOOP_VERSION = getEnv("HADOOP_VERSION").orElse("3");
 
 
@@ -168,10 +168,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.42.3");
 
     // deltalake
-    private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("3.3.2");
+    private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("4.0.0");
 
     // ICEBERG
-    private static final String ICEBERG_SPARK = getEnv("SPARK_ICEBERG").orElse("1.9.0");
+    private static final String ICEBERG_SPARK = getEnv("SPARK_ICEBERG").orElse("1.10.0");
 
     private static final String HADOOP_AZURE_VERSION = getEnv("HADOOP_AZURE_VERSION").orElse("3.3.5");
     private static final String AZURE_STORAGE_VERSION = getEnv("AZURE_STORAGE_VERSION").orElse("8.6.6");
@@ -201,7 +201,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     // REDSHIFT
     private static final String AWS_JAVA_SDK_VERSION = getEnv("AWS_JAVA_SDK_VERSION").orElse("1.12.788");
-    private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.3.4");
+    private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.4.2");
     private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.33");
     private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("6.5.0-spark_3.5-SNAPSHOT");
 
