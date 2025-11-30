@@ -65,6 +65,12 @@ class BigQuerySparkJob(
       bucketFromExtraConf
         .orElse(Option(conf.get("fs.gs.system.bucket")))
         .orElse(Option(conf.get("fs.defaultFS")))
+        .map { bucket =>
+          if (bucket == "file:///" || bucket == "file://" || bucket == "file:/")
+            "file:///tmp"
+          else
+            bucket
+        }
 
     bucket.foreach { bucket =>
       logger.info(s"Temporary GCS path $bucket")
