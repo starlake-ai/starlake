@@ -2,7 +2,7 @@ package ai.starlake.job.metrics
 
 import ai.starlake.config.Settings
 import ai.starlake.job.common.TaskSQLStatements
-import ai.starlake.job.transform.AutoTask
+import ai.starlake.job.transform.TransformContext
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
@@ -275,22 +275,22 @@ class ExpectationJob(
               Engine.JDBC
             else
               taskDesc.getSinkConnection().getEngine()
-          val task = AutoTask
-            .task(
-              Option(applicationId()),
-              taskDesc,
-              Map.empty,
-              None,
-              truncate = false,
-              engine = engine,
-              logExecution = false,
-              test = false,
-              resultPageSize = 200,
-              resultPageNumber = 1,
-              dryRun = false,
-              scheduledDate = None, // No scheduled date for expectations jobs
-              syncSchema = false
-            )(settings, storageHandler, schemaHandler)
+          val transformContext = TransformContext(
+            appId = Option(applicationId()),
+            taskDesc = taskDesc,
+            commandParameters = Map.empty,
+            interactive = None,
+            truncate = false,
+            test = false,
+            logExecution = false,
+            accessToken = None,
+            resultPageSize = 200,
+            resultPageNumber = 1,
+            dryRun = false,
+            scheduledDate = None, // No scheduled date for expectations jobs
+            syncSchema = false
+          )(settings, storageHandler, schemaHandler)
+          val task = transformContext.toTask(engine)
           val res = task.run()
           Utils.logFailure(res, logger)
       }

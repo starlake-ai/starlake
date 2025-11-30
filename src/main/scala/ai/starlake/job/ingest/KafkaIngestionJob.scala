@@ -129,7 +129,7 @@ class KafkaIngestionJob(
       case Mode.STREAM =>
         res
       case _ =>
-        Failure(throw new Exception("Should never happen"))
+        Failure(new Exception("Should never happen"))
     }
   }
 }

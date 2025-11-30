@@ -1408,30 +1408,27 @@ object Settings extends LazyLogging {
     val withDefaultSchedules = addDefaultSchedules(withSparkConfig)
 
     val localCatalog = jobConf.get("spark.localCatalog", "none")
-    localCatalog match {
-      case "none"              => // do nothing
-      case "iceberg" | "delta" =>
-      case "hive"              => // do nothing
-    }
+    val writeFormat =
+      localCatalog match {
+        case "none" => // do nothing
+          "parquet"
+        case "iceberg" | "delta" =>
+          localCatalog
+        case "hive" => // do nothing
+          "parquet"
+        case other =>
+          logger.warn(s"Unknown localCatalog type: $other")
+          other
+      }
 
     val withDefaultWriteFormat =
-      if (localCatalog != "none")
-        withDefaultSchedules.copy(appConfig =
-          withDefaultSchedules.appConfig.copy(
-            defaultWriteFormat = localCatalog,
-            defaultRejectedWriteFormat = localCatalog,
-            defaultAuditWriteFormat = localCatalog
-          )
+      withDefaultSchedules.copy(appConfig =
+        withDefaultSchedules.appConfig.copy(
+          defaultWriteFormat = writeFormat,
+          defaultRejectedWriteFormat = writeFormat,
+          defaultAuditWriteFormat = writeFormat
         )
-      else
-        withDefaultSchedules.copy(appConfig =
-          withDefaultSchedules.appConfig.copy(
-            defaultWriteFormat = "parquet",
-            defaultRejectedWriteFormat = "parquet",
-            defaultAuditWriteFormat = "parquet"
-          )
-        )
-
+      )
     withDefaultWriteFormat
   }
 
@@ -1632,6 +1629,14 @@ object Settings extends LazyLogging {
     * invalid characters like "/" or "\\" and its name is always equal to the env name
     */
   def secureDuckDbPath(settings: Settings): Settings = {
+    def removeSchemeFromFilename(filename: String): String = {
+      if (filename.contains("file://"))
+        filename.substring(7)
+      else if (filename.contains("file:"))
+        filename.substring(5)
+      else
+        filename
+    }
     val updatedConnections = settings.appConfig.connections
       .map { case (k, v) =>
         val isDuckLake =
@@ -1647,13 +1652,12 @@ object Settings extends LazyLogging {
             )
             val dbName = urlParts(2)
             assert(!dbName.contains(".."), "DuckDB database name should not contain '..'")
-            val validPath = new Path(settings.appConfig.datasets, s"$k.db")
-            val duckDbPath = new Path(settings.appConfig.datasets, s"duckdb.db").toString
-
+            val validPath = DatasetArea.duckdbPath(s"$k.db")(settings).toString
+            val duckDbPath = DatasetArea.duckdbPath()(settings).toString
             assert(
               isDuckLake ||
-              (k == "sl_duckdb" && urlParts(2) == duckDbPath) ||
-              dbName == validPath.toString ||
+              (k == "sl_duckdb" && urlParts(2) == removeSchemeFromFilename(duckDbPath)) ||
+              dbName == removeSchemeFromFilename(validPath) ||
               dbName == s"$k.db",
               s"Invalid DuckDB database URL: $k:$dbName. It should match the connection name or be 'duckdb.db' for 'sl_duckdb'."
             )

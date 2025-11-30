@@ -24,7 +24,12 @@ import ai.starlake.config.Settings
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.common.TaskSQLStatements
 import ai.starlake.job.ingest.{AuditLog, Step}
-import ai.starlake.job.metrics.{ExpectationJob, ExpectationReport, JdbcExpectationAssertionHandler}
+import ai.starlake.job.metrics.{
+  ExpectationAssertionHandler,
+  ExpectationJob,
+  ExpectationReport,
+  JdbcExpectationAssertionHandler
+}
 import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.job.strategies.TransformStrategiesBuilder
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -72,8 +77,63 @@ abstract class AutoTask(
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
-  def runExpectations(): List[ExpectationReport]
-  def runAndSinkExpectations(): Try[JobResult]
+  /** Returns the engine-specific ExpectationAssertionHandler.
+    *
+    * ==Template Method Pattern==
+    * This abstract method must be implemented by subclasses to provide the appropriate handler for
+    * their execution engine:
+    *   - SparkAutoTask -> SparkExpectationAssertionHandler (uses Spark SQL)
+    *   - BigQueryAutoTask -> BigQueryExpectationAssertionHandler (uses BigQuery native)
+    *   - JdbcAutoTask -> JdbcExpectationAssertionHandler (uses JDBC)
+    *
+    * The handler executes data quality assertions defined in the task's expectations.
+    */
+  protected def expectationAssertionHandler: ExpectationAssertionHandler
+
+  /** Runs expectations and returns the reports without persisting them.
+    *
+    * Use this for interactive validation where you want to see the results but not store them in
+    * the expectations audit table.
+    *
+    * @return
+    *   List of ExpectationReport containing pass/fail status for each assertion
+    */
+  def runExpectations(): List[ExpectationReport] = {
+    new ExpectationJob(
+      Option(applicationId()),
+      taskDesc.database,
+      taskDesc.domain,
+      taskDesc.table,
+      taskDesc.expectations,
+      storageHandler,
+      schemaHandler,
+      expectationAssertionHandler,
+      interactive = true
+    ).runExpectations()
+  }
+
+  /** Runs expectations and persists the results to the expectations audit table.
+    *
+    * Use this for batch/scheduled execution where you want to track assertion results over time.
+    * Results are stored in the configured expectations sink.
+    *
+    * @return
+    *   Try[JobResult] indicating success or failure of the expectation run
+    */
+  def runAndSinkExpectations(): Try[JobResult] = {
+    new ExpectationJob(
+      Option(applicationId()),
+      taskDesc.database,
+      taskDesc.domain,
+      taskDesc.table,
+      taskDesc.expectations,
+      storageHandler,
+      schemaHandler,
+      expectationAssertionHandler,
+      interactive = false
+    ).run()
+  }
+
   def createAuditTable(): Boolean
 
   /** Build the SQL statements to create or alter the table schema in the target database.
@@ -123,12 +183,7 @@ abstract class AutoTask(
 
   val sinkOptions =
     if (sinkConnection.isDuckDb()) {
-      val duckDbEnableExternalAccess =
-        settings.appConfig.duckDbEnableExternalAccess || sinkConnection.isMotherDuckDb()
-      sinkConnection.options.updated(
-        "enable_external_access",
-        duckDbEnableExternalAccess.toString
-      )
+      sinkConnection.options
     } else {
       sinkConnection.withAccessToken(accessToken).options
     }
@@ -175,6 +230,20 @@ abstract class AutoTask(
 
   private val taskSQL = SQLUtils.stripComments(taskDesc.getSql())
 
+  /** Builds all SQL queries and returns them as a single merged string.
+    *
+    * This is a convenience method that calls `buildAllSQLQueries()` and concatenates the ALTER
+    * statements with the main SQL.
+    *
+    * @param sql
+    *   Optional SQL override (uses taskDesc.getSql() if None)
+    * @param tableExistsForcedValue
+    *   Force table existence check result (for testing)
+    * @param forceNative
+    *   Force native execution (disable Spark format)
+    * @return
+    *   Concatenated ALTER + main SQL statements
+    */
   def buildAllSQLQueriesMerged(
     sql: Option[String],
     tableExistsForcedValue: Option[Boolean] = None,
@@ -189,12 +258,28 @@ abstract class AutoTask(
     alterSql + mainSql
   }
 
-  /** * Build all SQL queries needed to run the task
+  /** Builds all SQL queries needed to run the task.
+    *
+    * ==Processing Pipeline==
+    *   1. Instantiate macros in the SQL (Jinja templates) 2. Transpile SQL if in test mode (for
+    *      DuckDB compatibility) 3. Substitute parameters and environment variables 4. Build the
+    *      appropriate write strategy (APPEND, OVERWRITE, MERGE, SCD2) 5. Optionally sync schema
+    *      with YAML definition 6. Generate ALTER TABLE statements for schema changes
+    *
+    * ==Write Strategies==
+    *   - APPEND: INSERT INTO ... SELECT ...
+    *   - OVERWRITE: CREATE OR REPLACE TABLE ... AS SELECT ...
+    *   - MERGE: MERGE INTO ... USING ... ON ... WHEN MATCHED/NOT MATCHED
+    *   - SCD2: Slowly Changing Dimension Type 2 with start/end timestamps
+    *
     * @param sql
+    *   Optional SQL override (uses taskDesc.getSql() if None)
     * @param tableExistsForcedValue
+    *   Force table existence check result (for testing)
     * @param forceNative
+    *   Force native execution (disable Spark format)
     * @return
-    *   alter tables + mainSql
+    *   Tuple of (Optional ALTER statements, main SQL statement)
     */
   def buildAllSQLQueries(
     sql: Option[String],
@@ -604,24 +689,25 @@ object AutoTask extends LazyLogging {
   )(implicit
     settings: Settings
   ): AutoTask = {
-    AutoTask
-      .task(
-        appId = None,
-        taskDesc = info,
-        configOptions = Map.empty,
-        interactive = None,
-        accessToken = accessToken,
-        test = false,
-        truncate = false,
-        logExecution = false,
-        engine = settings.appConfig.getConnection(info.getRunConnectionRef()).getEngine(),
-        resultPageSize = 1000,
-        resultPageNumber = 1,
-        dryRun = false,
-        scheduledDate = scheduledDate,
-        syncSchema = false
-      )(settings, settings.storageHandler(), settings.schemaHandler())
-
+    implicit val storageHandler: StorageHandler = settings.storageHandler()
+    implicit val schemaHandler: SchemaHandler = settings.schemaHandler()
+    val engine = settings.appConfig.getConnection(info.getRunConnectionRef()).getEngine()
+    val context = TransformContext(
+      appId = None,
+      taskDesc = info,
+      commandParameters = Map.empty,
+      interactive = None,
+      truncate = false,
+      test = false,
+      logExecution = false,
+      accessToken = accessToken,
+      resultPageSize = 1000,
+      resultPageNumber = 1,
+      dryRun = false,
+      scheduledDate = scheduledDate,
+      syncSchema = false
+    )
+    context.toTask(engine)
   }
 
   /** Used for lineage only
@@ -633,25 +719,40 @@ object AutoTask extends LazyLogging {
   ): List[AutoTask] = {
     schemaHandler
       .tasks(reload)
-      .map(
-        task(
-          None,
-          _,
-          Map.empty,
-          None,
-          engine = Engine.SPARK,
+      .map { taskDesc =>
+        val context = TransformContext(
+          appId = None,
+          taskDesc = taskDesc,
+          commandParameters = Map.empty,
+          interactive = None,
           truncate = false,
           test = false,
           logExecution = true,
+          accessToken = None,
           resultPageSize = 200,
           resultPageNumber = 1,
           dryRun = false,
           scheduledDate = None, // No scheduled date for unauthenticated tasks
           syncSchema = false
         )
-      )
+        context.toTask(Engine.SPARK)
+      }
   }
 
+  /** Executes a SQL UPDATE/INSERT/DELETE statement on the appropriate engine.
+    *
+    * This is a utility method for executing DDL or DML statements that don't return results. The
+    * engine is determined from the connection configuration.
+    *
+    * @param sql
+    *   The SQL statement to execute
+    * @param connectionRef
+    *   The connection reference name from configuration
+    * @param accessToken
+    *   Optional OAuth access token for authenticated services
+    * @return
+    *   Try[Boolean] indicating success or failure
+    */
   def executeUpdate(sql: String, connectionRef: String, accessToken: Option[String])(implicit
     settings: Settings
   ): Try[Boolean] = {
@@ -659,6 +760,7 @@ object AutoTask extends LazyLogging {
       .connection(connectionRef)
       .getOrElse(throw new Exception(s"Connection not found $connectionRef"))
     val engine = connection.getEngine()
+    // Dispatch to the appropriate engine-specific implementation
     engine match {
       case Engine.BQ =>
         BigQueryJobBase.executeUpdate(sql, connectionRef, accessToken)
@@ -667,10 +769,44 @@ object AutoTask extends LazyLogging {
       case Engine.SPARK =>
         SparkAutoTask.executeUpdate(sql, connectionRef /* ignored */, accessToken /* ignored */ )
       case _ =>
-        Failure(throw new Exception(s"Unsupported engine $engine"))
+        Failure(new Exception(s"Unsupported engine $engine"))
     }
   }
 
+  /** Creates an AutoTask from a TransformContext.
+    *
+    * ==Factory Method Pattern==
+    * This is the '''preferred method''' for creating AutoTask instances. It selects the appropriate
+    * subclass based on:
+    *   1. The execution engine (SPARK, BQ, JDBC) 2. The sink configuration (FsSink, BigQuerySink,
+    *      JdbcSink) 3. Whether the task is interactive or batch
+    *
+    * ==Selection Logic==
+    *   - Engine.BQ + BigQuerySink -> BigQueryAutoTask
+    *   - Engine.JDBC + JdbcSink (same connection) -> JdbcAutoTask
+    *   - FsSink with export flag -> SparkExportTask
+    *   - All other cases -> SparkAutoTask
+    *
+    * @param context
+    *   The TransformContext containing all task parameters
+    * @param engine
+    *   The execution engine (Engine.SPARK, Engine.BQ, Engine.JDBC)
+    * @return
+    *   The appropriate AutoTask subclass instance
+    * @deprecated
+    *   Use context.toTask(engine) instead for a more fluent API
+    */
+  @deprecated("Use context.toTask(engine) instead", "1.0.0")
+  def task(context: TransformContext, engine: Engine): AutoTask = {
+    // Delegate to the instance method on TransformContext
+    context.toTask(engine)
+  }
+
+  /** Legacy method for backward compatibility. Prefer using context.toTask(engine) instead.
+    * @deprecated
+    *   Use TransformContext(...).toTask(engine) instead
+    */
+  @deprecated("Use TransformContext(...).toTask(engine) instead", "1.0.0")
   def task(
     appId: Option[String],
     taskDesc: AutoTaskInfo,
@@ -691,79 +827,22 @@ object AutoTask extends LazyLogging {
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
   ): AutoTask = {
-    val sinkConfig = taskDesc.getSinkConfig()
-    val runConnectionRef = taskDesc.getRunConnectionRef()
-    engine match {
-      case Engine.BQ if sinkConfig.isInstanceOf[BigQuerySink] || interactive.isDefined =>
-        new BigQueryAutoTask(
-          appId,
-          taskDesc,
-          configOptions,
-          interactive,
-          truncate = truncate,
-          test = test,
-          logExecution = logExecution,
-          accessToken = accessToken,
-          resultPageSize = resultPageSize,
-          resultPageNumber = resultPageNumber,
-          dryRun = dryRun,
-          scheduledDate = scheduledDate,
-          syncSchema = syncSchema
-        )
-      case Engine.JDBC
-          if sinkConfig
-            .isInstanceOf[JdbcSink] && sinkConfig
-            .getConnectionRef() == runConnectionRef || interactive.isDefined =>
-        new JdbcAutoTask(
-          appId,
-          taskDesc,
-          configOptions,
-          interactive,
-          truncate = truncate,
-          test = test,
-          logExecution = logExecution,
-          accessToken = accessToken,
-          resultPageSize = resultPageSize,
-          resultPageNumber = resultPageNumber,
-          conn = None,
-          scheduledDate = scheduledDate,
-          syncSchema = syncSchema
-        )
-      case _ =>
-        sinkConfig match {
-          case fs: FsSink if fs.isExport() && interactive.isEmpty =>
-            logger.info("Exporting to the filesystem")
-            new SparkExportTask(
-              appId = appId,
-              taskDesc = taskDesc,
-              commandParameters = configOptions,
-              interactive = interactive,
-              truncate = truncate,
-              test = test,
-              accessToken = accessToken,
-              resultPageSize = resultPageSize,
-              logExecution = logExecution,
-              resultPageNumber = resultPageNumber,
-              scheduledDate = scheduledDate
-            )
-
-          case _ =>
-            new SparkAutoTask(
-              appId = appId,
-              taskDesc = taskDesc,
-              commandParameters = configOptions,
-              interactive = interactive,
-              truncate = truncate,
-              test = test,
-              accessToken = accessToken,
-              resultPageSize = resultPageSize,
-              resultPageNumber = resultPageNumber,
-              logExecution = logExecution,
-              scheduledDate = scheduledDate,
-              syncSchema = syncSchema
-            )
-        }
-    }
+    val context = TransformContext(
+      appId = appId,
+      taskDesc = taskDesc,
+      commandParameters = configOptions,
+      interactive = interactive,
+      truncate = truncate,
+      test = test,
+      logExecution = logExecution,
+      accessToken = accessToken,
+      resultPageSize = resultPageSize,
+      resultPageNumber = resultPageNumber,
+      dryRun = dryRun,
+      scheduledDate = scheduledDate,
+      syncSchema = syncSchema
+    )
+    context.toTask(engine)
   }
   def executeSelect(
     domain: String,
@@ -882,14 +961,13 @@ object AutoTask extends LazyLogging {
             s"Unsupported connection type: ${connection.`type`}"
           )
       }
-    val t = task(
-      None,
-      autoTaskDesc,
-      Map.empty,
-      Some("json-array"),
+    val context = TransformContext(
+      appId = None,
+      taskDesc = autoTaskDesc,
+      commandParameters = Map.empty,
+      interactive = Some("json-array"),
       truncate = false,
       test = test,
-      engine = engine,
       logExecution = false,
       accessToken = accessToken,
       resultPageSize = pageSize,
@@ -898,6 +976,7 @@ object AutoTask extends LazyLogging {
       scheduledDate = scheduledDate,
       syncSchema = false
     )
+    val t = context.toTask(engine)
     t.run() match {
       case Success(jobResult) =>
         jobResult

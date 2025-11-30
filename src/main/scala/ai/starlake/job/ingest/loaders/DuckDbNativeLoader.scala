@@ -3,7 +3,7 @@ package ai.starlake.job.ingest.loaders
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.IngestionJob
-import ai.starlake.job.transform.JdbcAutoTask
+import ai.starlake.job.transform.TransformContext
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
@@ -100,26 +100,22 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           connectionRef = Option(mergedMetadata.getSinkConnectionRef())
         )
 
-        val job =
-          new JdbcAutoTask(
-            appId = Option(ingestionJob.applicationId()),
-            taskDesc = taskDesc,
-            commandParameters = Map.empty,
-            interactive = None,
-            truncate = false,
-            test = false,
-            logExecution = true,
-            accessToken = ingestionJob.accessToken,
-            resultPageSize = 200,
-            resultPageNumber = 1,
-            conn = None,
-            scheduledDate = scheduledDate,
-            syncSchema = false
-          )(
-            settings,
-            storageHandler,
-            schemaHandler
-          )
+        val context = TransformContext(
+          appId = Option(ingestionJob.applicationId()),
+          taskDesc = taskDesc,
+          commandParameters = Map.empty,
+          interactive = None,
+          truncate = false,
+          test = false,
+          logExecution = true,
+          accessToken = ingestionJob.accessToken,
+          resultPageSize = 200,
+          resultPageNumber = 1,
+          dryRun = false,
+          scheduledDate = scheduledDate,
+          syncSchema = false
+        )(settings, storageHandler, schemaHandler)
+        val job = TransformContext.createJdbcTask(context, None)
         val incomingSchema = schema.sparkSchemaWithoutIgnore(
           schemaHandler,
           withFinalName = true
