@@ -11,3 +11,4 @@ dag:
         global_ack_file_path: "{{SL_ROOT}}/datasets/pending/{{domain}}/GO.ack"
         ack_wait_timeout: "60" # in seconds, default is 60*60 (1 hour)
         tags: "{{domain}}"
+        sl_include_env_vars: GOOGLE_APPLICATION_CREDENTIALS,AWS_KEY_ID,AWS_SECRET_KEY

@@ -577,7 +577,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         }
         .toMap
 
-    val externalProps = sys.env ++ slVarsAsProperties
+    val externalProps =
+      root match {
+        case None => sys.env ++ slVarsAsProperties
+        case Some(root) => // root is forced by the user
+          sys.env ++ slVarsAsProperties ++ Map("SL_ROOT" -> root)
+      }
+
     // We first load all variables defined in the common environment file.
     // variables defined here are default values.
     val globalsCometPath = DatasetArea.env()
@@ -607,15 +613,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val localEnvVars =
       if (activeEnvName.nonEmpty && activeEnvName != "None") {
         val envsCometPath = DatasetArea.env(activeEnvName)
+
         // We subsittute values defined in the current profile with variables defined
         // in the default env file
+        val allVars = externalProps ++ globalEnvVars ++ slDateVars
 
-        val allVars =
-          root match {
-            case None => externalProps ++ globalEnvVars ++ slDateVars
-            case Some(root) =>
-              externalProps ++ globalEnvVars ++ slDateVars ++ Map("SL_ROOT" -> root)
-          }
         val localEnvDesc = EnvDesc
           .loadEnv(envsCometPath)(storage)
           .map(_.env)
@@ -1014,10 +1016,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val dagMap = deserializedDagGenerationConfigs(DatasetArea.dags)
       dagMap.map { case (dagName, dagInfo) =>
         if (instantiateVars) {
-          val scriptDir = Option(System.getenv("SL_SCRIPT_DIR"))
+          val scriptDir = Option(System.getenv("SL_SCRIPT_DIR")).filter(_.nonEmpty)
           val starlakePath = dagInfo.options.get("SL_STARLAKE_PATH")
           if (
-            scriptDir.isDefined &&
+            scriptDir.nonEmpty &&
             (starlakePath.contains("starlake") || starlakePath.isEmpty)
           ) {
             dagName -> dagInfo.copy(options =

@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.core.utils.CaseClassToPojoConverter
 import ai.starlake.job.ingest.DummyIngestionJob
-import ai.starlake.job.transform.{AutoTask, AutoTaskQueries}
+import ai.starlake.job.transform.{AutoTaskQueries, TransformContext}
 import ai.starlake.lineage.{
   AutoTaskDependencies,
   AutoTaskDependenciesConfig,
@@ -193,14 +193,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
         val taskStatements: List[AutoTaskQueries] =
           if (nativeOrchestrator) {
             allTaskDeps.map { taskDep =>
-              val task = AutoTask.task(
+              val transformContext = TransformContext(
                 appId = None,
                 taskDesc = taskDep,
-                configOptions = Map.empty,
+                commandParameters = Map.empty,
                 interactive = None,
                 truncate = false,
                 test = false,
-                taskDep.getRunEngine(),
                 logExecution = false,
                 accessToken = None,
                 resultPageSize = 1,
@@ -209,6 +208,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 scheduledDate = None, // No scheduled date for task dags
                 syncSchema = false
               )(settings, settings.storageHandler(), schemaHandler)
+              val task = transformContext.toTask(taskDep.getRunEngine())
               Try {
                 AutoTaskQueries(task)
               } match {

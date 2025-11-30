@@ -8,11 +8,7 @@ import ai.starlake.extract.{
   ExtractSchemaConfig,
   TablesExtractConfig
 }
-import ai.starlake.job.metrics.{
-  BigQueryExpectationAssertionHandler,
-  ExpectationJob,
-  ExpectationReport
-}
+import ai.starlake.job.metrics.{BigQueryExpectationAssertionHandler, ExpectationAssertionHandler}
 import ai.starlake.job.sink.bigquery.*
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
@@ -36,6 +32,36 @@ import java.time.Instant
 import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
+/** BigQueryAutoTask executes SQL transformations natively on Google BigQuery.
+  *
+  * ==Overview==
+  * This task type executes SQL directly on BigQuery using the BigQuery API, without requiring a
+  * Spark cluster. This is more efficient for:
+  *   - Large-scale transformations on BigQuery data
+  *   - MERGE/SCD2 operations (native BigQuery MERGE is faster)
+  *   - Interactive queries with pagination
+  *
+  * ==Key Features==
+  *   - Native BigQuery SQL execution (no Spark overhead)
+  *   - Support for all BigQuery write strategies (APPEND, OVERWRITE, MERGE, SCD2)
+  *   - Row-Level Security (RLS) policy management
+  *   - Schema synchronization with YAML definitions
+  *   - Dry-run mode for cost estimation
+  *   - Pagination for interactive query results
+  *
+  * ==Write Strategies==
+  *   - '''APPEND''': INSERT INTO ... SELECT ...
+  *   - '''OVERWRITE''': CREATE OR REPLACE TABLE ... AS SELECT ...
+  *   - '''MERGE''': MERGE INTO ... USING ... ON ... WHEN MATCHED/NOT MATCHED
+  *   - '''SCD2''': Slowly Changing Dimension Type 2 with start/end timestamps
+  *
+  * ==Authentication==
+  * Supports OAuth access tokens for user-context authentication, or uses default service account
+  * credentials when no token is provided.
+  *
+  * @param dryRun
+  *   If true, validates the query without executing (for cost estimation)
+  */
 class BigQueryAutoTask(
   appId: Option[String],
   taskDesc: AutoTaskInfo,
@@ -191,11 +217,30 @@ class BigQueryAutoTask(
     sqlResult.find(_.isFailure).map(_.asInstanceOf[Failure[JobResult]])
 
   }
+
+  /** Main BigQuery execution method.
+    *
+    * ==Execution Modes==
+    *   1. '''Native Mode''' (loadedDF = None): Builds and executes SQL entirely in BigQuery 2.
+    *      '''Spark Mode''' (loadedDF = Some): Uses Spark DataFrame, writes via BQ connector
+    *
+    * ==Processing Flow==
+    *   1. Build the main SQL (with variable substitution and transpilation) 2. Execute pre-SQL
+    *      statements 3. Handle sharding if configured (multi-partitioning) 4. Execute main SQL or
+    *      write DataFrame 5. Apply schema updates if needed 6. Execute post-SQL statements 7. Apply
+    *      Row-Level Security policies
+    *
+    * @param loadedDF
+    *   Optional Spark DataFrame (None for native BQ execution)
+    * @param sparkSchema
+    *   Optional Spark schema for type mapping
+    */
   private def runBQ(
     loadedDF: Option[DataFrame],
     sparkSchema: Option[StructType]
   ): Try[JobResult] = {
 
+    // Builds the main SQL statement, handling both native and Spark modes
     def mainSql(): String = {
       val targetSQL =
         if (loadedDF.isEmpty) {
@@ -500,45 +545,14 @@ class BigQueryAutoTask(
 
   }
 
-  def runAndSinkExpectations(): Try[JobResult] = {
-    new ExpectationJob(
-      Option(applicationId()),
-      taskDesc.database,
-      taskDesc.domain,
-      taskDesc.table,
-      taskDesc.expectations,
-      storageHandler,
-      schemaHandler,
-      new BigQueryExpectationAssertionHandler(
-        bqNativeJob(
-          bigQuerySinkConfig,
-          "",
-          taskDesc.taskTimeoutMs
-        )
-      ),
-      false
-    ).run()
-  }
-
-  def runExpectations(): List[ExpectationReport] = {
-    new ExpectationJob(
-      Option(applicationId()),
-      taskDesc.database,
-      taskDesc.domain,
-      taskDesc.table,
-      taskDesc.expectations,
-      storageHandler,
-      schemaHandler,
-      new BigQueryExpectationAssertionHandler(
-        bqNativeJob(
-          bigQuerySinkConfig,
-          "",
-          taskDesc.taskTimeoutMs
-        )
-      ),
-      true
-    ).runExpectations()
-  }
+  override protected def expectationAssertionHandler: ExpectationAssertionHandler =
+    new BigQueryExpectationAssertionHandler(
+      bqNativeJob(
+        bigQuerySinkConfig,
+        "",
+        taskDesc.taskTimeoutMs
+      )
+    )
 
   private def sqlSubst(): String = {
     val sql = taskDesc.getSql()
@@ -679,7 +693,27 @@ class BigQueryAutoTask(
     (Nil, true)
   }
 
+  /** Builds Row-Level Security (RLS) policy queries for BigQuery.
+    *
+    * ==RLS in BigQuery==
+    * Row-Level Security allows restricting which rows users can see based on their identity. This
+    * is implemented using BigQuery's ROW ACCESS POLICY.
+    *
+    * ==Processing Flow==
+    *   1. First, DROP ALL existing row access policies (clean slate) 2. Then, CREATE new policies
+    *      for each RLS definition in the task
+    *
+    * ==Grantee Types==
+    *   - SA (Service Account): serviceAccount:name@project.iam.gserviceaccount.com
+    *   - USER: user:email@domain.com
+    *   - GROUP: group:group@domain.com
+    *   - DOMAIN: domain:domain.com
+    *
+    * @return
+    *   List of SQL statements to execute (DROP + CREATE for each policy)
+    */
   override def buildRLSQueries(): List[String] = {
+    // Revokes all existing policies before creating new ones
     def revokeAllPrivileges(): String = {
       val outputTable = BigQueryJobBase.getBqTableForNative(targetTableId)
       s"DROP ALL ROW ACCESS POLICIES ON $outputTable"
