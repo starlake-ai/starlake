@@ -32,7 +32,7 @@ object Versions {
   val scalate = "1.9.8"
   val confluentVersion = "7.7.5"
   val kafkaClients = "7.7.5-ce"
-  val testContainers = "0.41.8"
+  val testContainers = "0.44.0"
   val gcpCloudLogging = "3.23.5"
   val gcpDataCatalog = "1.79.0"
   val jinja = "2.7.4" // forces dependency override on guava
@@ -49,8 +49,8 @@ object Versions {
   val jSqlTranspiler = "1.5-SNAPSHOT"
   val starlakejdbc = "0.3-SNAPSHOT"
   val jSqlFormatter = "5.4-SNAPSHOT"
-  val airflowTemplates = "0.4.4.3"
-  val dagsterTemplates = "0.4.3.1"
+  val airflowTemplates = "0.4.4.4"
+  val dagsterTemplates = "0.4.3.2"
   val orchestrationTemplates = "0.4.3.1"
   val snowflakeTemplates = "0.3.4.1"
 }
