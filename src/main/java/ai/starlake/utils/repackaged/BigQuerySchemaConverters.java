@@ -407,6 +407,15 @@ public class BigQuerySchemaConverters {
             return DataTypes.StringType;
         } else if (LegacySQLTypeName.JSON.equals(field.getType())) {
             return DataTypes.StringType;
+        } else if (LegacySQLTypeName.INTERVAL.equals(field.getType())) {
+            // INTERVAL is not supported in Spark
+            // According to the connector's engineering team (GitHub Issue #1292), this is a "won't fix" for the foreseeable future because of a fundamental mismatch:
+            // BigQuery has a single INTERVAL type that can store years, months, days, and time components all in one value (e.g., 1 YEAR 2 DAYS 3 HOURS).
+            // Spark (since version 3.2) splits intervals into two distinct, incompatible types:
+            // YearMonthIntervalType (years and months only)
+            // DayTimeIntervalType (days, hours, minutes, seconds)
+
+            return DataTypes.StringType;
         } else {
             throw new IllegalStateException("Unexpected type: " + field.getType());
         }
