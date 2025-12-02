@@ -228,10 +228,13 @@ object SparkUtils extends LazyLogging {
     val statement = conn.createStatement
     try {
       statement.setQueryTimeout(options.queryTimeout)
+      logger.info(s"Creating schema $createSchemaSql")
       statement.executeUpdate(createSchemaSql)
+      logger.info(s"Creating table $createTableSql")
       statement.executeUpdate(createTableSql)
       commentSql.foreach { comment =>
         try {
+          logger.info(s"Creating table comment $comment")
           statement.executeUpdate(comment)
         } catch {
           case _: Exception =>
