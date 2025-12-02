@@ -29,6 +29,13 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Allow arbitrary UID
+RUN chgrp -R 0 /app && chmod -R g=u /app && \
+    chmod 755 /app/starlake.sh && \
+    useradd starlake -u 1001 -g 0 -m -s /bin/bash
+
+USER 1001
+
 COPY starlake/bin /app/bin
 COPY starlake/starlake.sh /app/starlake.sh
 COPY starlake/versions.sh /app/versions.sh
