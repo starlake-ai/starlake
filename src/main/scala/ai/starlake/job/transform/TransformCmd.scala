@@ -119,7 +119,7 @@ trait TransformCmd extends Cmd[TransformConfig] {
       builder
         .opt[String]("scheduledDate")
         .optional()
-        .action((x, c) => c.copy(scheduledDate = Some(x)))
+        .action((x, c) => c.copy(scheduledDate = Some(x.replace('T', ' '))))
         .text("Scheduled date for the job, in format yyyy-MM-dd'T'HH:mm:ss.SSSZ")
     )
   }
