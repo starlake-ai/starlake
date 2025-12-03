@@ -1028,7 +1028,7 @@ object BigQueryJobBase extends LazyLogging {
     scala.Option(System.getProperty(envVar, System.getenv(envVar)))
 
   @nowarn
-  private def gcsCredentials(
+  def gcsCredentials(
     connectionOptions: Map[String, String]
   )(implicit settings: Settings): GcsCredentials = {
     logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
