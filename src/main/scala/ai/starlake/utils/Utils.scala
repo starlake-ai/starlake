@@ -35,6 +35,7 @@ import com.hubspot.jinjava.{Jinjava, JinjavaConfig}
 import com.typesafe.scalalogging.{LazyLogging, Logger}
 
 import java.io.{ByteArrayOutputStream, OutputStream, PrintWriter, StringWriter}
+import java.net.{HttpURLConnection, URL}
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.*
@@ -600,5 +601,30 @@ object Utils extends LazyLogging {
         result.append(c)
     }
     result.toList
+  }
+
+  def isRunningOnGcp(): Boolean = {
+    val metadataUrl = "http://metadata.google.internal"
+
+    try {
+      val url = new URL(metadataUrl)
+      val connection = url.openConnection().asInstanceOf[HttpURLConnection]
+
+      // CRITICAL: Fail fast. If we are running locally, this DNS won't resolve.
+      // We set a 500ms timeout so we don't slow down local development.
+      connection.setConnectTimeout(500)
+      connection.setReadTimeout(500)
+
+      // CRITICAL: This header is required by GCP to prevent SSRF attacks.
+      connection.setRequestProperty("Metadata-Flavor", "Google")
+
+      // If we get a 200 OK, we are inside GCP.
+      connection.getResponseCode == 200
+
+    } catch {
+      // Any exception (UnknownHostException, SocketTimeoutException) means
+      // we are not on GCP.
+      case _: Exception => false
+    }
   }
 }
