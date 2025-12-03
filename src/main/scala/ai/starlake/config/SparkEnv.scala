@@ -63,12 +63,12 @@ class SparkEnv private (
     if (!isSessionStarted()) {
       val conn = settings.appConfig.getDefaultConnection()
       val isBigQuery = conn.isBigQuery()
-      val projectId =
-        conn.options.getOrElse(
-          "projectId",
-          throw new Exception("projectId is required for bigquery connection")
-        )
       if (isBigQuery) {
+        val projectId =
+          conn.options.getOrElse(
+            "projectId",
+            throw new Exception("projectId is required for bigquery connection")
+          )
         // This sets the billing project for BigQuery
         config.set("parentProject", conn.options.getOrElse("parentProject", projectId))
         // This helps if you are using the GCS connector
