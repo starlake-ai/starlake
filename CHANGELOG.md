@@ -8,10 +8,10 @@ __Improvement__:
 - add PollException to bigquery retryable exception 
 - add new parameters SL_ON_EXCEPTION_RETRIES to specify the number of attempts of a retryable task on eligible exceptions
 
-
 __Bug fix__:
 - drop empty headers or null in native loader
 - ingestion failure when detailed load audit is enabled
+- infer-schema with complex recursive arrays of struct
 
 # 1.5.1:
 
