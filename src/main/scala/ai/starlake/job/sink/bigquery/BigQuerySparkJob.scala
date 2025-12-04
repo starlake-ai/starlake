@@ -222,17 +222,21 @@ class BigQuerySparkJob(
             val fieldsMap = sourceDF.schema.fields.map { field => field.name -> field.name }.toMap
             val orderedFields = tableColNames.flatMap { fieldsMap.get }.toSeq
             val orderedDF = sourceDF.select(orderedFields.map(col): _*)
+            val projectId =
+              connectionOptions
+                .get("projectId")
+                .orElse(Option(com.google.com.ServiceOptions.getDefaultProjectId()))
+                .getOrElse(
+                  throw new Exception(
+                    "define the env variable GOOGLE_CLOUD_PROJECT or set projectId in the connection"
+                  )
+                )
             orderedDF.write
               .mode(saveMode)
               .format("bigquery")
               .option(
                 "project",
-                connectionOptions.getOrElse(
-                  "projectId",
-                  throw new Exception(
-                    "projectId is required for bigquery connection"
-                  )
-                )
+                projectId
               )
               .option("table", bqTable)
               .option("intermediateFormat", intermediateFormat)
