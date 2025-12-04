@@ -59,8 +59,21 @@ class SparkEnv private (
 
   /** Creates a Spark Session with the spark.* keys defined the application conf file.
     */
-  def session: SparkSession = {
+  def session(implicit settings: Settings): SparkSession = {
     if (!isSessionStarted()) {
+      val conn = settings.appConfig.getDefaultConnection()
+      val isBigQuery = conn.isBigQuery()
+      if (isBigQuery) {
+        val projectId =
+          conn.options.getOrElse(
+            "projectId",
+            throw new Exception("projectId is required for bigquery connection")
+          )
+        // This sets the billing project for BigQuery
+        config.set("parentProject", conn.options.getOrElse("parentProject", projectId))
+        // This helps if you are using the GCS connector
+        config.set("spark.hadoop.fs.gs.project.id", projectId)
+      }
       val sysProps = System.getProperties()
       if (!SparkSessionBuilder.isSparkConnectActive) {
         val localCatalog = jobConf.getOption("spark.localCatalog").getOrElse("none")

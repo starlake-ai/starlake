@@ -41,7 +41,9 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
         )
       File(targetFolder, "CREATE.sql").overwrite(finalSql)
 
-      logger.info("create table target------------------------------------------------------------")
+      logger.info(
+        s"create table target------------------------------------------------------------\n$finalSql"
+      )
     }
     "create table strategy source and target" should "return correct SQL" in {
       val strategy =
@@ -71,7 +73,7 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
       File(targetFolder, "CREATE_SOURCE_TARGET.sql").overwrite(finalSql)
 
       logger.info(
-        "create table source and target------------------------------------------------------------"
+        s"create table source and target------------------------------------------------------------\n$finalSql"
       )
     }
     "create table  strategy source and target with SCD2" should "return correct SQL" in {
@@ -104,7 +106,7 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
       File(targetFolder, "CREATE_SCD2.sql").overwrite(finalSql)
 
       logger.info(
-        "create table target with scd2------------------------------------------------------------"
+        s"create table target with scd2------------------------------------------------------------\n$finalSql"
       )
     }
     "append table" should "return correct SQL" in {
@@ -131,7 +133,7 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
           "APPEND"
         )
       File(targetFolder, "APPEND.sql").overwrite(finalSql)
-      logger.info("append ------------------------------------------------------------")
+      logger.info(s"append ------------------------------------------------------------\n$finalSql")
     }
 
     "truncate then append table" should "return correct SQL" in {
@@ -159,7 +161,7 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
         )
       File(targetFolder, "APPEND_TRUNCATE.sql").overwrite(finalSql)
       logger.info(
-        "truncate then append------------------------------------------------------------"
+        s"truncate then append------------------------------------------------------------\n$finalSql"
       )
     }
 
@@ -187,7 +189,9 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
           "OVERWRITE"
         )
       File(targetFolder, "OVERWRITE.sql").overwrite(finalSql)
-      logger.info("overwrite------------------------------------------------------------")
+      logger.info(
+        s"overwrite------------------------------------------------------------\n$finalSql"
+      )
     }
     "upsert by key" should "return correct SQL" in {
       val strategy =
@@ -217,7 +221,9 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
           "UPSERT_BY_KEY"
         )
       File(targetFolder, "UPSERT_BY_KEY.sql").overwrite(finalSql)
-      logger.info("upsert by key------------------------------------------------------------")
+      logger.info(
+        s"upsert by key------------------------------------------------------------\n$finalSql"
+      )
     }
 
     "upsert by key on source and target" should "return correct SQL" in {
@@ -249,7 +255,7 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
         )
       File(targetFolder, "UPSERT_BY_KEY_SOURCE_TARGET.sql").overwrite(finalSql)
       logger.info(
-        "upsert by key source and target------------------------------------------------------------"
+        s"upsert by key source and target------------------------------------------------------------\n$finalSql"
       )
     }
 
@@ -283,7 +289,7 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
         )
       File(targetFolder, "UPSERT_BY_KEY_AND_TIMESTAMP.sql").overwrite(finalSql)
       logger.info(
-        "upsert by key and timestamp on target------------------------------------------------------------"
+        s"upsert by key and timestamp on target------------------------------------------------------------\n$finalSql"
       )
     }
 
@@ -317,7 +323,7 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
         )
       File(targetFolder, "UPSERT_BY_KEY_AND_TIMESTAMP_S_AND_T.sql").overwrite(finalSql)
       logger.info(
-        "upsert by key and timestamp on source and target------------------------------------------------------------"
+        s"upsert by key and timestamp on source and target------------------------------------------------------------\n$finalSql"
       )
     }
 
@@ -351,7 +357,7 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
         )
       File(targetFolder, "DELETE_THEN_INSERT.sql").overwrite(finalSql)
       logger.info(
-        "delete then insert------------------------------------------------------------"
+        s"delete then insert------------------------------------------------------------\n$finalSql"
       )
     }
 
@@ -385,7 +391,7 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
         )
       File(targetFolder, "SCD2.sql").overwrite(finalSql)
       logger.info(
-        "upsert by key and timestamp on source and target------------------------------------------------------------"
+        s"SCD2 on source and target------------------------------------------------------------\n$finalSql"
       )
     }
 
@@ -419,7 +425,7 @@ trait TransformStrategiesBuilderSpec extends TestHelper {
         )
       File(targetFolder, "SCD2_SOURCE_AND_TARGET.sql").overwrite(finalSql)
       logger.info(
-        "upsert by key and timestamp on source and target------------------------------------------------------------"
+        s"SCD2 on source and target------------------------------------------------------------\n$finalSql"
       )
     }
   }
