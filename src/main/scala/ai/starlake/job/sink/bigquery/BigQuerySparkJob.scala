@@ -86,7 +86,11 @@ class BigQuerySparkJob(
       case Some(accessToken) =>
         session.conf.set("gcpAccessToken", accessToken)
       case None =>
-        connectionOptions("authType") match {
+        val authType = connectionOptions.getOrElse(
+          "authType",
+          throw new Exception("authType is required for bigquery connection")
+        )
+        authType match {
           case "APPLICATION_DEFAULT" =>
             val scopes = connectionOptions
               .getOrElse("authScopes", "https://www.googleapis.com/auth/cloud-platform")
@@ -221,6 +225,15 @@ class BigQuerySparkJob(
             orderedDF.write
               .mode(saveMode)
               .format("bigquery")
+              .option(
+                "project",
+                connectionOptions.getOrElse(
+                  "projectId",
+                  throw new Exception(
+                    "projectId is required for bigquery connection"
+                  )
+                )
+              )
               .option("table", bqTable)
               .option("intermediateFormat", intermediateFormat)
               .options(withFieldRelaxationOptions)

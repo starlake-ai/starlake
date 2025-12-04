@@ -306,9 +306,35 @@ case "$1" in
     chmod +x $SCRIPT_DIR/bin/api/bin/*
     if [[ -z "$SL_API_DEBUG" ]]
     then
-      export JAVA_OPTS="$JAVA_OPTS"
+      export JAVA_OPTS="--add-opens=java.base/java.lang=ALL-UNNAMED \
+                          --add-opens=java.base/java.lang.invoke=ALL-UNNAMED \
+                          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+                          --add-opens=java.base/java.io=ALL-UNNAMED \
+                          --add-opens=java.base/java.net=ALL-UNNAMED \
+                          --add-opens=java.base/java.nio=ALL-UNNAMED \
+                          --add-opens=java.base/java.util=ALL-UNNAMED \
+                          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+                          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+                          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+                          --add-opens=java.base/sun.nio.cs=ALL-UNNAMED \
+                          --add-opens=java.base/sun.security.action=ALL-UNNAMED \
+                          --add-opens=java.base/sun.util.calendar=ALL-UNNAMED \
+                          --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED $JAVA_OPTS"
     else
-      export JAVA_OPTS="$JAVA_OPTS -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
+      export JAVA_OPTS="--add-opens=java.base/java.lang=ALL-UNNAMED \
+                          --add-opens=java.base/java.lang.invoke=ALL-UNNAMED \
+                          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+                          --add-opens=java.base/java.io=ALL-UNNAMED \
+                          --add-opens=java.base/java.net=ALL-UNNAMED \
+                          --add-opens=java.base/java.nio=ALL-UNNAMED \
+                          --add-opens=java.base/java.util=ALL-UNNAMED \
+                          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+                          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+                          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+                          --add-opens=java.base/sun.nio.cs=ALL-UNNAMED \
+                          --add-opens=java.base/sun.security.action=ALL-UNNAMED \
+                          --add-opens=java.base/sun.util.calendar=ALL-UNNAMED \
+                          --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED $JAVA_OPTS -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
     fi
     $SCRIPT_DIR/bin/api/bin/local-run-api $SCRIPT_DIR dummy
 

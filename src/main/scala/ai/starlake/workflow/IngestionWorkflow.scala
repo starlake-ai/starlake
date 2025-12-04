@@ -833,6 +833,27 @@ class IngestionWorkflow(
   def buildTask(
     config: TransformConfig
   ): AutoTask = {
+    val taskDesc: AutoTaskInfo = buildTaskDesc(config)
+    logger.debug(taskDesc.toString)
+    val context = TransformContext(
+      appId = None,
+      taskDesc = taskDesc,
+      commandParameters = config.options,
+      interactive = config.interactive,
+      truncate = config.truncate,
+      test = config.test,
+      logExecution = true,
+      accessToken = config.accessToken,
+      resultPageSize = config.pageSize,
+      resultPageNumber = config.pageNumber,
+      dryRun = config.dryRun,
+      scheduledDate = config.scheduledDate,
+      syncSchema = true
+    )(settings, storageHandler, schemaHandler)
+    context.toTask(taskDesc.getRunEngine())
+  }
+
+  private def buildTaskDesc(config: TransformConfig): AutoTaskInfo = {
     val taskDesc =
       if (config.name == "__ignore__.__ignore__") {
         AutoTaskInfo(
@@ -855,23 +876,7 @@ class IngestionWorkflow(
             taskDesc
         }
       }
-    logger.debug(taskDesc.toString)
-    val context = TransformContext(
-      appId = None,
-      taskDesc = taskDesc,
-      commandParameters = config.options,
-      interactive = config.interactive,
-      truncate = config.truncate,
-      test = config.test,
-      logExecution = true,
-      accessToken = config.accessToken,
-      resultPageSize = config.pageSize,
-      resultPageNumber = config.pageNumber,
-      dryRun = config.dryRun,
-      scheduledDate = config.scheduledDate,
-      syncSchema = true
-    )(settings, storageHandler, schemaHandler)
-    context.toTask(taskDesc.getRunEngine())
+    taskDesc
   }
 
   // TODO
@@ -1141,6 +1146,8 @@ class IngestionWorkflow(
     logger.info(s"Entering ${action.taskDesc.getRunEngine()} engine")
     val runEngine = action.taskDesc.getRunEngine()
 
+    if (ai.starlake.job.Main.cliMode)
+      println(">>>>>>")
     runEngine match {
       case BQ =>
         val result = action.run()

@@ -518,7 +518,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     reload: Boolean = false,
     env: Option[String] = None,
     root: Option[String] = None
-  ): Map[String, String] = {
+  ): CaseInsensitiveMap[String] = {
 
     val currentEnv =
       env.orElse {
@@ -548,7 +548,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       "SL_TYPES"              -> settings.appConfig.types,
       "SL_MACROS"             -> settings.appConfig.macros
     )
-    withRootValue ++ pathEnvVars
+    val result = withRootValue ++ pathEnvVars
+    CaseInsensitiveMap(result)
   }
 
   def refs(reload: Boolean = false): RefDesc = {
@@ -1016,7 +1017,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val dagMap = deserializedDagGenerationConfigs(DatasetArea.dags)
       dagMap.map { case (dagName, dagInfo) =>
         if (instantiateVars) {
-          val scriptDir = Option(System.getenv("SL_SCRIPT_DIR")).filter(_.nonEmpty)
+          val scriptDir = Option(System.getenv("SL_SCRIPT_DIR")).filter(_.nonEmpty).getOrElse("")
           val starlakePath = dagInfo.options.get("SL_STARLAKE_PATH")
           if (
             scriptDir.nonEmpty &&
@@ -2480,6 +2481,27 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
+  private def updateTypesIfNotDefined(attr: TableAttribute): TableAttribute = {
+    if (attr.`type`.isEmpty) {
+      attr.copy(`type` = "string")
+    } else if (attr.`type`.contains('(')) {
+      val components = attr.`type`.split('(')
+      val typeName = components(0)
+      val zone = components(1).trim.dropRight(1).trim
+      attr.copy(`type` = typeName)
+      /*
+      this
+        .types()
+        .find(t => t.name == typeName)
+        .map { typeInfo =>
+          attr.copy(`type` = typeInfo.name)
+        }
+        .getOrElse {
+          attr.copy(`type` = typeName)
+        }*/
+    } else
+      attr
+  }
   def syncPreviewSqlWithDb(
     taskFullName: String,
     query: Option[String],
@@ -2488,7 +2510,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     settings.schemaHandler().taskByFullName(taskFullName) match {
       case Success(taskInfo) =>
         val list: List[(TableAttribute, AttributeStatus)] =
-          taskInfo.diffSqlAttributesWithSQL(query, accessToken)
+          taskInfo.diffSqlAttributesWithSQL(query, accessToken).map { it =>
+            (updateTypesIfNotDefined(it._1), it._2)
+          }
+
         logger.debug(
           s"Diff SQL attributes with YAML for task $taskFullName: ${list.length} attributes"
         )
