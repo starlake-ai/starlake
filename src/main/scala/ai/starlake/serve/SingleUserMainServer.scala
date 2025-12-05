@@ -108,3 +108,14 @@ object SingleUserMainServer {
 }
 
 case class Response(serve: String)
+
+object Response {
+  def apply(output: String): Response = {
+    val serve =
+      output.indexOf(s">>>>>>") match {
+        case -1    => output
+        case index => output.substring(index + ">>>>>>".length)
+      }
+    new Response(serve)
+  }
+}
