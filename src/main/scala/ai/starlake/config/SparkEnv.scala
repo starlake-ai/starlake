@@ -21,7 +21,6 @@
 package ai.starlake.config
 
 import ai.starlake.utils.Utils
-import com.google.cloud.spark.bigquery.SparkBigQueryUtil
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
