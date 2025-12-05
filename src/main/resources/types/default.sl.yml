@@ -3,7 +3,7 @@ version: 1
 types:
   - name: "string"
     primitiveType: "string"
-    pattern: ".+"
+    pattern: ".*"
     sample: "Hello World"
     comment: "Any set of chars"
     ddlMapping:
