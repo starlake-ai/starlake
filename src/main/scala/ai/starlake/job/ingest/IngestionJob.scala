@@ -657,18 +657,105 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  def dfWithAttributesRenamed(acceptedDF: DataFrame): DataFrame = {
-    val renamedAttributes = schema.renamedAttributes().toMap
-    logger.whenInfoEnabled {
-      renamedAttributes.foreach { case (name, rename) =>
-        logger.info(s"renaming column $name to $rename")
+  /** This function expects intersect schema to be compatible therefore, no check is done during
+    * fitting. This function also fill the gap with input schema for missing columns.
+    * @param inputDF
+    * @return
+    */
+  def renameAttributesWithReport(
+    dfSchema: List[TableAttribute],
+    slSchema: List[TableAttribute]
+  )(inputDF: DataFrame): (DataFrame, List[String]) = {
+
+    val renamed = scala.collection.mutable.ListBuffer[String]()
+
+    def normalizePath(path: String, isArray: Boolean): String =
+      if (isArray) {
+        if (path.endsWith("[]")) path else path + "[]"
+      } else path
+
+    /** inArrayElement = true : do NOT record rename of the array element root */
+    def collectRename(
+      dfAttr: TableAttribute,
+      slAttr: TableAttribute,
+      normalizedPath: String,
+      isArray: Boolean,
+      inArrayElement: Boolean
+    ): Unit = {
+      slAttr.rename.foreach { newName =>
+        if (!inArrayElement && newName != dfAttr.name) {
+          val newName = normalizePath(slAttr.rename.get, isArray)
+          renamed += s"$normalizedPath -> ${newName}"
+        }
       }
     }
-    val finalDF =
-      renamedAttributes.foldLeft(acceptedDF) { case (acc, (name, rename)) =>
-        acc.withColumnRenamed(existingName = name, newName = rename)
+
+    def renameField(
+      dfAttr: TableAttribute,
+      slAttr: TableAttribute,
+      path: String,
+      inArrayElement: Boolean
+    ): Column => Column = {
+
+      val isArray = dfAttr.resolveArray() && slAttr.resolveArray()
+      val normalizedPath = normalizePath(path, isArray)
+
+      // RECORD RENAME (but avoid recording rename twice inside the array)
+      collectRename(dfAttr, slAttr, normalizedPath, isArray, inArrayElement)
+
+      if (isArray) { (arrayCol: Column) =>
+        transform(
+          arrayCol,
+          elemCol =>
+            renameField(
+              dfAttr.copy(array = Some(false)),
+              slAttr.copy(array = Some(false)),
+              normalizedPath,
+              inArrayElement = true // <-- IMPORTANT: prevent duplicate when diving inside the array
+            )(elemCol)
+        ).as(slAttr.rename.getOrElse(slAttr.name))
+
+      } else if (dfAttr.attributes.nonEmpty && slAttr.attributes.nonEmpty) { (structCol: Column) =>
+        struct(dfAttr.attributes.map { nestedDfAttr =>
+          slAttr.attributes
+            .find(_.name == nestedDfAttr.name)
+            .map { nestedSlAttr =>
+              val nestedPath = s"$normalizedPath.${nestedDfAttr.name}"
+              renameField(nestedDfAttr, nestedSlAttr, nestedPath, inArrayElement = false)(
+                structCol(nestedDfAttr.name)
+              )
+                .as(nestedSlAttr.rename.getOrElse(nestedSlAttr.name))
+            }
+            .getOrElse(structCol(nestedDfAttr.name))
+        }: _*).as(slAttr.rename.getOrElse(slAttr.name))
+
+      } else { (col: Column) =>
+        col.as(slAttr.rename.getOrElse(slAttr.name))
       }
-    finalDF
+    }
+
+    val projections: List[Column] = dfSchema.map { dfField =>
+      slSchema
+        .find(_.name == dfField.name)
+        .map { slField =>
+          renameField(dfField, slField, dfField.name, inArrayElement = false)(col(dfField.name))
+            .as(slField.rename.getOrElse(slField.name))
+        }
+        .getOrElse(col(dfField.name))
+    }
+
+    (inputDF.select(projections: _*), renamed.toList)
+  }
+
+  def dfWithAttributesRenamed(acceptedDF: DataFrame): DataFrame = {
+    val (resultDF, renamedAttributes) =
+      renameAttributesWithReport(Attributes.from(acceptedDF.schema), schema.attributes)(acceptedDF)
+    logger.whenInfoEnabled {
+      renamedAttributes.foreach { case rename =>
+        logger.info(s"renaming column $rename")
+      }
+    }
+    resultDF
   }
 
   /** Merge new and existing dataset if required Save using overwrite / Append mode

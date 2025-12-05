@@ -271,17 +271,29 @@ class RowValidator(
               array(
                 rejectValue(
                   pathColumn,
-                  "is not a " + currentSchema.`type`,
+                  "expected to be a " + currentSchema.`type` + " but found " + inputSchema.`type`,
                   column
                 )
               )
             }
           } else if (
             inputSchema.attributes.nonEmpty != currentSchema.attributes.nonEmpty && currentSchema.`type` != PrimitiveType.variant.value
-          ) { (column: Column, pathColumn: Column) =>
-            array(
-              rejectValue(pathColumn, "is not a " + currentSchema.`type`, column)
-            )
+          ) {
+            if (
+              currentSchema.attributes.nonEmpty && inputSchema.`type` == PrimitiveType.string.value
+            ) {
+              // When field is completely null in the input, spark infer it as a string instead of struct. We ignore this case and let the fit to the schema fails if we were wrong.
+              // if we want to be sure that this is not an error, we would have to check that all values are null before validating the type but this may be costly.
+              (column: Column, pathColumn: Column) => array()
+            } else { (column: Column, pathColumn: Column) =>
+              array(
+                rejectValue(
+                  pathColumn,
+                  "expected to be a " + currentSchema.`type` + " but found " + inputSchema.`type`,
+                  column
+                )
+              )
+            }
           }
           // at this point, there is no container mismatch
           else if (currentSchema.resolveArray()) {
@@ -291,7 +303,7 @@ class RowValidator(
             )
             (arrayColumn: Column, pathColumn: Column) => {
               reduce(
-                arrayColumn,
+                coalesce(arrayColumn, array()),
                 struct(
                   array().cast(ArrayType(StringType)).as("errors"),
                   lit(0L).as("index")
