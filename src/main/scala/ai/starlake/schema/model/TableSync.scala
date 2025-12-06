@@ -30,8 +30,8 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   * @param value
   *   The value of the attribute sync (NONE, AUTO, ADD, ALL)
   */
-@JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[AttributeSyncDeserializer])
+@JsonSerialize(`using` = classOf[ToStringSerializer])
+@JsonDeserialize(`using` = classOf[AttributeSyncDeserializer])
 sealed case class TableSync(value: String) {
   override def toString: String = value
 }

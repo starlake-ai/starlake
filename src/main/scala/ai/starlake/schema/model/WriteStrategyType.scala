@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
-@JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[StrategyNameDeserializer])
+@JsonSerialize(`using` = classOf[ToStringSerializer])
+@JsonDeserialize(`using` = classOf[StrategyNameDeserializer])
 sealed case class WriteStrategyType(value: String) {
   override def toString: String = value
   def toWriteMode(): WriteMode = {

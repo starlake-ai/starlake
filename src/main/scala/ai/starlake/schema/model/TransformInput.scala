@@ -34,8 +34,8 @@ import scala.util.Try
   * @param value
   *   algorithm to use : NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES
   */
-@JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[TransformInputDeserializer])
+@JsonSerialize(`using` = classOf[ToStringSerializer])
+@JsonDeserialize(`using` = classOf[TransformInputDeserializer])
 sealed case class TransformInput(value: String, sql: Boolean) {
   override def toString: String = if (sql) s"SQL:$value" else value
 

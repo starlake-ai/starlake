@@ -37,8 +37,8 @@ import scala.jdk.CollectionConverters._
   *   : NONE, FS, JDBC, BQ, ES One of the possible supported sinks
   */
 
-@JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[ConnectionTypeDeserializer])
+@JsonSerialize(`using` = classOf[ToStringSerializer])
+@JsonDeserialize(`using` = classOf[ConnectionTypeDeserializer])
 sealed case class ConnectionType(value: String) {
   override def toString: String = value
 }

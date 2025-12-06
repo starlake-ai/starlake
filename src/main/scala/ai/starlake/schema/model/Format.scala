@@ -31,8 +31,8 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   *   : JSON_FLAT, JSON of DSV Simple Json is made of a single level attributes of simple types (no
   *   arrray or map or sub objects)
   */
-@JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[FormatDeserializer])
+@JsonSerialize(`using` = classOf[ToStringSerializer])
+@JsonDeserialize(`using` = classOf[FormatDeserializer])
 sealed case class Format(value: String) {
   override def toString: String = value
 }

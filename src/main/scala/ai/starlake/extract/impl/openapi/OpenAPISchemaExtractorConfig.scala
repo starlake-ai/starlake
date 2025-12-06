@@ -13,8 +13,8 @@ import org.json4s.MappingException
 
 import java.util.regex.Pattern
 
-@JsonSerialize(using = classOf[RouteExplosionStrategySerializer])
-@JsonDeserialize(using = classOf[RouteExplosionStrategyDeserializer])
+@JsonSerialize(`using` = classOf[RouteExplosionStrategySerializer])
+@JsonDeserialize(`using` = classOf[RouteExplosionStrategyDeserializer])
 sealed trait RouteExplosionStrategy
 case object All extends RouteExplosionStrategy
 case object Array extends RouteExplosionStrategy
@@ -48,8 +48,8 @@ class RouteExplosionStrategyDeserializer extends JsonDeserializer[RouteExplosion
   }
 }
 
-@JsonSerialize(using = classOf[HttpOperationSerializer])
-@JsonDeserialize(using = classOf[HttpOperationDeserializer])
+@JsonSerialize(`using` = classOf[HttpOperationSerializer])
+@JsonDeserialize(`using` = classOf[HttpOperationDeserializer])
 sealed trait HttpOperation
 case object Get extends HttpOperation
 case object Post extends HttpOperation

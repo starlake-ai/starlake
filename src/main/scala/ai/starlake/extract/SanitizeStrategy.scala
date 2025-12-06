@@ -10,8 +10,8 @@ import com.fasterxml.jackson.databind.{
 }
 import org.json4s.MappingException
 
-@JsonSerialize(using = classOf[SanitizeStrategySerializer])
-@JsonDeserialize(using = classOf[SanitizeStrategyDeserializer])
+@JsonSerialize(`using` = classOf[SanitizeStrategySerializer])
+@JsonDeserialize(`using` = classOf[SanitizeStrategyDeserializer])
 sealed trait SanitizeStrategy
 case object OnLoad extends SanitizeStrategy
 case object OnExtract extends SanitizeStrategy

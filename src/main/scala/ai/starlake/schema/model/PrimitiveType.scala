@@ -46,8 +46,8 @@ import scala.util.{Failure, Success, Try}
   * @param value
   *   : string, long, double, boolean, byte, date, timestamp, decimal with (precision=30, scale=15)
   */
-@JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[PrimitiveTypeDeserializer])
+@JsonSerialize(`using` = classOf[ToStringSerializer])
+@JsonDeserialize(`using` = classOf[PrimitiveTypeDeserializer])
 sealed abstract case class PrimitiveType(value: String) {
   def fromString(str: String, pattern: String, zone: Option[String] = None): Any
 
