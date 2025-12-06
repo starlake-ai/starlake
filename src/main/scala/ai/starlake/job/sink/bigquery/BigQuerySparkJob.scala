@@ -225,7 +225,7 @@ class BigQuerySparkJob(
             val projectId =
               connectionOptions
                 .get("projectId")
-                .orElse(Option(com.google.com.ServiceOptions.getDefaultProjectId()))
+                .orElse(Option(com.google.cloud.ServiceOptions.getDefaultProjectId()))
                 .getOrElse(
                   throw new Exception(
                     "define the env variable GOOGLE_CLOUD_PROJECT or set projectId in the connection"
