@@ -3,7 +3,7 @@ package ai.starlake.schema.model
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 
-@JsonSerialize(using = classOf[ToStringSerializer])
+@JsonSerialize(`using` = classOf[ToStringSerializer])
 sealed abstract class Severity(value: String) {
   override def toString: String = String.format("%1$-8s", value)
 

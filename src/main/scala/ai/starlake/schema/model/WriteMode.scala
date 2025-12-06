@@ -33,8 +33,8 @@ import org.apache.spark.sql.SaveMode
   * @param value
   *   : OVERWRITE / APPEND / ERROR_IF_EXISTS / IGNORE.
   */
-@JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[WriteDeserializer])
+@JsonSerialize(`using` = classOf[ToStringSerializer])
+@JsonDeserialize(`using` = classOf[WriteDeserializer])
 sealed case class WriteMode(value: String) {
   override def toString: String = value
 

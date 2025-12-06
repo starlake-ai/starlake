@@ -33,8 +33,8 @@ import com.fasterxml.jackson.databind.{
   * @param value
   *   : FILE or STREAM
   */
-@JsonSerialize(using = classOf[MergeOnSerializer])
-@JsonDeserialize(using = classOf[MergeOnDeserializer])
+@JsonSerialize(`using` = classOf[MergeOnSerializer])
+@JsonDeserialize(`using` = classOf[MergeOnDeserializer])
 sealed case class MergeOn(value: String) {
   override def toString: String = value
 }

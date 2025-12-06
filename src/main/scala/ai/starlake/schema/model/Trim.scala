@@ -29,8 +29,8 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   * @param value
   *   : FILE or STREAM
   */
-@JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[TrimDeserializer])
+@JsonSerialize(`using` = classOf[ToStringSerializer])
+@JsonDeserialize(`using` = classOf[TrimDeserializer])
 sealed case class Trim(value: String) {
   override def toString: String = value
 }

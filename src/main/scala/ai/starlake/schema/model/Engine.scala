@@ -29,8 +29,8 @@ import com.fasterxml.jackson.databind.{
   SerializerProvider
 }
 
-@JsonSerialize(using = classOf[EngineSerializer])
-@JsonDeserialize(using = classOf[EngineDeserializer])
+@JsonSerialize(`using` = classOf[EngineSerializer])
+@JsonDeserialize(`using` = classOf[EngineDeserializer])
 sealed abstract class Engine(value: String) {
   override def toString: String =
     value match {

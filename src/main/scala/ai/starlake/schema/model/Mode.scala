@@ -33,8 +33,8 @@ import com.fasterxml.jackson.databind.{
   * @param value
   *   : FILE or STREAM
   */
-@JsonSerialize(using = classOf[ModeSerializer])
-@JsonDeserialize(using = classOf[ModeDeserializer])
+@JsonSerialize(`using` = classOf[ModeSerializer])
+@JsonDeserialize(`using` = classOf[ModeDeserializer])
 sealed case class Mode(value: String) {
   override def toString: String = value
 }

@@ -30,8 +30,8 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   * @param value
   *   : DISCRETE or CONTINUOUS or TEXT or NONE
   */
-@JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[MetricTypeDeserializer])
+@JsonSerialize(`using` = classOf[ToStringSerializer])
+@JsonDeserialize(`using` = classOf[MetricTypeDeserializer])
 sealed case class MetricType(value: String) {
   override def toString: String = value
 }
