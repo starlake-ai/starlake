@@ -1,4 +1,4 @@
-name: snapshot-no-tests
+name: snapshot-docker-no-tests
 # This workflow is triggered on demand and on merge. Run the complete workflow test, publish the snapshot and build the docker image
 #  and trigger the API workflow.
 on:
