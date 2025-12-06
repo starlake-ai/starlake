@@ -21,7 +21,6 @@
 package ai.starlake.config
 
 import ai.starlake.utils.Utils
-import com.google.cloud.spark.bigquery.SparkBigQueryUtil
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
@@ -75,6 +74,7 @@ class SparkEnv private (
                 "define the env variable GOOGLE_CLOUD_PROJECT or set projectId in the connection"
               )
             )
+
         // This sets the billing project for BigQuery
         config.set("parentProject", conn.options.getOrElse("parentProject", projectId))
         // This helps if you are using the GCS connector

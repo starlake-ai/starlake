@@ -518,7 +518,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     reload: Boolean = false,
     env: Option[String] = None,
     root: Option[String] = None
-  ): CaseInsensitiveMap[String] = {
+  ): Map[String, String] = {
 
     val currentEnv =
       env.orElse {
@@ -549,7 +549,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       "SL_MACROS"             -> settings.appConfig.macros
     )
     val result = withRootValue ++ pathEnvVars
-    CaseInsensitiveMap(result)
+    result
   }
 
   def refs(reload: Boolean = false): RefDesc = {

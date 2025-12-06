@@ -23,7 +23,7 @@ package ai.starlake.schema.handlers
 import ai.starlake.config.Settings
 import ai.starlake.core.utils.NamingUtils
 import ai.starlake.schema.exceptions.InvalidFieldNameException
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.utils.YamlSerde
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
@@ -37,6 +37,7 @@ import org.apache.spark.sql.functions.{
   max,
   reduce,
   regexp_like,
+  transform,
   trim,
   udf,
   when
@@ -297,10 +298,10 @@ object InferSchemaHandler extends LazyLogging {
                   (
                     ((arrayColumn: Column) => {
                       reduce(
-                        arrayColumn,
+                        transform(arrayColumn, elementColumn => fAttribute(elementColumn)),
                         lit(DataTypesToInt.NULL.id),
                         (finalType, elementColumn) => {
-                          DataTypesToInt.coerceDataType(finalType, fAttribute(elementColumn))
+                          DataTypesToInt.coerceDataType(finalType, elementColumn)
                         }
                       )
                     }) -> attributeColumnName,
