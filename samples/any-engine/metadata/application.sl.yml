@@ -60,11 +60,19 @@ application:
       type: "bigquery"
       sparkFormat: "bigquery"
       options:
-        writeMethod: "indirect" # direct or indirect (indirect mode requires GOOGLE_APPLICATION_CREDENTIALS env variable when run from your desktop)
-        location: "europe-west1" # EU or US
-        gcsBucket: "starlake-app" # required in indirect mode only
-        authType: "APPLICATION_DEFAULT" #reference to the application default credentials in the GOOGLE_APPLICATION_CREDENTIALS env variable
+        jsonKeyfile: "gcp_sa_key.json"
+        authenticator: "user/password"
+        location: "europe-west1"
+        projectId: "starlake-325712"
+        authType: "SERVICE_ACCOUNT_JSON_KEYFILE"
+        gcsBucket: "starlake-app"
         authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
+        #writeMethod: "indirect" # direct or indirect (indirect mode requires GOOGLE_APPLICATION_CREDENTIALS env variable when run from your desktop)
+
+        #location: "europe-west1" # EU or US
+        #gcsBucket: "starlake-app" # required in indirect mode only
+        #authType: "APPLICATION_DEFAULT" #reference to the application default credentials in the GOOGLE_APPLICATION_CREDENTIALS env variable
+        #authScopes: "https://www.googleapis.com/auth/cloud-platform" # comma separated list of scopes
         # materializationDataset: "BQ_TEST_DS" # Put this option here if only applicable to this connection or
         #                                        in the spark.datasource.bigquery below section
         #                                        if applicable to all BigQuery connections
