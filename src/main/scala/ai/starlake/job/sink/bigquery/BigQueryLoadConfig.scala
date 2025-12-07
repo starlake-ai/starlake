@@ -28,5 +28,6 @@ case class BigQueryLoadConfig(
   outputDatabase: Option[String] = None,
   enableRefresh: Option[Boolean] = None,
   refreshIntervalMs: Option[Long] = None,
-  accessToken: Option[String]
+  accessToken: Option[String] = None,
+  forceIndirect: Boolean = false
 )
