@@ -47,8 +47,13 @@ trait BigQueryJobBase extends LazyLogging {
   lazy val connection: scala.Option[Settings.ConnectionInfo] =
     connectionName.flatMap(name => settings.appConfig.connections.get(name))
 
-  lazy val connectionOptions: Map[String, String] =
-    connection.map(_.options).getOrElse(Map.empty)
+  lazy val connectionOptions: Map[String, String] = {
+    val map = connection.map(_.options).getOrElse(Map.empty)
+    if (cliConfig.forceIndirect)
+      map + ("writeMethod" -> "indirect")
+    else
+      map
+  }
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
 
