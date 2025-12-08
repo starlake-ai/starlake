@@ -139,6 +139,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     public static boolean ENABLE_KAFKA = ENABLE_ALL || envIsTrue("ENABLE_KAFKA");
     public static boolean ENABLE_MARIADB = ENABLE_ALL || envIsTrue("ENABLE_MARIA");
     public static boolean ENABLE_CLICKHOUSE = ENABLE_ALL || envIsTrue("ENABLE_CLICKHOUSE");
+    public static boolean ENABLE_TRINODB = ENABLE_ALL || envIsTrue("ENABLE_TRINODB");
 
     private static final boolean[] ALL_ENABLERS = new boolean[] {
             ENABLE_BIGQUERY,
@@ -146,6 +147,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             ENABLE_SNOWFLAKE,
             ENABLE_REDSHIFT,
             ENABLE_POSTGRESQL,
+            ENABLE_TRINODB,
             ENABLE_DUCKDB,
             ENABLE_KAFKA
     };
@@ -195,6 +197,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     // CLICKHOUSE
     private static final String CLICKHOUSE_VERSION = getEnv("CLICKHOUSE_VERSION").orElse("0.9.0");
+
+
+    // TRINO
+    private static final String TRINODB_VERSION = getEnv("TRINODB_VERSION").orElse("478");
 
     // DUCKDB
     private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.4.2.0");
@@ -250,6 +256,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency MARIADB_JAR = new ResourceDependency("mariadb-java-client", "https://repo1.maven.org/maven2/org/mariadb/jdbc/mariadb-java-client/" + MARIADB_VERSION + "/mariadb-java-client-" + MARIADB_VERSION + ".jar");
     private static final ResourceDependency CLICKHOUSE_JAR = new ResourceDependency("clickhouse-jdbc", "https://repo1.maven.org/maven2/com/clickhouse/clickhouse-jdbc/"+ CLICKHOUSE_VERSION + "/clickhouse-jdbc-" + CLICKHOUSE_VERSION + "-all.jar");
 
+    private static final ResourceDependency TRINODB_JAR = new ResourceDependency("trino-jdbc", "https://repo1.maven.org/maven2/io/trino/trino-jdbc/" + TRINODB_VERSION + "/trino-jdbc-" + TRINODB_VERSION + ".jar");
+
 
     private static final ResourceDependency[] snowflakeDependencies = {
             SNOWFLAKE_JDBC_JAR,
@@ -299,6 +307,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
     };
     private static final ResourceDependency[] clickhouseDependencies = {
     //        CLICKHOUSE_JAR
+    };
+    private static final ResourceDependency[] trinodbDependencies = {
+            TRINODB_JAR
     };
 
     private static Optional<String> getEnv(String env) {
@@ -356,6 +367,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             variableWriter.apply(writer).accept("ENABLE_POSTGRESQL", String.valueOf(ENABLE_POSTGRESQL));
             variableWriter.apply(writer).accept("ENABLE_MARIADB", String.valueOf(ENABLE_MARIADB));
             variableWriter.apply(writer).accept("ENABLE_REDSHIFT", String.valueOf(ENABLE_REDSHIFT));
+            variableWriter.apply(writer).accept("ENABLE_TRINODB", String.valueOf(ENABLE_TRINODB));
             variableWriter.apply(writer).accept("ENABLE_KAFKA", String.valueOf(ENABLE_KAFKA));
             variableWriter.apply(writer).accept("ENABLE_DUCKDB", String.valueOf(ENABLE_DUCKDB));
             variableWriter.apply(writer).accept("SL_VERSION", SL_VERSION);
@@ -377,6 +389,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 variableWriter.apply(writer).accept("SNOWFLAKE_JDBC_VERSION", SNOWFLAKE_JDBC_VERSION);
             }
             if (ENABLE_POSTGRESQL || !anyDependencyEnabled()) {
+                variableWriter.apply(writer).accept("POSTGRESQL_VERSION", POSTGRESQL_VERSION);
+            }
+            if (ENABLE_TRINODB || !anyDependencyEnabled()) {
                 variableWriter.apply(writer).accept("POSTGRESQL_VERSION", POSTGRESQL_VERSION);
             }
             if (ENABLE_REDSHIFT || !anyDependencyEnabled()) {
@@ -514,6 +529,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
         System.out.println("7) Spark    ");
         System.out.println("8) Kafka    ");
         System.out.println("9) Mariadb  ");
+        System.out.println("10) Trino  ");
 //        System.out.println("10) ClickHouse");
         System.out.println("A) All      ");
         System.out.println("N) None     ");
@@ -560,6 +576,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
                             break;
                         case "9":
                             ENABLE_MARIADB = true;
+                            break;
+                        case "10":
+                            ENABLE_TRINODB = true;
                             break;
 //                        case "10":
 //                            ENABLE_CLICKHOUSE = true;
@@ -680,6 +699,11 @@ public class Setup extends ProxySelector implements X509TrustManager {
             if (ENABLE_CLICKHOUSE) {
                 downloadAndDisplayProgress(clickhouseDependencies, depsDir, true);
             }
+            deleteDependencies(trinodbDependencies, depsDir);
+            if (ENABLE_TRINODB) {
+                downloadAndDisplayProgress(trinodbDependencies, depsDir, true);
+            }
+
 
 
             boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
