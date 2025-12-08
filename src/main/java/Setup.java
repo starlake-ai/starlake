@@ -392,7 +392,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 variableWriter.apply(writer).accept("POSTGRESQL_VERSION", POSTGRESQL_VERSION);
             }
             if (ENABLE_TRINODB || !anyDependencyEnabled()) {
-                variableWriter.apply(writer).accept("POSTGRESQL_VERSION", POSTGRESQL_VERSION);
+                variableWriter.apply(writer).accept("TRINODB_VERSION", TRINODB_VERSION);
             }
             if (ENABLE_REDSHIFT || !anyDependencyEnabled()) {
                 variableWriter.apply(writer).accept("AWS_JAVA_SDK_VERSION", AWS_JAVA_SDK_VERSION);
@@ -516,6 +516,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
         ENABLE_CLICKHOUSE = false;
         ENABLE_DUCKDB = true;
         ENABLE_KAFKA = true;
+        ENABLE_TRINODB = true;
     }
     private static void askUserWhichConfigToEnable() {
         System.out.println("Please enable at least one of the following profiles to download the required dependencies:");
@@ -540,7 +541,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             String answer = reader.readLine();
             if (answer.equalsIgnoreCase("n")) {
                 System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
-                System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_DUCKDB, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA, ENABLE_MARIADB");
+                System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_DUCKDB, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA, ENABLE_MARIADB, ENABLE_TRINODB");
                 System.exit(1);
             }
             else if (answer.equalsIgnoreCase("a")) {
