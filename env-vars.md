@@ -204,10 +204,10 @@ This document lists all environment variables that can be used to configure Star
 
 ## HTTP Service Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
+| Variable | Description | Default     |
+|----------|-------------|-------------|
 | `SL_HTTP_HOST` | HTTP interface/host | `127.0.0.1` |
-| `SL_HTTP_PORT` | HTTP port | `9000` |
+| `SL_HTTP_PORT` | HTTP port | `9900`      |
 
 ## Internal Configuration
 
