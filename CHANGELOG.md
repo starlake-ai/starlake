@@ -8,12 +8,15 @@ __Improvement__:
 - add PollException to bigquery retryable exception 
 - add new parameters SL_ON_EXCEPTION_RETRIES to specify the number of attempts of a retryable task on eligible exceptions
 - support rename on nested fields using spark engine
+- Use port 9900 for starlake serve by default to avoid conflict with minio when running locally on trino
 
 __Bug fix__:
 - drop empty headers or null in native loader
 - ingestion failure when detailed load audit is enabled
 - infer-schema with complex recursive arrays of struct
 - validation on null array with spark engine
+
+
 
 # 1.5.1:
 

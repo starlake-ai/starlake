@@ -39,11 +39,11 @@ This document describes all environment variables that can be used to configure 
 
 ## HTTP Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SL_API_HTTP_INTERFACE` | Network interface to bind the API to | `0.0.0.0` |
-| `SL_API_HTTP_PORT` | Port to bind the API to | `9000` |
-| `SL_API_HTTP_FRONT_URL` | Frontend URL used for OAuth redirects | `http://localhost:9000` |
+| Variable | Description | Default                 |
+|----------|-------------|-------------------------|
+| `SL_API_HTTP_INTERFACE` | Network interface to bind the API to | `0.0.0.0`               |
+| `SL_API_HTTP_PORT` | Port to bind the API to | `9900`                  |
+| `SL_API_HTTP_FRONT_URL` | Frontend URL used for OAuth redirects | `http://localhost:9900` |
 
 ## Orchestrator Configuration
 
