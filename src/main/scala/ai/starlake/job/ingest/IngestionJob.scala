@@ -23,7 +23,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.*
 import org.apache.spark.sql.functions.*
-import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.types.{MetadataBuilder, StructField, StructType}
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -657,6 +657,15 @@ trait IngestionJob extends SparkJob {
     }
   }
 
+  private def buildColumnMetadata(attr: TableAttribute) = {
+    val builder = new org.apache.spark.sql.types.MetadataBuilder()
+    if (attr.`type` == "variant") {
+      builder.putString("sqlType", "JSON")
+    }
+    attr.comment.foreach(builder.putString("description", _))
+    builder.build()
+  }
+
   /** This function expects intersect schema to be compatible therefore, no check is done during
     * fitting. This function also fill the gap with input schema for missing columns.
     * @param inputDF
@@ -713,7 +722,10 @@ trait IngestionJob extends SparkJob {
               normalizedPath,
               inArrayElement = true // <-- IMPORTANT: prevent duplicate when diving inside the array
             )(elemCol)
-        ).as(slAttr.rename.getOrElse(slAttr.name))
+        ).as(
+          slAttr.rename.getOrElse(slAttr.name),
+          metadata = buildColumnMetadata(slAttr)
+        )
 
       } else if (dfAttr.attributes.nonEmpty && slAttr.attributes.nonEmpty) { (structCol: Column) =>
         struct(dfAttr.attributes.map { nestedDfAttr =>
@@ -724,13 +736,22 @@ trait IngestionJob extends SparkJob {
               renameField(nestedDfAttr, nestedSlAttr, nestedPath, inArrayElement = false)(
                 structCol(nestedDfAttr.name)
               )
-                .as(nestedSlAttr.rename.getOrElse(nestedSlAttr.name))
+                .as(
+                  nestedSlAttr.rename.getOrElse(nestedSlAttr.name),
+                  metadata = buildColumnMetadata(slAttr)
+                )
             }
             .getOrElse(structCol(nestedDfAttr.name))
-        }: _*).as(slAttr.rename.getOrElse(slAttr.name))
+        }: _*).as(
+          slAttr.rename.getOrElse(slAttr.name),
+          metadata = buildColumnMetadata(slAttr)
+        )
 
       } else { (col: Column) =>
-        col.as(slAttr.rename.getOrElse(slAttr.name))
+        col.as(
+          slAttr.rename.getOrElse(slAttr.name),
+          metadata = buildColumnMetadata(slAttr)
+        )
       }
     }
 
@@ -739,7 +760,10 @@ trait IngestionJob extends SparkJob {
         .find(_.name == dfField.name)
         .map { slField =>
           renameField(dfField, slField, dfField.name, inArrayElement = false)(col(dfField.name))
-            .as(slField.rename.getOrElse(slField.name))
+            .as(
+              slField.rename.getOrElse(slField.name),
+              metadata = buildColumnMetadata(slField)
+            )
         }
         .getOrElse(col(dfField.name))
     }
@@ -855,6 +879,7 @@ trait IngestionJob extends SparkJob {
             .richFormat(schemaHandler.activeEnvVars(), options)
         )
           .cast(attr.primitiveSparkType(schemaHandler))
+          .as(attr.getFinalName(), metadata = buildColumnMetadata(attr))
       )
     }
   }
@@ -863,11 +888,7 @@ trait IngestionJob extends SparkJob {
     def enrichStructField(attr: TableAttribute, structField: StructField) = {
       structField.copy(
         name = attr.getFinalName(),
-        nullable = if (attr.script.isDefined) true else !attr.resolveRequired(),
-        metadata =
-          if (attr.`type` == "variant")
-            org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
-          else org.apache.spark.sql.types.Metadata.empty
+        nullable = if (attr.script.isDefined) true else !attr.resolveRequired()
       )
     }
     schema.attributes
@@ -876,14 +897,16 @@ trait IngestionJob extends SparkJob {
         (
           attr.getFinalName(),
           attr.sparkType(schemaHandler, enrichStructField),
-          attr.resolveScript()
+          attr.resolveScript(),
+          buildColumnMetadata(attr)
         )
       )
-      .foldLeft(acceptedDF) { case (df, (name, sparkType, script)) =>
+      .foldLeft(acceptedDF) { case (df, (name, sparkType, script, metadata)) =>
         df.withColumn(
           name,
           expr(script.richFormat(schemaHandler.activeEnvVars(), options))
             .cast(sparkType)
+            .as(name, metadata = metadata)
         )
       }
   }

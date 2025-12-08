@@ -13,6 +13,7 @@ import org.apache.spark.sql.{DataFrame, SaveMode}
 import org.apache.spark.storage.StorageLevel
 
 import java.nio.charset.StandardCharsets
+import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
@@ -251,14 +252,16 @@ class BigQuerySparkJob(
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
-      val attributesDescMap = attributesDesc.map { attr =>
-        attr.name -> attr.comment
-      }.toMap
-
-      if (attributesDescMap.nonEmpty)
-        updateColumnsDescription(BigQueryJobBase.dictToBQSchema(attributesDescMap))
       // TODO verify if there is a difference between maybeTableDescription, schema.comment , task.desc
-      updateTableDescription(table, maybeTableDescription.getOrElse(""))
+      if (attributesDesc.nonEmpty) {
+        val updatedTable = updateColumnsDescription(
+          SchemaInfo(name = "dummy", pattern = Pattern.compile(".*"), attributes = attributesDesc)
+            .bigquerySchemaWithIgnoreAndScript(settings.schemaHandler(), withFinalName = true)
+        )
+        updateTableDescription(updatedTable, maybeTableDescription.getOrElse(""))
+      } else {
+        updateTableDescription(table, maybeTableDescription.getOrElse(""))
+      }
       output.map(rejected =>
         SparkJobResult(
           None,
