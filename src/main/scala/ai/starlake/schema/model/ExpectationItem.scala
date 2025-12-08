@@ -35,6 +35,10 @@ case class ExpectationItem(
     }
   }
 
+  def paramsAsList: List[String] = {
+    params.split(",").map(_.trim).toList
+  }
+
   /** Generate a query call for this expectation e.g. {{expectationName(param1,param2)}} If the
     * expectation is namespaced (e.g. category.expectationName(param1,param2)) only the
     * expectationName is kept
