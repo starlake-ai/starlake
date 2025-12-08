@@ -1,4 +1,4 @@
-package ai.starlake.config
+package ai.starlake.openmetadata
 
 import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
@@ -9,73 +9,45 @@ import scopt.OParser
 
 import scala.util.{Failure, Success, Try}
 
-trait SettingsCmd extends Cmd[SettingsConfig] {
+trait OpenMetadataCmd extends Cmd[OpenMetadataConfig] {
 
   def command = "settings"
 
-  val parser: OParser[Unit, SettingsConfig] = {
-    val builder = OParser.builder[SettingsConfig]
+  val parser: OParser[Unit, OpenMetadataConfig] = {
+    val builder = OParser.builder[OpenMetadataConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
       builder.note(""),
       builder
-        .opt[String]("test-connection")
-        .action((x, c) => c.copy(testConnection = Some(x)))
+        .opt[String]("option1")
+        .action((x, c) => c.copy(oprion1 = Some(x)))
         .optional()
-        .text("Test this connection")
+        // .required()
+        .text("Enter option 1")
     )
   }
 
-  def parse(args: Seq[String]): Option[SettingsConfig] =
+  def parse(args: Seq[String]): Option[OpenMetadataConfig] =
     OParser.parse(
       parser,
       args,
-      SettingsConfig(testConnection = None)
+      OpenMetadataConfig()
     )
 
-  override def run(config: SettingsConfig, schemaHandler: SchemaHandler)(implicit
+  override def run(config: OpenMetadataConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
-    config.testConnection match {
-      case Some(connectionName) =>
-        settings.appConfig.connections.get(connectionName) match {
-          case Some(connection) =>
-            val checkResult = connection.checkValidity(connectionName)
-            AutoTask
-              .executeSelect(
-                "__ignore__",
-                "__ignore__",
-                "SELECT 1",
-                summarizeOnly = false,
-                connectionName,
-                None,
-                test = false,
-                parseSQL = false,
-                pageSize = 200,
-                pageNumber = 1,
-                scheduledDate = None // No scheduled date for validate command
-              )(
-                settings,
-                settings.storageHandler(),
-                settings.schemaHandler()
-              ) match {
-              case Success(_) =>
-                // scalastyle:off println
-                println(s"SUCCESS: Connection $connectionName is valid")
-              case Failure(exception) =>
-                // scalastyle:off println
-                println(s"ERROR: Could not connect to database using connection $connectionName ")
-            }
-            Success(JobResult.empty)
-          case None =>
-            Utils.printOut(s"Connection $connectionName does not exist")
-            Failure(new Exception(s"Connection $connectionName does not exist"))
-        }
-      case None =>
+    Try {
+      new OpenMetadataJob().run(config)
+
+    } match {
+      case Success(_) =>
         Success(JobResult.empty)
+      case Failure(exception) =>
+        Failure(exception)
     }
   }
 }
 
-object SettingsCmd extends SettingsCmd
+object SettingsCmd extends OpenMetadataCmd

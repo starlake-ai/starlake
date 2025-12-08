@@ -5,7 +5,12 @@ public class OpenMetadataJob {
     public void run(OpenMetadataConfig config) {
         if (config.option1().isEmpty())
             System.out.println("Option 1 is not defined");
-        else 
+        else
             System.out.println("Option 1 is defined");
+    }
+
+    public static void main(String[] args) {
+        OpenMetadataJob job = new OpenMetadataJob();
+        job.run(new OpenMetadataConfig(scala.Option.apply("value1")));
     }
 }
