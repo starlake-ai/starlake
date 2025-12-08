@@ -21,7 +21,7 @@ trait OpenMetadataCmd extends Cmd[OpenMetadataConfig] {
       builder.note(""),
       builder
         .opt[String]("option1")
-        .action((x, c) => c.copy(oprion1 = Some(x)))
+        .action((x, c) => c.copy(option1 = Some(x)))
         .optional()
         // .required()
         .text("Enter option 1")
