@@ -1,7 +1,7 @@
 object Versions {
   val curator = "2.6.0"
-  val spark3 = "4.0.1"
-  val deltaSpark3d0 = "4.0.0"
+  val spark3 = "3.5.7"
+  val deltaSpark3d0 = "3.3.2"
   val scalatest = "3.2.19"
   val scalacheckForScalatest = "3.2.18.0"
   val sparkXML2d0 = "0.13.0"
@@ -15,7 +15,7 @@ object Versions {
   val log4s = "1.3.3"
   val swaggerParser = "2.1.36"
   val betterFiles = "3.9.2"
-  val jacksonForSpark3 = "2.18.2"
+  val jacksonForSpark3 = "2.15.2"
   val pureConfig = "0.17.9"
   val esSpark = "8.16.3"
   // starting 1.4.1, it uses 2.17.0 of jackson which is not compatible with provided version in spark

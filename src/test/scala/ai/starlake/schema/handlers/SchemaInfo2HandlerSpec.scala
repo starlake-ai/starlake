@@ -24,13 +24,12 @@ import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.job.ingest.{IngestConfig, LoadConfig}
 import ai.starlake.lineage.{AclDependencies, TableDependencies}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import ai.starlake.utils.Formatter.RichFormatter
 import better.files.File
-import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{Metadata => _, _}
+import org.apache.spark.sql.functions.*
+import org.apache.spark.sql.types.{Metadata as _, *}
 import org.apache.spark.sql.{DataFrame, Row}
 
 import java.net.URL
@@ -450,7 +449,7 @@ class SchemaInfo2HandlerSpec extends TestHelper {
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
 
-        import org.scalatest.TryValues._
+        import org.scalatest.TryValues.*
 
         cleanMetadata
         deliverSourceDomain()
@@ -537,7 +536,7 @@ class SchemaInfo2HandlerSpec extends TestHelper {
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
 
-        import org.scalatest.TryValues._
+        import org.scalatest.TryValues.*
 
         cleanMetadata
         deliverSourceDomain()

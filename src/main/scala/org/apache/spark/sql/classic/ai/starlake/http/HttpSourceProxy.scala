@@ -1,10 +1,9 @@
 package org.apache.spark.sql.classic.ai.starlake.http
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.classic.ClassicConversions.castToImpl
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class HttpSourceProxy {
   def internalCreateDataFrame(
