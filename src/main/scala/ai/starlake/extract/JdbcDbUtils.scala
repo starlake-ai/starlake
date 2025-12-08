@@ -263,7 +263,10 @@ object JdbcDbUtils extends LazyLogging {
               "driver", // don't pass driver to DriverManager. No need
               "dbtable", // Spark only
               "numpartitions", // Spark only
-              "sl_access_token" // used internally only
+              "sl_access_token", // used internally only
+              "url",
+              "quote",
+              "separator"
             ).contains(k)
           ) {
 
