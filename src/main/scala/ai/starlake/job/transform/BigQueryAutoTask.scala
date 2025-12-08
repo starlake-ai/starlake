@@ -611,7 +611,7 @@ class BigQueryAutoTask(
         accessToken = accessToken
       )
     val bqSparkJob =
-      new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment)
+      new BigQuerySparkJob(bqLoadConfig, None, this.taskDesc.comment, this.taskDesc.attributes)
     val result = bqSparkJob.run()
     result.map { job =>
       bqSparkJob.applyRLSAndCLS() match {

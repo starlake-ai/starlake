@@ -695,18 +695,19 @@ trait BigQueryJobBase extends LazyLogging {
           .asScala
           .toList
           .foldLeft(List[Field]() -> false) { case ((fields, changed), field) =>
-            val targetDescription = Try(incomingSchema.get(field.getName).getDescription)
+            val incomingField = Try(incomingSchema.get(field.getName))
+            val targetDescription = incomingField
+              .map(_.getDescription)
               .getOrElse(field.getDescription)
             val fieldDescriptionHasChange =
               scala.Option(targetDescription) != scala.Option(field.getDescription)
 
-            val subFieldsUpdatedDescription: scala.Option[(List[Field], Boolean)] = Try(
-              scala.Option(incomingSchema.get(field.getName).getSubFields)
-            ).getOrElse(None) match {
-              case Some(subFields) =>
-                scala.Option(field.getSubFields).map(buildSchema(_, subFields))
-              case None => None
-            }
+            val subFieldsUpdatedDescription: scala.Option[(List[Field], Boolean)] =
+              incomingField.map(f => Option(f.getSubFields)).getOrElse(None) match {
+                case Some(subFields) =>
+                  scala.Option(field.getSubFields).map(buildSchema(_, subFields))
+                case None => None
+              }
             val fieldBuilder = field.toBuilder
               .setDescription(targetDescription)
             subFieldsUpdatedDescription.foreach { case (subFields, _) =>

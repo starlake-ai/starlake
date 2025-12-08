@@ -15,7 +15,7 @@ import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
-import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
+import org.apache.spark.sql.types.{MetadataBuilder, StructField, StructType, TimestampType}
 import org.apache.spark.sql.{DataFrame, SaveMode}
 import org.postgresql.copy.CopyManager
 import org.postgresql.core.BaseConnection
@@ -743,7 +743,8 @@ class SparkAutoTask(
     } else {
       val secondStepDesc = taskDesc.copy(
         name = fullTableName,
-        sql = None
+        sql = None,
+        attributes = slSchema.map(_.attributes).getOrElse(Attributes.from(loadedDF.schema))
       )
       // Update table schema
       val secondStepContext = delegateContext(
@@ -764,10 +765,11 @@ class SparkAutoTask(
                 attr.`type`.toLowerCase() == "variant"
               }
               slField
-                .map { _ =>
-                  val metadata =
-                    org.apache.spark.sql.types.Metadata.fromJson("""{ "sqlType" : "JSON"}""")
-                  val jsonField = field.copy(metadata = metadata)
+                .map { attr =>
+                  val metadataBuilder = new MetadataBuilder()
+                  metadataBuilder.putString("sqlType", "JSON")
+                  attr.comment.foreach(metadataBuilder.putString("description", _))
+                  val jsonField = field.copy(metadata = metadataBuilder.build())
                   jsonField
                 }
                 .getOrElse(field)
