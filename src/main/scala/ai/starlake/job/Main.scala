@@ -1,7 +1,7 @@
 package ai.starlake.job
 
 import ai.starlake.buildinfo.BuildInfo
-import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.config.{DatasetArea, Settings, SettingsCmd}
 import ai.starlake.console.ConsoleCmd
 import ai.starlake.extract.*
 import ai.starlake.extract.freshness.FreshnessExtractCmd
@@ -115,7 +115,8 @@ object Main extends LazyLogging {
     StarlakeTestCmd,
     MigrateCmd,
     ColLineageCmd,
-    PreLoadCmd
+    PreLoadCmd,
+    SettingsCmd
   )
 }
 
