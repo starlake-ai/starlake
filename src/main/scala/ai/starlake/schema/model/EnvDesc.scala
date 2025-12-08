@@ -34,7 +34,7 @@ case class OutputRef(database: String = "", domain: String = "", table: String =
 
   private val tableNamingQuotes = Map(
     Engine.JDBC.toString  -> ("", "."),
-    Engine.SPARK.toString -> ("`", ":"),
+    Engine.SPARK.toString -> ("`", "."),
     Engine.BQ.toString    -> ("`", ".")
   )
 
