@@ -10,7 +10,6 @@ import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.deploy.PythonRunner
-import org.apache.spark.sql.catalyst.analysis.NoSuchTableException
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions.JDBC_PREFER_TIMESTAMP_NTZ
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils.getJdbcType
@@ -180,7 +179,6 @@ object SparkUtils extends LazyLogging {
       try {
         Some(
           JdbcUtils.getSchema(
-            conn,
             statement.executeQuery(),
             dialect,
             isTimestampNTZ = preferTimestampNTZ

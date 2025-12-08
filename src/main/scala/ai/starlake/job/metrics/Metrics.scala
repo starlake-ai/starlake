@@ -361,9 +361,9 @@ object Metrics extends LazyLogging {
       .withColumn(
         "cat_count_freq",
         struct(
-          col("Category").try_cast(StringType).as("category"),
-          col("CountDiscrete").try_cast(LongType).as("countDiscrete"),
-          col("Frequencies").try_cast(DoubleType).as("frequency")
+          col("Category").cast(StringType).as("category"),
+          col("CountDiscrete").cast(LongType).as("countDiscrete"),
+          col("Frequencies").cast(DoubleType).as("frequency")
         )
       )
       .agg(listCol.head, listCol.tail: _*)

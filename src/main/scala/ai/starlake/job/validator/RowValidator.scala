@@ -68,10 +68,10 @@ class RowValidator(
         case PrimitiveType.double =>
           PrimitiveType.double.parseUDF(attributeType.zone)(column)
         case _ =>
-          column.try_cast(attribute.sparkType(schemaHandler))
+          column.cast(attribute.sparkType(schemaHandler))
         // we should never have struct because it is not a valid leaf
       }
-      when(column.isNull, lit(null).try_cast(attribute.sparkType(schemaHandler)))
+      when(column.isNull, lit(null).cast(attribute.sparkType(schemaHandler)))
         .otherwise(fittedAttribute)
     }
 
@@ -125,7 +125,7 @@ class RowValidator(
                     currentSchema.primitiveSparkType(schemaHandler).typeName
                   )
                 ),
-              column.try_cast(currentSchema.sparkType(schemaHandler))
+              column.cast(currentSchema.sparkType(schemaHandler))
             )
               .otherwise(
                 fitToField(currentSchema, column)
@@ -159,7 +159,7 @@ class RowValidator(
         concat(
           rejectMessage,
           lit(": "),
-          coalesce(currentColumn.try_cast(StringType), lit("NULL"))
+          coalesce(currentColumn.cast(StringType), lit("NULL"))
         )
       } else rejectMessage
     }
@@ -219,7 +219,7 @@ class RowValidator(
           PrimitiveType.byte.parseUDF(column).isNotNull
         case _ =>
           column
-            .try_cast(attributeType.primitiveType.sparkType(attributeType.zone))
+            .cast(attributeType.primitiveType.sparkType(attributeType.zone))
             .isNotNull
         // we should never have struct because it is not a valid leaf
       }
@@ -241,7 +241,7 @@ class RowValidator(
         applyPrivacy(attribute, column).isNotNull
           .and(
             applyPrivacy(attribute, column)
-              .try_cast(
+              .cast(
                 attributeType.primitiveType.sparkType(attributeType.zone)
               )
               .isNull
@@ -263,7 +263,7 @@ class RowValidator(
           if (
             currentSchema.`type` == PrimitiveType.variant.value && !currentSchema.resolveArray()
           ) { (_: Column, _: Column) =>
-            array().try_cast(ArrayType(StringType))
+            array().cast(ArrayType(StringType))
           } else if (inputSchema.resolveArray() != currentSchema.resolveArray()) {
             if (currentSchema.resolveArray()) { (dataColumn: Column, pathColumn: Column) =>
               array(rejectValue(pathColumn, "is not an array", dataColumn))
@@ -305,7 +305,7 @@ class RowValidator(
               reduce(
                 coalesce(arrayColumn, array()),
                 struct(
-                  array().try_cast(ArrayType(StringType)).as("errors"),
+                  array().cast(ArrayType(StringType)).as("errors"),
                   lit(0L).as("index")
                 ),
                 (errorInfos, elementColumn) => {
@@ -420,7 +420,7 @@ class RowValidator(
         case Some(defaultValue) =>
           when(
             column.isNull,
-            lit(defaultValue).try_cast(attribute.sparkType(schemaHandler))
+            lit(defaultValue).cast(attribute.sparkType(schemaHandler))
           )
             .otherwise(column)
         case None => column
@@ -469,7 +469,7 @@ class RowValidator(
                 )
               case None =>
                 // This means element type has a mismatch issue
-                array().try_cast(inputSchema.sparkType(schemaHandler))
+                array().cast(inputSchema.sparkType(schemaHandler))
             }
           })
         case Some(inputSchema)
@@ -493,7 +493,7 @@ class RowValidator(
                 replaceWithDefaultValue(
                   currentSchema,
                   substituteToNull(applyTrim(currentSchema, strColumn))
-                ).try_cast(StringType)
+                ).cast(StringType)
               })
           }
         case Some(inputSchema)

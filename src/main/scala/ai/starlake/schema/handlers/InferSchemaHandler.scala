@@ -308,7 +308,7 @@ object InferSchemaHandler extends LazyLogging {
                     ((arrayColumn: Column) => {
                       reduce(
                         arrayColumn,
-                        lit(null).try_cast(StringType),
+                        lit(null).cast(StringType),
                         (finalSample, elementColumn) => {
                           when(finalSample.isNotNull, finalSample)
                             .when(trim(fSample(elementColumn)).isNotNull, fSample(elementColumn))
@@ -332,14 +332,14 @@ object InferSchemaHandler extends LazyLogging {
                     lit(DataTypesToInt.STRING.id)
                   )
                   .when(
-                    strColumn.try_cast(LongType).isNotNull,
+                    strColumn.cast(LongType).isNotNull,
                     when(strColumn.contains("."), DataTypesToInt.DOUBLE.id)
                       .otherwise(DataTypesToInt.LONG.id)
                   )
                   .otherwise(lit(DataTypesToInt.STRING.id))
               }) -> currentPath,
               (
-                (strColumn: Column) => strColumn.try_cast(StringType)
+                (strColumn: Column) => strColumn.cast(StringType)
               ) -> (currentPath + sampleColumnSuffix)
             )
           )
@@ -352,7 +352,7 @@ object InferSchemaHandler extends LazyLogging {
           List(
             (
               ((currentColumn: Column) => {
-                val strColumn = currentColumn.try_cast(StringType)
+                val strColumn = currentColumn.cast(StringType)
                 when(strColumn.isNull, lit(DataTypesToInt.NULL.id))
                   .when(
                     DataTypesToInt.guessTemporalType(strColumn).isNotNull,
@@ -361,7 +361,7 @@ object InferSchemaHandler extends LazyLogging {
                   .otherwise(lit(DataTypesToInt.STRING.id))
               }) -> currentPath,
               (
-                (currentColumn: Column) => currentColumn.try_cast(StringType)
+                (currentColumn: Column) => currentColumn.cast(StringType)
               ) -> (currentPath + sampleColumnSuffix)
             )
           )
@@ -370,7 +370,7 @@ object InferSchemaHandler extends LazyLogging {
           List(
             (
               ((currentColumn: Column) => {
-                val strColumn = currentColumn.try_cast(StringType)
+                val strColumn = currentColumn.cast(StringType)
                 when(strColumn.isNull, lit(DataTypesToInt.NULL.id))
                   .when(
                     isNumberStringLike(strColumn),
@@ -379,7 +379,7 @@ object InferSchemaHandler extends LazyLogging {
                   .otherwise(lit(DataTypesToInt.dataTypeToTypeInt(currentSchema)))
               }) -> currentPath,
               (
-                (currentColumn: Column) => currentColumn.try_cast(StringType)
+                (currentColumn: Column) => currentColumn.cast(StringType)
               ) -> (currentPath + sampleColumnSuffix)
             )
           )
@@ -391,7 +391,7 @@ object InferSchemaHandler extends LazyLogging {
                   .otherwise(lit(DataTypesToInt.dataTypeToTypeInt(currentSchema)))
               }) -> currentPath,
               (
-                (currentColumn: Column) => currentColumn.try_cast(StringType)
+                (currentColumn: Column) => currentColumn.cast(StringType)
               ) -> (currentPath + sampleColumnSuffix)
             )
           )
