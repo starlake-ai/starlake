@@ -264,7 +264,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
             FileSystem.get(conf)
           case None =>
             throw new RuntimeException(
-              "Using gs/s3 scheme must be with a bucket name. gs://bucketName"
+              s"${path}: Using gs/s3 scheme must be with a bucket name. gs://bucketName"
             )
         }
       case "file" =>
