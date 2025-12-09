@@ -224,7 +224,11 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     uri.getScheme match {
       case "file" =>
         (uri.getScheme, None, "/" + uri.getPath)
-      case _ => (uri.getScheme, Option(uri.getHost), uri.getPath)
+      case _ =>
+        // Do not use getHost as it may be null if the bucket contains invalid host name characters like '_'
+        val bucket = uri.getSchemeSpecificPart.split("/").drop(2).head
+
+        (uri.getScheme, Option(bucket), uri.getPath)
     }
   }
 
