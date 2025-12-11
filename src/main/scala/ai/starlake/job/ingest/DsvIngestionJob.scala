@@ -111,7 +111,7 @@ class DsvIngestionJob(
       logger.debug(dfIn.schema.treeString)
 
       val dfInSkipped =
-        options.get("skipRows") match {
+        mergedMetadata.getOptions().get("skipRows") match {
           case Some(value) =>
             val dfWithIndex =
               dfIn.withColumn(
