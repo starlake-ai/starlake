@@ -3,7 +3,6 @@ package ai.starlake.job.ingest
 import ai.starlake.config.{CometColumns, DatasetArea, Settings, SparkSessionBuilder}
 import ai.starlake.exceptions.DisallowRejectRecordException
 import ai.starlake.extract.JdbcDbUtils
-import ai.starlake.job.validator.SimpleRejectedRecord
 import ai.starlake.job.ingest.loaders.{
   BigQueryNativeLoader,
   DuckDbNativeLoader,
@@ -13,17 +12,17 @@ import ai.starlake.job.ingest.loaders.{
 import ai.starlake.job.metrics.*
 import ai.starlake.job.sink.bigquery.*
 import ai.starlake.job.transform.TransformContext
-import ai.starlake.job.validator.{CheckValidityResult, GenericRowValidator}
+import ai.starlake.job.validator.{CheckValidityResult, GenericRowValidator, SimpleRejectedRecord}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
-import ai.starlake.utils.Formatter.*
 import ai.starlake.utils.*
+import ai.starlake.utils.Formatter.*
 import com.google.cloud.bigquery.TableId
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.*
 import org.apache.spark.sql.functions.*
-import org.apache.spark.sql.types.{MetadataBuilder, StructField, StructType}
+import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -528,7 +527,7 @@ trait IngestionJob extends SparkJob {
           Try {
             val (rejectedDS, acceptedDS) = ingest(dataset)
             if (settings.appConfig.audit.detailedLoadAudit && path.size > 1) {
-              import session.implicits._
+              import session.implicits.*
               rejectedDS
                 .groupBy("path")
                 .count()
