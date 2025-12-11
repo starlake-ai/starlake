@@ -437,12 +437,11 @@ object JdbcDbUtils extends LazyLogging {
             DucklakeAttachment.extract(actionIn) match {
               case None => actionIn
               case Some(attachValues) =>
-                val attachSQL = {
+                val attachSQL =
                   if (!attachValues.dataPathValue.contains("OVERRIDE_DATA_PATH"))
                     s"ATTACH IF NOT EXISTS 'ducklake:${attachValues.metadataLocation}' AS ${attachValues.dbName} (DATA_PATH ${attachValues.dataPathValue}, OVERRIDE_DATA_PATH true)"
                   else
                     s"ATTACH IF NOT EXISTS 'ducklake:${attachValues.metadataLocation}' AS ${attachValues.dbName} (DATA_PATH ${attachValues.dataPathValue})"
-                }
                 logger.info(attachSQL)
                 attachSQL
             }

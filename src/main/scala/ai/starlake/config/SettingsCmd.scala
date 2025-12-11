@@ -1,10 +1,9 @@
 package ai.starlake.config
 
-import ai.starlake.config.Settings
 import ai.starlake.job.Cmd
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.{JobResult, JsonSerializer, SparkJobResult, Utils}
+import ai.starlake.utils.{JobResult, Utils}
 import scopt.OParser
 
 import scala.util.{Failure, Success, Try}
