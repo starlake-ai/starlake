@@ -22,9 +22,11 @@ package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.*
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql._
+import org.apache.spark.sql.*
+import org.apache.spark.sql.expressions.Window
+import org.apache.spark.sql.functions.{col, monotonically_increasing_id, row_number}
 import org.apache.spark.sql.types.{StringType, StructType}
 
 import scala.util.Try
@@ -82,7 +84,6 @@ class DsvIngestionJob(
         .option("encoding", mergedMetadata.resolveEncoding())
         .options(sparkOptions)
         .options(settings.appConfig.dsvOptions)
-
       val finalDfInReader =
         if (mergedMetadata.resolveWithHeader()) {
           dfInReader
@@ -108,7 +109,25 @@ class DsvIngestionJob(
       val dfIn = finalDfInReader.csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
-      dfIn
+
+      val dfInSkipped =
+        options.get("skipRows") match {
+          case Some(value) =>
+            val dfWithIndex =
+              dfIn.withColumn(
+                "sl_monotonically_increasing_id",
+                row_number().over(Window.orderBy(monotonically_increasing_id()))
+              )
+            // Filter and clean up
+            val dfSkipped = dfWithIndex
+              .filter(col("sl_monotonically_increasing_id") > value.toInt)
+              .drop("sl_monotonically_increasing_id")
+            dfSkipped
+          case None =>
+            dfIn
+        }
+
+      dfInSkipped
         .withColumn(
           CometColumns.cometInputFileNameColumn,
           org.apache.spark.sql.functions.input_file_name()
