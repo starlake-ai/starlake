@@ -5,7 +5,7 @@ import ai.starlake.job.Cmd
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{ConnectionType, WriteStrategy, WriteStrategyType}
 import ai.starlake.utils.Formatter.RichFormatter
-import ai.starlake.utils.JobResult
+import ai.starlake.utils.{JobResult, Utils}
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
 
@@ -28,36 +28,37 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
 
     val table = jdbcEngine.tables.get(outputDomainAndTablename.split('.').last)
     table.foreach { table =>
-      val conn = DriverManager.getConnection(
-        jdbcOptions.options("url"),
-        jdbcOptions.options("user"),
-        jdbcOptions.options("password")
-      )
-
-      Try {
-        val stmt = conn.createStatement
+      Utils.withResources(
+        DriverManager.getConnection(
+          jdbcOptions.options("url"),
+          jdbcOptions.options("user"),
+          jdbcOptions.options("password")
+        )
+      ) { conn =>
         Try {
-          val pingSql = table.effectivePingSql(outputDomainAndTablename)
-          val rs = stmt.executeQuery(pingSql)
-          rs.close() // we don't need to fetch the result, it should be empty anyway.
-        } match {
-          case Failure(e) if e.isInstanceOf[SQLException] =>
-            stmt.executeUpdate(
-              table.createSql.richFormat(
-                Map(
-                  "table"       -> outputDomainAndTablename,
-                  "writeFormat" -> settings.appConfig.defaultWriteFormat
-                ),
-                Map.empty
+          val stmt = conn.createStatement
+          Try {
+            val pingSql = table.effectivePingSql(outputDomainAndTablename)
+            val rs = stmt.executeQuery(pingSql)
+            rs.close() // we don't need to fetch the result, it should be empty anyway.
+          } match {
+            case Failure(e) if e.isInstanceOf[SQLException] =>
+              stmt.executeUpdate(
+                table.createSql.richFormat(
+                  Map(
+                    "table"       -> outputDomainAndTablename,
+                    "writeFormat" -> settings.appConfig.defaultWriteFormat
+                  ),
+                  Map.empty
+                )
               )
-            )
-            conn.commit() // some databases are transactional wrt schema updates
-          case Failure(e) => throw e
-          case Success(_) => ;
+              conn.commit() // some databases are transactional wrt schema updates
+            case Failure(e) => throw e
+            case Success(_) => ;
+          }
+          stmt.close()
         }
-        stmt.close()
       }
-      conn.close()
     }
   }
 
