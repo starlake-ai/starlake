@@ -98,17 +98,65 @@ object JdbcDbUtils extends LazyLogging {
 
   object StarlakeConnectionPool {
     private val hikariPools = scala.collection.concurrent.TrieMap[String, HikariDataSource]()
-    private val duckDbPool = scala.collection.concurrent.TrieMap[String, Connection]()
+    private case class DuckDbPoolEntry(connection: Connection, lastAccessTime: Long)
+    private val duckDbPool = scala.collection.concurrent.TrieMap[String, DuckDbPoolEntry]()
+    private val duckDbPoolMaxIdleTimeMs = 15 * 1000L // 1 minute
 
-    def clearDuckdbPool() = {
-      duckDbPool.values.foreach { conn =>
-        Try(conn.close()) match {
+    // Scheduled executor for periodic cleanup of idle DuckDB connections
+    def startCleanupScheduler(
+      timeoutInSeconds: Int
+    ): java.util.concurrent.ScheduledExecutorService = {
+      val scheduler = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
+        new java.util.concurrent.ThreadFactory {
+          override def newThread(r: Runnable): Thread = {
+            val t = new Thread(r, "duckdb-pool-cleanup")
+            t.setDaemon(true) // Daemon thread won't prevent JVM shutdown
+            t
+          }
+        }
+      )
+      scheduler.scheduleAtFixedRate(
+        new Runnable {
+          override def run(): Unit = {
+            Try(cleanupIdleDuckDbConnections()) match {
+              case Failure(e) =>
+                logger.warn("Error during DuckDB pool cleanup", e)
+              case _ =>
+            }
+          }
+        },
+        1, // initial delay
+        timeoutInSeconds, // period
+        java.util.concurrent.TimeUnit.SECONDS
+      )
+      logger.info("DuckDB connection pool cleanup scheduler started")
+      scheduler
+    }
+
+    def clearDuckdbPool(): Unit = {
+      duckDbPool.values.foreach { entry =>
+        Try(entry.connection.close()) match {
           case Success(_) =>
           case Failure(exception) =>
             logger.warn(s"Could not close duckdb connection", exception)
         }
       }
       duckDbPool.clear()
+    }
+
+    private def cleanupIdleDuckDbConnections(): Unit = {
+      val now = System.currentTimeMillis()
+      duckDbPool.foreach { case (key, entry) =>
+        if (now - entry.lastAccessTime > duckDbPoolMaxIdleTimeMs) {
+          Try(entry.connection.close()) match {
+            case Success(_) =>
+              logger.debug(s"Closed idle DuckDB connection for key: $key")
+            case Failure(exception) =>
+              logger.warn(s"Could not close idle duckdb connection", exception)
+          }
+          duckDbPool.remove(key)
+        }
+      }
     }
     private def getHikariPoolKey(url: String, options: Map[String, String]): String = {
       val poolKey = options
@@ -139,8 +187,17 @@ object JdbcDbUtils extends LazyLogging {
         connectionOptions.contains("driver"),
         s"driver class not found in JDBC connection options $connectionOptions"
       )
+      val isDucklake =
+        connectionOptions
+          .get("preActions")
+          .exists(preActions => preActions.contains("ducklake:"))
+
       val driver = connectionOptions("driver")
-      val url = connectionOptions("url")
+      val url =
+        if (isDucklake)
+          "jdbc:duckdb:"
+        else
+          connectionOptions("url")
 
       if (url.contains(":duckdb:")) {
         val duckOptions = removeNonDuckDbProperties(connectionOptions)
@@ -165,23 +222,26 @@ object JdbcDbUtils extends LazyLogging {
           }
 
         logger.debug(s"DuckDB Connection Key: $dbKey")
+        // Clean up idle connections before getting/creating a new one
         val mainConnection =
           duckDbPool.get(dbKey) match {
-            case Some(existingConn) =>
+            case Some(entry) =>
               logger.debug(s"Reusing existing DuckDB connection for $url")
-              existingConn
+              // Update last access time
+              duckDbPool.put(dbKey, entry.copy(lastAccessTime = System.currentTimeMillis()))
+              entry.connection
             case _ =>
               // Clean any existing closed connection
-              duckDbPool.find { case (key, value) =>
+              duckDbPool.find { case (key, _) =>
                 key.startsWith(url)
               } match {
-                case Some((key, sqlConn)) =>
-                  sqlConn.close()
+                case Some((key, entry)) =>
+                  entry.connection.close()
                   duckDbPool.remove(key)
                 case None =>
               }
               val sqlConn = DriverManager.getConnection(url, properties)
-              duckDbPool.put(dbKey, sqlConn)
+              duckDbPool.put(dbKey, DuckDbPoolEntry(sqlConn, System.currentTimeMillis()))
               sqlConn
           }
 

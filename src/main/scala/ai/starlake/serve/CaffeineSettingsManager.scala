@@ -5,6 +5,7 @@ import ai.starlake.config.{PrivacyLevels, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.ConnectionType
 import ai.starlake.utils.Utils
+import better.files.File
 import com.github.benmanes.caffeine.cache.{Cache, Caffeine}
 import com.typesafe.scalalogging.LazyLogging
 
@@ -83,6 +84,7 @@ class CaffeineSettingsManager extends SettingsManager with LazyLogging {
       connections.get("sl_duckdb") match {
         case Some(_) => connections
         case None =>
+          File(root + "/datasets").createDirectories()
           val connectionsWithDuckDB = new ConnectionInfo(
             `type` = ConnectionType.JDBC,
             options = Map(
