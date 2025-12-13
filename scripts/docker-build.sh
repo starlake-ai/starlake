@@ -12,9 +12,10 @@ GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
 function usage() {
-    echo "Usage: $0 (-e [environment]) (-b)"
+    echo "Usage: $0 (-e [environment]) (-d [container-engine]) (-b)"
     echo ""
     echo "-e [environment] : build docker image to [environment], *cloud* by default"
+    echo "-d [container-engine]: use the selected container engine, *docker* by default"
     echo "-p : publish the application"
 }
 
@@ -40,35 +41,26 @@ MACHINE="$(uname -m)"
 ENVIRONMENT="cloud"
 BUILD="false"
 PUBLISH="false"
+CONTAINER_ENGINE="docker"
 
 echo Running on ${MACHINE}
 
-while getopts "e:m:b:p" opt; do
+while getopts ":e:m:d:bp" opt; do
     case ${opt} in
-    e) 
-        ENVIRONMENT=${OPTARG} 
-        ;;
-    m)
-        MACHINE=${OPTARG}
-        ;;
-    b)
-        BUILD="true"
-        ;;
-    p)
-        PUBLISH="true"
-        ;;
-    \?)
-        printError "Invalid option: ${OPTARG}"
-        echo ""
-        usage
-        clean 1
-        ;;
+    e) ENVIRONMENT=${OPTARG} ;;
+    m) MACHINE=${OPTARG} ;;
+    d) CONTAINER_ENGINE=${OPTARG} ;;
+    b) BUILD="true" ;;
+    p) PUBLISH="true" ;;
     :)
-        printError "Invalid option: ${OPTARG} requires an argument"
-        echo ""
-        usage
-        clean 1
-        ;;
+      printError "Option -${OPTARG} requires an argument."
+      usage
+      clean 1
+      ;;
+    h | *)
+      usage
+      clean 1
+      ;;
     esac
 done
 
@@ -81,7 +73,7 @@ fi
 
 echo Preparing docker image for ${ENVIRONMENT}
 if [ "$BUILD" == "true" ]; then
-  ./scripts/docker-prepare.sh -e $ENVIRONMENT -p
+  ./scripts/docker-prepare.sh -e $ENVIRONMENT -b # TODO: -b or -p ? 
 else
   ./scripts/docker-prepare.sh -e $ENVIRONMENT
 fi
@@ -90,20 +82,20 @@ source "./scripts/versions.sh"
 
 if [ "$ENVIRONMENT" == "local" ] || [ "$ENVIRONMENT" == "dev" ] || [ "$MACHINE" == "arm64" ];
 then
-#  docker buildx create --use
-  docker builder prune -f
+  # ${CONTAINER_ENGINE} buildx create --use
+  ${CONTAINER_ENGINE} builder prune -f
   if [ "$ENVIRONMENT" == "local" ]; then
     if [ "$BUILD" == "true" ] || [ "$PUBLISH" == "true" ]; then
-      docker buildx create --platform ${PLATFORMS} --driver docker-container --use --bootstrap #--name starlake-builder
-      docker buildx build --platform ${PLATFORMS} --build-arg BUILD_DATE=$BUILD_DATE --build-arg VCS_REF=$VCS_REF --build-arg SL_VERSION=$SL_VERSION -t ${REGISTRY_IMAGE_LATEST} ./distrib/docker --load
+      ${CONTAINER_ENGINE} buildx create --platform ${PLATFORMS} --driver docker-container --use --bootstrap #--name starlake-builder
+      ${CONTAINER_ENGINE} buildx build --platform ${PLATFORMS} --build-arg BUILD_DATE=$BUILD_DATE --build-arg VCS_REF=$VCS_REF --build-arg SL_VERSION=$SL_VERSION -t ${REGISTRY_IMAGE_LATEST} ./distrib/docker --load
       if [ "$PUBLISH" == "true" ]; then
-        docker push ${REGISTRY_IMAGE_LATEST}
+        ${CONTAINER_ENGINE} push ${REGISTRY_IMAGE_LATEST}
       fi
     else
-      docker buildx build --build-arg BUILD_DATE=$BUILD_DATE --build-arg VCS_REF=$VCS_REF --build-arg SL_VERSION=$SL_VERSION -t ${REGISTRY_IMAGE_LATEST} --load ./distrib/docker
+      ${CONTAINER_ENGINE} buildx build --build-arg BUILD_DATE=$BUILD_DATE --build-arg VCS_REF=$VCS_REF --build-arg SL_VERSION=$SL_VERSION -t ${REGISTRY_IMAGE_LATEST} --load ./distrib/docker
     fi
   else
-    docker buildx build --build-arg BUILD_DATE=$BUILD_DATE --build-arg VCS_REF=$VCS_REF --build-arg SL_VERSION=$SL_VERSION -t ${REGISTRY_IMAGE_LATEST} --load ./distrib/docker
+    ${CONTAINER_ENGINE} buildx build --build-arg BUILD_DATE=$BUILD_DATE --build-arg VCS_REF=$VCS_REF --build-arg SL_VERSION=$SL_VERSION -t ${REGISTRY_IMAGE_LATEST} --load ./distrib/docker
   fi
 else
   echo building for linux/$MACHINE
@@ -111,6 +103,6 @@ else
   export zone=$(gcloud config get-value compute/zone 2> /dev/null)
   export project=$(gcloud config get-value core/project 2> /dev/null)
 
-  docker buildx build  --platform linux/$MACHINE --build-arg BUILD_DATE=$BUILD_DATE --build-arg VCS_REF=$VCS_REF --build-arg SL_VERSION=$SL_VERSION --output type=docker -t starlake-ai/starlake-$MACHINE:latest ./distrib/docker
-  #docker push europe-west1-docker.pkg.dev/$project/starlake-docker-repo/starlake-$MACHINE:latest
+  ${CONTAINER_ENGINE} buildx build  --platform linux/$MACHINE --build-arg BUILD_DATE=$BUILD_DATE --build-arg VCS_REF=$VCS_REF --build-arg SL_VERSION=$SL_VERSION --output type=docker -t starlake-ai/starlake-$MACHINE:latest ./distrib/docker
+  #${CONTAINER_ENGINE} push europe-west1-docker.pkg.dev/$project/starlake-docker-repo/starlake-$MACHINE:latest
 fi
