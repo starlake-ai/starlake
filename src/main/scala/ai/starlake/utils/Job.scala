@@ -5,10 +5,10 @@ import com.google.gson.Gson
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
-import org.apache.spark.sql._
+import org.apache.spark.sql.*
 
 import java.io.{ByteArrayOutputStream, PrintStream}
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
 case class IngestionCounters(
@@ -19,18 +19,20 @@ case class IngestionCounters(
   jobid: String
 ) {
   def ignore: Boolean = inputCount == -1 && rejectedCount == -1 && acceptedCount == -1
+
   override def toString() = {
     if (ignore) {
       s"""Native Load summary:
-       |Data successfully loaded from ${paths.mkString("\n\t")}
-       |""".stripMargin
+         |Data successfully loaded from ${paths.mkString("\n\t")}
+         |""".stripMargin
     } else {
-    s"""Load summary:
-       |Input records: $inputCount
-       |Accepted: $acceptedCount
-       |Rejected: $rejectedCount
-       |Data successfully loaded from ${paths.mkString("\n\t")}
-       |""".stripMargin
+      s"""Load summary:
+         |Input records: $inputCount
+         |Accepted: $acceptedCount
+         |Rejected: $rejectedCount
+         |Data successfully loaded from ${paths.mkString("\n\t")}
+         |""".stripMargin
+    }
   }
 }
 
@@ -229,7 +231,7 @@ trait SparkJob extends JobBase {
   }
 
   def getTableLocation(fullTableName: String): String = {
-    import session.implicits._
+    import session.implicits.*
     session
       .sql(s"desc formatted $fullTableName")
       .toDF()
