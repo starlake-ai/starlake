@@ -20,10 +20,16 @@ case class IngestionCounters(
 ) {
   def ignore: Boolean = inputCount == -1 && rejectedCount == -1 && acceptedCount == -1
   override def toString() = {
+    if (ignore) {
+      s"""Load summary:
+       |Data successfully loaded from ${paths.mkString("\n\t")}
+       |""".stripMargin
+    } else {
     s"""Load summary:
        |Input records: $inputCount
        |Accepted: $acceptedCount
        |Rejected: $rejectedCount
+       |Data successfully loaded from ${paths.mkString("\n\t")}
        |""".stripMargin
   }
 }
