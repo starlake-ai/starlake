@@ -229,6 +229,7 @@ object Dependencies {
     ) exclude ("org.apache.commons", "commons-lang3")
   )
 
+  // com.manticore-projects.jsqlformatter
   val jSqlTranspiler = Seq(
     "com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser,
     "ai.starlake.jsqltranspiler" % "jsqltranspiler" % Versions.jSqlTranspiler exclude (
