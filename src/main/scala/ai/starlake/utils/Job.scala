@@ -21,7 +21,7 @@ case class IngestionCounters(
   def ignore: Boolean = inputCount == -1 && rejectedCount == -1 && acceptedCount == -1
   override def toString() = {
     if (ignore) {
-      s"""Load summary:
+      s"""Native Load summary:
        |Data successfully loaded from ${paths.mkString("\n\t")}
        |""".stripMargin
     } else {
