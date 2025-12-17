@@ -14,6 +14,7 @@ import ai.starlake.job.sink.es.ESLoadCmd
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
 import ai.starlake.job.sink.kafka.KafkaJobCmd
 import ai.starlake.job.site.SiteCmd
+import ai.starlake.job.tools.SummarizeCmd
 import ai.starlake.job.transform.TransformCmd
 import ai.starlake.lineage.{
   AclDependenciesCmd,
@@ -116,7 +117,8 @@ object Main extends LazyLogging {
     MigrateCmd,
     ColLineageCmd,
     PreLoadCmd,
-    SettingsCmd
+    SettingsCmd,
+    SummarizeCmd
   )
 }
 
