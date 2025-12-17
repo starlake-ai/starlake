@@ -63,7 +63,11 @@ object JdbcDbUtils extends LazyLogging {
     "authenticator",
     "user",
     "password",
-    "preActions"
+    "preActions",
+    "AWS_KEY",
+    "AWS_SECRET",
+    "AWS_REGION",
+    "DATA_PATH"
   )
   def removeNonDuckDbProperties(
     options: Map[String, String]
