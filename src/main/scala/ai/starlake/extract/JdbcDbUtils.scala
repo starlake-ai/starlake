@@ -67,12 +67,15 @@ object JdbcDbUtils extends LazyLogging {
     "AWS_KEY",
     "AWS_SECRET",
     "AWS_REGION",
-    "DATA_PATH"
+    "DATA_PATH",
+    "storageType"
   )
   def removeNonDuckDbProperties(
     options: Map[String, String]
   ): Map[String, String] = {
-    val filtered = options.filterNot { case (k, _) => nonDuckDbProperties.contains(k) }
+    val filtered = options.filterNot { case (k, _) =>
+      nonDuckDbProperties.contains(k) || k.toUpperCase().startsWith("SL_")
+    }
     filtered
   }
 
@@ -493,25 +496,8 @@ object JdbcDbUtils extends LazyLogging {
   }
 
   def runDuckLakePreActions(connection: java.sql.Connection, preActions: Option[String]): Unit = {
-    val isDucklake = preActions.exists(preActions => preActions.contains("ducklake:"))
     preActions.foreach { actions =>
-      actions.split(";").filter(_.trim.nonEmpty).foreach { actionIn =>
-        val action =
-          if (isDucklake) {
-            DucklakeAttachment.extract(actionIn) match {
-              case None => actionIn
-              case Some(attachValues) =>
-                val attachSQL =
-                  if (!attachValues.dataPathValue.contains("OVERRIDE_DATA_PATH"))
-                    s"ATTACH IF NOT EXISTS 'ducklake:${attachValues.metadataLocation}' AS ${attachValues.dbName} (DATA_PATH ${attachValues.dataPathValue}, OVERRIDE_DATA_PATH true)"
-                  else
-                    s"ATTACH IF NOT EXISTS 'ducklake:${attachValues.metadataLocation}' AS ${attachValues.dbName} (DATA_PATH ${attachValues.dataPathValue})"
-                logger.info(attachSQL)
-                attachSQL
-            }
-          } else {
-            actionIn
-          }
+      actions.split(";").filter(_.trim.nonEmpty).foreach { action =>
         Try {
           val statement = connection.createStatement()
           statement.execute(action)
