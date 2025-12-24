@@ -120,13 +120,15 @@ trait StorageHandler extends LazyLogging {
 
   def loadExtraConf(): Map[String, String] = Map.empty[String, String]
   // conf passed as env variable
-  lazy val extraConf: Map[String, String] = loadExtraConf()
+  def extraConf: Map[String, String] = loadExtraConf()
 
   def copyMerge(header: Option[String], srcDir: Path, dstFile: Path, deleteSource: Boolean): Boolean
 
   def open(path: Path): Option[InputStream]
 
   def output(path: Path): OutputStream
+
+  def initFS(options: Map[String, String]): Unit
 }
 
 object StorageHandler {

@@ -1783,6 +1783,9 @@ final case class Settings(
             new LocalStorageHandler()
           else
             new HdfsStorageHandler(appConfig.fileSystem)
+        Try(this.appConfig.getDefaultConnection().options).map { options =>
+          handler.initFS(options)
+        }
         CaffeineSettingsManager.setStorageHandler(root, env, handler)
         handler
     }

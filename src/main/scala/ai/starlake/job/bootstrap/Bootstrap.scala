@@ -78,7 +78,10 @@ object Bootstrap extends LazyLogging {
     template
   }
 
-  def bootstrap(inputTemplate: Option[String])(implicit settings: Settings): Unit = {
+  def bootstrap(inputTemplate: Option[String], connectionOptions: Map[String, String] = Map.empty)(
+    implicit settings: Settings
+  ): Unit = {
+    settings.storageHandler().initFS(connectionOptions)
     val template = askTemplate(inputTemplate)
     val metadataFolder = File(DatasetArea.metadata.toString)
     metadataFolder.createDirectories()

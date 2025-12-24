@@ -384,4 +384,6 @@ class LocalStorageHandler(implicit
     pathSecurityCheck(path)
     localFile(path).newOutputStream
   }
+
+  def initFS(options: Map[String, String]): Unit = {}
 }

@@ -33,6 +33,7 @@ import java.net.URI
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.{Instant, LocalDateTime, ZoneId}
 import java.util.regex.Pattern
+import scala.jdk.CollectionConverters.MapHasAsScala
 import scala.util.{Failure, Success, Try, Using}
 
 /** HDFS Filesystem Handler
@@ -202,9 +203,10 @@ class HdfsStorageHandler(fileSystem: String)(implicit
       Map.empty
   }
 
-  lazy val conf = {
-    val conf = new Configuration()
-    this.extraConf.foreach { case (k, v) => conf.set(k, v) }
+  private val _conf = new Configuration()
+  private def conf: Configuration = {
+
+    this.extraConf.foreach { case (k, v) => _conf.set(k, v) }
     sys.env.get("SL_STORAGE_CONF").foreach { value =>
       value
         .split(',')
@@ -212,12 +214,12 @@ class HdfsStorageHandler(fileSystem: String)(implicit
           val t = x.split('=')
           t(0).trim -> t(1).trim
         }
-        .foreach { case (k, v) => conf.set(k, v) }
+        .foreach { case (k, v) => _conf.set(k, v) }
     }
     settings.appConfig.hadoop.foreach { case (k, v) =>
-      conf.set(k, v)
+      _conf.set(k, v)
     }
-    conf
+    _conf
   }
 
   private def extracSchemeAndBucketAndFilePath(uri: URI): (String, Option[String], String) = {
@@ -248,7 +250,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   def lockAcquisitionPollTime: Long = settings.appConfig.lock.pollTime
   def lockRefreshPollTime: Long = settings.appConfig.lock.refreshTime
 
-  conf.set("fs.defaultFS", defaultNormalizedFileSystem)
+  _conf.set("fs.defaultFS", defaultNormalizedFileSystem)
 
   private val defaultFS = FileSystem.get(conf)
   logger.info("defaultFS=" + defaultFS)
@@ -264,7 +266,10 @@ class HdfsStorageHandler(fileSystem: String)(implicit
       case "gs" | "s3" | "s3a" | "s3n" =>
         bucketOpt match {
           case Some(bucket) =>
-            conf.set("fs.defaultFS", normalizedFileSystem(s"$scheme://$bucket"))
+            _conf.set("fs.defaultFS", normalizedFileSystem(s"$scheme://$bucket"))
+            _conf.getPropsWithPrefix("fs.s3a.").asScala.foreach { case (k, v) =>
+              logger.info(s"fs.s3a.$k=$v")
+            }
             FileSystem.get(conf)
           case None =>
             throw new RuntimeException(
@@ -272,7 +277,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
             )
         }
       case "file" =>
-        conf.set("fs.defaultFS", "file:///")
+        _conf.set("fs.defaultFS", "file:///")
         FileSystem.get(conf)
       case _ => defaultFS
     }
@@ -512,6 +517,14 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     currentFS.mkdirs(path)
   }
 
+  private def localPathWithoutScheme(path: Path) = {
+    val pathAsString = path.toUri.getPath
+    if (pathAsString.startsWith("file://"))
+      new Path(pathAsString.substring("file://".length))
+    else
+      path
+  }
+
   /** Copy file from local filesystem to target file system
     *
     * @param source
@@ -522,8 +535,19 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   def copyFromLocal(source: Path, dest: Path): Unit = {
     pathSecurityCheck(source)
     pathSecurityCheck(dest)
-    val currentFS = fs(source)
-    currentFS.copyFromLocalFile(source, dest)
+
+    val currentFS = fs(dest)
+    // currentFS.copyFromLocalFile(localPathWithoutScheme(source), dest)
+    val localFile = new java.io.File(source.toUri.getPath)
+    val in = new BufferedInputStream(new FileInputStream(localFile))
+    val out = currentFS.create(dest, true)
+    try {
+      org.apache.hadoop.io.IOUtils.copyBytes(in, out, conf)
+    } finally {
+      in.close()
+      out.close()
+    }
+
   }
 
   /** Copy file to local filesystem from remote file system
@@ -537,7 +561,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     pathSecurityCheck(source)
     pathSecurityCheck(dest)
     val currentFS = fs(source)
-    currentFS.copyToLocalFile(source, dest)
+    currentFS.copyToLocalFile(source, localPathWithoutScheme(dest))
   }
 
   /** Move file from local filesystem to target file system If source FS Scheme is not "file" then
@@ -551,11 +575,11 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   def moveFromLocal(source: Path, dest: Path): Unit = {
     pathSecurityCheck(source)
     pathSecurityCheck(dest)
-    val currentFS = fs(source)
+    val currentFS = fs(dest)
     if (currentFS.getScheme() == "file")
       currentFS.moveFromLocalFile(source, dest)
     else
-      move(source, dest)
+      move(localPathWithoutScheme(source), dest)
   }
 
   def exists(path: Path): Boolean = {
@@ -656,6 +680,31 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   }
 
   override def output(path: Path): OutputStream = getOutputStream(path)
+
+  def initFS(options: Map[String, String]): Unit = {
+    val awsKey = options.getOrElse("fs.s3a.access.key", "")
+    val awsSecret = options.getOrElse("fs.s3a.secret.key", "")
+    val awsRegion = options.getOrElse("fs.s3a.endpoint.region", "")
+    val awsEndpoint = options.getOrElse("fs.s3a.endpoint", "https://s3.amazonaws.com")
+    val awsDataPath = options.getOrElse("DATA_PATH", "")
+    val awsDatasets = options.getOrElse("DATASETS", "")
+    if (awsKey.nonEmpty) {
+      _conf.set("fs.s3a.access.key", awsKey)
+      _conf.set("fs.s3a.secret.key", awsSecret)
+      _conf.set("fs.s3a.endpoint.region", awsRegion)
+      _conf.set("fs.s3a.endpoint", awsEndpoint)
+      _conf.set("fs.s3a.path.style.access", "true")
+      if (awsDataPath.nonEmpty) {
+        _conf.set("fs.defaultFS", awsDataPath)
+        FileSystem.get(conf)
+      }
+      if (awsDatasets.nonEmpty) {
+        _conf.set("fs.defaultFS", awsDatasets)
+        FileSystem.get(conf)
+      }
+    }
+  }
+
 }
 
 object HdfsStorageHandler

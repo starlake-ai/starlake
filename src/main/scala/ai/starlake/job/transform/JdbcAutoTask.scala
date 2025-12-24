@@ -260,7 +260,7 @@ class JdbcAutoTask(
                     throw e
                 }
               }
-              val tablePath = new Path(s"${settings.appConfig.datasets}/${fullTableName}")
+              val tablePath = new Path(s"${settings.appConfig.datasets}/tmp/${fullTableName}")
 
               if (settings.storageHandler().exists(tablePath)) {
                 settings.storageHandler().delete(tablePath)
