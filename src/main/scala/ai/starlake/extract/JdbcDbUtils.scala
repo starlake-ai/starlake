@@ -64,9 +64,6 @@ object JdbcDbUtils extends LazyLogging {
     "user",
     "password",
     "preActions",
-    "AWS_KEY",
-    "AWS_SECRET",
-    "AWS_REGION",
     "DATA_PATH",
     "storageType"
   )
@@ -74,7 +71,8 @@ object JdbcDbUtils extends LazyLogging {
     options: Map[String, String]
   ): Map[String, String] = {
     val filtered = options.filterNot { case (k, _) =>
-      nonDuckDbProperties.contains(k) || k.toUpperCase().startsWith("SL_")
+      nonDuckDbProperties
+        .contains(k) || k.toUpperCase().startsWith("SL_") || k.toLowerCase().startsWith("fs.")
     }
     filtered
   }
@@ -450,7 +448,7 @@ object JdbcDbUtils extends LazyLogging {
         depth = depth + 1
         // run preActions
         val preActions = connectionOptions.get("preActions")
-        runDuckLakePreActions(connection, preActions)
+        runDuckLakePreActions(connection, connectionOptions, preActions)
         val result = Try {
           f(connection)
         } match {
@@ -495,11 +493,42 @@ object JdbcDbUtils extends LazyLogging {
     }
   }
 
-  def runDuckLakePreActions(connection: java.sql.Connection, preActions: Option[String]): Unit = {
+  def runDuckLakePreActions(
+    connection: java.sql.Connection,
+    connectionOptions: Map[String, String],
+    preActions: Option[String]
+  ): Unit = {
+    connectionOptions.get("fs.s3a.endpoint").foreach { endpoint =>
+      logger.info(s"Setting s3a.endpoint to $endpoint")
+      val endpointStatement = connection.createStatement()
+      var schemeIndex = endpoint.indexOf("://") + 3
+      val s3Endpoint = endpoint.substring(schemeIndex)
+      endpointStatement.execute(s"SET s3_endpoint='$s3Endpoint'")
+      if (endpoint.startsWith("https"))
+        endpointStatement.execute(s"SET s3_use_ssl=true")
+      else
+        endpointStatement.execute(s"SET s3_use_ssl=false")
+      endpointStatement.execute("SET s3_url_style='path'")
+      connectionOptions.get("fs.s3a.endpoint.region").foreach { region =>
+        logger.info(s"Setting s3a.endpoint.region to $region")
+        endpointStatement.execute(s"SET s3_region='$region'")
+      }
+      connectionOptions.get("fs.s3a.access.key").foreach { accessKey =>
+        logger.info(s"Setting s3a.access.key to $accessKey")
+        endpointStatement.execute(s"SET s3_access_key_id='$accessKey'")
+      }
+      connectionOptions.get("fs.s3a.secret.key").foreach { secretKey =>
+        logger.info(s"Setting s3a.secret.key to $secretKey")
+        endpointStatement.execute(s"SET s3_secret_access_key='$secretKey'")
+      }
+      endpointStatement.close()
+
+    }
     preActions.foreach { actions =>
       actions.split(";").filter(_.trim.nonEmpty).foreach { action =>
         Try {
           val statement = connection.createStatement()
+          logger.info(s"Running preAction $action")
           statement.execute(action)
           statement.close()
         } match {
