@@ -533,8 +533,13 @@ object JdbcDbUtils extends LazyLogging {
           statement.close()
         } match {
           case Failure(exception) =>
-            logger.error(s"Error running preAction $action", exception)
-            throw exception
+            val message = Utils.exceptionMessagesChainAsString(exception).toLowerCase()
+            if (message.contains("already exists") && message.contains("failed to attach")) {
+              logger.info(s"Ducklake already attached, skipping preAction $action")
+            } else {
+              logger.error(s"Error running preAction $action", exception)
+              throw exception
+            }
           case Success(value) =>
         }
       }
