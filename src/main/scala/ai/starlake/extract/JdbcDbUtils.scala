@@ -522,7 +522,6 @@ object JdbcDbUtils extends LazyLogging {
         endpointStatement.execute(s"SET s3_secret_access_key='$secretKey'")
       }
       endpointStatement.close()
-
     }
     preActions.foreach { actions =>
       actions.split(";").filter(_.trim.nonEmpty).foreach { action =>
@@ -536,6 +535,8 @@ object JdbcDbUtils extends LazyLogging {
             val message = Utils.exceptionMessagesChainAsString(exception).toLowerCase()
             if (message.contains("already exists") && message.contains("failed to attach")) {
               logger.info(s"Ducklake already attached, skipping preAction $action")
+            } else if (message.contains("Catalog Error: SET schema: No catalog + schema")) {
+              logger.info(s"Schema already set, skipping preAction $action")
             } else {
               logger.error(s"Error running preAction $action", exception)
               throw exception

@@ -118,9 +118,8 @@ trait StorageHandler extends LazyLogging {
 
   def getScheme(): String
 
-  def loadExtraConf(): Map[String, String] = Map.empty[String, String]
-  // conf passed as env variable
-  def extraConf: Map[String, String] = loadExtraConf()
+  def loadExtraConf(options: Option[Map[String, String]] = None): Unit = {}
+  def extraConf(opts: Option[Map[String, String]] = None): Map[String, String] = Map.empty
 
   def copyMerge(header: Option[String], srcDir: Path, dstFile: Path, deleteSource: Boolean): Boolean
 
