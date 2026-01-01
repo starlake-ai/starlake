@@ -42,7 +42,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   settings: Settings
 ) extends StorageHandler {
 
-  private def loadGCPAuthConf(connectionOptions: Map[String, String]): Map[String, String] = {
+  private def gcpAuthConf(connectionOptions: Map[String, String]): Map[String, String] = {
     val authType = connectionOptions.getOrElse("authType", "APPLICATION_DEFAULT")
     val authConf = authType match {
       case "APPLICATION_DEFAULT" =>
@@ -104,7 +104,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     authConf
   }
 
-  private def loadGCPExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
+  private def gcpExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
     val gcpOptions = connectionOptions.filter { case (k, _) => k.startsWith("google.cloud") }
     val fsConfig =
       if (settings.appConfig.fileSystem.startsWith("file:")) {
@@ -136,11 +136,11 @@ class HdfsStorageHandler(fileSystem: String)(implicit
           "fs.gs.impl"                    -> "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem"
         )
       }
-    val authConf = loadGCPAuthConf(connectionOptions)
+    val authConf = gcpAuthConf(connectionOptions)
     fsConfig ++ authConf ++ gcpOptions
   }
 
-  private def loadAzureExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
+  private def azureExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
     val azureOptions = connectionOptions.filter { case (k, _) => k.startsWith("fs.azure") }
     val azureStorageContainer = connectionOptions.getOrElse(
       "azureStorageContainer",
@@ -161,52 +161,56 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     ) ++ azureOptions
   }
 
-  private def loadS3ExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
-    val fsConfig =
-      if (settings.appConfig.fileSystem.startsWith("file:")) {
-        Map.empty[String, String]
-      } else {
-        val s3Options = connectionOptions.filter { case (k, _) => k.startsWith("fs.s3a") }
-        val accessKey =
-          connectionOptions.get("s3AccessKey").map(("fs.s3a.access.key", _)).toList.toMap
-        val secretKey =
-          connectionOptions.get("s3SecretKey").map(("fs.s3a.secret.key", _)).toList.toMap
+  private def s3ExtraConf(connectionOptions: Map[String, String]): Map[String, String] = {
+    val fsConfig = {
+      val s3Options = connectionOptions.filter { case (k, _) => k.startsWith("fs.s3a") }
+      val accessKey =
+        connectionOptions.get("s3AccessKey").map(("fs.s3a.access.key", _)).toList.toMap
+      val secretKey =
+        connectionOptions.get("s3SecretKey").map(("fs.s3a.secret.key", _)).toList.toMap
 
-        // https://github.com/GoogleCloudDataproc/hadoop-connectors/blob/master/gcs/CONFIGURATION.md
-        Map(
-          "fs.s3a.endpoint"          -> "s3.amazonaws.com",
-          "fs.s3a.fast.upload"       -> "true",
-          "fs.s3a.path.style.access" -> "true",
-          "fs.s3a.aws.credentials.provider" -> "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
-          "fs.s3a.impl" -> "org.apache.hadoop.fs.s3a.S3AFileSystem"
-        ) ++ accessKey ++ secretKey ++ s3Options
-      }
+      // https://github.com/GoogleCloudDataproc/hadoop-connectors/blob/master/gcs/CONFIGURATION.md
+      Map(
+        "fs.s3a.endpoint"          -> "s3.amazonaws.com",
+        "fs.s3a.fast.upload"       -> "true",
+        "fs.s3a.path.style.access" -> "true",
+        "fs.s3a.aws.credentials.provider" -> "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
+        "fs.s3a.impl" -> "org.apache.hadoop.fs.s3a.S3AFileSystem"
+      ) ++ accessKey ++ secretKey ++ s3Options
+    }
     fsConfig
   }
 
-  override def loadExtraConf(): Map[String, String] = {
-    val options = settings.appConfig.connections
-      .get(settings.appConfig.connectionRef)
-      .map(_.options)
-      .getOrElse(Map.empty)
+  override def loadExtraConf(options: Option[Map[String, String]] = None): Unit = {
+    val opts = extraConf(options)
+    opts.foreach { case (k, v) => _conf.set(k, v) }
+  }
+
+  override def extraConf(opts: Option[Map[String, String]] = None): Map[String, String] = {
+    val options = opts.getOrElse(
+      settings.appConfig.connections
+        .get(settings.appConfig.connectionRef)
+        .map(_.options)
+        .getOrElse(Map.empty)
+    )
 
     if (options.contains("authType") || options.contains("gcsBucket"))
-      loadGCPExtraConf(options)
-    else if (options.exists(it => it._1.startsWith("s3") || it._1.startsWith("fs.s3")))
-      loadS3ExtraConf(options)
+      gcpExtraConf(options)
+    else if (options.exists(it => it._1 == "s3AccessKey" || it._1.startsWith("fs.s3")))
+      s3ExtraConf(options)
     else if (
       options
         .exists(it => it._1.startsWith("azureStorageContainer") || it._1.startsWith("fs.azure"))
     )
-      loadAzureExtraConf(options)
+      azureExtraConf(options)
     else
-      Map.empty
+      Map.empty[String, String]
   }
 
   private val _conf = new Configuration()
   private def conf: Configuration = {
 
-    this.extraConf.foreach { case (k, v) => _conf.set(k, v) }
+    loadExtraConf() // conf from active connection
     sys.env.get("SL_STORAGE_CONF").foreach { value =>
       value
         .split(',')
@@ -682,6 +686,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   override def output(path: Path): OutputStream = getOutputStream(path)
 
   def initFS(options: Map[String, String]): Unit = {
+    loadExtraConf(Some(options))
     val awsKey = options.getOrElse("fs.s3a.access.key", "")
     val awsSecret = options.getOrElse("fs.s3a.secret.key", "")
     val awsRegion = options.getOrElse("fs.s3a.endpoint.region", "")
