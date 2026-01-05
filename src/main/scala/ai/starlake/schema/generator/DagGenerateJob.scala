@@ -254,7 +254,7 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
       s"""{
          |  "SL_${projectId}_VIEWER": $viewerConfig,
          |  "SL_${projectId}_USER": $userConfig,
-         |  "SL_${projectId}_OPS": $opsConfig
+         |  "SL_${projectId}_OP": $opsConfig
          |}
          |""".stripMargin
     result
