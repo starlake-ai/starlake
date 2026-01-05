@@ -9,6 +9,8 @@ __Improvement__:
 - add new parameters SL_ON_EXCEPTION_RETRIES to specify the number of attempts of a retryable task on eligible exceptions
 - support rename on nested fields using spark engine
 - Use port 9900 for starlake serve by default to avoid conflict with minio when running locally on trino
+- **BREAKING CHANGE** OPS renamed to OP
+- Airflow 3 Support
 
 __Bug fix__:
 - drop empty headers or null in native loader
