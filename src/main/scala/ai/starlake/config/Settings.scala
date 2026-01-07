@@ -179,7 +179,7 @@ object Settings extends LazyLogging {
     _transpileDialect: Option[String] = None
   ) {
     @JsonIgnore
-    def isDucklake: Boolean =
+    def isDucklake(): Boolean =
       this.options.getOrElse("preActions", "").contains("'ducklake:")
 
     def withEncryptedPassword(

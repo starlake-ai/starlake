@@ -215,7 +215,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
   }
 
   private def setPartition(connection: Connection, domainAndTableName: String) = {
-    if (sinkConnection.isDucklake) {
+    if (sinkConnection.isDucklake()) {
       val jdbcEngine = settings.appConfig.jdbcEngines("duckdb")
       val partitionClause =
         mergedMetadata.getSink().toAllSinks().getPartitionByClauseSQL(jdbcEngine)

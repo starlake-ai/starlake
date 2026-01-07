@@ -966,7 +966,7 @@ class SparkAutoTask(
   }
 
   private def createDucklakePartitions(): Unit = {
-    if (sinkConnection.isDucklake) {
+    if (sinkConnection.isDucklake()) {
       schema.foreach { slSchema =>
         val jdbcEngine = settings.appConfig.jdbcEngines("duckdb")
         val partitionClause =
