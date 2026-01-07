@@ -210,7 +210,7 @@ final case class AllSinks(
       case Some(partitionBy) =>
         val connection = this.getConnection()
         // duckdb without ducklake does not support partitioned tables
-        if (!connection.isDuckDb() || connection.isDucklake)
+        if (!connection.isDuckDb() || connection.isDucklake())
           partition.map(_.mkString(s"$partitionBy (", ",", ")"))
         else
           None
