@@ -11,6 +11,7 @@ import ai.starlake.schema.model.{
   TableSync,
   WriteStrategyType
 }
+import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
 import com.typesafe.scalalogging.LazyLogging
@@ -276,8 +277,10 @@ class JdbcAutoTask(
                   sinkConnection.options,
                   sqlConnection
                 ) { conn =>
+                  val quotedColumns =
+                    SQLUtils.quoteCols(colNames.toList, "\"")
                   val sql =
-                    s"INSERT INTO $fullTableName SELECT ${colNames.mkString(",")}  FROM '$tablePath/*.parquet'"
+                    s"INSERT INTO $fullTableName SELECT ${quotedColumns.mkString(",")}  FROM '$tablePath/*.parquet'"
                   JdbcDbUtils.executeUpdate(sql, conn)
                 }
                 settings.storageHandler().delete(tablePath)
