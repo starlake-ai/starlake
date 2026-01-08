@@ -902,8 +902,10 @@ class SparkAutoTask(
             this.schemaHandler.dataBranch(),
             sinkConnection.options
           ) { conn =>
+            val quotedColumns =
+              SQLUtils.quoteCols(colNames.toList, "\"")
             val sql =
-              s"INSERT INTO $firstStepTempTable SELECT ${colNames.mkString(",")} FROM '$tablePath/*.parquet'"
+              s"INSERT INTO $firstStepTempTable SELECT ${quotedColumns.mkString(",")} FROM '$tablePath/*.parquet'"
             JdbcDbUtils.executeUpdate(sql, conn)
           }
           settings.storageHandler().delete(tablePath)

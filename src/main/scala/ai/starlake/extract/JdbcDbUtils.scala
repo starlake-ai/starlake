@@ -65,7 +65,8 @@ object JdbcDbUtils extends LazyLogging {
     "password",
     "preActions",
     "DATA_PATH",
-    "storageType"
+    "storageType",
+    "quoteIdentifiers"
   )
   def removeNonDuckDbProperties(
     options: Map[String, String]
