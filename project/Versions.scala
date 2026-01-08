@@ -13,7 +13,7 @@ object Versions {
   val jets3t = "0.9.3"
   val hive = "3.1.0"
   val log4s = "1.3.3"
-  val swaggerParser = "2.1.36"
+  val swaggerParser = "2.1.37"
   val betterFiles = "3.9.2"
   val jacksonForSpark3 = "2.15.2"
   val pureConfig = "0.17.9"
