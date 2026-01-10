@@ -213,8 +213,10 @@ trait SparkJob extends JobBase {
     // Moreover, since we handle schema validaty through the YAML file, we manage these settings automatically
     sourceConfig.remove("spark.datasource.bigquery.allowFieldAddition")
     sourceConfig.remove("spark.datasource.bigquery.allowFieldRelaxation")
-    settings.storageHandler().extraConf().foreach { case (k, v) =>
-      sourceConfig.set("spark.hadoop." + k, v)
+
+    settings.storageHandler().extraConf(settings.appConfig.getDefaultConnection().options).foreach {
+      case (k, v) =>
+        sourceConfig.set("spark.hadoop." + k, v)
     }
 
     val thisConf = sourceConfig.setAppName(appName).set("spark.app.id", appName)

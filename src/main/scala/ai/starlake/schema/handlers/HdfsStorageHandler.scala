@@ -41,6 +41,7 @@ import scala.util.{Failure, Success, Try, Using}
 class HdfsStorageHandler(fileSystem: String)(implicit
   settings: Settings
 ) extends StorageHandler {
+  private var _connectionOptions = Map.empty[String, String]
 
   private def gcpAuthConf(connectionOptions: Map[String, String]): Map[String, String] = {
     val authType = connectionOptions.getOrElse("authType", "APPLICATION_DEFAULT")
@@ -181,19 +182,12 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     fsConfig
   }
 
-  override def loadExtraConf(options: Option[Map[String, String]] = None): Unit = {
+  override def loadExtraConf(options: Map[String, String]): Unit = {
     val opts = extraConf(options)
     opts.foreach { case (k, v) => _conf.set(k, v) }
   }
 
-  override def extraConf(opts: Option[Map[String, String]] = None): Map[String, String] = {
-    val options = opts.getOrElse(
-      settings.appConfig.connections
-        .get(settings.appConfig.connectionRef)
-        .map(_.options)
-        .getOrElse(Map.empty)
-    )
-
+  override def extraConf(options: Map[String, String]): Map[String, String] = {
     if (options.contains("authType") || options.contains("gcsBucket"))
       gcpExtraConf(options)
     else if (options.exists(it => it._1 == "s3AccessKey" || it._1.startsWith("fs.s3")))
@@ -210,7 +204,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   private val _conf = new Configuration()
   private def conf: Configuration = {
 
-    loadExtraConf() // conf from active connection
+    loadExtraConf(_connectionOptions) // conf from active connection
     sys.env.get("SL_STORAGE_CONF").foreach { value =>
       value
         .split(',')
@@ -272,7 +266,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
           case Some(bucket) =>
             _conf.set("fs.defaultFS", normalizedFileSystem(s"$scheme://$bucket"))
             _conf.getPropsWithPrefix("fs.s3a.").asScala.foreach { case (k, v) =>
-              logger.info(s"fs.s3a.$k=$v")
+              logger.debug(s"fs.s3a.$k=$v")
             }
             FileSystem.get(conf)
           case None =>
@@ -686,13 +680,14 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   override def output(path: Path): OutputStream = getOutputStream(path)
 
   def initFS(options: Map[String, String]): Unit = {
-    loadExtraConf(Some(options))
+    _connectionOptions = options
+    loadExtraConf(options)
     val awsKey = options.getOrElse("fs.s3a.access.key", "")
     val awsSecret = options.getOrElse("fs.s3a.secret.key", "")
     val awsRegion = options.getOrElse("fs.s3a.endpoint.region", "")
     val awsEndpoint = options.getOrElse("fs.s3a.endpoint", "https://s3.amazonaws.com")
     val awsDataPath = options.getOrElse("DATA_PATH", "")
-    val awsDatasets = options.getOrElse("DATASETS", "")
+    val awsDatasets = options.getOrElse("SL_DATASETS", "")
     if (awsKey.nonEmpty) {
       _conf.set("fs.s3a.access.key", awsKey)
       _conf.set("fs.s3a.secret.key", awsSecret)
