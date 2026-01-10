@@ -54,12 +54,12 @@ class BigQuerySparkJob(
         .orElse(
           settings
             .storageHandler()
-            .extraConf()
+            .extraConf(connectorOptions)
             .get("temporaryGcsBucket")
         )
         .orElse(connectorOptions.get("gcsBucket"))
-        .orElse(settings.storageHandler().extraConf().get("fs.gs.system.bucket"))
-        .orElse(settings.storageHandler().extraConf().get("fs.defaultFS"))
+        .orElse(settings.storageHandler().extraConf(connectorOptions).get("fs.gs.system.bucket"))
+        .orElse(settings.storageHandler().extraConf(connectorOptions).get("fs.defaultFS"))
     }
 
     val bucket: Option[String] =

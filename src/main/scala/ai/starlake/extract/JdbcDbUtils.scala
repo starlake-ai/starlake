@@ -106,7 +106,7 @@ object JdbcDbUtils extends LazyLogging {
     private val hikariPools = scala.collection.concurrent.TrieMap[String, HikariDataSource]()
     private case class DuckDbPoolEntry(connection: Connection, lastAccessTime: Long)
     private val duckDbPool = scala.collection.concurrent.TrieMap[String, DuckDbPoolEntry]()
-    private val duckDbPoolMaxIdleTimeMs = 15 * 1000L // 1 minute
+    private val duckDbPoolMaxIdleTimeMs = 15 * 1000L // 15 seconds
 
     // Scheduled executor for periodic cleanup of idle DuckDB connections
     def startCleanupScheduler(
@@ -505,11 +505,17 @@ object JdbcDbUtils extends LazyLogging {
       var schemeIndex = endpoint.indexOf("://") + 3
       val s3Endpoint = endpoint.substring(schemeIndex)
       endpointStatement.execute(s"SET s3_endpoint='$s3Endpoint'")
+
       if (endpoint.startsWith("https"))
         endpointStatement.execute(s"SET s3_use_ssl=true")
       else
         endpointStatement.execute(s"SET s3_use_ssl=false")
-      endpointStatement.execute("SET s3_url_style='path'")
+
+      if (s3Endpoint.contains("s3.amazonaws.com"))
+        endpointStatement.execute("SET s3_url_style='vhost'")
+      else
+        endpointStatement.execute("SET s3_url_style='path'")
+
       connectionOptions.get("fs.s3a.endpoint.region").foreach { region =>
         logger.info(s"Setting s3a.endpoint.region to $region")
         endpointStatement.execute(s"SET s3_region='$region'")
@@ -533,6 +539,7 @@ object JdbcDbUtils extends LazyLogging {
           statement.close()
         } match {
           case Failure(exception) =>
+            // Catalog Error: SET schema: No catalog + schema named "s01" found.
             val message = Utils.exceptionMessagesChainAsString(exception).toLowerCase()
             if (message.contains("already exists") && message.contains("failed to attach")) {
               logger.info(s"Ducklake already attached, skipping preAction $action")
