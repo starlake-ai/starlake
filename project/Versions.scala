@@ -40,7 +40,7 @@ object Versions {
   val snowflakeJDBC = "3.26.1"
   val duckdb = "1.4.3.0"
   val bigQueue = "0.7.0"
-  val redshiftJDBC = "2.1.0.34"
+  val redshiftJDBC = "2.2.2"
   val scalaCompat = "2.12.0"
   val scalaParallelCollections = "1.0.4"
   val derbyVersion =
