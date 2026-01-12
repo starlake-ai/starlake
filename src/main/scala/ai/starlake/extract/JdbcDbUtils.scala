@@ -530,6 +530,15 @@ object JdbcDbUtils extends LazyLogging {
       }
       endpointStatement.close()
     }
+    connectionOptions
+      .get("SL_DUCKDB_HOME")
+      .orElse(Option(System.getenv("SL_DUCKDB_HOME")))
+      .foreach { duckdbHome =>
+        logger.info(s"Setting duckdb_home to $duckdbHome")
+        val duckdbHomeStatement = connection.createStatement()
+        duckdbHomeStatement.execute(s"SET home_directory='$duckdbHome'")
+        duckdbHomeStatement.close()
+      }
     preActions.foreach { actions =>
       actions.split(";").filter(_.trim.nonEmpty).foreach { action =>
         Try {
