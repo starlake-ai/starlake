@@ -6,9 +6,7 @@
 Please refer to the documentation: https://docs.starlake.ai/setup/starlake-core-setup
 
 
-# Installing Pre-Build Data Stacks
-
-[Starlake Pragmatic Data Stacks](https://github.com/starlake-ai/starlake-data-stack)
+To install one of the pre-built data stacks: [Starlake Pragmatic Data Stacks](https://github.com/starlake-ai/starlake-data-stack)
 
 
 <img src="docs/static/img/intent.png" />
