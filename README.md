@@ -6,11 +6,9 @@
 Please refer to the documentation: https://docs.starlake.ai/setup/starlake-core-setup
 
 
-# Sister projects
+# Installing Pre-Build Data Stacks
 
-- [Starlake Docker](https://github.com/starlake-ai/starlake-docker): Run Starlake in a docker container
-- [Starlake JSQLTranspiler](https://github.com/starlake-ai/jsqltranspiler): Starlake powerful toolbox, also available at [labs.starlake.ai](https://labs.starlake.ai)
-
+[Starlake Pragmatic Data Stacks](https://github.com/starlake-ai/starlake-data-stack)
 
 
 <img src="docs/static/img/intent.png" />
