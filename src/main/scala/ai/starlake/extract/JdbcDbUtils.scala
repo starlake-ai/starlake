@@ -500,7 +500,7 @@ object JdbcDbUtils extends LazyLogging {
     connectionOptions: Map[String, String],
     preActions: Option[String]
   ): Unit = {
-    val isDucklake = preActions.contains("ducklake:")
+    val isDucklake = preActions.getOrElse("").contains("ducklake:")
     connectionOptions.get("fs.s3a.endpoint").foreach { endpoint =>
       logger.info(s"Setting s3a.endpoint to $endpoint")
       val endpointStatement = connection.createStatement()
@@ -532,14 +532,19 @@ object JdbcDbUtils extends LazyLogging {
       }
       endpointStatement.close()
     }
-    connectionOptions
-      .get("SL_DUCKDB_HOME")
-      .foreach { duckdbHome =>
-        logger.info(s"Setting duckdb_home to $duckdbHome")
-        val duckdbHomeStatement = connection.createStatement()
-        duckdbHomeStatement.execute(s"SET home_directory='$duckdbHome'")
-        duckdbHomeStatement.close()
-      }
+
+    Try {
+      connectionOptions
+        .get("SL_DUCKDB_HOME")
+        .orElse(Option(System.getenv("SL_DUCKDB_HOME")))
+        .foreach { duckdbHome =>
+          logger.info(s"Setting duckdb_home to $duckdbHome")
+          val duckdbHomeStatement = connection.createStatement()
+          duckdbHomeStatement.execute(s"SET home_directory='$duckdbHome'")
+          duckdbHomeStatement.execute(s"SET secret_directory='$duckdbHome'")
+          duckdbHomeStatement.close()
+        }
+    }
 
     preActions.foreach { actions =>
       actions.split(";").filter(_.trim.nonEmpty).foreach { action =>
