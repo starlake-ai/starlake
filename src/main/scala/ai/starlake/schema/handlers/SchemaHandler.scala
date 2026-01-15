@@ -701,9 +701,13 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 logger.warn(
                   s"Domain name ${domainOnly.name} in ${configPath.toString} is different from the directory name ${directory.getName}"
                 )
-              val namedDomain = domainOnly.copy(name = domainName)
-              YamlSerde.serializeToPath(configPath, namedDomain)(storage)
-
+              val namedDomain =
+                if (domainOnly.name.isEmpty) {
+                  val res = domainOnly.copy(name = domainName)
+                  YamlSerde.serializeToPath(configPath, res)(storage)
+                  res
+                } else
+                  domainOnly
               namedDomain
             }
           (configPath, domainWithName)
