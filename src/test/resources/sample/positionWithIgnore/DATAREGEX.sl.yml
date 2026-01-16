@@ -2,7 +2,7 @@ version: 1
 table:
   name: "DATAREGEX"
   pattern: "dataregex.*.dat"
-  filter: "someData rlike 'IGNORE.*'"
+  filter: "value rlike 'IGNORE.*'"
   attributes:
     - name: "someData"
       type: "string"
