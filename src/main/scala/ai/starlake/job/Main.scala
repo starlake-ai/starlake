@@ -175,7 +175,8 @@ class Main extends LazyLogging {
   def run(args: Array[String]): Boolean = {
     ProxySettings.setProxy()
     val currentEnv = Option(System.getenv("SL_ENV"))
-    implicit val settings: Settings = Settings(Settings.referenceConfig, currentEnv, None, None)
+    implicit val settings: Settings =
+      Settings(Settings.referenceConfig, currentEnv, None, None, None)
     logger.debug(settings.toString)
     logger.info(s"Starlake Version ${BuildInfo.version}")
     val argList = args.toList

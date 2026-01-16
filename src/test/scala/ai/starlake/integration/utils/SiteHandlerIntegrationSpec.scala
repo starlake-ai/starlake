@@ -36,7 +36,7 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
     // select quickstart or starbake here
     withEnvs("SL_ROOT" -> projectDir.pathAsString) {
       clearDataDirectories()
-      implicit val settings: Settings = Settings(Settings.referenceConfig, None, None, None)
+      implicit val settings: Settings = Settings(Settings.referenceConfig, None, None, None, None)
       val schemaHandler = settings.schemaHandler()
       val config = SiteConfig(
         docusaurusFolder,

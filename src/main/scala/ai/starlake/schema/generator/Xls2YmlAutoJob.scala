@@ -46,7 +46,7 @@ object Xls2YmlAutoJob extends LazyLogging {
   }
 
   def run(args: Array[String]): Try[Unit] = {
-    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None, None)
+    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None, None, None)
     Xls2YmlAutoJobCmd
       .run(args.toIndexedSeq, settings.schemaHandler())
       .map(_ => ())

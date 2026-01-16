@@ -16,7 +16,8 @@ trait SettingsManager {
     root: String,
     env: Option[String],
     refresh: Boolean,
-    aesSecretKey: Option[String]
+    aesSecretKey: Option[String],
+    datasets: Option[String] = None
   ): (Settings, Boolean)
 
   def remove(

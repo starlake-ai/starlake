@@ -22,9 +22,8 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.extract.JdbcDbUtils
-import com.typesafe.config.{Config, ConfigFactory}
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{Metadata => _, _}
+import org.apache.spark.sql.functions.*
+import org.apache.spark.sql.types.{Metadata as _, *}
 
 class SchemaInfo3HandlerSpec extends TestHelper {
 
