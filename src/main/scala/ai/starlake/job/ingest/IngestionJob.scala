@@ -829,12 +829,17 @@ trait IngestionJob extends SparkJob {
   }
 
   private def filterData(acceptedDfWithScriptAndTransformedFields: DataFrame): Dataset[Row] = {
-    schema.filter
-      .map { filterExpr =>
-        logger.info(s"Applying data filter: $filterExpr")
-        acceptedDfWithScriptAndTransformedFields.filter(filterExpr)
-      }
-      .getOrElse(acceptedDfWithScriptAndTransformedFields)
+    if (
+      mergedMetadata.resolveFormat() == Format.POSITION
+    ) // This is done at read time for position format
+      acceptedDfWithScriptAndTransformedFields
+    else
+      schema.filter
+        .map { filterExpr =>
+          logger.info(s"Applying data filter: $filterExpr")
+          acceptedDfWithScriptAndTransformedFields.filter(filterExpr)
+        }
+        .getOrElse(acceptedDfWithScriptAndTransformedFields)
   }
 
   private def computeFinalSchema(acceptedDfWithoutIgnoredFields: DataFrame) = {

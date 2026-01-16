@@ -76,7 +76,7 @@ class PositionIngestionJob(
     */
   override def loadDataSet(): Try[DataFrame] = {
     Try {
-      val dfIn = mergedMetadata.resolveEncoding().toUpperCase match {
+      val dfInNonFiltered = mergedMetadata.resolveEncoding().toUpperCase match {
         case "UTF-8" =>
           session.read.options(sparkOptions).text(path.map(_.toString): _*)
         case _ =>
@@ -86,6 +86,13 @@ class PositionIngestionJob(
             mergedMetadata.resolveEncoding()
           )
       }
+      val dfIn = schema.filter
+        .map { filterExpr =>
+          logger.info(s"Applying filter expression: $filterExpr")
+          dfInNonFiltered.filter(filterExpr)
+        }
+        .getOrElse(dfInNonFiltered)
+
       logger.whenDebugEnabled {
         logger.debug(dfIn.schemaString())
       }
