@@ -56,7 +56,8 @@ class CaffeineSettingsManager extends SettingsManager with LazyLogging {
     root: String, // contains project id and userid
     env: Option[String],
     refresh: Boolean,
-    aesSecretKey: Option[String]
+    aesSecretKey: Option[String],
+    datasets: Option[String] = None
   ): (Settings, Boolean) = {
     val sessionId = uniqueId(root, env)
     Utils.resetJinjaClassLoader()
@@ -74,7 +75,7 @@ class CaffeineSettingsManager extends SettingsManager with LazyLogging {
         case None =>
           logger.info(s"--------------- new settings(tenant=$tenant, root=$root, env=$env)]")
           val updatedSession =
-            Settings(Settings.referenceConfig, env, Some(root), aesSecretKey)
+            Settings(Settings.referenceConfig, env, Some(root), aesSecretKey, datasets)
 
           settingsCache.put(sessionId, updatedSession)
           (updatedSession, true)

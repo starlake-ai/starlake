@@ -13,7 +13,7 @@ import scala.util.Try
 class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
 
   def run(args: Array[String]): Try[Unit] = {
-    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None, None)
+    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None, None, None)
     Yml2XlsCmd.run(args.toIndexedSeq, schemaHandler).map(_ => ())
   }
 

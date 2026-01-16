@@ -1272,7 +1272,8 @@ object Settings extends LazyLogging {
     config: Config,
     env: Option[String],
     root: Option[String],
-    aesSecretKey: Option[String]
+    aesSecretKey: Option[String],
+    datasets: Option[String]
   ): Settings = {
     val jobId = UUID.randomUUID().toString
     val effectiveConfig =
@@ -1298,7 +1299,7 @@ object Settings extends LazyLogging {
               .copy(path = pathFromRoot(loadedConfig.audit.path)),
             expectations = loadedConfig.expectations
               .copy(path = pathFromRoot(loadedConfig.expectations.path)),
-            datasets = pathFromRoot(loadedConfig.datasets),
+            datasets = pathFromRoot(datasets.getOrElse(loadedConfig.datasets)),
             metadata = pathFromRoot(loadedConfig.metadata),
             lock = loadedConfig.lock.copy(path = pathFromRoot(loadedConfig.lock.path)),
             metrics = loadedConfig.metrics

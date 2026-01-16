@@ -195,7 +195,8 @@ object BigQueryTableInfo extends LazyLogging {
   }
   @nowarn
   def run(args: Array[String]): Try[Unit] = {
-    implicit val settings: Settings = Settings(Settings.referenceConfig, None, None, None)
+    implicit val settings: Settings =
+      Settings(Settings.referenceConfig, None, None, None, None)
     BigQueryTableInfoCmd.run(args, settings.schemaHandler()).map(_ => ())
   }
 }

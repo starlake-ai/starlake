@@ -242,7 +242,7 @@ trait TestHelper
 
   def withSettings(configuration: Config)(op: Settings => Assertion): Assertion = {
     try {
-      implicit val settings = Settings(configuration, None, None, None)
+      implicit val settings = Settings(configuration, None, None, None, None)
       op(settings)
     } catch {
       case e: Throwable =>
@@ -272,7 +272,7 @@ trait TestHelper
   }
 
   abstract class WithSettings(configuration: Config = testConfiguration) {
-    implicit val settings: Settings = Settings(configuration, None, None, None)
+    implicit val settings: Settings = Settings(configuration, None, None, None, None)
     settings.appConfig.connections.foreach { case (k, v) => v.checkValidity(k) }
     implicit def withSettings: WithSettings = this
     def storageHandler = settings.storageHandler()
