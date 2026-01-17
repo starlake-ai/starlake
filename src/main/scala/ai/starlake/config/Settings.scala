@@ -1299,7 +1299,7 @@ object Settings extends LazyLogging {
               .copy(path = pathFromRoot(loadedConfig.audit.path)),
             expectations = loadedConfig.expectations
               .copy(path = pathFromRoot(loadedConfig.expectations.path)),
-            datasets = pathFromRoot(datasets.getOrElse(loadedConfig.datasets)),
+            datasets = datasets.getOrElse(pathFromRoot(loadedConfig.datasets)),
             metadata = pathFromRoot(loadedConfig.metadata),
             lock = loadedConfig.lock.copy(path = pathFromRoot(loadedConfig.lock.path)),
             metrics = loadedConfig.metrics

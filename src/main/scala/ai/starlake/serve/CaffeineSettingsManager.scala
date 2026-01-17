@@ -89,8 +89,9 @@ class CaffeineSettingsManager extends SettingsManager with LazyLogging {
           val connectionsWithDuckDB = new ConnectionInfo(
             `type` = ConnectionType.JDBC,
             options = Map(
-              "url"    -> s"jdbc:duckdb:$root/datasets/duckdb.db",
-              "driver" -> "org.duckdb.DuckDBDriver"
+              "url"            -> s"jdbc:duckdb:$root/datasets/duckdb.db",
+              "driver"         -> "org.duckdb.DuckDBDriver",
+              "SL_DUCKDB_HOME" -> root.split("/").dropRight(1).mkString("/")
             )
           )
           connections + ("sl_duckdb" -> connectionsWithDuckDB)
