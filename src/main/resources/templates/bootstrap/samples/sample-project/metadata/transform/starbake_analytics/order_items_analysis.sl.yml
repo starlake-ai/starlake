@@ -1,0 +1,19 @@
+---
+version: 1
+task:
+  name: "order_items_analysis"
+  domain: "starbake_analytics"
+  table: "order_items_analysis"
+  attributes:
+    - name: "order_id"
+      type: "long"
+    - name: "order_date"
+      type: "date"
+    - name: "customer_id"
+      type: "long"
+    - name: "purchased_items"
+      type: "string"
+    - name: "total_order_value"
+      type: "double"
+  writeStrategy:
+    type: "OVERWRITE"

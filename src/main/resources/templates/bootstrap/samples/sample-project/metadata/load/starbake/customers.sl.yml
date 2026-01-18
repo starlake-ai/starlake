@@ -1,0 +1,40 @@
+---
+version: 1
+table:
+  name: "customers"
+  pattern: "customers.*.csv"
+  attributes:
+  - name: "id"
+    type: "int"
+    array: false
+    sample: "1"
+  - name: "first_name"
+    type: "string"
+    array: false
+    sample: "John"
+  - name: "last_name"
+    type: "string"
+    array: false
+    sample: "Doe"
+  - name: "email"
+    type: "string"
+    array: false
+    sample: "john.doe@email.com"
+  - name: "join_date"
+    type: "date"
+    array: false
+    sample: "2023-01-15"
+  metadata:
+    format: "DSV"
+    array: false
+    withHeader: true
+    separator: ","
+    writeStrategy:
+      type: "APPEND"
+  comment: "Table contains records of StarBake's clientele, containing basic information\
+    \ about each customer."
+  sample: "[1,John,Doe,john.doe@email.com,2023-01-15]\n[2,Jane,Smith,jane.smith@email.com,2023-02-03]\n\
+    [3,Michael,Johnson,michael.johnson@email.com,2023-02-28]\n[4,Emily,Brown,emily.brown@email.com,2023-03-10]\n\
+    [5,David,Wilson,david.wilson@email.com,2023-04-05]\n[6,Sarah,Taylor,sarah.taylor@email.com,2023-04-22]\n\
+    [7,Robert,Anderson,robert.anderson@email.com,2023-05-18]\n[8,Lisa,Martinez,lisa.martinez@email.com,2023-06-07]\n\
+    [9,William,Garcia,william.garcia@email.com,2023-07-01]\n[10,Jennifer,Lopez,jennifer.lopez@email.com,2023-07-20]"

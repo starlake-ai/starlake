@@ -1,0 +1,11 @@
+id,first_name,last_name,email,join_date
+1,John,Doe,john.doe@email.com,2023-01-15
+2,Jane,Smith,jane.smith@email.com,2023-02-03
+3,Michael,Johnson,michael.johnson@email.com,2023-02-28
+4,Emily,Brown,emily.brown@email.com,2023-03-10
+5,David,Wilson,david.wilson@email.com,2023-04-05
+6,Sarah,Taylor,sarah.taylor@email.com,2023-04-22
+7,Robert,Anderson,robert.anderson@email.com,2023-05-18
+8,Lisa,Martinez,lisa.martinez@email.com,2023-06-07
+9,William,Garcia,william.garcia@email.com,2023-07-01
+10,Jennifer,Lopez,jennifer.lopez@email.com,2023-07-20

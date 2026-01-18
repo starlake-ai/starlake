@@ -1,0 +1,48 @@
+---
+version: 1
+task:
+  name: "overall_kpis"
+  domain: "starbake_kpis"
+  table: "overall_kpis"
+  attributes:
+  - name: "total_customers"
+    type: "long"
+    array: false
+  - name: "total_orders"
+    type: "long"
+    array: false
+  - name: "total_revenue"
+    type: "double"
+    array: false
+  - name: "avg_order_value"
+    type: "double"
+    array: false
+  - name: "avg_orders_per_customer"
+    type: "double"
+    array: false
+  - name: "avg_spent_per_customer"
+    type: "double"
+    array: false
+  - name: "earliest_order_date"
+    type: "date"
+    array: false
+  - name: "latest_order_date"
+    type: "date"
+    array: false
+  - name: "avg_customer_lifetime_days"
+    type: "double"
+    array: false
+  - name: "avg_categories_per_customer"
+    type: "double"
+    array: false
+  - name: "customer_order_rate"
+    type: "double"
+    array: false
+  - name: "daily_revenue"
+    type: "double"
+    array: false
+  - name: "daily_order_rate"
+    type: "double"
+    array: false
+  writeStrategy:
+    type: "APPEND"

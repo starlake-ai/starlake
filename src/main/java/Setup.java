@@ -744,10 +744,16 @@ public class Setup extends ProxySelector implements X509TrustManager {
             }
         });
         File starbakeZip = new File(apiDir, "starbake.zip");
-        final File demoZip = new File(demoDir, "starbake.zip");
+        final File demoStarbakeZip = new File(demoDir, "starbake.zip");
         demoDir.mkdirs();
-        if (starbakeZip.exists() && !starbakeZip.renameTo(demoZip)) {
-            System.out.println("Failed to rename " + starbakeZip.getAbsolutePath() + " to " + demoZip.getAbsolutePath());
+        if (starbakeZip.exists() && !starbakeZip.renameTo(demoStarbakeZip)) {
+            System.out.println("Failed to rename " + starbakeZip.getAbsolutePath() + " to " + demoStarbakeZip.getAbsolutePath());
+        }
+        File tpch001Zip = new File(apiDir, "tpch001.zip");
+        final File demoTpch001Zip = new File(demoDir, "tpch001.zip");
+        demoDir.mkdirs();
+        if (starbakeZip.exists() && !starbakeZip.renameTo(demoTpch001Zip)) {
+            System.out.println("Failed to rename " + starbakeZip.getAbsolutePath() + " to " + demoTpch001Zip.getAbsolutePath());
         }
     }
 

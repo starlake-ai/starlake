@@ -19,19 +19,17 @@ object Bootstrap extends LazyLogging {
   ): List[File] = {
     resources.filterNot(_.endsWith(".DS_Store")).map { resource =>
       logger.info(s"copying $resource")
-      val source = Source.fromResource(resource)
-      if (source == null)
-        throw new Exception(s"Resource $resource not found in assembly")
-
-      val lines: Iterator[String] = source.getLines()
+      val inputStream = Option(getClass.getClassLoader.getResourceAsStream(resource))
+        .getOrElse(throw new Exception(s"Resource $resource not found in assembly"))
       val targetFile =
         File(
           targetFolder.pathAsString,
           resource.substring(templateFolder.length).split('/').toIndexedSeq: _*
         )
       targetFile.parent.createDirectories()
-      val contents = lines.mkString("\n")
-      targetFile.overwrite(contents)
+      targetFile.writeByteArray(inputStream.readAllBytes())
+      inputStream.close()
+      targetFile
     }
   }
 

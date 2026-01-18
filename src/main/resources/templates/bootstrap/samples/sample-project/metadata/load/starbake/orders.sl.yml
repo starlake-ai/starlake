@@ -2,54 +2,61 @@
 version: 1
 table:
   name: "orders"
-  pattern: "orders_.*.json"
+  pattern: "orders.*.json"
   attributes:
   - name: "customer_id"
     type: "long"
     array: false
-    sample: "9"
+    foreignKey: "starbake.customers.id"
+    sample: "3"
+  - name: "order_date"
+    type: "date"
+    array: false
+    sample: "2023-03-15"
   - name: "order_id"
     type: "long"
     array: false
-    sample: "99"
-  - name: "status"
-    type: "string"
+    sample: "1"
+  - name: "product_id"
+    type: "long"
     array: false
-    sample: "Pending"
-  - name: "timestamp"
-    type: "iso_date_time"
+    foreignKey: "starbake.products.product_id"
+    sample: "1"
+  - name: "quantity"
+    type: "long"
     array: false
-    sample: "2024-03-01T09:01:12.529Z"
+    sample: "2"
   metadata:
     format: "JSON_FLAT"
-    encoding: "UTF-8"
-    array: true
+    array: false
     withHeader: true
     writeStrategy:
       type: "APPEND"
-  sample: "[{\"customer_id\":6,\"order_id\":1,\"status\":\"Cancelled\",\"timestamp\"\
-    :\"2024-02-05T21:19:15.454Z\"};{\"customer_id\":23,\"order_id\":2,\"status\":\"\
-    Delivered\",\"timestamp\":\"2024-01-02T10:44:37.590Z\"};{\"customer_id\":20,\"\
-    order_id\":3,\"status\":\"Delivered\",\"timestamp\":\"2024-02-10T22:10:30.685Z\"\
-    };{\"customer_id\":6,\"order_id\":4,\"status\":\"Delivered\",\"timestamp\":\"\
-    2024-01-17T18:31:22.917Z\"};{\"customer_id\":17,\"order_id\":5,\"status\":\"Pending\"\
-    ,\"timestamp\":\"2024-01-19T00:26:06.674Z\"};{\"customer_id\":13,\"order_id\"\
-    :6,\"status\":\"Cancelled\",\"timestamp\":\"2024-01-01T11:51:52.263Z\"};{\"customer_id\"\
-    :15,\"order_id\":7,\"status\":\"Cancelled\",\"timestamp\":\"2024-02-26T23:40:00.325Z\"\
-    };{\"customer_id\":6,\"order_id\":8,\"status\":\"Pending\",\"timestamp\":\"2024-01-23T19:47:53.667Z\"\
-    };{\"customer_id\":12,\"order_id\":9,\"status\":\"Cancelled\",\"timestamp\":\"\
-    2024-02-25T05:10:16.062Z\"};{\"customer_id\":4,\"order_id\":10,\"status\":\"Pending\"\
-    ,\"timestamp\":\"2024-02-16T07:23:53.556Z\"};{\"customer_id\":10,\"order_id\"\
-    :11,\"status\":\"Pending\",\"timestamp\":\"2024-01-27T15:46:36.263Z\"};{\"customer_id\"\
-    :27,\"order_id\":12,\"status\":\"Delivered\",\"timestamp\":\"2024-02-20T17:58:51.483Z\"\
-    };{\"customer_id\":26,\"order_id\":13,\"status\":\"Pending\",\"timestamp\":\"\
-    2024-02-19T04:47:12.048Z\"};{\"customer_id\":11,\"order_id\":14,\"status\":\"\
-    Cancelled\",\"timestamp\":\"2024-02-06T11:49:18.403Z\"};{\"customer_id\":5,\"\
-    order_id\":15,\"status\":\"Cancelled\",\"timestamp\":\"2024-01-12T15:28:28.442Z\"\
-    };{\"customer_id\":17,\"order_id\":16,\"status\":\"Pending\",\"timestamp\":\"\
-    2024-02-23T23:47:08.783Z\"};{\"customer_id\":27,\"order_id\":17,\"status\":\"\
-    Pending\",\"timestamp\":\"2024-01-26T14:05:09.174Z\"};{\"customer_id\":14,\"order_id\"\
-    :18,\"status\":\"Cancelled\",\"timestamp\":\"2024-01-26T07:16:39.151Z\"};{\"customer_id\"\
-    :28,\"order_id\":19,\"status\":\"Pending\",\"timestamp\":\"2024-01-28T02:55:36.247Z\"\
-    };{\"customer_id\":11,\"order_id\":20,\"status\":\"Cancelled\",\"timestamp\":\"\
-    2024-01-08T08:39:21.509Z\"}]"
+    schedule: "hourly"
+  comment: "A detailed log of all order entries, linking customers to the products\
+    \ they've purchased"
+  sample: "{\"customer_id\":3,\"order_date\":\"2023-03-15\",\"order_id\":1,\"product_id\"\
+    :1,\"quantity\":2}\n{\"customer_id\":3,\"order_date\":\"2023-03-15\",\"order_id\"\
+    :1,\"product_id\":4,\"quantity\":1}\n{\"customer_id\":7,\"order_date\":\"2023-05-20\"\
+    ,\"order_id\":2,\"product_id\":2,\"quantity\":2}\n{\"customer_id\":7,\"order_date\"\
+    :\"2023-05-20\",\"order_id\":2,\"product_id\":11,\"quantity\":3}\n{\"customer_id\"\
+    :2,\"order_date\":\"2023-02-10\",\"order_id\":3,\"product_id\":3,\"quantity\"\
+    :1}\n{\"customer_id\":2,\"order_date\":\"2023-02-10\",\"order_id\":3,\"product_id\"\
+    :8,\"quantity\":2}\n{\"customer_id\":2,\"order_date\":\"2023-02-10\",\"order_id\"\
+    :3,\"product_id\":12,\"quantity\":1}\n{\"customer_id\":5,\"order_date\":\"2023-04-08\"\
+    ,\"order_id\":4,\"product_id\":5,\"quantity\":2}\n{\"customer_id\":5,\"order_date\"\
+    :\"2023-04-08\",\"order_id\":4,\"product_id\":9,\"quantity\":3}\n{\"customer_id\"\
+    :1,\"order_date\":\"2023-01-20\",\"order_id\":5,\"product_id\":6,\"quantity\"\
+    :2}\n{\"customer_id\":1,\"order_date\":\"2023-01-20\",\"order_id\":5,\"product_id\"\
+    :10,\"quantity\":2}\n{\"customer_id\":9,\"order_date\":\"2023-07-05\",\"order_id\"\
+    :6,\"product_id\":7,\"quantity\":3}\n{\"customer_id\":9,\"order_date\":\"2023-07-05\"\
+    ,\"order_id\":6,\"product_id\":11,\"quantity\":5}\n{\"customer_id\":4,\"order_date\"\
+    :\"2023-03-25\",\"order_id\":7,\"product_id\":13,\"quantity\":2}\n{\"customer_id\"\
+    :4,\"order_date\":\"2023-03-25\",\"order_id\":7,\"product_id\":14,\"quantity\"\
+    :3}\n{\"customer_id\":8,\"order_date\":\"2023-06-12\",\"order_id\":8,\"product_id\"\
+    :15,\"quantity\":2}\n{\"customer_id\":8,\"order_date\":\"2023-06-12\",\"order_id\"\
+    :8,\"product_id\":17,\"quantity\":5}\n{\"customer_id\":6,\"order_date\":\"2023-04-30\"\
+    ,\"order_id\":9,\"product_id\":16,\"quantity\":2}\n{\"customer_id\":6,\"order_date\"\
+    :\"2023-04-30\",\"order_id\":9,\"product_id\":18,\"quantity\":3}\n{\"customer_id\"\
+    :10,\"order_date\":\"2023-07-25\",\"order_id\":10,\"product_id\":19,\"quantity\"\
+    :1}"
