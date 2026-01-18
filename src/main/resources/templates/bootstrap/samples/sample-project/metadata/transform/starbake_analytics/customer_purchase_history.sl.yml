@@ -1,0 +1,28 @@
+---
+version: 1
+task:
+  name: "customer_purchase_history"
+  domain: "starbake_analytics"
+  table: "customer_purchase_history"
+  attributes:
+    - name: "customer_id"
+      type: "long"
+    - name: "customer_name"
+      type: "string"
+    - name: "email"
+      type: "string"
+    - name: "total_orders"
+      type: "long"
+    - name: "total_spent"
+      type: "double"
+    - name: "first_order_date"
+      type: "date"
+    - name: "last_order_date"
+      type: "date"
+    - name: "purchased_categories"
+      type: "string"
+      array: true
+    - name: "days_since_first_order"
+      type: "long"
+  writeStrategy:
+    type: "APPEND"

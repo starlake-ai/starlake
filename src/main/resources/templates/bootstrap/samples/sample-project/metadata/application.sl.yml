@@ -2,11 +2,13 @@
 version: 1
 application:
   connectionRef: "{{activeConnection}}"
+
   audit:
     sink:
       connectionRef: "{{activeConnection}}"
+
   connections:
-    spark_local:
+    sparkLocal:
       type: "fs" # Connection to local file system (delta files)
     duckdb:
       type: "jdbc" # Connection to DuckDB
@@ -18,21 +20,20 @@ application:
       # example on MacOS: export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default.json"
       type: "bigquery"
       options:
-        location: "{{BIGQUERY_LOCATION}}"
-        authType: "APPLICATION_DEFAULT" #reference to the application default credentials in the GOOGLE_APPLICATION_CREDENTIALS env variable
+        location: europe-west1
+        authType: "APPLICATION_DEFAULT"
         authScopes: "https://www.googleapis.com/auth/cloud-platform"
         writeMethod: "direct"
     postgresql:
-      type: JDBC
+      type: jdbc
       options:
-        url: "jdbc:postgresql://{{POSTGRES_HOST}}:{{POSTGRES_PORT}}/{{POSTGRES_DB}}"
+        url: "jdbc:postgresql://{{POSTGRES_HOST}}:5432/{{POSTGRES_DB}}"
         driver: "org.postgresql.Driver"
         user: "{{POSTGRES_USER}}"
         password: "{{POSTGRES_PASSWORD}}"
         quoteIdentifiers: false
     redshift:
-      type: JDBC
-      loader: "native"
+      type: jdbc
       options:
         url: "jdbc:redshift://{{REDSHIFT_HOST}}:{{REDSHIFT_PORT}}/{{REDSHIFT_DATABASE}}"
         driver: "com.amazon.redshift.jdbc42.Driver"
@@ -40,19 +41,18 @@ application:
         password: "{{REDSHIFT_PASSWORD}}"
         quoteIdentifiers: false
     redshift_spark:
-      type: JDBC
+      type: jdbc
       sparkFormat: "io.github.spark_redshift_community.spark.redshift" # if running on top of Spark or else  "redshift" if running on top of Databricks
       options:
         url: "jdbc:redshift://{{REDSHIFT_HOST}}:{{REDSHIFT_PORT}}/{{REDSHIFT_DATABASE}}"
         driver: "com.amazon.redshift.Driver"
         user: "{{REDSHIFT_USER}}"
         password: "{{REDSHIFT_PASSWORD}}"
-        quoteIdentifiers: "false"
+        quoteIdentifiers: false
         tempdir: "s3a://starlake-app/data"
         aws_iam_role: "{{REDSHIFT_ROLE}}"
     snowflake:
-      type: "jdbc"
-      loader: "native"
+      type: jdbc
       options:
         url: "jdbc:snowflake://{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com/"
         driver: "net.snowflake.client.jdbc.SnowflakeDriver"
@@ -61,12 +61,11 @@ application:
         password: "{{SNOWFLAKE_PASSWORD}}"
         warehouse: "{{SNOWFLAKE_WAREHOUSE}}"
         db: "{{SNOWFLAKE_DB}}"
-        schema: "{{SNOWFLAKE_SCHEMA}}"
         keep_column_case: "off"
-        preActions: "ALTER SESSION SET QUERY_TAG = 'starlake';ALTER SESSION SET TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+        preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
     snowflake_spark:
-      type: "jdbc"
-      sparkFormat: "snowflake"
+      type: jdbc
+      sparkFormat: snowflake
       options:
         sfUrl: "{{SNOWFLAKE_ACCOUNT}}.snowflakecomputing.com" # make sure you do not prefix by jdbc:snowflake://. This is done by the snowflaek driver
         driver: "net.snowflake.client.jdbc.SnowflakeDriver"
@@ -75,10 +74,11 @@ application:
         sfPassword: "{{SNOWFLAKE_PASSWORD}}"
         sfWarehouse: "{{SNOWFLAKE_WAREHOUSE}}"
         sfDatabase: "{{SNOWFLAKE_DB}}"
-        sfSchema: "{{SNOWFLAKE_SCHEMA}}"
         keep_column_case: "off"
-        autopushdown: "on"
-        preActions: "ALTER SESSION SET QUERY_TAG = 'starlake';ALTER SESSION SET TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
+        autopushdown: on
+        preActions: "alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = true"
   dagRef:
     load: "airflow_load_shell"
     transform: "airflow_transform_shell"
+  schedulePresets:
+    daily: "0 0 * * *"

@@ -3,10 +3,9 @@ version: 1
 dag:
     comment: "dag for transforming domain {{domain}} with schedule {{schedule}}"
     template: "transform/dagster__scheduled_task__shell.py.j2"
-    filename: "{{domain}}_{{schedule}}_tasks_{{sl_project_id}}.py"
+    filename: "dagster_{{domain}}_{{schedule}}_tasks.py"
     options:
-        sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
+        sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\", \"SL_ENV\": \"PG\"}"
         SL_STARLAKE_PATH: "starlake"
-        run_dependencies_first: "False" # load all dependencies for each transform job, 'False' by default
+        load_dependencies: "False" # load all dependencies for each transform job, 'False' by default
         tags: "{{domain}}"
-        sl_include_env_vars: GOOGLE_APPLICATION_CREDENTIALS,AWS_KEY_ID,AWS_SECRET_KEY

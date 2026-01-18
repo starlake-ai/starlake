@@ -3,4 +3,5 @@ version: 1
 load:
   name: "starbake"
   metadata:
-    directory: "{{incoming_path}}/starbake"
+    directory: "{{SL_ROOT}}/datasets/incoming/starbake"
+    schedule: "daily"

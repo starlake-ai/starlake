@@ -1,0 +1,45 @@
+---
+version: 1
+table:
+  name: "overall_kpis"
+  pattern: "overall_kpis.*"
+  attributes:
+  - name: "total_customers"
+    type: "long"
+    required: false
+  - name: "total_orders"
+    type: "long"
+    required: false
+  - name: "total_revenue"
+    type: "double"
+    required: false
+  - name: "avg_order_value"
+    type: "double"
+    required: false
+  - name: "avg_orders_per_customer"
+    type: "double"
+    required: false
+  - name: "avg_spent_per_customer"
+    type: "double"
+    required: false
+  - name: "earliest_order_date"
+    type: "date"
+    required: false
+  - name: "latest_order_date"
+    type: "date"
+    required: false
+  - name: "avg_customer_lifetime_days"
+    type: "double"
+    required: false
+  - name: "avg_categories_per_customer"
+    type: "double"
+    required: false
+  - name: "customer_order_rate"
+    type: "double"
+    required: false
+  - name: "daily_revenue"
+    type: "double"
+    required: false
+  - name: "daily_order_rate"
+    type: "double"
+    required: false
