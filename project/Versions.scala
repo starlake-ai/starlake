@@ -41,7 +41,7 @@ object Versions {
   val duckdb = "1.4.3.0"
   val bigQueue = "0.7.0"
   val redshiftJDBC = "2.1.0.34"
-  val scalaCompat = "2.12.0"
+  val scalaCompat = "2.14.0"
   val scalaParallelCollections = "1.0.4"
   val derbyVersion =
     "10.15.2.0" // last version compatible with Java 11, see https://db.apache.org/derby/derby_downloads.html
