@@ -39,8 +39,7 @@ fi
 ENVIRONMENT="cloud"
 PUBLISH="false"
 BUILD="false"
-
-while getopts "e:p:b" opt; do
+while getopts ":e:pb" opt; do
     case ${opt} in
     e) 
         ENVIRONMENT=${OPTARG} 
