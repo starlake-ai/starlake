@@ -2533,6 +2533,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         throw exception
     }
   }
+
+  def findTableFromFilename(domainName: String, filename: String): Option[SchemaInfo] = {
+    domains(List(domainName)).flatMap { domain =>
+      domain.tables.find { table =>
+        table.pattern.matcher(filename).matches()
+      }
+    }
+  }.headOption
+
   // todo
   def upsertAttribute(
     domainName: String,
