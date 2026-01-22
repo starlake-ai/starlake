@@ -548,11 +548,20 @@ object JdbcDbUtils extends LazyLogging {
 
     preActions.foreach { actions =>
       actions.split(";").filter(_.trim.nonEmpty).foreach { action =>
-        Try {
+        def runStatement(action: String): Unit = {
           val statement = connection.createStatement()
           logger.info(s"Running preAction $action")
           statement.execute(action)
           statement.close()
+        }
+        Try {
+          try {
+            runStatement(action)
+          } catch {
+            case e: Exception => // handle Disk I/O latency in Docker / Network/Volume Latency
+              Thread.sleep(1000)
+              runStatement(action)
+          }
         } match {
           case Failure(exception) =>
             // Catalog Error: SET schema: No catalog + schema named "s01" found.
