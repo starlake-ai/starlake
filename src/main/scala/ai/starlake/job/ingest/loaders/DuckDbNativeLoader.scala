@@ -57,6 +57,35 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
 
   def run(): Try[List[IngestionCounters]] = {
     Try {
+      val initialRowCount =
+        JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnection.options) {
+          conn =>
+            val stmtExternal = conn.createStatement()
+            stmtExternal.close()
+            val tableExists =
+              JdbcDbUtils.tableExists(
+                conn,
+                sinkConnection.jdbcUrl,
+                domain.finalName + "." + schema.finalName
+              )
+            if (tableExists) {
+              // get line count from table
+              val countSql =
+                s"SELECT COUNT(*) AS cnt FROM ${domain.finalName}.${schema.finalName};"
+              val res = JdbcDbUtils.executeQueryAsMap(countSql, conn)
+              val count = res.head("cnt").toInt
+              logger
+                .info(
+                  s"Table ${domain.finalName}.${schema.finalName} already exists with $count records"
+                )
+              count
+            } else {
+              logger.info(
+                s"Table ${domain.finalName}.${schema.finalName} does not exist and will be created"
+              )
+            }
+            0
+        }
       val twoSteps = requireTwoSteps(effectiveSchema)
       if (twoSteps) {
         val tempTables =
@@ -138,11 +167,25 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
       } else {
         singleStepLoad(domain.finalName, schema.finalName, schemaWithMergedMetadata, path)
       }
-    }.map { - =>
+      initialRowCount
+    }.map { initialRowCount =>
+      val countSql =
+        s"SELECT COUNT(*) AS cnt FROM ${domain.finalName}.${schema.finalName};"
+
+      val currentRowCount =
+        JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnection.options) {
+          conn =>
+            val res = JdbcDbUtils.executeQueryAsMap(countSql, conn)
+            val count = res.head("cnt").toInt
+            logger.info(
+              s"Table ${domain.finalName}.${schema.finalName} now has $count records"
+            )
+            count
+        }
       List(
         IngestionCounters(
-          inputCount = -1,
-          acceptedCount = -1,
+          inputCount = currentRowCount - initialRowCount,
+          acceptedCount = currentRowCount - initialRowCount,
           rejectedCount = -1,
           paths = path.map(_.toString),
           jobid = ingestionJob.applicationId()
