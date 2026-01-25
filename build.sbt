@@ -70,7 +70,7 @@ libraryDependencies ++= {
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark3 ++
+  dependencies(isSnapshot.value) ++ spark3 ++
     jacksonForSpark3 ++ // esSpark212 ++ (exclude elasticsearch until spark 4 is supported
     pureConfig ++ scalaReflection(scalaVersion.value) ++
     versionSpecificLibs

@@ -317,7 +317,7 @@ case class DomainDesc(version: Int, load: DomainInfo)
   def policies(): List[RowLevelSecurity] = {
     tables
       .flatMap(_.acl)
-      .map(ace => RowLevelSecurity(name = ace.role, grants = ace.grants.toSet)) ++
+      .map(ace => RowLevelSecurity(name = ace.role, grants = ace.grants)) ++
     tables.flatMap(
       _.rls
     )

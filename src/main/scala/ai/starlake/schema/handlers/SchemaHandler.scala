@@ -2551,4 +2551,54 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     columnDesc: Option[String]
   ) = ???
 
+  def acls(): List[(String, List[AccessControlEntry])] = {
+    this.domains().flatMap { domain =>
+      domain.tables.map { table =>
+        (domain.finalName + "." + table.finalName, table.acl)
+      }
+    } ++
+    this.tasks().map { task =>
+      (task.domain + "." + task.name, task.acl)
+    }
+  }
+
+  def rls(): List[(String, List[RowLevelSecurity])] = {
+    this.domains().flatMap { domain =>
+      domain.tables.map { table =>
+        (domain.finalName + "." + table.finalName, table.rls)
+      }
+    } ++
+    this.tasks().map { task =>
+      (task.domain + "." + task.name, task.rls)
+    }
+  }
+
+  def cls(): List[IamPolicyTag] = this.iamPolicyTags().toList.flatMap { _.iamPolicyTags }
+
+  def accessPolicies(): CaseInsensitiveMap[String] = {
+    val result =
+      this
+        .domains()
+        .flatMap { domain =>
+          domain.tables.flatMap { table =>
+            table.attributes.flatMap { attr =>
+              attr.accessPolicy.map { policy =>
+                (s"${domain.finalName}.${table.finalName}.${attr.getFinalName()}", policy)
+              }
+            }
+          }
+        }
+        .toMap ++
+      this
+        .tasks()
+        .flatMap { task =>
+          task.attributes.flatMap { attr =>
+            attr.accessPolicy.map { policy =>
+              (s"${task.domain}.${task.name}.${attr.getFinalName()}", policy)
+            }
+          }
+        }
+        .toMap
+    CaseInsensitiveMap(result)
+  }
 }
