@@ -18,7 +18,7 @@
  *
  */
 
-import sbt.{ExclusionRule, _}
+import sbt.{ExclusionRule, Resolvers => _, _}
 
 object Dependencies {
 
@@ -230,18 +230,26 @@ object Dependencies {
   )
 
   // com.manticore-projects.jsqlformatter
-  val jSqlTranspiler = Seq(
-    "com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser,
-    "ai.starlake.jsqltranspiler" % "jsqltranspiler" % Versions.jSqlTranspiler exclude (
-      "org.apache.commons",
-      "commons-io"
-    ),
-    "ai.starlake.jdbc" % "starlakejdbc" % Versions.starlakejdbc exclude (
-      "org.apache.commons",
-      "commons-io"
-    ),
-    "com.manticore-projects.jsqlformatter" % "jsqlformatter" % Versions.jSqlFormatter
-  )
+  def jSqlTranspiler(isSnapshot: Boolean) = {
+    val jSqlTranspilerVersion =
+      if (isSnapshot) Versions.jSqlTranspiler
+      else Versions.jSqlTranspiler.replace("-SNAPSHOT", "")
+    val starlakeJdbcVersion =
+      if (isSnapshot) Versions.starlakejdbc
+      else Versions.starlakejdbc.replace("-SNAPSHOT", "")
+    Seq(
+      "com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser,
+      "ai.starlake.jsqltranspiler" % "jsqltranspiler" % jSqlTranspilerVersion exclude (
+        "org.apache.commons",
+        "commons-io"
+      ),
+      "ai.starlake.jdbc" % "starlakejdbc" % starlakeJdbcVersion exclude (
+        "org.apache.commons",
+        "commons-io"
+      ),
+      "com.manticore-projects.jsqlformatter" % "jsqlformatter" % Versions.jSqlFormatter
+    )
+  }
 
   val duckdb = Seq("org.duckdb" % "duckdb_jdbc" % Versions.duckdb)
 
@@ -279,9 +287,11 @@ object Dependencies {
     "ai.starlake" % "starlake-snowflake" % Versions.snowflakeTemplates
   )
 
-  val dependencies =
+  def dependencies(isSnapshot: Boolean) =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ snowflake ++ redshift ++ scalaTest ++
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++
-    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler ++ cache ++ swaggerParser ++
+    pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler(
+      isSnapshot
+    ) ++ cache ++ swaggerParser ++
     starlakeStreaming ++ templates
 }
