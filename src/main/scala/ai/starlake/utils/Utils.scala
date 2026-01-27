@@ -461,7 +461,6 @@ object Utils extends LazyLogging {
 
   def runCommand(cmd: Seq[String], extraEnv: Map[String, String]): Try[CommandOutput] =
     Try {
-      logger.info(cmd.mkString(" "))
       val stdoutStream = new ByteArrayOutputStream
       val stderrStream = new ByteArrayOutputStream
       val exitValue = runCommand(cmd, extraEnv, stdoutStream, stderrStream)
