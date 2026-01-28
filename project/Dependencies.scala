@@ -238,7 +238,7 @@ object Dependencies {
       if (isSnapshot) Versions.starlakejdbc
       else Versions.starlakejdbc.replace("-SNAPSHOT", "")
     Seq(
-      "com.github.jsqlparser" % "jsqlparser" % Versions.jSqlParser,
+      "com.manticore-projects.jsqlformatter" % "jsqlparser" % Versions.jSqlParser,
       "ai.starlake.jsqltranspiler" % "jsqltranspiler" % jSqlTranspilerVersion exclude (
         "org.apache.commons",
         "commons-io"
