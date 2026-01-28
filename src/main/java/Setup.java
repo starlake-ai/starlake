@@ -162,7 +162,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.5.3-SNAPSHOT");
 
     // SPARK
-    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.7");
+    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.8");
     private static final String HADOOP_VERSION = getEnv("HADOOP_VERSION").orElse("3");
 
 
@@ -187,10 +187,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     // SNOWFLAKE
     private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.26.1");
-    private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.1.4");
+    private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.1.6");
 
     // POSTGRESQL
-    private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.7.7");
+    private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.7.9");
 
     // MARIADB
     private static final String MARIADB_VERSION = getEnv("MARIADB_VERSION").orElse("3.5.4");
