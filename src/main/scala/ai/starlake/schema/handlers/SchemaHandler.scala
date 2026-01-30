@@ -718,7 +718,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                         configPath.toString,
                         isForExtract = false
                       )
-                      .map(_.copy(name = domainName))
+                      .getOrElse(throw new Exception("Failed to deserialize domain: " + configPath))
+                      .copy(name = domainName)
                   YamlSerde.serializeToPath(configPath, domainUpdated)(storage)
                   domainUpdated
                 } else
