@@ -687,10 +687,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .map { directory =>
         val configPath = new Path(directory, "_config.sl.yml")
         if (storage.exists(configPath)) {
+          val configContent = storage.read(configPath)
+          logger.info(
+            "Loading domain config from " + configPath.toString + " ... in raw mode = " + raw
+          )
+          logger.info("Content:\n" + configContent)
           val domainOnly = YamlSerde
             .deserializeYamlLoadConfig(
-              if (raw) storage.read(configPath)
-              else Utils.parseJinja(storage.read(configPath), activeEnvVars()),
+              if (raw) configContent
+              else Utils.parseJinja(configContent, activeEnvVars()),
               configPath.toString,
               isForExtract = false
             )
@@ -703,9 +708,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 )
               val namedDomain =
                 if (domainOnly.name.isEmpty) {
-                  val res = domainOnly.copy(name = domainName)
-                  YamlSerde.serializeToPath(configPath, res)(storage)
-                  res
+                  logger.info(
+                    s"Setting domain name to ${domainName} in ${configPath.toString}"
+                  )
+                  val domainUpdated =
+                    YamlSerde
+                      .deserializeYamlLoadConfig(
+                        configContent,
+                        configPath.toString,
+                        isForExtract = false
+                      )
+                      .map(_.copy(name = domainName))
+                  YamlSerde.serializeToPath(configPath, domainUpdated)(storage)
+                  domainUpdated
                 } else
                   domainOnly
               namedDomain
