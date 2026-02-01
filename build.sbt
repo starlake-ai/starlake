@@ -77,8 +77,8 @@ libraryDependencies ++= {
 }
 
 dependencyOverrides := Seq(
-  "com.google.protobuf"                % "protobuf-java"             % "3.25.8",
-  "com.google.protobuf"                % "protobuf-java"             % "3.25.8",
+  "com.google.protobuf"                % "protobuf-java"             % "4.33.5",
+  "com.google.protobuf"                % "protobuf-java"             % "4.33.5",
   "org.scala-lang"                    % "scala-library"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-reflect"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-compiler"            % scalaVersion.value,
