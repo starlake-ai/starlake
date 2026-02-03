@@ -213,6 +213,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     // KAFKA CONFLUENT
     private static final String CONFLUENT_VERSION = getEnv("CONFLUENT_VERSION").orElse("7.7.2");
+    
+    private static final String PYTHON_LIBS_URL = "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/python-libs/";
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -705,6 +707,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 downloadAndDisplayProgress(trinodbDependencies, depsDir, true);
             }
 
+            downloadPythonLibs(new File(depsDir, "python-libs"));
+
 
 
             boolean unix = args.length > 1 && args[1].equalsIgnoreCase("unix");
@@ -777,6 +781,34 @@ public class Setup extends ProxySelector implements X509TrustManager {
             File log4j2File = new File(sparkDir, "conf/log4j2.properties.template");
             log4j2File.renameTo(new File(sparkDir, "conf/log4j2.properties"));
         });
+    }
+
+    private static void downloadPythonLibs(File targetDir) throws IOException, InterruptedException {
+        if (!targetDir.exists()) {
+            targetDir.mkdirs();
+        }
+        ResourceDependency versionsFile = new ResourceDependency("versions.txt", PYTHON_LIBS_URL + "versions.txt");
+        downloadAndDisplayProgress(versionsFile, (resource, url) -> new File(targetDir, "versions.txt"));
+        
+        File versionsTxt = new File(targetDir, "versions.txt");
+        if (versionsTxt.exists()) {
+            List<String> filesToDownload = new ArrayList<>();
+           try (BufferedReader br = new BufferedReader(new FileReader(versionsTxt))) {
+               String line;
+               while ((line = br.readLine()) != null) {
+                   String trimmedLine = line.trim();
+                   if (!trimmedLine.isEmpty() && !trimmedLine.startsWith("#")) {
+                       filesToDownload.add(trimmedLine);
+                   }
+               }
+           }
+           if (!filesToDownload.isEmpty()) {
+               ResourceDependency[] dependencies = filesToDownload.stream().map(fileName -> 
+                   new ResourceDependency(fileName, PYTHON_LIBS_URL + fileName)
+               ).toArray(ResourceDependency[]::new);
+               downloadAndDisplayProgress(dependencies, targetDir, true);
+           }
+        }
     }
 
     private static void downloadAndDisplayProgress(ResourceDependency[] dependencies, File targetDir, boolean replaceJar) throws IOException, InterruptedException {

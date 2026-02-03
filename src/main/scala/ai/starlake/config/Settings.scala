@@ -947,7 +947,8 @@ object Settings extends LazyLogging {
     duckDbEnableExternalAccess: Boolean,
     syncSqlWithYaml: Boolean,
     syncYamlWithDb: Boolean,
-    onExceptionRetries: Int
+    onExceptionRetries: Int,
+    pythonLibsDir: String
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
