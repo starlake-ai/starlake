@@ -7,9 +7,7 @@
   "properties": {
     "version": {
       "type": "integer",
-      "enum": [
-        1
-      ]
+      "enum": [1]
     }
   },
   "allOf": [
@@ -17,9 +15,7 @@
       "$ref": "#/definitions/StarlakeV1Base"
     }
   ],
-  "required": [
-    "version"
-  ],
+  "required": ["version"],
   "definitions": {
     "ConvertibleToString": {
       "anyOf": [
@@ -163,9 +159,7 @@
           "description": "Override the default select defined by Starlake"
         }
       },
-      "required": [
-        "createSql"
-      ]
+      "required": ["createSql"]
     },
     "Materialization": {
       "$ref": "#/definitions/ConvertibleToString",
@@ -276,10 +270,7 @@
           "description": "Configure here the type mapping for each datawarehouse.\\nWill be used when inferring DDL from schema."
         }
       },
-      "required": [
-        "name",
-        "pattern"
-      ]
+      "required": ["name", "pattern"]
     },
     "PositionV1": {
       "description": "First and last char positions of an attribute in a fixed length record",
@@ -294,10 +285,7 @@
           "description": "Zero based position of the last character to include in this attribute"
         }
       },
-      "required": [
-        "first",
-        "last"
-      ]
+      "required": ["first", "last"]
     },
     "ConnectionV1": {
       "description": "Connection properties to a datawarehouse.",
@@ -328,9 +316,7 @@
           "description": "Connection options"
         }
       },
-      "required": [
-        "type"
-      ]
+      "required": ["type"]
     },
     "DagGenerationConfigV1": {
       "description": "Dag configuration.",
@@ -353,10 +339,7 @@
           "description": "DAG generation options"
         }
       },
-      "required": [
-        "template",
-        "filename"
-      ]
+      "required": ["template", "filename"]
     },
     "RowLevelSecurityV1": {
       "description": "Row level security policy to apply to the output data.",
@@ -382,10 +365,7 @@
           "description": "Description for this access policy"
         }
       },
-      "required": [
-        "name",
-        "grants"
-      ]
+      "required": ["name", "grants"]
     },
     "AccessControlEntryV1": {
       "description": "Column level security policy to apply to the attribute.",
@@ -407,10 +387,7 @@
           "description": "This Access Control Entry unique name"
         }
       },
-      "required": [
-        "role",
-        "grants"
-      ]
+      "required": ["role", "grants"]
     },
     "FormatV1": {
       "$ref": "#/definitions/ConvertibleToString",
@@ -535,11 +512,7 @@
           "description": "How to get table remarks"
         }
       },
-      "required": [
-        "tables",
-        "quote",
-        "strategyBuilder"
-      ]
+      "required": ["tables", "quote", "strategyBuilder"]
     },
     "PrivacyV1": {
       "type": "object",
@@ -1073,11 +1046,7 @@
           "description": "Sample of filename matching this schema"
         }
       },
-      "required": [
-        "name",
-        "pattern",
-        "attributes"
-      ]
+      "required": ["name", "pattern", "attributes"]
     },
     "MetricTypeV1": {
       "$ref": "#/definitions/ConvertibleToString",
@@ -1181,9 +1150,7 @@
           "description": "Policy tag to assign to this attribute. Used for column level security"
         }
       },
-      "required": [
-        "name"
-      ]
+      "required": ["name"]
     },
     "AutoTaskDescV1": {
       "type": "object",
@@ -1321,9 +1288,9 @@
           "description": "Schema synchronization strategy: NONE (no sync), ADD (add missing columns), or ALL (full sync with source)"
         },
         "dataset_triggering_strategy": {
-            "type": "string",
-            "description": "Dataset triggering strategy to determine when this task should be executed based on dataset changes (dataset1 & dataset2) | dataset3"
-          }
+          "type": "string",
+          "description": "Dataset triggering strategy to determine when this task should be executed based on dataset changes: & and | operators are allowed (dataset1 & dataset2) | dataset3"
+        }
       },
       "required": []
     },
@@ -1483,9 +1450,7 @@
                     "description": "Rename database column name. Scope: Schema and Data extraction."
                   }
                 },
-                "required": [
-                  "name"
-                ]
+                "required": ["name"]
               }
             ]
           }
@@ -1504,7 +1469,7 @@
         },
         "fetchSize": {
           "type": "integer",
-            "description": "Number of rows to be fetched from the database when additional rows are needed. By default, most JDBC drivers use a fetch size of 10, so if you are reading 1000 objects, increasing the fetch size to 256 can significantly reduce the time required to fetch the query's results. The optimal fetch size is not always obvious. Scope: Data extraction."
+          "description": "Number of rows to be fetched from the database when additional rows are needed. By default, most JDBC drivers use a fetch size of 10, so if you are reading 1000 objects, increasing the fetch size to 256 can significantly reduce the time required to fetch the query's results. The optimal fetch size is not always obvious. Scope: Data extraction."
         },
         "fullExport": {
           "type": "boolean",
@@ -1684,9 +1649,7 @@
             }
           },
           "not": {
-            "required": [
-              "openAPI"
-            ]
+            "required": ["openAPI"]
           }
         }
       ]
@@ -1734,7 +1697,7 @@
         },
         "exclude": {
           "type": "array",
-          "description": "filter out on field path. Each field is seperated by _. Default to []",
+          "description": "filter out on field path. Each field is separated by _. Default to []",
           "items": {
             "$ref": "#/definitions/ConvertibleToString"
           }
@@ -1760,8 +1723,8 @@
           }
         },
         "as": {
-          "description": "Force all routes matching the pattern to be saved as the given name if they don't conflict",
-          "$ref": "#/definitions/ConvertibleToString"
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Force all routes matching the pattern to be saved as the given name if they don't conflict"
         },
         "operations": {
           "description": "List of operations to retrieve schema from. Defaults to ['GET']. Supported values are GET and POST.",
@@ -1797,8 +1760,8 @@
           }
         },
         "explode": {
-          "description": "Explodes on route's object and split the schema.",
-          "$ref": "#/definitions/OpenAPIRouteObjectExplosionV1"
+          "$ref": "#/definitions/OpenAPIRouteObjectExplosionV1",
+          "description": "Explodes on route's object and split the schema."
         }
       }
     },
@@ -1814,8 +1777,8 @@
           "description": "Common base path used to remove from path in order to generate final table name."
         },
         "schemas": {
-          "description": "Describe what to fetch from data connection. Scope: Schema and Data extraction.",
-          "$ref": "#/definitions/OpenAPIObjectSchemasV1"
+          "$ref": "#/definitions/OpenAPIObjectSchemasV1",
+          "description": "Describe what to fetch from data connection. Scope: Schema and Data extraction."
         },
         "routes": {
           "description": "Describe what to fetch from data connection. Scope: Schema and Data extraction.",
@@ -1826,9 +1789,7 @@
           }
         }
       },
-      "required": [
-        "name"
-      ]
+      "required": ["name"]
     },
     "OpenAPIV1": {
       "type": "object",
@@ -1838,8 +1799,8 @@
           "description": "Common base path used to remove from path in order to generate final table name."
         },
         "formatTypeMapping": {
-          "description": "mapping a format used for string and the starlake attribute type",
-          "$ref": "#/definitions/MapString"
+          "$ref": "#/definitions/MapString",
+          "description": "mapping a format used for string and the starlake attribute type"
         },
         "domains": {
           "description": "Describe what to fetch from data connection. Scope: Schema and Data extraction.",
@@ -1860,13 +1821,11 @@
         {
           "properties": {
             "openAPI": {
-              "description": "Describe how to extract domains and tables from OpenAPI spec",
-              "$ref": "#/definitions/OpenAPIV1"
+              "$ref": "#/definitions/OpenAPIV1",
+              "description": "Describe how to extract domains and tables from OpenAPI spec"
             }
           },
-          "required": [
-            "openAPI"
-          ]
+          "required": ["openAPI"]
         }
       ]
     },
@@ -1909,9 +1868,7 @@
           "description": "Table pattern to match"
         }
       },
-      "required": [
-        "table"
-      ]
+      "required": ["table"]
     },
     "OutputRefV1": {
       "description": "Output for ref object",
@@ -1930,11 +1887,7 @@
           "description": "Target table name for the resolved reference"
         }
       },
-      "required": [
-        "table",
-        "domain",
-        "database"
-      ]
+      "required": ["table", "domain", "database"]
     },
     "RefV1": {
       "description": "Describe how to resolve a reference in a transform task",
@@ -1949,10 +1902,7 @@
           "description": "The output table resolved with the domain and database"
         }
       },
-      "required": [
-        "input",
-        "output"
-      ]
+      "required": ["input", "output"]
     },
     "KafkaTopicConfigV1": {
       "properties": {
@@ -2465,59 +2415,37 @@
       },
       "oneOf": [
         {
-          "required": [
-            "extract"
-          ]
+          "required": ["extract"]
         },
         {
-          "required": [
-            "load"
-          ]
+          "required": ["load"]
         },
         {
-          "required": [
-            "transform"
-          ]
+          "required": ["transform"]
         },
         {
-          "required": [
-            "env"
-          ]
+          "required": ["env"]
         },
         {
-          "required": [
-            "types"
-          ]
+          "required": ["types"]
         },
         {
-          "required": [
-            "tables"
-          ]
+          "required": ["tables"]
         },
         {
-          "required": [
-            "table"
-          ]
+          "required": ["table"]
         },
         {
-          "required": [
-            "task"
-          ]
+          "required": ["task"]
         },
         {
-          "required": [
-            "application"
-          ]
+          "required": ["application"]
         },
         {
-          "required": [
-            "refs"
-          ]
+          "required": ["refs"]
         },
         {
-          "required": [
-            "dag"
-          ]
+          "required": ["dag"]
         }
       ]
     }
