@@ -10,6 +10,27 @@ import org.apache.hadoop.fs.Path
 import scala.util.{Success, Try}
 
 class DagDeployJob(schemaHandler: SchemaHandler) extends StrictLogging {
+
+  private def handleAirflowIgnore(path: Path)(implicit settings: Settings): Unit = {
+    // check if .airflowignore file exists
+    val airflowIgnorePath = new Path(path, ".airflowignore")
+    if (!settings.storageHandler().exists(airflowIgnorePath)) {
+      logger.info(s"Creating .airflowignore file at: $airflowIgnorePath")
+      // add ai folder to .airflowignore
+      val content = "ai/\n"
+      settings.storageHandler().write(content, airflowIgnorePath)
+    } else {
+      logger.info(s".airflowignore file already exists at: $airflowIgnorePath")
+      // check if ai folder exists, if not add it
+      val inputStream = settings.storageHandler().read(airflowIgnorePath)
+      if (!inputStream.contains("ai/")) {
+        logger.info(s"Adding ai/ to .airflowignore file at: $airflowIgnorePath")
+        val content = inputStream + "\nai/\n"
+        settings.storageHandler().write(content, airflowIgnorePath)
+      }
+    }
+  }
+
   def deployDags(config: DagDeployConfig)(implicit settings: Settings): Try[JobResult] = Try {
     val inputDir = config.inputDir.getOrElse(new Path(DatasetArea.build, "dags").toString)
 
@@ -24,6 +45,7 @@ class DagDeployJob(schemaHandler: SchemaHandler) extends StrictLogging {
     if (config.clean)
       settings.storageHandler().delete(dagOutputPath)
 
+    handleAirflowIgnore(baseOutputPath)
     val libPath = new Path(baseOutputPath, "ai/starlake/orchestration/starlake_orchestration.py")
     if (settings.storageHandler().exists(libPath)) {
       logger.info(s"Orchestration library already deployed at: $libPath")
