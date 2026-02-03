@@ -1375,6 +1375,7 @@ object YamlConfigGenerators {
       syncSqlWithYaml         <- arbitrary[Boolean]
       syncYamlWithDb          <- arbitrary[Boolean]
       onExceptionRetries      <- arbitrary[Int]
+      pythonLibsDir           <- arbitrary[String]
     } yield AppConfig(
       env = env,
       datasets = datasets,
@@ -1461,7 +1462,8 @@ object YamlConfigGenerators {
       duckdbExtensions = "json,spatial",
       syncSqlWithYaml = syncSqlWithYaml,
       syncYamlWithDb = syncYamlWithDb,
-      onExceptionRetries = onExceptionRetries
+      onExceptionRetries = onExceptionRetries,
+      pythonLibsDir = pythonLibsDir
     )
   }
 
