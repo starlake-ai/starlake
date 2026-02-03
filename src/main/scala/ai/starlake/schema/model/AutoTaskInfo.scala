@@ -73,7 +73,8 @@ case class AutoTaskInfo(
   connectionRef: Option[String] = None,
   streams: List[String] = Nil,
   primaryKey: List[String] = Nil,
-  syncStrategy: Option[TableSync] = None
+  syncStrategy: Option[TableSync] = None,
+  assetTriggeringStrategy: Option[String] = None
 ) extends Named {
 
   @JsonIgnore
@@ -123,7 +124,8 @@ case class AutoTaskInfo(
       _filenamePrefix = child._filenamePrefix,
       parseSQL = child.parseSQL.orElse(parseSQL),
       taskTimeoutMs = child.taskTimeoutMs.orElse(taskTimeoutMs),
-      connectionRef = child.connectionRef.orElse(connectionRef)
+      connectionRef = child.connectionRef.orElse(connectionRef),
+      assetTriggeringStrategy = child.assetTriggeringStrategy.orElse(assetTriggeringStrategy)
     )
   }
   /*
@@ -205,7 +207,8 @@ case class AutoTaskInfo(
     table = "",
     python = None,
     writeStrategy = None,
-    taskTimeoutMs = None
+    taskTimeoutMs = None,
+    assetTriggeringStrategy = None
   ) // Should never be called. Here for Jackson deserialization only
 
   def getSql(): String = sql.getOrElse("")

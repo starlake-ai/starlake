@@ -119,6 +119,7 @@ object TaskViewDependency extends LazyLogging {
             UNKNOWN_TYPE,
             "",
             task.taskDesc.writeStrategy,
+            dataset_triggering_strategy = task.taskDesc.assetTriggeringStrategy,
             freshness = task.taskDesc.freshness.map(_.acceptability()).getOrElse(0L)
           )
         )
@@ -185,6 +186,7 @@ object TaskViewDependency extends LazyLogging {
                   TASK_TYPE,
                   parentSQLRef,
                   task.taskDesc.writeStrategy,
+                  dataset_triggering_strategy = task.taskDesc.assetTriggeringStrategy,
                   freshness = task.taskDesc.freshness.map(_.acceptability()).getOrElse(0L)
                 )
               if (typ == TASK_TYPE) {
@@ -232,6 +234,7 @@ object TaskViewDependency extends LazyLogging {
                     TABLE_TYPE,
                     parentSQLRef,
                     task.taskDesc.writeStrategy,
+                    dataset_triggering_strategy = task.taskDesc.assetTriggeringStrategy,
                     freshness = task.taskDesc.freshness.map(_.acceptability()).getOrElse(0L)
                   )
                 case None =>
@@ -242,6 +245,7 @@ object TaskViewDependency extends LazyLogging {
                     UNKNOWN_TYPE,
                     parentSQLRef,
                     task.taskDesc.writeStrategy,
+                    dataset_triggering_strategy = task.taskDesc.assetTriggeringStrategy,
                     freshness = task.taskDesc.freshness.map(_.acceptability()).getOrElse(0L)
                   )
               }
@@ -323,6 +327,7 @@ case class TaskViewDependency(
   parentTyp: String,
   parentRef: String,
   writeStrategy: Option[WriteStrategy],
+  dataset_triggering_strategy: Option[String],
   sink: Option[String] = None,
   cron: Option[String] = None,
   freshness: Long = 0
