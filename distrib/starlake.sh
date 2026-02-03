@@ -34,7 +34,7 @@ SL_SQL_WH="${SL_DATASETS:-$SL_ROOT/datasets}"
 export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4g}"
 export SL_MAIN=ai.starlake.job.Main
 export SPARK_MASTER_URL="${SPARK_MASTER_URL:-local[*]}"
-
+export SL_PYTHON_LIBS_DIR="${SL_PYTHON_LIBS_DIR:-$SCRIPT_DIR/bin/api/python-libs}"
 if [ -n "$SL_VERSION" ]
 then
   SL_JAR_NAME=$SL_ARTIFACT_NAME-$SL_VERSION-assembly.jar

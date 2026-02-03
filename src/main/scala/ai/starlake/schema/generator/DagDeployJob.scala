@@ -29,8 +29,32 @@ class DagDeployJob(schemaHandler: SchemaHandler) extends StrictLogging {
       logger.info(s"Orchestration library already deployed at: $libPath")
     } else {
       logger.info(s"Deploying orchestration library at: $libPath")
+      //    --find-links /path/to/your/dist/folder \
+
       val pythonCmd =
-        s"python3 -m pip install --break-system-packages --no-cache-dir --target ${baseOutputPath.toString} starlake-orchestration starlake-$orchestratorName"
+        if (settings.appConfig.pythonLibsDir.isEmpty)
+          s"python3 -m pip install --break-system-packages --no-cache-dir --target ${baseOutputPath.toString} starlake-orchestration starlake-$orchestratorName"
+        else {
+          val libsDir = File(settings.appConfig.pythonLibsDir)
+          val paths =
+            libsDir
+              .list(f =>
+                f.name.endsWith(".whl") &&
+                (f.name.contains("starlake_orchestration") || f.name
+                  .contains(s"starlake_$orchestratorName"))
+              )
+              .flatMap { file =>
+                Some(file.pathAsString)
+              }
+              .toList
+          assert(
+            paths.length == 2,
+            s"Expected 2 packages in ${libsDir.pathAsString} but found ${paths}"
+          )
+          val pathsAsString = paths.mkString(" ")
+          s"python3 -m pip install --break-system-packages --no-cache-dir --target ${baseOutputPath.toString} $pathsAsString"
+        }
+
       val cmdResult = Utils.runCommand(pythonCmd)
       cmdResult match {
         case Success(result) =>
