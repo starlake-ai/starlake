@@ -9,6 +9,10 @@ import scopt.OParser
 
 import scala.util.{Success, Try}
 
+/** Command to compare two Starlake project versions.
+  *
+  * Usage: starlake compare [options]
+  */
 object ProjectCompareCmd extends Cmd[ProjectCompareConfig] {
   val command = "compare"
 

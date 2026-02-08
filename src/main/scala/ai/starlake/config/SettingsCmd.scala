@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.{Failure, Success, Try}
 
+/** Command to print settings or test a connection.
+  *
+  * Usage: starlake settings [options]
+  */
 trait SettingsCmd extends Cmd[SettingsConfig] {
 
   def command = "settings"

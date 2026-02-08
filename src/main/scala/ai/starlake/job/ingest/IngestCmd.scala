@@ -9,6 +9,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to ingest data.
+  *
+  * Usage: starlake ingest [options]
+  */
 object IngestCmd extends Cmd[IngestConfig] {
 
   val command = "ingest"

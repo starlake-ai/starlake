@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to load/offload data to/from Kafka.
+  *
+  * Usage: starlake kafkaload [options]
+  */
 object KafkaJobCmd extends Cmd[KafkaJobConfig] {
 
   val command = "kafkaload"

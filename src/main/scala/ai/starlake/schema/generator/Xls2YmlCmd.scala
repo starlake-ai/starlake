@@ -12,6 +12,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to convert XLS to YML.
+  *
+  * Usage: starlake xls2yml [options]
+  */
 trait Xls2YmlCmd extends Cmd[Xls2YmlConfig] with LazyLogging {
 
   def command = "xls2yml"

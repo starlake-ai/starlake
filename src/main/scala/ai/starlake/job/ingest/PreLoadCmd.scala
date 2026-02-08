@@ -10,6 +10,10 @@ import scopt.OParser
 
 import scala.util.{Success, Try}
 
+/** Command to check for files to load.
+  *
+  * Usage: starlake preload [options]
+  */
 trait PreLoadCmd extends Cmd[PreLoadConfig] with LazyLogging {
 
   def command = "preload"

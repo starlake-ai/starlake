@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.{Success, Try}
 
+/** Command to extract schema from a database.
+  *
+  * Usage: starlake extract-schema [options]
+  */
 object ExtractSchemaCmd extends Cmd[ExtractSchemaConfig] {
 
   val command = "extract-schema"

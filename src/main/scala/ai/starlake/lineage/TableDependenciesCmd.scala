@@ -9,6 +9,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to generate table dependencies graph.
+  *
+  * Usage: starlake table-dependencies [options]
+  */
 object TableDependenciesCmd extends Cmd[TableDependenciesConfig] {
 
   val command = "table-dependencies"

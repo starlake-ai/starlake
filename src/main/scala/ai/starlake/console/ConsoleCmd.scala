@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to start the Starlake console.
+  *
+  * Usage: starlake console [options]
+  */
 object ConsoleCmd extends Cmd[ConsoleConfig] {
   override def command: String = "console"
 

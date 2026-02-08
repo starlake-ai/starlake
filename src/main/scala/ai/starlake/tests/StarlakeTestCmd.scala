@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.{Success, Try}
 
+/** Command to run tests.
+  *
+  * Usage: starlake test [options]
+  */
 trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
 
   def command = "test"

@@ -6,6 +6,10 @@ import ai.starlake.utils.JobResult
 
 import scala.util.{Success, Try}
 
+/** Command to convert XLS to YML job.
+  *
+  * Usage: starlake xls2ymljob [options]
+  */
 object Xls2YmlAutoJobCmd extends Xls2YmlCmd {
 
   override def command: String = "xls2ymljob"

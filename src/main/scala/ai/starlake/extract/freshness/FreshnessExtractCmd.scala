@@ -7,6 +7,10 @@ import ai.starlake.utils.{JobResult, JsonSerializer}
 
 import scala.util.{Failure, Success, Try}
 
+/** Command to check for data freshness.
+  *
+  * Usage: starlake freshness [options]
+  */
 object FreshnessExtractCmd extends TablesExtractCmd {
   override def command: String = "freshness"
 

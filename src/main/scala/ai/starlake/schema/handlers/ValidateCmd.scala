@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.{Failure, Success, Try}
 
+/** Command to validate the project and connections.
+  *
+  * Usage: starlake validate [options]
+  */
 object ValidateCmd extends Cmd[ValidateConfig] {
 
   val command = "validate"

@@ -7,6 +7,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to check the validity of the project (deprecated? see ValidateCmd).
+  *
+  * Usage: starlake validate [options]
+  */
 trait CheckValidityCmd extends Cmd[CheckValidityCommand] {
 
   def command = "validate"

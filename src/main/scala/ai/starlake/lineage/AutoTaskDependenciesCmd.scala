@@ -9,6 +9,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to generate task dependencies graph (lineage).
+  *
+  * Usage: starlake lineage [options]
+  */
 object AutoTaskDependenciesCmd extends Cmd[AutoTaskDependenciesConfig] {
 
   val command = "lineage"

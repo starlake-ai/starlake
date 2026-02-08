@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to load data into the data warehouse.
+  *
+  * Usage: starlake load [options]
+  */
 trait LoadCmd extends Cmd[LoadConfig] {
 
   def command = "load"

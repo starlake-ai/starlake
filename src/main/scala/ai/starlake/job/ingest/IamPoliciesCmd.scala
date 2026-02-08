@@ -10,6 +10,10 @@ import scala.util.Try
 
 case class IamPoliciesConfig(accessToken: Option[String])
 
+/** Command to apply IAM policies.
+  *
+  * Usage: starlake iam-policies [options]
+  */
 object IamPoliciesCmd extends Cmd[IamPoliciesConfig] {
 
   val command = "iam-policies"

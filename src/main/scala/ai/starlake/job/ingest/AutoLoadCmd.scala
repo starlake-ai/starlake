@@ -10,6 +10,10 @@ import scopt.OParser
 
 import scala.util.{Failure, Success, Try}
 
+/** Command to automatically infer schemas and load data from the incoming directory.
+  *
+  * Usage: starlake autoload [options]
+  */
 trait AutoLoadCmd extends Cmd[AutoLoadConfig] with LazyLogging {
 
   def command = "autoload"

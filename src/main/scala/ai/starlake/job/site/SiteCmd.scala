@@ -9,6 +9,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to generate the project documentation website.
+  *
+  * Usage: starlake site [options]
+  */
 object SiteCmd extends Cmd[SiteConfig] {
 
   val command = "site"
