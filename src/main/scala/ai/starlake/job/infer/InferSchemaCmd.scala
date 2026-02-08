@@ -12,6 +12,10 @@ import scopt.OParser
 import java.nio.charset.Charset
 import scala.util.{Failure, Success, Try}
 
+/** Command to infer schema from a file.
+  *
+  * Usage: starlake infer-schema [options]
+  */
 object InferSchemaCmd extends Cmd[InferSchemaConfig] with LazyLogging {
 
   val command = "infer-schema"
@@ -69,7 +73,12 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] with LazyLogging {
         .opt[String]("encoding")
         .action((x, c) => c.copy(encoding = Charset.forName(x)))
         .optional()
-        .text("Input file encoding. Default to UTF-8")
+        .text("Input file encoding. Default to UTF-8"),
+      builder
+        .opt[Unit]("from-json-schema")
+        .action((_, c) => c.copy(fromJsonSchema = true))
+        .optional()
+        .text("Input file is a valid JSON Schema")
     )
   }
 

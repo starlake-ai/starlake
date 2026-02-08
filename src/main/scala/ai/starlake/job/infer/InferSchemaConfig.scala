@@ -35,7 +35,8 @@ case class InferSchemaConfig(
   rowTag: Option[String] = None,
   clean: Boolean = false,
   encoding: Charset = StandardCharsets.UTF_8,
-  variant: Option[Boolean] = None
+  variant: Option[Boolean] = None,
+  fromJsonSchema: Boolean = false
 ) {
   def extractTableNameAndWriteMode(): (String, WriteMode) = {
     val file: File = File(inputPath)

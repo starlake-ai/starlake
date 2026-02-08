@@ -819,7 +819,8 @@ class IngestionWorkflow(
       rowTag = config.rowTag,
       clean = config.clean,
       encoding = config.encoding,
-      variant = config.variant.getOrElse(false)
+      variant = config.variant.getOrElse(false),
+      fromJsonSchema = config.fromJsonSchema
     )(settings.storageHandler())
     Utils.logFailure(result, logger)
     result
