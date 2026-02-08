@@ -9,6 +9,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to load data into Elasticsearch.
+  *
+  * Usage: starlake esload [options]
+  */
 trait ESLoadCmd extends Cmd[ESLoadConfig] {
 
   def command = "esload"

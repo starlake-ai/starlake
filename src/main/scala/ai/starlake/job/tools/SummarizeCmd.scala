@@ -9,6 +9,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to display table summary.
+  *
+  * Usage: starlake summarize [options]
+  */
 trait SummarizeCmd extends Cmd[SummarizeConfig] {
 
   def command = "summarize"

@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to run the Starlake server.
+  *
+  * Usage: starlake serve [options]
+  */
 object MainServerCmd extends Cmd[MainServerConfig] {
   override def command: String = "serve"
 

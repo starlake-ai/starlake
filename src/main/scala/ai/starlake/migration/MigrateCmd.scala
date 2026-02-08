@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to migrate the project to the latest version.
+  *
+  * Usage: starlake migrate [options]
+  */
 object MigrateCmd extends Cmd[MigrateConfig] {
 
   override def command: String = "migrate"

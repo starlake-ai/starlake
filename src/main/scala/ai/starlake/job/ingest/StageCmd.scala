@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to move files from landing to pending area.
+  *
+  * Usage: starlake stage [options]
+  */
 object StageCmd extends Cmd[StageConfig] {
 
   val command = "stage"

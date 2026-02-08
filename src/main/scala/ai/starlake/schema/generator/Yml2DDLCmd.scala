@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to generate DDL from YML.
+  *
+  * Usage: starlake yml2ddl [options]
+  */
 object Yml2DDLCmd extends Cmd[Yml2DDLConfig] {
 
   val command = "yml2ddl"

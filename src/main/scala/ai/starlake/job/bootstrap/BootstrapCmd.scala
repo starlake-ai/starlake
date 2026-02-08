@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.{Success, Try}
 
+/** Command to create a new project optionally based on a specific template.
+  *
+  * Usage: starlake bootstrap [options]
+  */
 object BootstrapCmd extends Cmd[BootstrapConfig] {
 
   override def command: String = "bootstrap"

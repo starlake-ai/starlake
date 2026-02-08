@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to compute metrics.
+  *
+  * Usage: starlake metrics [options]
+  */
 object MetricsCmd extends Cmd[MetricsConfig] {
 
   val command = "metrics"

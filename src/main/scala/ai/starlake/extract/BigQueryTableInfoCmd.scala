@@ -7,6 +7,10 @@ import ai.starlake.utils.JobResult
 
 import scala.util.Try
 
+/** Command to get table information from BigQuery.
+  *
+  * Usage: starlake bq-info [options]
+  */
 object BigQueryTableInfoCmd extends TablesExtractCmd {
 
   override def command: String = "bq-info"

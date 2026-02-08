@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to generate DAGs.
+  *
+  * Usage: starlake dag-generate [options]
+  */
 object DagGenerateCmd extends Cmd[DagGenerateConfig] {
   val command = "dag-generate"
 

@@ -12,6 +12,10 @@ import scopt.OParser
 import java.sql.{DriverManager, SQLException}
 import scala.util.{Failure, Success, Try}
 
+/** Command to load parquet file into a JDBC Table.
+  *
+  * Usage: starlake cnxload [options]
+  */
 object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
 
   val command = "cnxload"

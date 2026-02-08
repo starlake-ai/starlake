@@ -10,6 +10,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to convert parquet files to CSV.
+  *
+  * Usage: starlake parquet2csv [options]
+  */
 object Parquet2CSVCmd extends Cmd[Parquet2CSVConfig] {
 
   val command = "parquet2csv"

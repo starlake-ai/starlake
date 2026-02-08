@@ -9,6 +9,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to extract data from a database.
+  *
+  * Usage: starlake extract-data [options]
+  */
 trait ExtractDataCmd extends Cmd[UserExtractDataConfig] {
 
   val command = "extract-data"

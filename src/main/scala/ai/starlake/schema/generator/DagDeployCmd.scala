@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to deploy DAGs.
+  *
+  * Usage: starlake dag-deploy [options]
+  */
 object DagDeployCmd extends Cmd[DagDeployConfig] {
   val command = "dag-deploy"
 

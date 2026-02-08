@@ -9,6 +9,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to generate column lineage.
+  *
+  * Usage: starlake col-lineage [options]
+  */
 object ColLineageCmd extends Cmd[ColLineageConfig] {
 
   val command = "col-lineage"

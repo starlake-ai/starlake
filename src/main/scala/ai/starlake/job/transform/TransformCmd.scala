@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to run a transformation task.
+  *
+  * Usage: starlake transform [options]
+  */
 trait TransformCmd extends Cmd[TransformConfig] {
 
   def command = "transform"

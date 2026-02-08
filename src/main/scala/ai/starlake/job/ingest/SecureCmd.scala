@@ -6,6 +6,10 @@ import ai.starlake.utils.JobResult
 
 import scala.util.Try
 
+/** Command to apply security policies (RLS/CLS).
+  *
+  * Usage: starlake secure [options]
+  */
 object SecureCmd extends LoadCmd {
   override def command = "secure"
 

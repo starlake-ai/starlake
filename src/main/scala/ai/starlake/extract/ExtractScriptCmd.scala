@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.{Success, Try}
 
+/** Command to generate extraction scripts from a template.
+  *
+  * Usage: starlake extract-script [options]
+  */
 object ExtractScriptCmd extends Cmd[ExtractScriptConfig] {
   val command = "extract-script"
 

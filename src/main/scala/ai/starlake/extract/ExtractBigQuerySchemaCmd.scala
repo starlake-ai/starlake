@@ -7,6 +7,10 @@ import ai.starlake.utils.JobResult
 
 import scala.util.Try
 
+/** Command to extract schema from BigQuery.
+  *
+  * Usage: starlake extract-bq-schema [options]
+  */
 object ExtractBigQuerySchemaCmd extends TablesExtractCmd {
   override def command: String = "extract-bq-schema"
   def fromExtractSchemaConfig(

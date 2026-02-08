@@ -9,6 +9,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to generate ACL dependencies graph.
+  *
+  * Usage: starlake acl-dependencies [options]
+  */
 object AclDependenciesCmd extends Cmd[AclDependenciesConfig] {
 
   val command = "acl-dependencies"

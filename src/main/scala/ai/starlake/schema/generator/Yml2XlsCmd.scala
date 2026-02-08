@@ -8,6 +8,10 @@ import scopt.OParser
 
 import scala.util.Try
 
+/** Command to convert YML to XLS.
+  *
+  * Usage: starlake yml2xls [options]
+  */
 trait Yml2XlsCmd extends Cmd[Yml2XlsConfig] {
 
   override def command: String = "yml2xls"
