@@ -27,6 +27,8 @@ import ai.starlake.schema.model._
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
+import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 import java.io.BufferedReader
@@ -278,7 +280,8 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
     rowTag: Option[String],
     clean: Boolean,
     encoding: Charset,
-    variant: Boolean = false
+    variant: Boolean = false,
+    fromJsonSchema: Boolean = false
   )(implicit storageHandler: StorageHandler): Try[Path] = {
     Try {
       val path = new Path(inputPath)
@@ -318,6 +321,18 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
           }
           val metadata = InferSchemaHandler.createMetaData(Format.POSITION, encoding)
 
+          InferSchemaHandler.createSchema(
+            tableName,
+            Pattern.compile(pattern.getOrElse(InferSchemaJob.inferPattern(path.getName))),
+            comment,
+            attributes,
+            Some(metadata),
+            None
+          )
+
+        case _ if fromJsonSchema =>
+          val attributes = inferJsonSchema(inputPath, encoding)
+          val metadata = InferSchemaHandler.createMetaData(Format.JSON, encoding)
           InferSchemaHandler.createSchema(
             tableName,
             Pattern.compile(pattern.getOrElse(InferSchemaJob.inferPattern(path.getName))),
@@ -451,6 +466,92 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
 
       InferSchemaHandler.generateYaml(domain, saveDir, clean)
     }.flatten
+  }
+
+  private def inferJsonSchema(inputPath: String, encoding: Charset): List[TableAttribute] = {
+    val content = File(inputPath).contentAsString(encoding)
+    val objectMapper = new ObjectMapper()
+    objectMapper.registerModule(DefaultScalaModule)
+    val rootNode = objectMapper.readTree(content)
+    val propertiesNode = if (rootNode.has("properties")) rootNode.get("properties") else rootNode
+    val requiredNode = if (rootNode.has("required")) rootNode.get("required") else null
+    val requiredFields =
+      if (requiredNode != null && requiredNode.isArray) {
+        import scala.jdk.CollectionConverters._
+        requiredNode.elements().asScala.map(_.asText()).toSet
+      } else Set.empty[String]
+
+    parseJsonSchema(propertiesNode, requiredFields)
+  }
+
+  private def parseJsonSchema(
+    jsonNode: JsonNode,
+    requiredFields: Set[String]
+  ): List[TableAttribute] = {
+    import scala.jdk.CollectionConverters._
+    if (jsonNode.isObject) {
+      jsonNode
+        .fields()
+        .asScala
+        .map { entry =>
+          val name = entry.getKey
+          val node = entry.getValue
+          val typeNode = node.get("type")
+          val typeStr = if (typeNode != null) {
+            if (typeNode.isArray) typeNode.get(0).asText().toLowerCase
+            else typeNode.asText().toLowerCase
+          } else "string"
+
+          val (tpe, subAttributes, isArray) = typeStr match {
+            case "object" =>
+              val properties = if (node.has("properties")) node.get("properties") else node
+              val requiredNode = if (node.has("required")) node.get("required") else null
+              val subRequiredFields =
+                if (requiredNode != null && requiredNode.isArray) {
+                  requiredNode.elements().asScala.map(_.asText()).toSet
+                } else Set.empty[String]
+              ("struct", parseJsonSchema(properties, subRequiredFields), false)
+            case "array" =>
+              val items = node.get("items")
+              val itemType =
+                if (items != null && items.has("type")) items.get("type").asText().toLowerCase
+                else "string"
+              if (itemType == "object") {
+                val properties = if (items.has("properties")) items.get("properties") else items
+                val requiredNode = if (items.has("required")) items.get("required") else null
+                val subRequiredFields =
+                  if (requiredNode != null && requiredNode.isArray) {
+                    requiredNode.elements().asScala.map(_.asText()).toSet
+                  } else Set.empty[String]
+                ("struct", parseJsonSchema(properties, subRequiredFields), true)
+              } else {
+                val primitiveType = itemType match {
+                  case "integer" => "long"
+                  case "number"  => "double"
+                  case "boolean" => "boolean"
+                  case _         => "string"
+                }
+                (primitiveType, Nil, true)
+              }
+            case "integer" => ("long", Nil, false)
+            case "number"  => ("double", Nil, false)
+            case "boolean" => ("boolean", Nil, false)
+            case _         => ("string", Nil, false)
+          }
+
+          val required = requiredFields.contains(name)
+          TableAttribute(
+            name = name,
+            `type` = tpe,
+            array = Some(isArray),
+            required = Some(required),
+            attributes = subAttributes
+          )
+        }
+        .toList
+    } else {
+      Nil
+    }
   }
 }
 
