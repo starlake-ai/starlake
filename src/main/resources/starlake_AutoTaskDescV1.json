@@ -1,0 +1,580 @@
+{
+  "definitions": {
+    "ExpectationItemV1": {
+      "type": "object",
+      "properties": {
+        "expect": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "SQL expression that must evaluate to true for the expectation to pass. Use {{table}} to reference the output table"
+        },
+        "failOnError": {
+          "description": "should load / transform fail on expectation error ?",
+          "type": "boolean"
+        }
+      }
+    },
+    "FreshnessV1": {
+      "type": "object",
+      "properties": {
+        "warn": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "How old may be the data before a warning is raised. Use syntax like '3 day' or '2 hour' or '30 minute'"
+        },
+        "error": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "How old may be the data before an error is raised. Use syntax like '3 day' or '2 hour' or '30 minute'"
+        }
+      }
+    },
+    "AttributeV1": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Attribute name as defined in the source dataset and as received in the file"
+        },
+        "type": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Semantic type of the attribute. Can be a primitive type (string, long, int, double, boolean, date, timestamp, decimal) or a custom type defined in types.sl.yml. Default is 'string'"
+        },
+        "array": {
+          "type": "boolean",
+          "description": "Is this attribute an array/list of values? Default is false"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Should this attribute always be present in the source. Default to true."
+        },
+        "privacy": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Should this attribute be applied a privacy transformation at ingestion time"
+        },
+        "comment": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Column description that will be stored as column comment in the target database"
+        },
+        "rename": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "If present, the attribute is renamed with this name"
+        },
+        "sample": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Sample data for this attribute"
+        },
+        "metricType": {
+          "$ref": "#/definitions/MetricTypeV1",
+          "description": "If present, what kind of stat should be computed for this field"
+        },
+        "attributes": {
+          "type": "array",
+          "description": "List of sub-attributes (valid for JSON and XML files only)",
+          "items": {
+            "$ref": "#/definitions/AttributeV1"
+          }
+        },
+        "position": {
+          "$ref": "#/definitions/PositionV1"
+        },
+        "default": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Default value for this attribute when it is not present."
+        },
+        "tags": {
+          "type": "array",
+          "description": "Tags associated with this attribute",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          }
+        },
+        "trim": {
+          "$ref": "#/definitions/TrimV1"
+        },
+        "script": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Scripted field : SQL request on renamed column"
+        },
+        "foreignKey": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "If this attribute is a foreign key, reference to [domain.]table[.attribute]"
+        },
+        "ignore": {
+          "type": "boolean",
+          "description": "Should this attribute be ignored on ingestion. Default to false"
+        },
+        "accessPolicy": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Policy tag to assign to this attribute. Used for column level security"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "WriteStrategyV1": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/OpenWriteStrategyTypeV1",
+          "description": "Write strategy type: OVERWRITE, APPEND, UPSERT_BY_KEY, UPSERT_BY_KEY_AND_TIMESTAMP, DELETE_THEN_INSERT, SCD2, or OVERWRITE_BY_PARTITION"
+        },
+        "types": {
+          "type": "object",
+          "description": "Map of connection type to write strategy. Allows different strategies per target database",
+          "additionalProperties": {
+            "$ref": "#/definitions/OpenWriteStrategyTypeV1"
+          }
+        },
+        "key": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          },
+          "description": "List of columns to use as key(s) for the target table.\n  This is used to update existing records in the target table."
+        },
+        "timestamp": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "timestamp column to use for the target table.\n This is used to update existing records in the target table by strategies UPSERT_BY_KEY_AND_TIMESTAMP and SCD2."
+        },
+        "queryFilter": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "SQL WHERE clause filter applied when reading from the target table during merge operations"
+        },
+        "on": {
+          "$ref": "#/definitions/MergeOnV1",
+          "description": "Merge strategy: TARGET or SOURCE_AND_TARGET.\n  TARGET means that the merge operation will be applied on the target table only.\n  SOURCE_AND_TARGET means that the merge operation will be applied on the incoming source data and target tables."
+        },
+        "startTs": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "column name to use for the start timestamp.\n This is used to update existing records in the target table by strategy SCD2."
+        },
+        "endTs": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "column name to use for the end timestamp.\n This is used to update existing records in the target table by strategy SCD2."
+        }
+      }
+    },
+    "AccessControlEntryV1": {
+      "description": "Column level security policy to apply to the attribute.",
+      "type": "object",
+      "properties": {
+        "role": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "This role to give to the granted users"
+        },
+        "grants": {
+          "description": "user / groups / service accounts to which this security level is applied.\nex : user:me@mycompany.com,group:group@mycompany.com,serviceAccount:mysa@google-accounts.com",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          }
+        },
+        "name": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "This Access Control Entry unique name"
+        }
+      },
+      "required": [
+        "role",
+        "grants"
+      ]
+    },
+    "ConvertibleToString": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "AllSinksV1": {
+      "type": "object",
+      "properties": {
+        "connectionRef": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "JDBC: Connection String"
+        },
+        "clustering": {
+          "description": "FS or BQ: List of attributes to use for clustering",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          }
+        },
+        "days": {
+          "type": "number",
+          "description": "BQ: Number of days before this table is set as expired and deleted. Never by default."
+        },
+        "requirePartitionFilter": {
+          "type": "boolean",
+          "description": "BQ: Should be require a partition filter on every request ? No by default."
+        },
+        "materializedView": {
+          "$ref": "#/definitions/Materialization",
+          "description": "Should we materialize as a table or as a view when saving the results ? TABLE by default."
+        },
+        "enableRefresh": {
+          "type": "boolean",
+          "description": "BQ: Enable automatic refresh of materialized view ? false by default."
+        },
+        "refreshIntervalMs": {
+          "type": "number",
+          "description": "BQ: Refresh interval in milliseconds. Default to BigQuery default value"
+        },
+        "id": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "ES: Attribute to use as id of the document. Generated by Elasticsearch if not specified."
+        },
+        "format": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "FS: File format"
+        },
+        "extension": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "FS: File extension"
+        },
+        "sharding": {
+          "description": "columns to use for sharding. table will be named table_{sharding(0)}_{sharding(1)}",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          }
+        },
+        "partition": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "FS or BQ: List of partition attributes"
+        },
+        "coalesce": {
+          "type": "boolean",
+          "description": "When outputting files, should we coalesce it to a single file. Useful when CSV is the output format."
+        },
+        "path": {
+          "type": "string",
+          "description": "Optional path attribute if you want to save the file outside of the default location (datasets folder)"
+        },
+        "options": {
+          "$ref": "#/definitions/MapString",
+          "description": "Additional Spark writer options (e.g., compression, partitionOverwriteMode)"
+        }
+      }
+    },
+    "TableSync": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Should this YAML table schema be synchronized with the source table ?",
+      "oneOf": [
+        {
+          "const": "NONE",
+          "description": "Do not synchronize this table schema with the source table"
+        },
+        {
+          "const": "ADD",
+          "description": "Add missing attributes to the table schema, but do not remove any existing attributes"
+        },
+        {
+          "const": "ALL",
+          "description": "Synchronize this table schema with the source table, removing any attributes that are not present in the source table and adding any missing attributes"
+        }
+      ]
+    },
+    "RowLevelSecurityV1": {
+      "description": "Row level security policy to apply to the output data.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "This Row Level Security unique name"
+        },
+        "predicate": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "The condition that goes to the WHERE clause and limit the visible rows."
+        },
+        "grants": {
+          "description": "user / groups / service accounts to which this security level is applied.\nex : user:me@mycompany.com,group:group@mycompany.com,serviceAccount:mysa@google-accounts.com",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          }
+        },
+        "description": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Description for this access policy"
+        }
+      },
+      "required": [
+        "name",
+        "grants"
+      ]
+    },
+    "PositionV1": {
+      "description": "First and last char positions of an attribute in a fixed length record",
+      "type": "object",
+      "properties": {
+        "first": {
+          "type": "number",
+          "description": "Zero based position of the first character for this attribute"
+        },
+        "last": {
+          "type": "number",
+          "description": "Zero based position of the last character to include in this attribute"
+        }
+      },
+      "required": [
+        "first",
+        "last"
+      ]
+    },
+    "TrimV1": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "How to trim the input string",
+      "oneOf": [
+        {
+          "const": "LEFT",
+          "description": "Remove all leading space chars from the input"
+        },
+        {
+          "const": "RIGHT",
+          "description": "Remove all trailing spaces from the input"
+        },
+        {
+          "const": "BOTH",
+          "description": "Remove all leading and trailing spaces from the input"
+        },
+        {
+          "const": "NONE",
+          "description": "Do not remove leading or trailing spaces from the input"
+        }
+      ]
+    },
+    "MetricTypeV1": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Used to compute metrics on column values.",
+      "oneOf": [
+        {
+          "const": "DISCRETE",
+          "description": "Compute metrics for categorical/discrete values: count, distinct count, frequency distribution"
+        },
+        {
+          "const": "CONTINUOUS",
+          "description": "Compute metrics for numeric/continuous values: min, max, mean, median, standard deviation, percentiles"
+        },
+        {
+          "const": "TEXT",
+          "description": "Compute metrics for text values: min/max length, pattern analysis, null ratio"
+        },
+        {
+          "const": "NONE",
+          "description": "Do not compute any metrics for this column"
+        }
+      ]
+    },
+    "MergeOnV1": {
+      "oneOf": [
+        {
+          "const": "TARGET",
+          "description": "Merge operation will be applied on the target table only but not on the incoming data"
+        },
+        {
+          "const": "SOURCE_AND_TARGET",
+          "description": "Merge operation will be applied on the incoming source data and target tables"
+        }
+      ]
+    },
+    "OpenWriteStrategyTypeV1": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Write strategy type including custom strategies. Allows predefined strategies or custom strategy names",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/WriteStrategyTypeBase"
+        },
+        {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Any valid table types",
+          "not": {
+            "$ref": "#/definitions/WriteStrategyTypeBase"
+          }
+        }
+      ]
+    },
+    "Materialization": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Table types supported by the Sink option",
+      "oneOf": [
+        {
+          "const": "TABLE",
+          "description": "SQL Table"
+        },
+        {
+          "const": "VIEW",
+          "description": "SQL View"
+        },
+        {
+          "const": "MATERIALIZED_VIEW",
+          "description": "SQL Materialized View"
+        },
+        {
+          "const": "HYBRID",
+          "description": "Snowflake OLTP tables"
+        }
+      ]
+    },
+    "MapString": {
+      "type": "object",
+      "description": "Map of string",
+      "additionalProperties": {
+        "$ref": "#/definitions/ConvertibleToString"
+      }
+    }
+  },
+  "properties": {
+    "name": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Task name. If not specified, defaults to the filename without extension"
+    },
+    "sql": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Main SQL request to execute (do not forget to prefix table names with the database name to avoid conflicts)"
+    },
+    "streams": {
+      "type": "array",
+      "description": "attach streams to task (Snowflake only)",
+      "items": {
+        "$ref": "#/definitions/ConvertibleToString"
+      }
+    },
+    "primaryKey": {
+      "type": "array",
+      "description": "List of columns that make up the primary key for the output table",
+      "items": {
+        "$ref": "#/definitions/ConvertibleToString"
+      }
+    },
+    "database": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Output Database (refer to a project id in BigQuery). Default to SL_DATABASE env var if set."
+    },
+    "domain": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Output domain in output Area (Will be the Database name in Hive or Dataset in BigQuery)"
+    },
+    "table": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Dataset Name in output Area (Will be the Table name in Hive & BigQuery)"
+    },
+    "partition": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ConvertibleToString"
+      },
+      "description": "List of columns used for partitioning the output."
+    },
+    "presql": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ConvertibleToString"
+      },
+      "description": "List of SQL requests to executed before the main SQL request is run"
+    },
+    "postsql": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ConvertibleToString"
+      },
+      "description": "List of SQL requests to executed after the main SQL request is run"
+    },
+    "sink": {
+      "$ref": "#/definitions/AllSinksV1"
+    },
+    "rls": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/RowLevelSecurityV1"
+      }
+    },
+    "expectations": {
+      "description": "Expectations to check after Load / Transform has succeeded",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ExpectationItemV1"
+      }
+    },
+    "acl": {
+      "description": "Map of rolename -> List[Users].",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/AccessControlEntryV1"
+      }
+    },
+    "comment": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Output table description"
+    },
+    "freshness": {
+      "$ref": "#/definitions/FreshnessV1",
+      "description": "Configure freshness checks on the output table"
+    },
+    "attributes": {
+      "description": "Attributes",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/AttributeV1"
+      }
+    },
+    "python": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Python script URI to execute instead of the SQL request"
+    },
+    "tags": {
+      "description": "Set of string to attach to the output table",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ConvertibleToString"
+      }
+    },
+    "writeStrategy": {
+      "$ref": "#/definitions/WriteStrategyV1",
+      "description": "Write strategy to use when writing the data. Default is APPEND"
+    },
+    "schedule": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Cron expression to use for this task"
+    },
+    "dagRef": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Cron expression to use for this domain/table"
+    },
+    "taskTimeoutMs": {
+      "type": "integer",
+      "description": "Number of milliseconds before a communication timeout."
+    },
+    "parseSQL": {
+      "type": "boolean",
+      "description": "Should we parse this SQL make it update the table according to write strategy or just execute it ?"
+    },
+    "connectionRef": {
+      "type": "string",
+      "description": "Used when the default connection ref present in the application.sl.yml file is not the one to use to run the SQL request for this task."
+    },
+    "syncStrategy": {
+      "$ref": "#/definitions/TableSync",
+      "description": "Schema synchronization strategy: NONE (no sync), ADD (add missing columns), or ALL (full sync with source)"
+    },
+    "dataset_triggering_strategy": {
+      "type": "string",
+      "description": "Dataset triggering strategy to determine when this task should be executed based on dataset changes: & and | operators are allowed (dataset1 & dataset2) | dataset3"
+    }
+  },
+  "required": []
+}

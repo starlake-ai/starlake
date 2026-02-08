@@ -1,0 +1,25 @@
+{
+  "definitions": {
+    "ConvertibleToString": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "properties": {},
+  "required": []
+}

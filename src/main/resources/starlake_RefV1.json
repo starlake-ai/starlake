@@ -1,0 +1,81 @@
+{
+  "definitions": {
+    "InputRefV1": {
+      "description": "Input for ref object",
+      "type": "object",
+      "properties": {
+        "database": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Database pattern to match, none if any database"
+        },
+        "domain": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Domain pattern to match, none if any domain match"
+        },
+        "table": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Table pattern to match"
+        }
+      },
+      "required": [
+        "table"
+      ]
+    },
+    "OutputRefV1": {
+      "description": "Output for ref object",
+      "type": "object",
+      "properties": {
+        "database": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Target database name for the resolved reference"
+        },
+        "domain": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Target domain/dataset name for the resolved reference"
+        },
+        "table": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Target table name for the resolved reference"
+        }
+      },
+      "required": [
+        "table",
+        "domain",
+        "database"
+      ]
+    },
+    "ConvertibleToString": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "input": {
+      "$ref": "#/definitions/InputRefV1",
+      "description": "The input table to resolve"
+    },
+    "output": {
+      "$ref": "#/definitions/OutputRefV1",
+      "description": "The output table resolved with the domain and database"
+    }
+  },
+  "required": [
+    "input",
+    "output"
+  ]
+}

@@ -70,7 +70,7 @@ def extract_schema_properties(schema: dict, keys: list, output_folder: str):
 STARLAKE_JSON_FOLDER = os.getenv("SL_ASK_STARLAKE_JSON_FOLDER")
 if STARLAKE_JSON_FOLDER is None:
     # set to current directory / resources
-    STARLAKE_JSON_FOLDER = os.path.join(os.getcwd(), "resources")
+    STARLAKE_JSON_FOLDER = os.path.join(os.getcwd(), "src/main/resources")
 
 STARLAKE_JSON_FILE = f"{STARLAKE_JSON_FOLDER}/starlake.json"
 
