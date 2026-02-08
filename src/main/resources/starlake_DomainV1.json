@@ -1,0 +1,379 @@
+{
+  "definitions": {
+    "ConvertibleToString": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "MetadataV1": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "$ref": "#/definitions/FormatV1"
+        },
+        "encoding": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "UTF-8 if not specified."
+        },
+        "multiline": {
+          "type": "boolean",
+          "description": "are json objects on a single line or multiple line ? Single by default.  false means single. false also means faster"
+        },
+        "array": {
+          "type": "boolean",
+          "description": "Is the json stored as a single object array ? false by default. This means that by default we have on json document per line."
+        },
+        "withHeader": {
+          "type": "boolean",
+          "description": "does the dataset has a header ? true by default"
+        },
+        "separator": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "the values delimiter,  ';' by default value may be a multichar string starting from Spark3"
+        },
+        "quote": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "The String quote char, '\"' by default"
+        },
+        "escape": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "escaping char '\\' by default"
+        },
+        "sink": {
+          "$ref": "#/definitions/AllSinksV1"
+        },
+        "directory": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Folder on the local filesystem where incoming files are stored.\n Typically, this folder will be scanned periodically to move the dataset to the cluster for ingestion.\n                     Files located in this folder are moved to the stage folder for ingestion by the \"import\" command."
+        },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          },
+          "description": "recognized filename extensions. json, csv, dsv, psv are recognized by default.\nOnly files with these extensions will be moved to the stage folder."
+        },
+        "ack": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Ack extension used for each file. \".ack\" if not specified.\nFiles are moved to the stage folder only once a file with the same name as the source file and with this extension is present.\nTo move a file without requiring an ack file to be present, set explicitly this property to the empty string value \"\"."
+        },
+        "options": {
+          "$ref": "#/definitions/MapString",
+          "description": "Options to add to the spark reader"
+        },
+        "loader": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Loader to use, 'spark' or 'native'. Default to 'spark' of SL_LOADER env variable is set to 'native'"
+        },
+        "emptyIsNull": {
+          "description": "Treat empty columns as null in DSV files. Default to false",
+          "type": "boolean"
+        },
+        "dagRef": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Cron expression to use for this domain/table"
+        },
+        "freshness": {
+          "$ref": "#/definitions/FreshnessV1",
+          "description": "Configure freshness checks on this dataset"
+        },
+        "nullValue": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Treat a specific input string as a null value indicator"
+        },
+        "schedule": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Cron expression to use for this domain/table"
+        },
+        "writeStrategy": {
+          "$ref": "#/definitions/WriteStrategyV1",
+          "description": "Write strategy to use when writing the data. Default is APPEND"
+        }
+      }
+    },
+    "FreshnessV1": {
+      "type": "object",
+      "properties": {
+        "warn": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "How old may be the data before a warning is raised. Use syntax like '3 day' or '2 hour' or '30 minute'"
+        },
+        "error": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "How old may be the data before an error is raised. Use syntax like '3 day' or '2 hour' or '30 minute'"
+        }
+      }
+    },
+    "AllSinksV1": {
+      "type": "object",
+      "properties": {
+        "connectionRef": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "JDBC: Connection String"
+        },
+        "clustering": {
+          "description": "FS or BQ: List of attributes to use for clustering",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          }
+        },
+        "days": {
+          "type": "number",
+          "description": "BQ: Number of days before this table is set as expired and deleted. Never by default."
+        },
+        "requirePartitionFilter": {
+          "type": "boolean",
+          "description": "BQ: Should be require a partition filter on every request ? No by default."
+        },
+        "materializedView": {
+          "$ref": "#/definitions/Materialization",
+          "description": "Should we materialize as a table or as a view when saving the results ? TABLE by default."
+        },
+        "enableRefresh": {
+          "type": "boolean",
+          "description": "BQ: Enable automatic refresh of materialized view ? false by default."
+        },
+        "refreshIntervalMs": {
+          "type": "number",
+          "description": "BQ: Refresh interval in milliseconds. Default to BigQuery default value"
+        },
+        "id": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "ES: Attribute to use as id of the document. Generated by Elasticsearch if not specified."
+        },
+        "format": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "FS: File format"
+        },
+        "extension": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "FS: File extension"
+        },
+        "sharding": {
+          "description": "columns to use for sharding. table will be named table_{sharding(0)}_{sharding(1)}",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          }
+        },
+        "partition": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "FS or BQ: List of partition attributes"
+        },
+        "coalesce": {
+          "type": "boolean",
+          "description": "When outputting files, should we coalesce it to a single file. Useful when CSV is the output format."
+        },
+        "path": {
+          "type": "string",
+          "description": "Optional path attribute if you want to save the file outside of the default location (datasets folder)"
+        },
+        "options": {
+          "$ref": "#/definitions/MapString",
+          "description": "Additional Spark writer options (e.g., compression, partitionOverwriteMode)"
+        }
+      }
+    },
+    "WriteStrategyV1": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/OpenWriteStrategyTypeV1",
+          "description": "Write strategy type: OVERWRITE, APPEND, UPSERT_BY_KEY, UPSERT_BY_KEY_AND_TIMESTAMP, DELETE_THEN_INSERT, SCD2, or OVERWRITE_BY_PARTITION"
+        },
+        "types": {
+          "type": "object",
+          "description": "Map of connection type to write strategy. Allows different strategies per target database",
+          "additionalProperties": {
+            "$ref": "#/definitions/OpenWriteStrategyTypeV1"
+          }
+        },
+        "key": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConvertibleToString"
+          },
+          "description": "List of columns to use as key(s) for the target table.\n  This is used to update existing records in the target table."
+        },
+        "timestamp": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "timestamp column to use for the target table.\n This is used to update existing records in the target table by strategies UPSERT_BY_KEY_AND_TIMESTAMP and SCD2."
+        },
+        "queryFilter": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "SQL WHERE clause filter applied when reading from the target table during merge operations"
+        },
+        "on": {
+          "$ref": "#/definitions/MergeOnV1",
+          "description": "Merge strategy: TARGET or SOURCE_AND_TARGET.\n  TARGET means that the merge operation will be applied on the target table only.\n  SOURCE_AND_TARGET means that the merge operation will be applied on the incoming source data and target tables."
+        },
+        "startTs": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "column name to use for the start timestamp.\n This is used to update existing records in the target table by strategy SCD2."
+        },
+        "endTs": {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "column name to use for the end timestamp.\n This is used to update existing records in the target table by strategy SCD2."
+        }
+      }
+    },
+    "FormatV1": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "DSV by default. Supported file formats are :\\n- DSV : Delimiter-separated values file. Delimiter value is specified in the \"separator\" field.\\n- POSITION : FIXED format file where values are located at an exact position in each line.\\n- JSON_FLAT : For optimisation purpose, we differentiate JSON with top level values from JSON\\n  with deep level fields. JSON_FLAT are JSON files with top level fields only.\\n- JSON :  Deep JSON file. Use only when your json documents contain sub-documents, otherwise prefer to\\n  use JSON_FLAT since it is much faster.\\n- XML : XML files",
+      "oneOf": [
+        {
+          "const": "DATAFRAME",
+          "description": "Loader is developer responsibility. loader attribute references a python file that returns a dataframe"
+        },
+        {
+          "const": "DSV",
+          "description": "any single or multiple character delimited file. Separator is specified in the separator field"
+        },
+        {
+          "const": "POSITION",
+          "description": "any fixed position file. Positions are specified in the position field"
+        },
+        {
+          "const": "JSON",
+          "description": "any deep json file.\nTo improve performance, prefer the JSON_FLAT format if your json documents are flat"
+        },
+        {
+          "const": "JSON_ARRAY",
+          "description": "any json file containing an array of json objects."
+        },
+        {
+          "const": "JSON_FLAT",
+          "description": "any flat json file.\nTo improve performance, prefer this format if your json documents are flat"
+        },
+        {
+          "const": "XML",
+          "description": "any xml file. Use the metadata.xml.rowTag field to specify the root tag of your xml file"
+        },
+        {
+          "const": "TEXT_XML",
+          "description": "Used for privacy jobs"
+        },
+        {
+          "const": "KAFKA",
+          "description": "Kafka topic ingestion. Configure the Kafka connection in the application settings"
+        },
+        {
+          "const": "KAFKASTREAM",
+          "description": "Kafka streaming ingestion for real-time data processing"
+        },
+        {
+          "const": "GENERIC",
+          "description": "Generic format for custom file types. Requires a custom loader implementation"
+        },
+        {
+          "const": "PARQUET",
+          "description": "Any parquet file"
+        }
+      ]
+    },
+    "MapString": {
+      "type": "object",
+      "description": "Map of string",
+      "additionalProperties": {
+        "$ref": "#/definitions/ConvertibleToString"
+      }
+    },
+    "Materialization": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Table types supported by the Sink option",
+      "oneOf": [
+        {
+          "const": "TABLE",
+          "description": "SQL Table"
+        },
+        {
+          "const": "VIEW",
+          "description": "SQL View"
+        },
+        {
+          "const": "MATERIALIZED_VIEW",
+          "description": "SQL Materialized View"
+        },
+        {
+          "const": "HYBRID",
+          "description": "Snowflake OLTP tables"
+        }
+      ]
+    },
+    "MergeOnV1": {
+      "oneOf": [
+        {
+          "const": "TARGET",
+          "description": "Merge operation will be applied on the target table only but not on the incoming data"
+        },
+        {
+          "const": "SOURCE_AND_TARGET",
+          "description": "Merge operation will be applied on the incoming source data and target tables"
+        }
+      ]
+    },
+    "OpenWriteStrategyTypeV1": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Write strategy type including custom strategies. Allows predefined strategies or custom strategy names",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/WriteStrategyTypeBase"
+        },
+        {
+          "$ref": "#/definitions/ConvertibleToString",
+          "description": "Any valid table types",
+          "not": {
+            "$ref": "#/definitions/WriteStrategyTypeBase"
+          }
+        }
+      ]
+    }
+  },
+  "properties": {
+    "name": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Domain name. Make sure you use a name that may be used as a folder name on the target storage.\n                   - When using HDFS or Cloud Storage,  files once ingested are stored in a sub-directory named after the domain name.\n                   - When used with BigQuery, files are ingested and sorted in tables under a dataset named after the domain name."
+    },
+    "metadata": {
+      "$ref": "#/definitions/MetadataV1"
+    },
+    "comment": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Domain Description (free text)"
+    },
+    "tags": {
+      "description": "Set of string to attach to this domain",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ConvertibleToString"
+      }
+    },
+    "rename": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "If present, the domain is renamed to this name in the target database"
+    },
+    "database": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Output Database (refer to a project id in BigQuery). Default to SL_DATABASE env var if set."
+    }
+  },
+  "required": []
+}

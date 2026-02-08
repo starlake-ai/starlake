@@ -1,0 +1,52 @@
+{
+  "definitions": {
+    "MapString": {
+      "type": "object",
+      "description": "Map of string",
+      "additionalProperties": {
+        "$ref": "#/definitions/ConvertibleToString"
+      }
+    },
+    "ConvertibleToString": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "comment": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Dag config description"
+    },
+    "template": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Dag template to use for this config. Usually a .py.j2 file"
+    },
+    "filename": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "{schedule}, {domain}, {table} in the file name are used for DAG generation purposes"
+    },
+    "options": {
+      "$ref": "#/definitions/MapString",
+      "description": "DAG generation options"
+    }
+  },
+  "required": [
+    "template",
+    "filename"
+  ]
+}

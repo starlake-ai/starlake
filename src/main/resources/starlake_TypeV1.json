@@ -1,0 +1,118 @@
+{
+  "definitions": {
+    "MapString": {
+      "type": "object",
+      "description": "Map of string",
+      "additionalProperties": {
+        "$ref": "#/definitions/ConvertibleToString"
+      }
+    },
+    "ConvertibleToString": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "PrimitiveTypeV1": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Define the value type",
+      "oneOf": [
+        {
+          "const": "string",
+          "description": "Any string that match the '.*' regex"
+        },
+        {
+          "const": "long",
+          "description": "Any whole number that match the '[-|+|0-9][0-9]*' regex.\nints are mapped to as 'int' in some database whereas 'longs are mapped as 'bigint' and shorts as 'smallint'"
+        },
+        {
+          "const": "int",
+          "description": "Any whole number that match the '[-|+|0-9][0-9]*' regex.\nints are mapped to as 'int' in some database whereas 'longs are mapped as 'bigint' and shorts as 'smallint'"
+        },
+        {
+          "const": "short",
+          "description": "Any whole number that match the '[-|+|0-9][0-9]*' regex.\nints are mapped to as 'int' in some database whereas 'longs are mapped as 'bigint' and shorts as 'smallint'"
+        },
+        {
+          "const": "double",
+          "description": "Any decimal number that match the '[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*' regex"
+        },
+        {
+          "const": "boolean",
+          "description": "Any string that match the '(?i)true|yes|[y1]<-TF->(?i)false|no|[n0]' regex,\nwhere the value on the left of '<-T' represent true and values on the right of 'F->' represent the false"
+        },
+        {
+          "const": "byte",
+          "description": "Any single char"
+        },
+        {
+          "const": "date",
+          "description": "Any date that match the 'yyyy-MM-dd' regex (2023-12-31)"
+        },
+        {
+          "const": "timestamp",
+          "description": "date/time that match the 'yyyy-MM-dd HH:mm:ss' regex s (2019-12-31 23:59:02).\nFor epoch timestamp, set pattern attribute to 'epoch_second' or 'epoch_milli'"
+        },
+        {
+          "const": "decimal",
+          "description": "Any floating value that match the '-?\\d*\\.{0,1}\\d+' regex"
+        },
+        {
+          "const": "variant",
+          "description": "Semi structured data type eq. JSON / XML"
+        },
+        {
+          "const": "struct",
+          "description": "Any attribute that has children. Set the array to true if this attribute is made of a list of attributes"
+        }
+      ]
+    }
+  },
+  "properties": {
+    "name": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "unique id for this type"
+    },
+    "pattern": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Regex used to validate the input field"
+    },
+    "primitiveType": {
+      "$ref": "#/definitions/PrimitiveTypeV1",
+      "description": "To what primitive type should this type be mapped.\n This is the memory representation of the type, When saving, this primitive type is mapped to the database specific type. Default: string"
+    },
+    "zone": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Context-specific parsing configuration:\n- For double: locale for decimal parsing (e.g., 'fr_FR' for comma as decimal separator)\n- For decimal: precision and scale as 'precision,scale' (e.g., '38,9')\n- For timestamp: timezone (e.g., 'UTC', 'Europe/Paris')"
+    },
+    "sample": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "This field makes sure that the pattern matches the value you want to match. This will be checked on startup"
+    },
+    "comment": {
+      "$ref": "#/definitions/ConvertibleToString",
+      "description": "Describes this type"
+    },
+    "ddlMapping": {
+      "$ref": "#/definitions/MapString",
+      "description": "Configure here the type mapping for each datawarehouse.\\nWill be used when inferring DDL from schema."
+    }
+  },
+  "required": [
+    "name",
+    "pattern"
+  ]
+}
