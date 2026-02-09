@@ -42,7 +42,6 @@ object Bootstrap extends LazyLogging {
         if (templates.length == 1) {
           Some(templates.head)
         } else {
-
           println("Please choose a template:")
           templates.zipWithIndex.foreach { case (template, index) =>
             println(s"  $index. $template")
@@ -102,6 +101,14 @@ object Bootstrap extends LazyLogging {
         // copy template files
         val bootstrapFiles = JarUtil.getResourceFiles(templatePath)
         copyToFolder(bootstrapFiles, templatePath, rootFolder)
+
+        val agentFolder = File(rootFolder, ".agent")
+        agentFolder.createDirectories()
+        val agentPath = s"templates/agent/"
+
+        // copy skill files
+        val skillFiles = JarUtil.getResourceFiles(agentPath)
+        copyToFolder(skillFiles, agentPath, agentFolder)
 
         // copy starlake.json schema file to metadata folder for IDE support
         val starlakeJsonResource = "starlake.json"
