@@ -154,12 +154,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     private static final boolean ENABLE_API = envIsTrueWithDefaultTrue("ENABLE_API");
 
-    private static final String SL_API_VERSION = getEnv("SL_API_VERSION").orElse("1.5.5-SNAPSHOT");
+    private static final String SL_API_VERSION = getEnv("SL_API_VERSION").orElse("1.5.6-SNAPSHOT");
 
     private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.13");
 
     // STARLAKE
-    private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.5.5-SNAPSHOT");
+    private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.5.6-SNAPSHOT");
 
     // SPARK
     private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.8");
