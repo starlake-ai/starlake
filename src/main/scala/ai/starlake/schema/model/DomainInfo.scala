@@ -253,13 +253,13 @@ case class DomainDesc(version: Int, load: DomainInfo)
 
   def foreignTableNames(tableNames: Seq[String]): List[String] = {
     // get tables included in tableNames
-    val tableSchemas = getTables(tableNames)
+    val tableSchemas = findTables(tableNames)
     // get all tables referenced in foreign keys
     tableSchemas
       .flatMap(_.foreignTablesForDot(this.finalName))
   }
 
-  def getTables(tableNames: Seq[String]): List[SchemaInfo] = {
+  def findTables(tableNames: Seq[String]): List[SchemaInfo] = {
     val filteredTables = tableNames.flatMap { tableName =>
       this.tables.filter { table =>
         tableNames

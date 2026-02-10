@@ -1,7 +1,7 @@
 package ai.starlake.job.infer
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.{Format, WriteMode}
+import ai.starlake.schema.model.WriteMode
 import better.files.File
 
 class InferJsonSchemaSpec extends TestHelper {
