@@ -481,12 +481,35 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
         requiredNode.elements().asScala.map(_.asText()).toSet
       } else Set.empty[String]
 
-    parseJsonSchema(propertiesNode, requiredFields)
+    parseJsonSchema(propertiesNode, requiredFields, rootNode)
+  }
+
+  private def resolveRef(node: JsonNode, rootNode: JsonNode): JsonNode = {
+    if (node.has("$ref")) {
+      val ref = node.get("$ref").asText()
+      if (ref.startsWith("#/")) {
+        val path = ref.substring(2).split("/")
+        val resolved = path.foldLeft(rootNode)((currentNode, segment) =>
+          if (currentNode != null && currentNode.has(segment)) currentNode.get(segment) else null
+        )
+        if (resolved != null) resolveRef(resolved, rootNode) else node
+      } else {
+        val defs = if (rootNode.has("$defs")) rootNode.get("$defs") else rootNode.get("definitions")
+        if (defs != null && defs.has(ref)) {
+          resolveRef(defs.get(ref), rootNode)
+        } else {
+          node
+        }
+      }
+    } else {
+      node
+    }
   }
 
   private def parseJsonSchema(
     jsonNode: JsonNode,
-    requiredFields: Set[String]
+    requiredFields: Set[String],
+    rootNode: JsonNode
   ): List[TableAttribute] = {
     import scala.jdk.CollectionConverters._
     if (jsonNode.isObject) {
@@ -495,7 +518,8 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
         .asScala
         .map { entry =>
           val name = entry.getKey
-          val node = entry.getValue
+          val rawNode = entry.getValue
+          val node = resolveRef(rawNode, rootNode)
           val typeNode = node.get("type")
           val typeStr = if (typeNode != null) {
             if (typeNode.isArray) typeNode.get(0).asText().toLowerCase
@@ -510,9 +534,10 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
                 if (requiredNode != null && requiredNode.isArray) {
                   requiredNode.elements().asScala.map(_.asText()).toSet
                 } else Set.empty[String]
-              ("struct", parseJsonSchema(properties, subRequiredFields), false)
+              ("struct", parseJsonSchema(properties, subRequiredFields, rootNode), false)
             case "array" =>
-              val items = node.get("items")
+              val rawItems = node.get("items")
+              val items = if (rawItems != null) resolveRef(rawItems, rootNode) else null
               val itemType =
                 if (items != null && items.has("type")) items.get("type").asText().toLowerCase
                 else "string"
@@ -523,7 +548,7 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
                   if (requiredNode != null && requiredNode.isArray) {
                     requiredNode.elements().asScala.map(_.asText()).toSet
                   } else Set.empty[String]
-                ("struct", parseJsonSchema(properties, subRequiredFields), true)
+                ("struct", parseJsonSchema(properties, subRequiredFields, rootNode), true)
               } else {
                 val primitiveType = itemType match {
                   case "integer" => "long"

@@ -1,0 +1,32 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "PersonWithDefs",
+    "type": "object",
+    "properties": {
+        "firstName": {
+            "type": "string"
+        },
+        "billingAddress": {
+            "$ref": "address"
+        },
+        "shippingAddress": {
+            "$ref": "#/$defs/address"
+        }
+    },
+    "$defs": {
+        "address": {
+            "type": "object",
+            "properties": {
+                "street": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "street"
+            ]
+        }
+    }
+}
