@@ -24,6 +24,7 @@ starlake infer-schema [options]
 - `--rowTag <value>`: Row tag (XML)
 - `--clean`: Delete previous YML before writing
 - `--encoding <value>`: Input file encoding
+- `--from-json-schema`: Input file is a valid JSON Schema
 
 ## Examples
 
@@ -31,4 +32,10 @@ starlake infer-schema [options]
 
 ```bash
 starlake infer-schema --domain mydomain --table mytable --input /path/to/file.csv --format DSV
+```
+
+### Infer from json schema
+
+```bash
+starlake infer-schema --domain mydomain --table mytable --input /path/to/file.json --from-json-schema
 ```
