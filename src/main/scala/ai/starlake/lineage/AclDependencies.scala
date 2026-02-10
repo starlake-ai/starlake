@@ -744,12 +744,6 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       Utils.save(configWithFinalTables.outputFile, dotStr)
   }
 
-  def aclsAsDiagramFile(config: AclDependenciesConfig) = {
-    val diagram = aclsAsDiagram(config)
-    val data = JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(diagram)
-    Utils.save(config.outputFile, data)
-  }
-
   def aclsAsDiagram(config: AclDependenciesConfig): Diagram = {
     val domains = schemaHandler.domains(reload = config.reload)
     val configWithFinalTables =
@@ -769,11 +763,14 @@ class AclDependencies(schemaHandler: SchemaHandler) extends LazyLogging {
       aclItems ++ rlsItems
 
     val allRelations = aclRels ++ rlsRelations
-
-    Diagram(
-      items = allItems.distinct,
-      relations = allRelations.distinct,
-      diagramType = "acl"
-    )
+    val diagram =
+      Diagram(
+        items = allItems.distinct,
+        relations = allRelations.distinct,
+        diagramType = "acl"
+      )
+    val data = JsonSerializer.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(diagram)
+    Utils.save(config.outputFile, data)
+    diagram
   }
 }

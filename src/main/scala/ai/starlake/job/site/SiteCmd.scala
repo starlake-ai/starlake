@@ -36,6 +36,11 @@ object SiteCmd extends Cmd[SiteConfig] {
         .opt[String]("template")
         .action((x, c) => c.copy(templateName = Some(x)))
         .text("Template name or template path to use")
+        .optional(),
+      builder
+        .opt[String]("format")
+        .action((x, c) => c.copy(format = Some(x)))
+        .text("json / docusaurus MDX")
         .optional()
     )
   }

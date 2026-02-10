@@ -2,10 +2,11 @@ package ai.starlake.job.site
 
 import ai.starlake.config.Settings
 import ai.starlake.core.utils.StringUtils
-import ai.starlake.lineage._
+import ai.starlake.lineage.*
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{AutoJobInfo, AutoTaskInfo, DomainInfo, SchemaInfo}
 import ai.starlake.sql.SQLUtils
+import ai.starlake.utils.Utils
 import better.files.File
 import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.LazyLogging
@@ -17,8 +18,95 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
     extends LazyLogging {
   def run(): Try[Unit] = Try {
     config.outputPath.createDirectoryIfNotExists()
-    buildDomains(config)
-    buildJobs(config)
+    // config.outputPath.delete(swallowIOExceptions = true)
+
+    if (config.format.getOrElse("docusaurus").toLowerCase() != "json") {
+      logger.info(
+        s"Generating site in ${config.outputPath.pathAsString} using template ${config.templateName}"
+      )
+      buildDomains(config)
+      buildJobs(config)
+    } else {
+      logger.info(s"Generating site in ${config.outputPath.pathAsString} in JSON format")
+      val mapper = Utils.newJsonMapper().writerWithDefaultPrettyPrinter()
+      val domains = schemaHandler.domains(reload = true)
+      val tablesDir = File(config.outputPath, "tables")
+      tablesDir.createDirectoryIfNotExists()
+      mapper.writeValue(
+        File(tablesDir, "domains.json").toJava,
+        domains
+      )
+      domains.foreach { domain =>
+        domain.tables.foreach { table =>
+          mapper.writeValue(
+            File(tablesDir, s"${domain.finalName}.${table.finalName}.json").toJava,
+            table
+          )
+        }
+      }
+      val tablesAclDir = File(config.outputPath, "table-acls")
+      tablesAclDir.createDirectoryIfNotExists()
+      domains.foreach { domain =>
+        domain.tables.foreach { table =>
+          new AclDependencies(schemaHandler).aclsAsDiagram(
+            AclDependenciesConfig(
+              tables = List(s"${domain.finalName}.${table.finalName}"),
+              outputFile =
+                Some(File(tablesAclDir, s"${domain.finalName}.${table.finalName}-acl.json")),
+              json = true,
+              all = true
+            )
+          )
+        }
+      }
+
+      val tablesRelationsDir = File(config.outputPath, "table-relations")
+      tablesRelationsDir.createDirectoryIfNotExists()
+      domains.foreach { domain =>
+        domain.tables.foreach { table =>
+          new TableDependencies(schemaHandler).relationsAsDiagram(
+            TableDependenciesConfig(
+              tables = Some(List(s"${domain.finalName}.${table.finalName}")),
+              outputFile = Some(
+                File(tablesRelationsDir, s"${domain.finalName}.${table.finalName}-relations.json")
+              ),
+              json = true
+            )
+          )
+        }
+      }
+
+      val jobs = schemaHandler.jobs(reload = true)
+      val tasksDir = File(config.outputPath, "tasks")
+      tasksDir.createDirectoryIfNotExists()
+      mapper.writeValue(
+        File(tasksDir, "tasks.json").toJava,
+        jobs.map(j => j.copy(tasks = Nil))
+      )
+      jobs.foreach { job =>
+        job.tasks.foreach { task =>
+          mapper.writeValue(
+            File(tasksDir, s"${job.name}.${task.name}.json").toJava,
+            task
+          )
+        }
+      }
+
+      val tasksLineageDir = File(config.outputPath, "tasks-lineage")
+      tasksLineageDir.createDirectoryIfNotExists()
+      jobs.foreach { job =>
+        job.tasks.foreach { task =>
+          val lineage = new ColLineage(settings, schemaHandler).colLineage(
+            ColLineageConfig(task = task.fullName())
+          )
+          mapper.writeValue(
+            File(tasksLineageDir, s"${task.fullName()}-lineage.json").toJava,
+            lineage
+          )
+        }
+      }
+
+    }
   }
 
   def buildDomains(config: SiteConfig) = {

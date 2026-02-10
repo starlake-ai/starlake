@@ -2,14 +2,33 @@ package ai.starlake.lineage
 
 import better.files.File
 
+/** @param all
+  *   Include all tables in the dot file ? All by default
+  * @param includeAllAttributes
+  *   Include all attributes in the output
+  * @param json
+  *   JSON output
+  * @param outputFile
+  *   Where to save the generated dot file ? Output to the console by default
+  * @param png
+  *   Generate PNG
+  * @param related
+  *   Include only entities with relations
+  * @param reload
+  *   Reload domains first
+  * @param svg
+  *   Generate SVG
+  * @param tables
+  *   Which tables should we include in the dot file ?
+  */
 case class TableDependenciesConfig(
+  all: Boolean = true,
   includeAllAttributes: Boolean = true,
-  related: Boolean = false,
+  json: Boolean = false,
   outputFile: Option[File] = None,
-  tables: Option[Seq[String]] = None,
+  png: Boolean = false,
+  related: Boolean = false,
   reload: Boolean = false,
   svg: Boolean = false,
-  png: Boolean = false,
-  all: Boolean = true,
-  json: Boolean = false
+  tables: Option[Seq[String]] = None
 )

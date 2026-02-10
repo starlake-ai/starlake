@@ -100,7 +100,7 @@ object AclDependenciesCmd extends Cmd[AclDependenciesConfig] {
     Try {
       val aclDeps = new AclDependencies(schemaHandler)
       if (config.json)
-        aclDeps.aclsAsDiagramFile(config)
+        aclDeps.aclsAsDiagram(config)
       else
         aclDeps.aclsAsDotFile(config)
     }.map(_ => JobResult.empty)

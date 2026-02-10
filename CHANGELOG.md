@@ -1,6 +1,12 @@
 
 # Release notes
 
+# 1.5.6:
+__Improvement__:
+- add support for inferring starlake schema from json schema file
+- add agent skills
+- generate documentation as static HTML files in metadata/.build/docs folder
+
 # 1.5.3:
 __Improvement__:
 - handle jsonSchema type in openapi schema extraction
