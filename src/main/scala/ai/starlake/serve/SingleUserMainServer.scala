@@ -47,7 +47,7 @@ object SingleUserMainServer {
         if (args.last == "unset") {
           autoReload = false
           SingleUserMainServer.mapper.writeValueAsString(
-            Response("""{"serve":"Auto reload is unset"}""")
+            Response("""{"serve":"Auto reload is unset"}""", 0)
           )
         } else {
           if (args.last == "set") {
@@ -95,11 +95,11 @@ object SingleUserMainServer {
             val errMessage = Utils.exceptionAsString(exception)
 
             SingleUserMainServer.mapper.writeValueAsString(
-              Response(errMessage)
+              Response(errMessage, 1)
             )
           case Success(_) =>
             SingleUserMainServer.mapper.writeValueAsString(
-              Response(outCapture.toString.trim)
+              Response(outCapture.toString.trim, 0)
             )
         }
     }
@@ -107,15 +107,15 @@ object SingleUserMainServer {
   }
 }
 
-case class Response(serve: String)
+case class Response(serve: String, exitCode: Int = 0)
 
 object Response {
-  def apply(output: String): Response = {
+  def apply(output: String, exitCode: Int): Response = {
     val serve =
       output.indexOf(s">>>>>>") match {
         case -1    => output
         case index => output.substring(index + ">>>>>>".length)
       }
-    new Response(serve)
+    new Response(serve, exitCode)
   }
 }
