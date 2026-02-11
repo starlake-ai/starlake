@@ -686,7 +686,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     val awsSecret = options.getOrElse("fs.s3a.secret.key", "")
     val awsRegion = options.getOrElse("fs.s3a.endpoint.region", "")
     val awsEndpoint = options.getOrElse("fs.s3a.endpoint", "https://s3.amazonaws.com")
-    val awsDataPath = options.getOrElse("DATA_PATH", "")
+    val awsDataPath =
+      options.get("SL_DATA_PATH").orElse(options.get("SL_DATA_PATH")).getOrElse("")
     val awsDatasets = options.getOrElse("SL_DATASETS", "")
     if (awsKey.nonEmpty) {
       _conf.set("fs.s3a.access.key", awsKey)

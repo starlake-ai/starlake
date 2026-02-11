@@ -5,6 +5,10 @@ description: Index of all Starlake skills
 
 # Starlake Skills Library
 
+## Reference
+
+- [config](config/SKILL.md): Comprehensive Starlake configuration reference.
+
 This library contains a collection of skills corresponding to Starlake CLI commands.
 
 ## Ingestion & Loading

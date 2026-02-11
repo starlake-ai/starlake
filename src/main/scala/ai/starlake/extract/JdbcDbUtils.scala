@@ -65,6 +65,7 @@ object JdbcDbUtils extends LazyLogging {
     "password",
     "preActions",
     "DATA_PATH",
+    "SL_DATA_PATH",
     "storageType",
     "quoteIdentifiers"
   )
@@ -541,8 +542,21 @@ object JdbcDbUtils extends LazyLogging {
           logger.info(s"Setting duckdb_home to $duckdbHome")
           val duckdbHomeStatement = connection.createStatement()
           duckdbHomeStatement.execute(s"SET home_directory='$duckdbHome'")
-          duckdbHomeStatement.execute(s"SET secret_directory='$duckdbHome'")
           duckdbHomeStatement.close()
+        }
+    }
+
+    Try {
+      connectionOptions
+        .get("SL_DUCKDB_SECRET_HOME")
+        .orElse(Option(System.getenv("SL_DUCKDB_SECRET_HOME")))
+        .orElse(connectionOptions.get("SL_DUCKDB_HOME"))
+        .orElse(Option(System.getenv("SL_DUCKDB_HOME")))
+        .foreach { duckdbSecretDir =>
+          logger.info(s"Setting duckdb secret directory to $duckdbSecretDir")
+          val statement = connection.createStatement()
+          statement.execute(s"SET secret_directory='$duckdbSecretDir'")
+          statement.close()
         }
     }
 
