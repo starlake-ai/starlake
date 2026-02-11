@@ -322,7 +322,33 @@ connections:
       quoteIdentifiers: false
 ```
 
-### DuckDB / DuckLake
+### DuckDB
+
+```yaml
+connections:
+  duckdb:
+    type: jdbc
+    options:
+      url: "jdbc:duckdb:{{DUCKDB_PATH}}"
+      driver: "org.duckdb.DuckDBDriver"
+      user: "{{DATABASE_USER}}"
+      password: "{{DATABASE_PASSWORD}}"
+      # DuckDB S3 extension
+      s3_endpoint: "{{S3_ENDPOINT}}"
+      s3_access_key_id: "{{S3_ACCESS_KEY}}"
+      s3_secret_access_key: "{{S3_SECRET_KEY}}"
+      s3_use_ssl: "false"
+      s3_url_style: "path"
+      s3_region: "us-east-1"
+      # DuckDB custom home directory
+      # SL_DUCKDB_HOME: "{{SL_ROOT}}/.duckdb"
+
+      # DuckDB SECRET custom home directory
+      # SL_DUCKDB_SECRET_HOME: "{{SL_ROOT}}/.duckdb/stored_secrets"
+
+
+```
+### DuckLake
 
 ```yaml
 connections:
@@ -342,9 +368,9 @@ connections:
       # CREATE OR REPLACE PERSISTENT SECRET {{SL_DB_ID}}
       #     (TYPE ducklake, METADATA_PATH '',DATA_PATH '{{SL_DATA_PATH}}', METADATA_PARAMETERS MAP {'TYPE': 'postgres', 'SECRET': 'pg_{{SL_DB_ID}}'});
       
-      # preActions: "ATTACH IF NOT EXISTS 'ducklake:{{SL_DB_ID}}' AS {{SL_DB_ID}}; USE {{SL_DB_ID}};"
+      preActions: "ATTACH IF NOT EXISTS 'ducklake:{{SL_DB_ID}}' AS {{SL_DB_ID}}; USE {{SL_DB_ID}};"
 
-      # DuckDB S3 extension
+      # DuckDB S3 extension if SL_DATA_PATH is on S3
       s3_endpoint: "{{S3_ENDPOINT}}"
       s3_access_key_id: "{{S3_ACCESS_KEY}}"
       s3_secret_access_key: "{{S3_SECRET_KEY}}"
@@ -352,7 +378,7 @@ connections:
       s3_url_style: "path"
       s3_region: "us-east-1"
 
-      # SL_DATA_PATH: is required for DuckLake, but can be empty for DuckDB
+      SL_DATA_PATH: "{{SL_ROOT}}/ducklake_data/{{SL_DB_ID}}" # DuckLake data path (can be on S3 or local)
 
       # DuckDB custom home directory
       # SL_DUCKDB_HOME: "{{SL_ROOT}}/.duckdb"
