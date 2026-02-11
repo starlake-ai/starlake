@@ -152,10 +152,19 @@ class Main extends LazyLogging {
   // scalastyle:on println
   def checkPrerequisites(args: List[String]): Unit = {
     args match {
-      case Nil | "help" :: Nil =>
+      case Nil =>
+        printUsage()
+        System.exit(0)
+      case "help" :: Nil =>
+        printUsage()
+        System.exit(0)
+      case "--help" :: Nil =>
         printUsage()
         System.exit(0)
       case "help" :: command :: _ =>
+        printUsage(command)
+        System.exit(0)
+      case command :: "--help" :: _ =>
         printUsage(command)
         System.exit(0)
       case _ =>
