@@ -596,7 +596,7 @@ case class SchemaInfo(
     val fkTables = attributes.flatMap(_.deepForeignKey()).map { fk =>
       val tab = fk.split('.')
       tab.length match {
-        case 3 => tab(1) + "." + tab(1) // reference to domain.table.column
+        case 3 => tab(0) + "." + tab(1) // reference to domain.table.column
         case 2 => domainNamePrefix + "." + tab(0) // reference to table.column
         case 1 => domainNamePrefix + "." + tab(0) // reference to table
       }

@@ -6,6 +6,9 @@ __Improvement__:
 - add support for inferring starlake schema from json schema file
 - add agent skills
 - generate documentation as static HTML files in metadata/.build/docs folder
+__Bug fix__:
+- Fix foreign key display in GraphViz/ Reactflow diagrams
+
 
 # 1.5.3:
 __Improvement__:
