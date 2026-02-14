@@ -41,6 +41,11 @@ object SiteCmd extends Cmd[SiteConfig] {
         .opt[String]("format")
         .action((x, c) => c.copy(format = Some(x)))
         .text("json / docusaurus MDX")
+        .optional(),
+      builder
+        .opt[Unit]("clean")
+        .action((x, c) => c.copy(clean = Some(true)))
+        .text("Whether to clean the output directory before generating the site")
         .optional()
     )
   }

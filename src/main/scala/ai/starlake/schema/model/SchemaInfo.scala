@@ -528,7 +528,7 @@ case class SchemaInfo(
             Relation(
               s"$tableLabel.${attr.getFinalName()}",
               s"${refDomain}.$refSchema.$refAttr",
-              "pk"
+              " " // No Label
             )
           )
         else

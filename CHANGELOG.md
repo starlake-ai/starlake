@@ -5,7 +5,7 @@
 __Improvement__:
 - add support for inferring starlake schema from json schema file
 - add agent skills
-- generate documentation as static HTML files in metadata/.build/docs folder
+- generate documentation as json files using the format parameter in the site command. Used but starlake-site-builder to expose documentation in a website.
 __Bug fix__:
 - Fix foreign key display in GraphViz/ Reactflow diagrams
 

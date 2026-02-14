@@ -2,6 +2,7 @@ package ai.starlake.job.site
 
 import ai.starlake.config.Settings
 import ai.starlake.core.utils.StringUtils
+import ai.starlake.job.Main
 import ai.starlake.lineage.*
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{AutoJobInfo, AutoTaskInfo, DomainInfo, SchemaInfo}
@@ -17,8 +18,9 @@ import scala.util.Try
 class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val settings: Settings)
     extends LazyLogging {
   def run(): Try[Unit] = Try {
+    if (config.clean.getOrElse(false))
+      config.outputPath.delete(swallowIOExceptions = true)
     config.outputPath.createDirectoryIfNotExists()
-    // config.outputPath.delete(swallowIOExceptions = true)
 
     if (config.format.getOrElse("docusaurus").toLowerCase() != "json") {
       logger.info(
@@ -70,7 +72,8 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
               outputFile = Some(
                 File(tablesRelationsDir, s"${domain.finalName}.${table.finalName}-relations.json")
               ),
-              json = true
+              json = true,
+              related = true
             )
           )
         }
@@ -107,6 +110,8 @@ class SiteHandler(config: SiteConfig, schemaHandler: SchemaHandler)(implicit val
       }
 
     }
+    if (Main.cliMode)
+      println(s"Site generated in ${config.outputPath.pathAsString}")
   }
 
   def buildDomains(config: SiteConfig) = {
