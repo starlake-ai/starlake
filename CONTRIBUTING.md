@@ -1,1 +1,1 @@
-https://comet-app.readthedocs.io/en/latest/developer/contribute.html
+https://docs.starlake.ai/devguide/contribute
