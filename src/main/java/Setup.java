@@ -521,77 +521,92 @@ public class Setup extends ProxySelector implements X509TrustManager {
         ENABLE_TRINODB = true;
     }
     private static void askUserWhichConfigToEnable() {
-        System.out.println("Please enable at least one of the following profiles to download the required dependencies:");
-        System.out.println("Note: You may install more dependencies later by copying them to the bin/deps directory");
-        System.out.println("1) Azure");
-        System.out.println("2) BigQuery");
-        System.out.println("3) Snowflake");
-        System.out.println("4) Redshift ");
-        System.out.println("5) Postgres ");
-        System.out.println("6) DuckDB   ");
-        System.out.println("7) Spark    ");
-        System.out.println("8) Kafka    ");
-        System.out.println("9) Mariadb  ");
-        System.out.println("10) Trino  ");
-//        System.out.println("10) ClickHouse");
-        System.out.println("A) All      ");
-        System.out.println("N) None     ");
-        System.out.print("Please enter your choice(s) separated by commas (e.g. 1,2,3): ");
-
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-            String answer = reader.readLine();
-            if (answer.equalsIgnoreCase("n")) {
-                System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
-                System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_DUCKDB, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA, ENABLE_MARIADB, ENABLE_TRINODB");
-                System.exit(1);
-            }
-            else if (answer.equalsIgnoreCase("a")) {
-                enableAllDependencies();
-            }
-            else {
+            boolean done = false;
+            while (!done) {
+                System.out.println();
+                System.out.println("Please enable at least one of the following profiles to download the required dependencies:");
+                System.out.println("Note: You may install more dependencies later by copying them to the bin/deps directory");
+                System.out.println((ENABLE_AZURE ? "[x]" : "[ ]") + " 1) Azure");
+                System.out.println((ENABLE_BIGQUERY ? "[x]" : "[ ]") + " 2) BigQuery");
+                System.out.println((ENABLE_SNOWFLAKE ? "[x]" : "[ ]") + " 3) Snowflake");
+                System.out.println((ENABLE_REDSHIFT ? "[x]" : "[ ]") + " 4) Redshift");
+                System.out.println((ENABLE_POSTGRESQL ? "[x]" : "[ ]") + " 5) Postgres");
+                System.out.println((ENABLE_DUCKDB ? "[x]" : "[ ]") + " 6) DuckDB");
+                System.out.println("    7) Spark (Always installed)");
+                System.out.println((ENABLE_KAFKA ? "[x]" : "[ ]") + " 8) Kafka");
+                System.out.println((ENABLE_MARIADB ? "[x]" : "[ ]") + " 9) Mariadb");
+                System.out.println((ENABLE_TRINODB ? "[x]" : "[ ]") + " 10) Trino");
+                System.out.println("A) All");
+                System.out.println("N) None");
+                System.out.println("ENTER) Confirm selection");
+                System.out.print("Enter choice to toggle (e.g. 1, 2...): ");
 
-                String[] choices = answer.split(",");
-                for (String choice : choices) {
-                    switch (choice.trim()) {
-                        case "1":
-                            ENABLE_AZURE = true;
-                            break;
-                        case "2":
-                            ENABLE_BIGQUERY = true;
-                            break;
-                        case "3":
-                            ENABLE_SNOWFLAKE = true;
-                            break;
-                        case "4":
-                            ENABLE_REDSHIFT = true;
-                            break;
-                        case "5":
-                            ENABLE_POSTGRESQL = true;
-                            break;
-                        case "6":
-                            ENABLE_DUCKDB = true;
-                            break;
-                        case "7":
-                            break;
-                        case "8":
-                            ENABLE_KAFKA = true;
-                            break;
-                        case "9":
-                            ENABLE_MARIADB = true;
-                            break;
-                        case "10":
-                            ENABLE_TRINODB = true;
-                            break;
-//                        case "10":
-//                            ENABLE_CLICKHOUSE = true;
-//                            break;
-                        default:
-                            enableAllDependencies();
-                            System.out.println("Installing All dependencies.");
+                String answer = reader.readLine();
+                if (answer == null) break;
+                answer = answer.trim();
+
+                if (answer.isEmpty()) {
+                    done = true;
+                } else if (answer.equalsIgnoreCase("n")) {
+                    ENABLE_AZURE = false;
+                    ENABLE_BIGQUERY = false;
+                    ENABLE_SNOWFLAKE = false;
+                    ENABLE_REDSHIFT = false;
+                    ENABLE_POSTGRESQL = false;
+                    ENABLE_DUCKDB = false;
+                    ENABLE_KAFKA = false;
+                    ENABLE_MARIADB = false;
+                    ENABLE_TRINODB = false;
+                } else if (answer.equalsIgnoreCase("a")) {
+                    enableAllDependencies();
+                } else {
+                    String[] choices = answer.split(",");
+                    for (String choice : choices) {
+                        switch (choice.trim()) {
+                            case "1":
+                                ENABLE_AZURE = !ENABLE_AZURE;
+                                break;
+                            case "2":
+                                ENABLE_BIGQUERY = !ENABLE_BIGQUERY;
+                                break;
+                            case "3":
+                                ENABLE_SNOWFLAKE = !ENABLE_SNOWFLAKE;
+                                break;
+                            case "4":
+                                ENABLE_REDSHIFT = !ENABLE_REDSHIFT;
+                                break;
+                            case "5":
+                                ENABLE_POSTGRESQL = !ENABLE_POSTGRESQL;
+                                break;
+                            case "6":
+                                ENABLE_DUCKDB = !ENABLE_DUCKDB;
+                                break;
+                            case "7":
+                                break;
+                            case "8":
+                                ENABLE_KAFKA = !ENABLE_KAFKA;
+                                break;
+                            case "9":
+                                ENABLE_MARIADB = !ENABLE_MARIADB;
+                                break;
+                            case "10":
+                                ENABLE_TRINODB = !ENABLE_TRINODB;
+                                break;
+                        }
                     }
                 }
             }
+
+            if (!anyDependencyEnabled()) {
+                System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
+                System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_DUCKDB, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA, ENABLE_MARIADB, ENABLE_TRINODB");
+                System.exit(1);
+            } else {
+                System.out.println("Installing selected dependencies...");
+            }
+
         } catch (IOException e) {
             System.out.println("Failed to read user input");
             e.printStackTrace();

@@ -65,22 +65,29 @@ set "JAVA_OPTS=%JAVA_OPTS% %JAVA_ARGS%"
 
 goto :handle_command
 
+:get_binary_from_url
+    set "url=%~1"
+    set "target=%~2"
+    if defined PROXY (
+        if defined SL_INSECURE (
+            curl --insecure --proxy "%PROXY%" -s -o "%target%" "%url%"
+        ) else (
+            curl --proxy "%PROXY%" -s -o "%target%" "%url%"
+        )
+    ) else (
+        curl -s -o "%target%" "%url%"
+    )
+    if errorlevel 1 (
+        echo Error: Failed to retrieve data from %url%.
+        exit /b 1
+    )
+    exit /b 0
+
 :launch_setup
     set "setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar"
     echo Downloading %setup_url% to %SCRIPT_DIR%setup.jar
-    if defined PROXY (
-        if defined SL_INSECURE (
-            curl --insecure --proxy "%PROXY%" -s -o "%SCRIPT_DIR%setup.jar" "%setup_url%"
-        ) else (
-            curl --proxy "%PROXY%" -s -o "%SCRIPT_DIR%setup.jar" "%setup_url%"
-        )
-    ) else (
-        curl -s -o "%SCRIPT_DIR%setup.jar" "%setup_url%"
-    )
-    if errorlevel 1 (
-        echo Error: Failed to retrieve data from %setup_url%.
-        exit /b 1
-    )
+    call :get_binary_from_url "%setup_url%" "%SCRIPT_DIR%setup.jar"
+    if errorlevel 1 exit /b 1
 
     set "RUNNER="
     if defined JAVA_HOME (
@@ -164,6 +171,7 @@ goto :eof
     if /i "%1" == "install" goto :install_command
     if /i "%1" == "reinstall" goto :install_command
     if /i "%1" == "serve" goto :serve_command
+    if /i "%1" == "upgrade" goto :upgrade_command
     goto :default_command
 
 :version_command
@@ -181,6 +189,90 @@ goto :eof
     echo Hadoop for AWS %HADOOP_AWS_VERSION%
     echo Redshift JDBC driver %REDSHIFT_JDBC_VERSION%
     echo Redshift Spark connector %SPARK_REDSHIFT_VERSION%
+    goto :eof
+
+:select_starlake_version
+    echo Fetching available versions...
+    
+    set "temp_meta=%TEMP%\sl_metadata_%RANDOM%.xml"
+    call :get_binary_from_url "https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-core_%SCALA_VERSION%/maven-metadata.xml" "%temp_meta%"
+    if exist "%temp_meta%" (
+         for /f "usebackq tokens=*" %%v in (`powershell -Command "[xml]$xml = Get-Content '%temp_meta%'; $xml.metadata.versioning.versions.version | Where-Object { $_ -match 'SNAPSHOT' } | Sort-Object -Descending | Select-Object -First 1"`) do set "SNAPSHOT_VERSION=%%v"
+         del "%temp_meta%"
+    )
+
+    set "temp_meta=%TEMP%\sl_metadata_%RANDOM%.xml"
+    call :get_binary_from_url "https://repo1.maven.org/maven2/ai/starlake/starlake-core_%SCALA_VERSION%/maven-metadata.xml" "%temp_meta%"
+    if exist "%temp_meta%" (
+         for /f "usebackq tokens=*" %%v in (`powershell -Command "[xml]$xml = Get-Content '%temp_meta%'; $xml.metadata.versioning.versions.version | Where-Object { $_ -match '^\d+\.\d+\.\d+$' } | Sort-Object -Descending | Select-Object -First 5"`) do (
+             set "LATEST_RELEASE_VERSIONS=!LATEST_RELEASE_VERSIONS! %%v"
+         )
+         del "%temp_meta%"
+    )
+
+    set "VERSIONS=%SNAPSHOT_VERSION% %LATEST_RELEASE_VERSIONS%"
+    
+    :ask_version
+    echo Last 5 available versions:
+    for %%v in (%VERSIONS%) do echo %%v
+    
+    set "DEFAULT_VERSION=%SNAPSHOT_VERSION%"
+    set /p "NEW_SL_VERSION=Which version do you want to install? [%DEFAULT_VERSION%]: "
+    if not defined NEW_SL_VERSION set "NEW_SL_VERSION=%DEFAULT_VERSION%"
+    
+    echo Selected version: %NEW_SL_VERSION%
+    goto :eof
+
+:upgrade_command
+    call :select_starlake_version
+    if defined NEW_SL_VERSION (
+        if exist "%SCRIPT_DIR%versions.bat" (
+             powershell -Command "(Get-Content '%SCRIPT_DIR%versions.bat') -replace 'SL_VERSION=.*', 'SL_VERSION=%NEW_SL_VERSION%' | Set-Content '%SCRIPT_DIR%versions.bat'"
+             echo Updated versions.bat with SL_VERSION=%NEW_SL_VERSION%
+        )
+        set "SL_VERSION=%NEW_SL_VERSION%"
+        echo Upgrading Starlake to %NEW_SL_VERSION%...
+
+        echo %NEW_SL_VERSION% | findstr /C:"SNAPSHOT" >nul
+        if not errorlevel 1 (
+             set "BASE_URL=https://central.sonatype.com/repository/maven-snapshots/ai/starlake"
+        ) else (
+             set "BASE_URL=https://repo1.maven.org/maven2/ai/starlake"
+        )
+
+        set "SL_LIB_DIR=%STARLAKE_EXTRA_LIB_FOLDER%"
+        set "API_LIB_DIR=%SCRIPT_DIR%bin\api\lib"
+
+        if not exist "%SL_LIB_DIR%" mkdir "%SL_LIB_DIR%"
+        if not exist "%API_LIB_DIR%" mkdir "%API_LIB_DIR%"
+
+        set "CORE_ASSEMBLY_NAME=starlake-core_%SCALA_VERSION%-%NEW_SL_VERSION%-assembly.jar"
+        set "CORE_ASSEMBLY_URL=!BASE_URL!/starlake-core_%SCALA_VERSION%/%NEW_SL_VERSION%/!CORE_ASSEMBLY_NAME!"
+
+        set "CORE_JAR_NAME=starlake-core_%SCALA_VERSION%-%NEW_SL_VERSION%.jar"
+        set "CORE_JAR_URL=!BASE_URL!/starlake-core_%SCALA_VERSION%/%NEW_SL_VERSION%/!CORE_JAR_NAME!"
+
+        set "API_JAR_NAME=starlake-api_%SCALA_VERSION%-%NEW_SL_VERSION%.jar"
+        set "API_JAR_URL=!BASE_URL!/starlake-api_%SCALA_VERSION%/%NEW_SL_VERSION%/!API_JAR_NAME!"
+
+        REM Delete old files
+        del /q "%API_LIB_DIR%\ai.starlake.starlake-api-*.jar" 2>nul
+        del /q "%API_LIB_DIR%\starlake-api_*.jar" 2>nul
+        del /q "%API_LIB_DIR%\starlake-core_*.jar" 2>nul
+        del /q "%SL_LIB_DIR%\starlake-core_*-assembly.jar" 2>nul
+
+        REM Download new files
+        echo Downloading !CORE_ASSEMBLY_NAME! to !SL_LIB_DIR!...
+        call :get_binary_from_url "!CORE_ASSEMBLY_URL!" "!SL_LIB_DIR!\!CORE_ASSEMBLY_NAME!"
+        
+        echo Downloading !CORE_JAR_NAME! to !API_LIB_DIR!...
+        call :get_binary_from_url "!CORE_JAR_URL!" "!API_LIB_DIR!\!CORE_JAR_NAME!"
+        
+        echo Downloading !API_JAR_NAME! to !API_LIB_DIR!...
+        call :get_binary_from_url "!API_JAR_URL!" "!API_LIB_DIR!\ai.starlake.!API_JAR_NAME!"
+
+        echo Upgrade complete.
+    )
     goto :eof
 
 :install_command
