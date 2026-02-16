@@ -520,25 +520,153 @@ public class Setup extends ProxySelector implements X509TrustManager {
         ENABLE_KAFKA = true;
         ENABLE_TRINODB = true;
     }
+
+    private static void setTerminalRaw() throws IOException, InterruptedException {
+        new ProcessBuilder("sh", "-c", "stty raw -echo < /dev/tty").inheritIO().start().waitFor();
+    }
+
+    private static void setTerminalCooked() throws IOException, InterruptedException {
+        new ProcessBuilder("sh", "-c", "stty cooked echo < /dev/tty").inheritIO().start().waitFor();
+    }
+
     private static void askUserWhichConfigToEnable() {
+        if (isWindowsOs()) {
+            askUserWhichConfigToEnableWindows();
+        } else {
+            askUserWhichConfigToEnableUnix();
+        }
+    }
+
+    private static void askUserWhichConfigToEnableUnix() {
+        try {
+            setTerminalRaw();
+            int currentSelection = 0;
+            // Menu items mapping to flags
+            // 0: Azure, 1: BigQuery, 2: Snowflake, 3: Redshift, 4: Postgres, 5: DuckDB, 6: Spark(noop), 7: Kafka, 8: Mariadb, 9: Trino, 10: All, 11: None, 12: Confirm
+            boolean done = false;
+
+            while (!done) {
+                // Clear screen and cursor home
+                System.out.print("\033[H\033[2J");
+                
+                System.out.println("Select dependencies (Use ARROW KEYS to move, TAB to toggle, ENTER to confirm):");
+                System.out.println();
+
+                printMenuOption(0, currentSelection, ENABLE_AZURE, "Azure");
+                printMenuOption(1, currentSelection, ENABLE_BIGQUERY, "BigQuery");
+                printMenuOption(2, currentSelection, ENABLE_SNOWFLAKE, "Snowflake");
+                printMenuOption(3, currentSelection, ENABLE_REDSHIFT, "Redshift");
+                printMenuOption(4, currentSelection, ENABLE_POSTGRESQL, "Postgres");
+                printMenuOption(5, currentSelection, ENABLE_DUCKDB, "DuckDB");
+                System.out.println((currentSelection == 6 ? " > " : "   ") + "   Spark (Always installed)");
+                printMenuOption(7, currentSelection, ENABLE_KAFKA, "Kafka");
+                printMenuOption(8, currentSelection, ENABLE_MARIADB, "Mariadb");
+                printMenuOption(9, currentSelection, ENABLE_TRINODB, "Trino");
+                
+                System.out.println();
+                System.out.println((currentSelection == 10 ? " > " : "   ") + "[ Select All ]");
+                System.out.println((currentSelection == 11 ? " > " : "   ") + "[ Select None ]");
+                System.out.println((currentSelection == 12 ? " > " : "   ") + "[ DONE ]");
+
+                // Read input
+                int c = System.in.read();
+                if (c == 27) { // ESC sequence
+                    if (System.in.available() > 0) {
+                        System.in.read(); // Skip [
+                        int dir = System.in.read();
+                        if (dir == 65) { // UP
+                            currentSelection--;
+                            if (currentSelection < 0) currentSelection = 12;
+                        } else if (dir == 66) { // DOWN
+                            currentSelection++;
+                            if (currentSelection > 12) currentSelection = 0;
+                        }
+                    }
+                } else if (c == 9) { // TAB
+                    toggleOption(currentSelection);
+                } else if (c == 13 || c == 10) { // ENTER
+                    if (currentSelection == 10) { // All
+                        enableAllDependencies();
+                    } else if (currentSelection == 11) { // None
+                        ENABLE_AZURE = false;
+                        ENABLE_BIGQUERY = false;
+                        ENABLE_SNOWFLAKE = false;
+                        ENABLE_REDSHIFT = false;
+                        ENABLE_POSTGRESQL = false;
+                        ENABLE_DUCKDB = false;
+                        ENABLE_KAFKA = false;
+                        ENABLE_MARIADB = false;
+                        ENABLE_TRINODB = false;
+                    } else if (currentSelection == 12) { // Done
+                        done = true;
+                    } else {
+                        toggleOption(currentSelection);
+                    }
+                } else if (c == 3) { // Ctrl+C
+                    setTerminalCooked();
+                    System.exit(1);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                setTerminalCooked();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        
+        if (!anyDependencyEnabled()) {
+            System.out.println("No dependencies selected.");
+            System.exit(1);
+        } else {
+            System.out.println("Installing selected dependencies...");
+        }
+    }
+
+    private static void printMenuOption(int index, int currentSelection, boolean selected, String label) {
+        String cursor = (index == currentSelection) ? " > " : "   ";
+        String checkbox = selected ? "[x] " : "[ ] ";
+        System.out.println(cursor + checkbox + label);
+    }
+
+    private static void toggleOption(int index) {
+        switch (index) {
+            case 0: ENABLE_AZURE = !ENABLE_AZURE; break;
+            case 1: ENABLE_BIGQUERY = !ENABLE_BIGQUERY; break;
+            case 2: ENABLE_SNOWFLAKE = !ENABLE_SNOWFLAKE; break;
+            case 3: ENABLE_REDSHIFT = !ENABLE_REDSHIFT; break;
+            case 4: ENABLE_POSTGRESQL = !ENABLE_POSTGRESQL; break;
+            case 5: ENABLE_DUCKDB = !ENABLE_DUCKDB; break;
+            // case 6: Spark is always installed
+            case 7: ENABLE_KAFKA = !ENABLE_KAFKA; break;
+            case 8: ENABLE_MARIADB = !ENABLE_MARIADB; break;
+            case 9: ENABLE_TRINODB = !ENABLE_TRINODB; break;
+        }
+    }
+    private static void askUserWhichConfigToEnableWindows() {
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
             boolean done = false;
             while (!done) {
-                System.out.println();
+                // Clear screen
+                System.out.print("\033[H\033[2J");
+                System.out.flush();
+
                 System.out.println("Please enable at least one of the following profiles to download the required dependencies:");
                 System.out.println("Note: You may install more dependencies later by copying them to the bin/deps directory");
-                System.out.println((ENABLE_AZURE ? "[x]" : "[ ]") + " 1) Azure");
-                System.out.println((ENABLE_BIGQUERY ? "[x]" : "[ ]") + " 2) BigQuery");
-                System.out.println((ENABLE_SNOWFLAKE ? "[x]" : "[ ]") + " 3) Snowflake");
-                System.out.println((ENABLE_REDSHIFT ? "[x]" : "[ ]") + " 4) Redshift");
-                System.out.println((ENABLE_POSTGRESQL ? "[x]" : "[ ]") + " 5) Postgres");
-                System.out.println((ENABLE_DUCKDB ? "[x]" : "[ ]") + " 6) DuckDB");
-                System.out.println("    7) Spark (Always installed)");
-                System.out.println((ENABLE_KAFKA ? "[x]" : "[ ]") + " 8) Kafka");
-                System.out.println((ENABLE_MARIADB ? "[x]" : "[ ]") + " 9) Mariadb");
-                System.out.println((ENABLE_TRINODB ? "[x]" : "[ ]") + " 10) Trino");
-                System.out.println("A) All");
+                System.out.println((ENABLE_AZURE ? "[x]" : "[ ]") + " Azure");
+                System.out.println((ENABLE_BIGQUERY ? "[x]" : "[ ]") + " BigQuery");
+                System.out.println((ENABLE_SNOWFLAKE ? "[x]" : "[ ]") + " Snowflake");
+                System.out.println((ENABLE_REDSHIFT ? "[x]" : "[ ]") + " Redshift");
+                System.out.println((ENABLE_POSTGRESQL ? "[x]" : "[ ]") + " Postgres");
+                System.out.println((ENABLE_DUCKDB ? "[x]" : "[ ]") + " DuckDB");
+                System.out.println("    Spark");
+                System.out.println((ENABLE_KAFKA ? "[x]" : "[ ]") + " Kafka");
+                System.out.println((ENABLE_MARIADB ? "[x]" : "[ ]") + " Mariadb");
+                System.out.println((ENABLE_TRINODB ? "[x]" : "[ ]") + " Trino");
+                System.out.println("All");
                 System.out.println("N) None");
                 System.out.println("ENTER) Confirm selection");
                 System.out.print("Enter choice to toggle (e.g. 1, 2...): ");
