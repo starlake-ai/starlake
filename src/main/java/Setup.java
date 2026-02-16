@@ -140,8 +140,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
     public static boolean ENABLE_MARIADB = ENABLE_ALL || envIsTrue("ENABLE_MARIA");
     public static boolean ENABLE_CLICKHOUSE = ENABLE_ALL || envIsTrue("ENABLE_CLICKHOUSE");
     public static boolean ENABLE_TRINODB = ENABLE_ALL || envIsTrue("ENABLE_TRINODB");
+    public static boolean ENABLE_SPARK = ENABLE_ALL;
 
-    private static final boolean[] ALL_ENABLERS = new boolean[] {
+    private static boolean[] getAllEnablers() {
+        return new boolean[] {
             ENABLE_BIGQUERY,
             ENABLE_AZURE,
             ENABLE_SNOWFLAKE,
@@ -150,7 +152,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
             ENABLE_TRINODB,
             ENABLE_DUCKDB,
             ENABLE_KAFKA
-    };
+        };
+    }
 
     private static final boolean ENABLE_API = envIsTrueWithDefaultTrue("ENABLE_API");
 
@@ -424,7 +427,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     }
 
     private static boolean anyDependencyEnabled() {
-        for (boolean enabled : ALL_ENABLERS) {
+        for (boolean enabled : getAllEnablers()) {
             if (enabled) {
                 return true;
             }
@@ -509,6 +512,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     }
 
     private static void enableAllDependencies() {
+        ENABLE_SPARK = true;
         ENABLE_AZURE = true;
         ENABLE_BIGQUERY = true;
         ENABLE_SNOWFLAKE = true;
@@ -549,8 +553,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 // Clear screen and cursor home
                 System.out.print("\033[H\033[2J");
                 
-                System.out.println("Select dependencies (Use ARROW KEYS to move, TAB to toggle, ENTER to confirm):");
-                System.out.println();
+                System.out.print("Select dependencies (Use ARROW KEYS to move, TAB to toggle, ENTER to confirm):\r\n");
+                System.out.print("\r\n");
 
                 printMenuOption(0, currentSelection, ENABLE_AZURE, "Azure");
                 printMenuOption(1, currentSelection, ENABLE_BIGQUERY, "BigQuery");
@@ -558,15 +562,15 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 printMenuOption(3, currentSelection, ENABLE_REDSHIFT, "Redshift");
                 printMenuOption(4, currentSelection, ENABLE_POSTGRESQL, "Postgres");
                 printMenuOption(5, currentSelection, ENABLE_DUCKDB, "DuckDB");
-                System.out.println((currentSelection == 6 ? " > " : "   ") + "   Spark (Always installed)");
+                printMenuOption(6, currentSelection, ENABLE_SPARK , "Spark");
                 printMenuOption(7, currentSelection, ENABLE_KAFKA, "Kafka");
                 printMenuOption(8, currentSelection, ENABLE_MARIADB, "Mariadb");
                 printMenuOption(9, currentSelection, ENABLE_TRINODB, "Trino");
                 
-                System.out.println();
-                System.out.println((currentSelection == 10 ? " > " : "   ") + "[ Select All ]");
-                System.out.println((currentSelection == 11 ? " > " : "   ") + "[ Select None ]");
-                System.out.println((currentSelection == 12 ? " > " : "   ") + "[ DONE ]");
+                System.out.print("\r\n");
+                System.out.print((currentSelection == 10 ? " > " : "   ") + "[ Select All ]\r\n");
+                System.out.print((currentSelection == 11 ? " > " : "   ") + "[ Select None ]\r\n");
+                System.out.print((currentSelection == 12 ? " > " : "   ") + "[ DONE ]\r\n");
 
                 // Read input
                 int c = System.in.read();
@@ -582,9 +586,12 @@ public class Setup extends ProxySelector implements X509TrustManager {
                             if (currentSelection > 12) currentSelection = 0;
                         }
                     }
-                } else if (c == 9) { // TAB
+                } else if (c == 9 || c == 32) { // TAB or SPACE
                     toggleOption(currentSelection);
                 } else if (c == 13 || c == 10) { // ENTER
+                    if (currentSelection <= 9) {
+                        toggleOption(currentSelection);
+                    }
                     if (currentSelection == 10) { // All
                         enableAllDependencies();
                     } else if (currentSelection == 11) { // None
@@ -597,10 +604,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
                         ENABLE_KAFKA = false;
                         ENABLE_MARIADB = false;
                         ENABLE_TRINODB = false;
+                        ENABLE_SPARK = false;
                     } else if (currentSelection == 12) { // Done
                         done = true;
-                    } else {
-                        toggleOption(currentSelection);
                     }
                 } else if (c == 3) { // Ctrl+C
                     setTerminalCooked();
@@ -628,7 +634,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static void printMenuOption(int index, int currentSelection, boolean selected, String label) {
         String cursor = (index == currentSelection) ? " > " : "   ";
         String checkbox = selected ? "[x] " : "[ ] ";
-        System.out.println(cursor + checkbox + label);
+        System.out.print(cursor + checkbox + label + "\r\n");
     }
 
     private static void toggleOption(int index) {
@@ -639,7 +645,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             case 3: ENABLE_REDSHIFT = !ENABLE_REDSHIFT; break;
             case 4: ENABLE_POSTGRESQL = !ENABLE_POSTGRESQL; break;
             case 5: ENABLE_DUCKDB = !ENABLE_DUCKDB; break;
-            // case 6: Spark is always installed
+            case 6: ENABLE_SPARK = !ENABLE_SPARK; break;
             case 7: ENABLE_KAFKA = !ENABLE_KAFKA; break;
             case 8: ENABLE_MARIADB = !ENABLE_MARIADB; break;
             case 9: ENABLE_TRINODB = !ENABLE_TRINODB; break;
@@ -662,7 +668,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 System.out.println((ENABLE_REDSHIFT ? "[x]" : "[ ]") + " Redshift");
                 System.out.println((ENABLE_POSTGRESQL ? "[x]" : "[ ]") + " Postgres");
                 System.out.println((ENABLE_DUCKDB ? "[x]" : "[ ]") + " DuckDB");
-                System.out.println("    Spark");
+                System.out.println((ENABLE_SPARK ? "[x]" : "[ ]") + " Spark");
                 System.out.println((ENABLE_KAFKA ? "[x]" : "[ ]") + " Kafka");
                 System.out.println((ENABLE_MARIADB ? "[x]" : "[ ]") + " Mariadb");
                 System.out.println((ENABLE_TRINODB ? "[x]" : "[ ]") + " Trino");
