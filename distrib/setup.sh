@@ -62,6 +62,56 @@ get_from_url() {
     echo "$content"
 }
 
+menu_select() {
+    local prompt="$1"
+    shift
+    local options=("$@")
+    local cur=0
+    local count=${#options[@]}
+    local esc=$(printf "\033")
+
+    # Hide cursor
+    echo -en "\033[?25l" >&2
+
+    echo "$prompt" >&2
+    for ((i=0; i<count; i++)); do
+        if [ $i -eq $cur ]; then
+            echo -e " > \033[1m${options[$i]}\033[0m" >&2
+        else
+            echo "   ${options[$i]}" >&2
+        fi
+    done
+
+    while true; do
+        read -rsn1 key
+        if [[ "$key" == "$esc" ]]; then
+            read -rsn2 key
+            if [[ "$key" == "[A" ]]; then
+                cur=$((cur - 1))
+                [ $cur -lt 0 ] && cur=$((count - 1))
+            elif [[ "$key" == "[B" ]]; then
+                cur=$((cur + 1))
+                [ $cur -ge $count ] && cur=0
+            fi
+        elif [[ "$key" == "" ]]; then
+            break
+        fi
+
+        # Move up count lines
+        echo -en "\033[${count}A" >&2
+        for ((i=0; i<count; i++)); do
+            if [ $i -eq $cur ]; then
+                echo -e " > \033[1m${options[$i]}\033[0m\033[K" >&2
+            else
+                echo -e "   ${options[$i]}\033[K" >&2
+            fi
+        done
+    done
+
+    # Show cursor
+    echo -en "\033[?25h" >&2
+    SELECTED_OPTION="${options[$cur]}"
+}
 
 get_version_to_install() {
     # Extract the version number from command-line arguments
@@ -71,6 +121,10 @@ get_version_to_install() {
         fi
     done
 
+    if [[ -n "$VERSION" ]]; then
+        return
+    fi
+
     ALL_SNAPSHOT_VERSIONS=$(get_from_url https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-core_2.13/maven-metadata.xml | awk -F'<|>' '/<version>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$' | sort -rV)
     ALL_RELEASE_NEW_PATTERN_VERSIONS=$(get_from_url https://repo1.maven.org/maven2/ai/starlake/starlake-core_2.13/maven-metadata.xml | awk -F'<|>' '/<version>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
     ALL_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_NEW_PATTERN_VERSIONS")
@@ -79,21 +133,10 @@ get_version_to_install() {
     LATEST_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_VERSIONS" | head -n 5)
 
     VERSIONS=("$SNAPSHOT_VERSION" $LATEST_RELEASE_VERSIONS)
-    VERSIONS=$VERSIONS
 
-    while [[ ! "${VERSIONS[*]}" =~ (^|[[:space:]])"$VERSION"($|[[:space:]]) ]]; do
-      if [[ -n "$VERSION" ]]
-      then
-        echo "Invalid version $VERSION. Please choose from the available versions."
-      fi
-      echo "Last 5 available versions:"
-      for version in "${VERSIONS[@]}"; do
-          echo "$version"
-      done
-      read -p "Which version do you want to install? [$(echo "$VERSIONS" | head -n 1)]: " VERSION
-      VERSION=${VERSION:-$(echo "$VERSIONS" | head -n 1)}
-    done
-
+    menu_select "Which version do you want to install? (use arrow keys):" "${VERSIONS[@]}"
+    VERSION="$SELECTED_OPTION"
+    echo "Selected version: $VERSION"
 }
 
 install_starlake() {

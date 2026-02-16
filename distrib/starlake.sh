@@ -158,6 +158,92 @@ get_binary_from_url() {
     fi
 }
 
+get_content_from_url() {
+    local url=$1
+    if [ -n "$PROXY" ] && [ -n "$SL_INSECURE" ]; then
+        local response=$(curl --insecure --proxy "$PROXY" -s -w "%{http_code}" "$url")
+    else
+        local response=$(curl -s -w "%{http_code}" "$url")
+    fi
+    local status_code=${response: -3}
+
+    if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then
+        echo "Error: Failed to retrieve data from $url. HTTP status code: $status_code" >&2
+        exit 1
+    fi
+
+    # Print the content excluding the status code
+    local content_length=${#response}
+    local content="${response:0:content_length-3}"
+    echo "$content"
+}
+
+menu_select() {
+    local prompt="$1"
+    shift
+    local options=("$@")
+    local cur=0
+    local count=${#options[@]}
+    local esc=$(printf "\033")
+
+    # Hide cursor
+    echo -en "\033[?25l" >&2
+
+    echo "$prompt" >&2
+    for ((i=0; i<count; i++)); do
+        if [ $i -eq $cur ]; then
+            echo -e " > \033[1m${options[$i]}\033[0m" >&2
+        else
+            echo "   ${options[$i]}" >&2
+        fi
+    done
+
+    while true; do
+        read -rsn1 key
+        if [[ "$key" == "$esc" ]]; then
+            read -rsn2 key
+            if [[ "$key" == "[A" ]]; then
+                cur=$((cur - 1))
+                [ $cur -lt 0 ] && cur=$((count - 1))
+            elif [[ "$key" == "[B" ]]; then
+                cur=$((cur + 1))
+                [ $cur -ge $count ] && cur=0
+            fi
+        elif [[ "$key" == "" ]]; then
+            break
+        fi
+
+        # Move up count lines
+        echo -en "\033[${count}A" >&2
+        for ((i=0; i<count; i++)); do
+            if [ $i -eq $cur ]; then
+                echo -e " > \033[1m${options[$i]}\033[0m\033[K" >&2
+            else
+                echo -e "   ${options[$i]}\033[K" >&2
+            fi
+        done
+    done
+
+    # Show cursor
+    echo -en "\033[?25h" >&2
+    SELECTED_OPTION="${options[$cur]}"
+}
+
+select_starlake_version() {
+    ALL_SNAPSHOT_VERSIONS=$(get_content_from_url https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-core_${SCALA_VERSION}/maven-metadata.xml | awk -F'<|>' '/<version>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$' | sort -rV)
+    ALL_RELEASE_NEW_PATTERN_VERSIONS=$(get_content_from_url https://repo1.maven.org/maven2/ai/starlake/starlake-core_${SCALA_VERSION}/maven-metadata.xml | awk -F'<|>' '/<version>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
+    ALL_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_NEW_PATTERN_VERSIONS")
+
+    SNAPSHOT_VERSION=$(echo "$ALL_SNAPSHOT_VERSIONS" | head -n 1)
+    LATEST_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_VERSIONS" | head -n 5)
+
+    VERSIONS=("$SNAPSHOT_VERSION" $LATEST_RELEASE_VERSIONS)
+
+    menu_select "Select the version to install (use arrow keys):" "${VERSIONS[@]}"
+    NEW_SL_VERSION="$SELECTED_OPTION"
+    echo "Selected version: $NEW_SL_VERSION"
+}
+
 launch_setup() {
   local setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar
   get_binary_from_url $setup_url "$SCRIPT_DIR/setup.jar"
@@ -300,6 +386,57 @@ case "$1" in
     echo
     echo "Installation done. You're ready to enjoy Starlake!"
     echo If any errors happen during installation. Please try to install again or open an issue.
+    ;;
+  upgrade)
+    select_starlake_version
+    if [ -n "$NEW_SL_VERSION" ]; then
+        if [ -f "$SCRIPT_DIR/versions.sh" ]; then
+             sed -i.bak "s/SL_VERSION=\${SL_VERSION:-.*}/SL_VERSION=\${SL_VERSION:-$NEW_SL_VERSION}/" "$SCRIPT_DIR/versions.sh"
+             rm "$SCRIPT_DIR/versions.sh.bak"
+             echo "Updated versions.sh with SL_VERSION=$NEW_SL_VERSION"
+        fi
+        export SL_VERSION=$NEW_SL_VERSION
+
+        echo "Upgrading Starlake to $NEW_SL_VERSION..."
+
+        if [[ "$NEW_SL_VERSION" == *"SNAPSHOT"* ]]; then
+             BASE_URL="https://central.sonatype.com/repository/maven-snapshots/ai/starlake"
+        else
+             BASE_URL="https://repo1.maven.org/maven2/ai/starlake"
+        fi
+
+        SL_LIB_DIR="$STARLAKE_EXTRA_LIB_FOLDER"
+        API_LIB_DIR="$SCRIPT_DIR/bin/api/lib"
+        
+        mkdir -p "$SL_LIB_DIR"
+        mkdir -p "$API_LIB_DIR"
+
+        CORE_ASSEMBLY_NAME="starlake-core_${SCALA_VERSION}-${NEW_SL_VERSION}-assembly.jar"
+        CORE_ASSEMBLY_URL="$BASE_URL/starlake-core_${SCALA_VERSION}/${NEW_SL_VERSION}/${CORE_ASSEMBLY_NAME}"
+
+        CORE_JAR_NAME="starlake-core_${SCALA_VERSION}-${NEW_SL_VERSION}.jar"
+        CORE_JAR_URL="$BASE_URL/starlake-core_${SCALA_VERSION}/${NEW_SL_VERSION}/${CORE_JAR_NAME}"
+
+        API_JAR_NAME="starlake-api_${SCALA_VERSION}-${NEW_SL_VERSION}.jar"
+        API_JAR_URL="$BASE_URL/starlake-api_${SCALA_VERSION}/${NEW_SL_VERSION}/${API_JAR_NAME}"
+
+        # Delete old files
+        rm -f "$API_LIB_DIR"/ai.starlake.starlake-api-*.jar "$API_LIB_DIR"/starlake-api_*.jar
+        rm -f "$API_LIB_DIR"/starlake-core_*.jar
+        rm -f "$SL_LIB_DIR"/starlake-core_*-assembly.jar
+
+        # Download new files
+        echo "Downloading $CORE_ASSEMBLY_NAME to $SL_LIB_DIR..."
+        get_binary_from_url "$CORE_ASSEMBLY_URL" "$SL_LIB_DIR/$CORE_ASSEMBLY_NAME"
+        
+        echo "Downloading $CORE_JAR_NAME to $API_LIB_DIR..."
+        get_binary_from_url "$CORE_JAR_URL" "$API_LIB_DIR/$CORE_JAR_NAME"
+        
+        echo "Downloading $API_JAR_NAME to $API_LIB_DIR..."
+        get_binary_from_url "$API_JAR_URL" "$API_LIB_DIR/ai.starlake.$API_JAR_NAME"
+
+        echo "Upgrade complete."
+    fi
     ;;
   serve)
     chmod +x $SCRIPT_DIR/bin/api/git/*.sh
