@@ -1,3 +1,79 @@
+/**
+ * Setup.java
+ *
+ * This class provides a comprehensive setup utility for downloading, configuring, and managing
+ * dependencies required for the Starlake project and its supported platforms (e.g., Spark, BigQuery,
+ * Azure, Snowflake, Redshift, PostgreSQL, DuckDB, Kafka, etc.). It supports both Unix and Windows
+ * environments and can interactively prompt the user to select which dependencies to enable.
+ *
+ * <p>
+ * Main Features:
+ * <ul>
+ *   <li>Parses environment variables to determine which dependencies and features to enable.</li>
+ *   <li>Supports proxy configuration (HTTP, HTTPS, SOCKS) with optional authentication.</li>
+ *   <li>Downloads required JARs, binaries, and Python libraries from remote repositories, displaying
+ *       progress and handling redirects and SSL settings.</li>
+ *   <li>Handles extraction of archives (ZIP, TGZ) and manages file system operations (deletion,
+ *       renaming, directory creation).</li>
+ *   <li>Generates version files for both Unix (versions.sh) and Windows (versions.cmd) with all
+ *       relevant dependency versions and feature flags.</li>
+ *   <li>Provides interactive CLI menus for dependency selection, supporting both Unix (with arrow
+ *       keys and terminal control) and Windows (text-based input).</li>
+ *   <li>Implements custom TrustManager and ProxySelector for advanced HTTP client configuration.</li>
+ *   <li>Updates Spark log4j2 configuration for consistent logging behavior.</li>
+ * </ul>
+ *
+ * <p>
+ * Usage:
+ * <pre>
+ *   java Setup &lt;target-directory&gt; [unix]
+ * </pre>
+ * If no dependencies are enabled via environment variables, the user will be prompted to select them interactively.
+ *
+ * <p>
+ * Key Classes and Methods:
+ * <ul>
+ *   <li>{@code ResourceDependency}: Represents a downloadable resource (JAR, binary, etc.) with one or more URLs.</li>
+ *   <li>{@code setProxy()}, {@code parseProxy(String)}: Configure proxy settings from environment variables.</li>
+ *   <li>{@code setHttpClient()}: Configures the HTTP client with proxy, authentication, and SSL settings.</li>
+ *   <li>{@code downloadAndDisplayProgress(...)}: Downloads resources with progress indication.</li>
+ *   <li>{@code generateVersions(...)}: Writes version/configuration files for the selected environment.</li>
+ *   <li>{@code askUserWhichConfigToEnable()}: Interactive menu for dependency selection.</li>
+ *   <li>{@code main(String[] args)}: Entry point; orchestrates the setup process.</li>
+ * </ul>
+ *
+ * <p>
+ * Environment Variables:
+ * <ul>
+ *   <li>ENABLE_ALL, ENABLE_BIGQUERY, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_DUCKDB, ENABLE_KAFKA, ENABLE_MARIADB, ENABLE_CLICKHOUSE, ENABLE_TRINODB, ENABLE_SPARK</li>
+ *   <li>SL_VERSION, SCALA_VERSION, SPARK_VERSION, HADOOP_VERSION, etc. (for version overrides)</li>
+ *   <li>https_proxy, http_proxy, no_proxy (for proxy configuration)</li>
+ *   <li>SL_INSECURE (to disable SSL certificate validation)</li>
+ * </ul>
+ *
+ * <p>
+ * Platform Support:
+ * <ul>
+ *   <li>Unix: Uses terminal control sequences for interactive menus and shell commands for terminal mode changes.</li>
+ *   <li>Windows: Uses text-based menus and standard input for selection.</li>
+ * </ul>
+ *
+ * <p>
+ * Security:
+ * <ul>
+ *   <li>Supports disabling SSL certificate validation for proxies (not recommended for production).</li>
+ *   <li>Handles proxy authentication via environment variables.</li>
+ * </ul>
+ *
+ * <p>
+ * Note:
+ * <ul>
+ *   <li>This class is intended to be run as a standalone setup utility and is not thread-safe.</li>
+ *   <li>Some features (e.g., terminal raw/cooked mode) may not work in all environments or IDEs.</li>
+ * </ul>
+ *
+ * @author Starlake contributors
+ */
 import javax.net.ssl.*;
 import java.io.*;
 import java.net.*;
@@ -360,6 +436,23 @@ public class Setup extends ProxySelector implements X509TrustManager {
     }
 
     // Used BiConsumer with Function because TriConsumer doesn't exist natively and avoid creating a new type
+    /**
+     * Generates a version file containing various dependency version variables and configuration flags.
+     * <p>
+     * This method creates a new file at the specified location, writes a header, and then populates
+     * the file with a list of key-value pairs representing enabled features (e.g., BigQuery, Azure, Snowflake)
+     * and library versions (e.g., Spark, HADOOP, Scala).
+     * <p>
+     * Certain versions are written conditionally based on whether specific features are enabled
+     * or if no specific dependencies are enabled (providing a default set).
+     *
+     * @param targetDir        The directory where the versions file will be created.
+     * @param versionsFileName The name of the file to be created.
+     * @param fileHeader       A string header to be written at the beginning of the file.
+     * @param variableWriter   A function that takes the BufferedWriter and returns a BiConsumer used
+     *                         to write the key-value pairs to the file in a specific format.
+     * @throws IOException If an I/O error occurs while writing to the file.
+     */
     private static void generateVersions(File targetDir, String versionsFileName, String fileHeader, Function<BufferedWriter, BiConsumer<String, String>> variableWriter) throws IOException {
         File versionFile = new File(targetDir, versionsFileName);
         deleteFile(versionFile);
