@@ -1,0 +1,24 @@
+{#
+  SQL Server Create Table Strategy
+#}
+{% set createTable = 'SELECT * INTO ' + tableFullName + ' FROM' %}
+
+{% if strategyOn == 'TARGET' %}
+
+{{ createTable }} ({{ selectStatement }}) AS S;
+
+{% else %}
+
+{{ createTable }} (
+    SELECT {{ tableColumnsCsv }} FROM (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {% if strategyTimestamp %}{{ strategyTimestamp }} DESC{% else %}(SELECT NULL){% endif %}) AS SL_SEQ
+        FROM ({{ selectStatement }}) AS TMP
+    ) AS S WHERE SL_SEQ = 1
+) AS FINAL;
+
+{% endif %}
+
+{% if strategyType == 'SCD2' %}
+ALTER TABLE {{ tableFullName }} ADD {{ strategyStartTs }} DATETIME2;
+ALTER TABLE {{ tableFullName }} ADD {{ strategyEndTs }} DATETIME2;
+{% endif %}

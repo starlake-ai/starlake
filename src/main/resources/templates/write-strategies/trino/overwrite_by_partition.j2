@@ -1,0 +1,6 @@
+
+DELETE FROM {{ tableFullName }}
+WHERE {{ sinkPartition | first }} IN (SELECT DISTINCT {{ sinkPartition | first }} FROM ({{ selectStatement }}) AS S);
+
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
+{{ selectStatement }}

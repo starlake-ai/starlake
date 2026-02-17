@@ -1,0 +1,18 @@
+
+DELETE FROM {{ tableFullName }}
+WHERE EXISTS (
+    SELECT 1 FROM ({{ selectStatement }}) AS SL_INCOMING
+    WHERE {{ renderStrategyKeyJoinCondition(tableFullName, 'SL_INCOMING', strategyKey) }}
+);
+
+{% if strategyOn == 'SOURCE_AND_TARGET' %}
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
+SELECT {{ tableColumnsCsv }} FROM (
+  SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} {% if strategyTimestamp %}ORDER BY {{ strategyTimestamp }} DESC{% endif %}) AS SL_SEQ
+  FROM ({{ selectStatement }}) AS TMP
+) AS SL_INCOMING WHERE SL_SEQ = 1;
+
+{% else %}
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
+{{ selectStatement }}
+{% endif %}
