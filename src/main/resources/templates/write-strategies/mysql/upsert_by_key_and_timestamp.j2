@@ -1,0 +1,28 @@
+CREATE OR REPLACE VIEW {{ tableDomain }}.SL_INCOMING AS {{ selectStatement }};
+
+{% if strategyOn == 'TARGET' %}
+    CREATE OR REPLACE VIEW {{ tableDomain }}.SL_INCOMING_DEDUP AS SELECT * FROM {{ tableDomain }}.SL_INCOMING;
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
+    CREATE OR REPLACE VIEW {{ tableDomain }}.SL_INCOMING_DEDUP AS
+    SELECT {{ tableColumnsCsv }} FROM (
+      SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) as SL_SEQ
+      FROM {{ tableDomain }}.SL_INCOMING
+    ) T WHERE SL_SEQ = 1;
+{% endif %}
+
+DELETE T
+FROM {{ tableFullName }} T
+INNER JOIN {{ tableDomain }}.SL_INCOMING_DEDUP S
+ON {{ renderStrategyKeyJoinCondition('T', 'S', strategyKey) }}
+WHERE S.{{ strategyTimestamp }} > T.{{ strategyTimestamp }};
+
+INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }})
+SELECT {{ tableColumnsCsv }}
+FROM {{ tableDomain }}.SL_INCOMING_DEDUP S
+WHERE NOT EXISTS (
+  SELECT 1 FROM {{ tableFullName }} T
+  WHERE {{ renderStrategyKeyJoinCondition('T', 'S', strategyKey) }}
+);
+
+DROP VIEW IF EXISTS {{ tableDomain }}.SL_INCOMING_DEDUP;
+DROP VIEW IF EXISTS {{ tableDomain }}.SL_INCOMING;

@@ -1,2 +1,6 @@
-TRUNCATE TABLE {{ tableFullName }};
+
+{% if tableTruncate %}
+DELETE FROM {{ tableFullName }};
+{% endif %}
+
 INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }}) {{ selectStatement }}

@@ -1,0 +1,29 @@
+CREATE OR REPLACE VIEW {{ tableDomain }}.SL_INCOMING AS {{ selectStatement }};
+
+{% if strategyOn == 'TARGET' %}
+    CREATE OR REPLACE VIEW {{ tableDomain }}.SL_INCOMING_DEDUP AS SELECT * FROM {{ tableDomain }}.SL_INCOMING;
+{% else %} {# strategyOn == 'SOURCE_AND_TARGET' #}
+    CREATE OR REPLACE VIEW {{ tableDomain }}.SL_INCOMING_DEDUP AS
+    SELECT {{ tableColumnsCsv }} FROM (
+      SELECT {{ tableColumnsCsv }}, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) as SL_SEQ
+      FROM {{ tableDomain }}.SL_INCOMING
+    ) T WHERE SL_SEQ = 1;
+{% endif %}
+
+UPDATE {{ tableFullName }} T
+INNER JOIN {{ tableDomain }}.SL_INCOMING_DEDUP S
+ON {{ renderStrategyKeyJoinCondition('T', 'S', strategyKey) }}
+SET T.{{ strategyEndTs }} = CURRENT_TIMESTAMP()
+WHERE T.{{ strategyEndTs }} IS NULL 
+AND S.{{ strategyTimestamp }} > T.{{ strategyTimestamp }};
+
+INSERT INTO {{ tableFullName }} ({{ renderColumnsWithoutScd2(tableColumnNames, "") }}, {{ quote }}{{ strategyStartTs }}{{ quote }}, {{ quote }}{{ strategyEndTs }}{{ quote }})
+SELECT {{ renderColumnsWithoutScd2(tableColumnNames, 'S.') }}, CURRENT_TIMESTAMP(), NULL
+FROM {{ tableDomain }}.SL_INCOMING_DEDUP S
+LEFT JOIN {{ tableFullName }} T 
+ON {{ renderStrategyKeyJoinCondition('T', 'S', strategyKey) }} AND T.{{ strategyEndTs }} IS NULL
+WHERE {{ renderStrategyKeyIsNull('T', strategyKey) }}
+OR S.{{ strategyTimestamp }} > T.{{ strategyTimestamp }};
+
+DROP VIEW IF EXISTS {{ tableDomain }}.SL_INCOMING_DEDUP;
+DROP VIEW IF EXISTS {{ tableDomain }}.SL_INCOMING;
