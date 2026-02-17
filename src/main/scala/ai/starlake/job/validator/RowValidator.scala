@@ -284,7 +284,17 @@ class RowValidator(
             ) {
               // When field is completely null in the input, spark infer it as a string instead of struct. We ignore this case and let the fit to the schema fails if we were wrong.
               // if we want to be sure that this is not an error, we would have to check that all values are null before validating the type but this may be costly.
-              (column: Column, pathColumn: Column) => array()
+              (column: Column, pathColumn: Column) =>
+                when(
+                  column.isNotNull,
+                  array(
+                    rejectValue(
+                      pathColumn,
+                      "expected to be a " + currentSchema.`type` + " but found " + inputSchema.`type`,
+                      column
+                    )
+                  )
+                ).otherwise(array())
             } else { (column: Column, pathColumn: Column) =>
               array(
                 rejectValue(
