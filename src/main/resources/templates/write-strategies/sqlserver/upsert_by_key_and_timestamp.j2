@@ -1,0 +1,16 @@
+MERGE INTO {{ tableFullName }} AS SL_EXISTING
+USING (
+    {% if strategyOn == 'SOURCE_AND_TARGET' %}
+    SELECT * FROM (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+        FROM ({{ selectStatement }}) AS TMP
+    ) AS SL_INCOMING_DEDUP WHERE SL_SEQ = 1
+    {% else %}
+    SELECT * FROM ({{ selectStatement }}) AS SL_INCOMING_SIMPLE
+    {% endif %}
+) AS SL_INCOMING
+ON ({{ renderStrategyKeyJoinCondition('SL_EXISTING', 'SL_INCOMING', strategyKey) }})
+WHEN MATCHED AND SL_INCOMING.{{ strategyTimestamp }} > SL_EXISTING.{{ strategyTimestamp }} THEN
+    UPDATE SET {{ tableUpdateSetExpression }}
+WHEN NOT MATCHED THEN
+    {{ tableInsert }};

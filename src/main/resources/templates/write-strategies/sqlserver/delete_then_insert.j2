@@ -1,0 +1,23 @@
+IF OBJECT_ID('tempdb..#SL_INCOMING') IS NOT NULL DROP TABLE #SL_INCOMING;
+
+SELECT * INTO #SL_INCOMING FROM ({{ selectStatement }}) AS S;
+
+{% if strategyOn == 'SOURCE_AND_TARGET' %}
+;WITH CTE AS (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {% if strategyTimestamp %}{{ strategyTimestamp }} DESC{% else %}(SELECT NULL){% endif %}) AS RN
+    FROM #SL_INCOMING
+)
+DELETE FROM CTE WHERE RN > 1;
+{% endif %}
+
+DELETE T
+FROM {{ tableFullName }} T
+WHERE EXISTS (
+    SELECT 1 FROM #SL_INCOMING S
+    WHERE {{ renderStrategyKeyJoinCondition('T', 'S', strategyKey) }}
+);
+
+INSERT INTO {{ tableFullName }} ({{ tableColumnsCsv }})
+SELECT {{ tableColumnsCsv }} FROM #SL_INCOMING;
+
+DROP TABLE #SL_INCOMING;
