@@ -1,0 +1,15 @@
+IF OBJECT_ID('tempdb..#SL_INCOMING') IS NOT NULL DROP TABLE #SL_INCOMING;
+
+SELECT * INTO #SL_INCOMING FROM ({{ selectStatement }}) AS S;
+
+BEGIN TRANSACTION;
+
+DELETE FROM {{ tableFullName }}
+WHERE {{ sinkPartition | first }} IN (SELECT DISTINCT {{ sinkPartition | first }} FROM #SL_INCOMING);
+
+INSERT INTO {{ tableFullName }}({{ tableColumnsCsv }})
+SELECT {{ tableColumnsCsv }} FROM #SL_INCOMING;
+
+COMMIT TRANSACTION;
+
+DROP TABLE #SL_INCOMING;

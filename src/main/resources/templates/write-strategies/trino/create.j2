@@ -1,0 +1,27 @@
+
+{% set partitionClause = '' %}
+{% if sinkPartition %}
+  {% set partitionClause = "WITH (partitioning = ARRAY['" + sinkPartition | join("','") + "'])" %}
+{% endif %}
+
+{% set createTable = 'CREATE TABLE ' + tableFullName + ' ' + partitionClause + ' AS' %}
+
+{% if strategyOn == 'TARGET' %}
+
+{{ createTable }} SELECT * FROM ({{ selectStatement }}) AS S;
+
+{% else %}
+
+{{ createTable }} SELECT * FROM (
+    SELECT {{ tableColumnsCsv }} FROM (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} {% if strategyTimestamp %}ORDER BY {{ strategyTimestamp }} DESC{% endif %}) AS SL_SEQ
+        FROM ({{ selectStatement }}) AS TMP
+    ) AS S WHERE SL_SEQ = 1
+) AS FINAL;
+
+{% endif %}
+
+{% if strategyType == 'SCD2' %}
+ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyStartTs }} TIMESTAMP;
+ALTER TABLE {{ tableFullName }} ADD COLUMN {{ strategyEndTs }} TIMESTAMP;
+{% endif %}

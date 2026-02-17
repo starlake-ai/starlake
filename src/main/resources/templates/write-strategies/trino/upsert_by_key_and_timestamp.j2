@@ -1,0 +1,17 @@
+
+MERGE INTO {{ tableFullName }} AS T
+USING (
+  {% if strategyOn == 'SOURCE_AND_TARGET' %}
+  SELECT * FROM (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY {{ strategyKeyCsv }} ORDER BY {{ strategyTimestamp }} DESC) AS SL_SEQ
+    FROM ({{ selectStatement }}) AS TMP
+  ) AS SL_INCOMING WHERE SL_SEQ = 1
+  {% else %}
+  SELECT * FROM ({{ selectStatement }}) AS SL_INCOMING_SIMPLE
+  {% endif %}
+) AS S
+ON {{ renderStrategyKeyJoinCondition('T', 'S', strategyKey) }}
+WHEN MATCHED AND S.{{ strategyTimestamp }} > T.{{ strategyTimestamp }} THEN
+  UPDATE SET {{ tableUpdateSetExpression }}
+WHEN NOT MATCHED THEN
+  {{ tableInsert }}
