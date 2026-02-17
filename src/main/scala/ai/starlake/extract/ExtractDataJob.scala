@@ -946,7 +946,8 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
       "postgresql" -> "abs( hashtext({{col}}) % {{nb_partitions}} )",
       "h2"         -> "ora_hash({{col}}, {{nb_partitions}} - 1)",
       "mysql"      -> "crc32({{col}}) % {{nb_partitions}}",
-      "oracle"     -> "ora_hash({{col}}, {{nb_partitions}} - 1)"
+      "oracle"     -> "ora_hash({{col}}, {{nb_partitions}} - 1)",
+      "trino"      -> "abs( xxhash64({{col}}) ) % {{nb_partitions}}"
     )
     hashFunctions.get(dbType)
   }

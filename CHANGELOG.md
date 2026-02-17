@@ -3,6 +3,7 @@
 
 # 1.5.6:
 __Improvement__:
+- add support for Trino, SQL Server and MySQL
 - add support for inferring starlake schema from json schema file
 - add agent skills
 - generate documentation as json files using the format parameter in the site command. Used but starlake-site-builder to expose documentation in a website.
