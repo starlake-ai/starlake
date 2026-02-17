@@ -80,7 +80,9 @@ object StarlakeJdbcDialects {
 private case object MariaDbDialect extends JdbcDialect with SQLConfHelper {
 
   override def canHandle(url: String): Boolean =
-    url.toLowerCase(Locale.ROOT).startsWith("jdbc:mariadb")
+    url.toLowerCase(Locale.ROOT).startsWith("jdbc:mariadb") || url.toLowerCase(Locale.ROOT).startsWith(
+      "jdbc:mysql"
+    )
 
   private val distinctUnsupportedAggregateFunctions =
     Set("VAR_POP", "VAR_SAMP", "STDDEV_POP", "STDDEV_SAMP")
