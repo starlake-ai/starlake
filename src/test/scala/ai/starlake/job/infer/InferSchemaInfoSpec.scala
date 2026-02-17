@@ -20,6 +20,7 @@ class InferSchemaInfoSpec extends TestHelper {
           |  --variant              Infer schema as a single variant attribute
           |  --clean                Delete previous YML before writing
           |  --encoding <value>     Input file encoding. Default to UTF-8
+          |  --from-json-schema    Input file is a valid JSON Schema
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

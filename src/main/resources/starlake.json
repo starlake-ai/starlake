@@ -2362,6 +2362,10 @@
         "onExceptionRetries": {
           "description": "Number of retries on transient exceptions",
           "type": "integer"
+        },
+        "pythonLibsDir": {
+          "description": "Folder where orchestration python libraries are stored",
+          "type": "string"
         }
       }
     },

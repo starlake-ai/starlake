@@ -62,8 +62,6 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
         "name" -> "user",
         "tasks" -> List(
           Map(
-            // sql is not serialized anymore
-            // "sql"           -> "select firstname, lastname, age from {{view}} where age=${age}",
             "domain"        -> "user",
             "table"         -> "user",
             "sql"           -> "select firstname, lastname, age from {{view}} where age=${age}",
@@ -71,7 +69,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
           )
         )
       )
-      assert((jobMap.toSet diff expected.toSet).toMap.isEmpty)
+      jobMap shouldEqual expected
     }
     "Job wit BQ engine toMap" should "should produce the correct map with right engine" in {
       val task = AutoTaskInfo(
@@ -100,7 +98,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
           )
         )
       )
-      assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
+      jobMap shouldEqual expected
     }
     "Job with SPARK engine toMap" should "should produce the correct map" in {
       val task = AutoTaskInfo(
@@ -126,9 +124,7 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
           )
         )
       )
-      println(jobMap)
-      println(expected)
-      assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
+      jobMap shouldEqual expected
     }
   }
 
@@ -366,14 +362,26 @@ class YamlSerdeSpec extends TestHelper with ScalaCheckPropertyChecks with TryVal
   }
 
   it should "round-trip any Yaml Transform Config" in {
-    ignore
     import YamlConfigGenerators.*
     forAll { (yamlTransformConfig: TransformDesc) =>
+      val trans = yamlTransformConfig.transform.copy(
+        default = yamlTransformConfig.transform.default.map { d =>
+          d.copy(sql = if (d.sql.contains("")) None else d.sql)
+        },
+        tasks = yamlTransformConfig.transform.tasks.map { t =>
+          t.copy(sql = if (t.sql.contains("")) None else t.sql)
+        }
+      )
       val mapperWithEmptyString =
         Utils.newYamlMapper().setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
       val config = mapperWithEmptyString.writeValueAsString(yamlTransformConfig)
       YamlSerde.deserializeYamlTransform(config, "input").map { job =>
-        job should equal(yamlTransformConfig.transform)
+        job.copy(
+          default = job.default.map { d => d.copy(sql = if (d.sql.contains("")) None else d.sql) },
+          tasks = job.tasks.map { t =>
+            t.copy(sql = if (t.sql.contains("")) None else t.sql)
+          }
+        ) should equal(trans)
       } match {
         case Failure(exception) =>
           logger.info("Generated config\n" + config)
