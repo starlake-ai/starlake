@@ -13,4 +13,16 @@ This skill is an alias for [transform](../transform/SKILL.md).
 starlake job [options]
 ```
 
-See `transform` for options.
+## Options
+
+This command supports all options available in the [transform](../transform/SKILL.md) command.
+
+## Examples
+
+### Run Job
+
+Run a job named `myjob`.
+
+```bash
+starlake job --name myjob
+```
