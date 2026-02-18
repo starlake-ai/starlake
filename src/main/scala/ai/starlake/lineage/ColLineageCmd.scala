@@ -36,7 +36,8 @@ object ColLineageCmd extends Cmd[ColLineageConfig] {
       opt[String]("accessToken")
         .action((x, c) => c.copy(accessToken = Some(x)))
         .text(s"Access token to use for authentication")
-        .optional()
+        .optional(),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

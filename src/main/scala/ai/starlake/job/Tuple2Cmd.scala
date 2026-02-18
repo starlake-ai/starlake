@@ -7,8 +7,9 @@ import scopt.OParser
 
 import scala.util.{Failure, Success, Try}
 
-case class Tuple2Config[A, B](a: Option[A], b: Option[B])
-trait Tuple2Cmd[A, B] extends Cmd[Tuple2Config[A, B]] {
+case class Tuple2Config[A, B](a: Option[A], b: Option[B], reportFormat: Option[String] = None)
+    extends ReportFormatConfig
+trait Tuple2Cmd[A <: ReportFormatConfig, B <: ReportFormatConfig] extends Cmd[Tuple2Config[A, B]] {
 
   def a: Cmd[A]
 

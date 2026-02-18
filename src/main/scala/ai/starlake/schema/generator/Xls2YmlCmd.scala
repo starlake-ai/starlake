@@ -66,7 +66,8 @@ trait Xls2YmlCmd extends Cmd[Xls2YmlConfig] with LazyLogging {
         .opt[Boolean]("job")
         .action((x, c) => c.copy(job = x))
         .optional()
-        .text("If true generate YML for a Job.")
+        .text("If true generate YML for a Job."),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

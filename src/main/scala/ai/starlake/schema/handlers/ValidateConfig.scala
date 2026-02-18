@@ -1,3 +1,6 @@
 package ai.starlake.schema.handlers
 
-case class ValidateConfig(reload: Boolean = false)
+import ai.starlake.job.ReportFormatConfig
+
+case class ValidateConfig(reload: Boolean = false, reportFormat: Option[String] = None)
+    extends ReportFormatConfig

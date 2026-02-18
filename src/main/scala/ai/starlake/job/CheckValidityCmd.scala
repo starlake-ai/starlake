@@ -30,7 +30,8 @@ trait CheckValidityCmd extends Cmd[CheckValidityCommand] {
         .opt[Boolean]("tasks")
         .action((_, c) => c.copy(tasks = true))
         .optional()
-        .text("Should we validate tasks")
+        .text("Should we validate tasks"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

@@ -145,10 +145,13 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
             "schedule"      -> taskConfig.schedule.getOrElse("None"),
             "sl_project_id" -> config.masterProjectId.getOrElse("-1")
           )
-        val filename = Utils.parseJinja(
-          taskConfig.dagConfig.filename,
-          envVars
-        )
+        val filename = Utils
+          .parseJinja(
+            taskConfig.dagConfig.filename,
+            envVars
+          )
+          .replace("_-1", "")
+
         val comment = Utils.parseJinja(
           taskConfig.dagConfig.comment,
           envVars
@@ -384,7 +387,10 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 k -> Utils.parseJinja(v, envVars)
               }
               val comment = Utils.parseJinja(dagConfig.comment, envVars)
-              val filename = Utils.parseJinja(dagConfig.filename, envVars)
+              val filename = Utils
+                .parseJinja(dagConfig.filename, envVars)
+                .replace("_-1", "")
+              // we remove the reference to the project id if we are using starlake core only
               val orchestratorName = orchestratorFromTemplate(dagConfig.template).toLowerCase()
               val nativeOrchestrator = Set("snowflake", "databricks").contains(orchestratorName)
               if (nativeOrchestrator) {
@@ -495,7 +501,9 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 schedules,
                 workflowStatementsIn = List.empty[Map[String, Object]]
               )
-              val filename = Utils.parseJinja(dagConfig.filename, envVars)
+              val filename = Utils
+                .parseJinja(dagConfig.filename, envVars)
+                .replace("_-1", "")
               applyJ2AndSave(
                 outputDir,
                 jEnv,
@@ -520,7 +528,9 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               schedules,
               workflowStatementsIn = List.empty[Map[String, Object]]
             )
-            val filename = Utils.parseJinja(dagConfig.filename, envVars)
+            val filename = Utils
+              .parseJinja(dagConfig.filename, envVars)
+              .replace("_-1", "")
             applyJ2AndSave(
               outputDir,
               jEnv,
@@ -578,7 +588,9 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
                 List(schedule),
                 workflowStatementsIn = List.empty[Map[String, Object]]
               )
-              val filename = Utils.parseJinja(dagConfig.filename, envVars)
+              val filename = Utils
+                .parseJinja(dagConfig.filename, envVars)
+                .replace("_-1", "")
               applyJ2AndSave(
                 outputDir,
                 jEnv,
@@ -599,7 +611,9 @@ class DagGenerateJob(schemaHandler: SchemaHandler) extends LazyLogging {
               schedules = dagSchedules,
               workflowStatementsIn = List.empty[Map[String, Object]]
             )
-            val filename = Utils.parseJinja(dagConfig.filename, envVars)
+            val filename = Utils
+              .parseJinja(dagConfig.filename, envVars)
+              .replace("_-1", "")
             applyJ2AndSave(
               outputDir,
               jEnv,

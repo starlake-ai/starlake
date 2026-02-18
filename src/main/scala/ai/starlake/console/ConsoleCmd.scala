@@ -26,7 +26,8 @@ object ConsoleCmd extends Cmd[ConsoleConfig] {
         .valueName("k1=v1,k2=v2...")
         .action((x, c) => c.copy(options = c.options ++ x))
         .unbounded()
-        .text("Options(ignored)")
+        .text("Options(ignored)"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

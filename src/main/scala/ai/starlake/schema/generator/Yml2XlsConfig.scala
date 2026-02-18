@@ -19,6 +19,8 @@
  */
 package ai.starlake.schema.generator
 
+import ai.starlake.job.ReportFormatConfig
+
 /** @param domains
   *   : YML Input to convert
   * @param xls
@@ -27,5 +29,6 @@ package ai.starlake.schema.generator
 case class Yml2XlsConfig(
   domains: Seq[String] = Nil,
   iamPolicyTagsFile: Option[String] = None,
-  xlsDirectory: String = ""
-)
+  xlsDirectory: String = "",
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

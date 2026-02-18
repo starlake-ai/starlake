@@ -20,6 +20,7 @@
 package ai.starlake.extract
 
 import ai.starlake.config.Settings.ConnectionInfo
+import ai.starlake.job.ReportFormatConfig
 import ai.starlake.schema.model.{JDBCSchema, PrimitiveType, TableAttribute}
 import org.apache.hadoop.fs.Path
 
@@ -70,8 +71,9 @@ case class UserExtractDataConfig(
   includeSchemas: Seq[String] = Seq.empty,
   excludeSchemas: Seq[String] = Seq.empty,
   includeTables: Seq[String] = Seq.empty,
-  excludeTables: Seq[String] = Seq.empty
-)
+  excludeTables: Seq[String] = Seq.empty,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig
 
 /** Class used during data extraction process
   */

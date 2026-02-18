@@ -120,6 +120,7 @@ trait ExtractDataCmd extends Cmd[UserExtractDataConfig] {
         .text(
           "Schemas to exclude during extraction. if `include-schemas` is defined, this config is ignored."
         ),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x)),
       builder.checkConfig { c =>
         val domainChecks = (c.excludeSchemas, c.includeSchemas) match {
           case (Nil, Nil) | (_, Nil) | (Nil, _) => Nil

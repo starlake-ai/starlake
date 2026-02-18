@@ -74,7 +74,8 @@ object ExtractScriptCmd extends Cmd[ExtractScriptConfig] {
         .optional()
         .text(
           """The default date column used to determine new rows to export. Overrides config database-extractor.default-column value.""".stripMargin
-        )
+        ),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

@@ -1,5 +1,6 @@
 package ai.starlake.extract
 
+import ai.starlake.job.ReportFormatConfig
 import ai.starlake.utils.CliConfig
 import better.files.File
 import scopt.OParser
@@ -9,8 +10,9 @@ case class ExtractScriptConfig(
   scriptTemplateName: String = ".",
   deltaColumn: Option[String] = None,
   auditDB: String = "",
-  scriptOutputPattern: Option[String] = None
-)
+  scriptOutputPattern: Option[String] = None,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig
 
 object ExtractScriptConfig extends CliConfig[ExtractScriptConfig] {
   val command = "extract-script"
@@ -76,7 +78,11 @@ object ExtractScriptConfig extends CliConfig[ExtractScriptConfig] {
         .optional()
         .text(
           """The default date column used to determine new rows to export. Overrides config database-extractor.default-column value.""".stripMargin
-        )
+        ),
+      opt[String]("reportFormat")
+        .action((x, c) => c.copy(reportFormat = Some(x)))
+        .text("Report format: console, json, html")
+        .optional()
     )
   }
 

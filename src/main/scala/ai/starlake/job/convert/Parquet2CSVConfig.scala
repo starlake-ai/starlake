@@ -1,5 +1,6 @@
 package ai.starlake.job.convert
 
+import ai.starlake.job.ReportFormatConfig
 import ai.starlake.schema.model.WriteMode
 import org.apache.hadoop.fs.Path
 
@@ -11,5 +12,6 @@ case class Parquet2CSVConfig(
   writeMode: Option[WriteMode] = None,
   deleteSource: Boolean = false,
   options: Map[String, String] = Map.empty,
-  partitions: Int = 1
-)
+  partitions: Int = 1,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

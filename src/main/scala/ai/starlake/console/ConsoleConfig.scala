@@ -1,3 +1,8 @@
 package ai.starlake.console
 
-case class ConsoleConfig(options: Map[String, String] = Map.empty)
+import ai.starlake.job.ReportFormatConfig
+
+case class ConsoleConfig(
+  options: Map[String, String] = Map.empty,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

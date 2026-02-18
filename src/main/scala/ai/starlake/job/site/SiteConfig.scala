@@ -12,12 +12,15 @@ import scala.util.Try
   * @param templateName
   *   template name
   */
+import ai.starlake.job.ReportFormatConfig
+
 case class SiteConfig(
   outputPath: File = File(".") / "site",
   templateName: Option[String] = Some("docusaurus"),
   format: Option[String] = Some("markdown"),
   clean: Option[Boolean] = Some(false)
-) {
+) extends ReportFormatConfig {
+  def reportFormat: Option[String] = format
 
   private def templateContentFromResource(templateType: String): Try[(String, String)] = Try {
     templateName match {

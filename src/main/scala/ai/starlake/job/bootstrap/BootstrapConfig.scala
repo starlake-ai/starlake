@@ -1,12 +1,14 @@
 package ai.starlake.job.bootstrap
 
+import ai.starlake.job.ReportFormatConfig
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 
 case class BootstrapConfig(
   template: Option[String] = None,
-  noExit: Option[Boolean] = None
-)
+  noExit: Option[Boolean] = None,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig
 
 object BootstrapConfig extends CliConfig[BootstrapConfig] {
   val command = "bootstrap"
@@ -24,6 +26,10 @@ object BootstrapConfig extends CliConfig[BootstrapConfig] {
       opt[String]("template")
         .action((x, c) => c.copy(template = Some(x)))
         .text("Template to use to bootstrap project")
+        .optional(),
+      opt[String]("reportFormat")
+        .action((x, c) => c.copy(reportFormat = Some(x)))
+        .text("Report format: console, json, html")
         .optional()
     )
   }

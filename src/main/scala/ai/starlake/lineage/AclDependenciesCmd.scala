@@ -82,7 +82,8 @@ object AclDependenciesCmd extends Cmd[AclDependenciesConfig] {
         .optional()
         .text(
           "Include all ACL in the dot file ? None by default"
-        )
+        ),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

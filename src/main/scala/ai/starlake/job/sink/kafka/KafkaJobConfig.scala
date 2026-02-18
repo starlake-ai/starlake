@@ -1,5 +1,6 @@
 package ai.starlake.job.sink.kafka
 
+import ai.starlake.job.ReportFormatConfig
 import ai.starlake.utils.Utils
 import org.apache.spark.sql.SaveMode
 
@@ -26,8 +27,9 @@ case class KafkaJobConfig(
   streamingTrigger: Option[String] = Some("Once"), // Once, ProcessingTime, Continuous or None
   streamingTriggerOption: String = "10 seconds",
   streamingWritePartitionBy: Seq[String] = Nil,
-  streamingWriteToTable: Boolean = false
-) {
+  streamingWriteToTable: Boolean = false,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig {
   override def toString: String = {
     s"""
        |KafkaJobConfig(

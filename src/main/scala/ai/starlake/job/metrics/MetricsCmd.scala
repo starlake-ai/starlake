@@ -36,7 +36,8 @@ object MetricsCmd extends Cmd[MetricsConfig] {
         .opt[Map[String, String]]("authInfo")
         .action((x, c) => c.copy(authInfo = x))
         .optional()
-        .text("Auth Info.  Google Cloud use: gcpProjectId and gcpSAJsonKey")
+        .text("Auth Info.  Google Cloud use: gcpProjectId and gcpSAJsonKey"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

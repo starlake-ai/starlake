@@ -62,7 +62,8 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
         .optional()
         .text(
           """Generate role definitions""".stripMargin
-        )
+        ),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

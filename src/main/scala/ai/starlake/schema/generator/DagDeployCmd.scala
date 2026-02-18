@@ -48,7 +48,8 @@ object DagDeployCmd extends Cmd[DagDeployConfig] {
         .optional()
         .text(
           """Should the output directory be deleted first ?""".stripMargin
-        )
+        ),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

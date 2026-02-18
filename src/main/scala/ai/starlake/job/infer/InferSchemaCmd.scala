@@ -78,7 +78,8 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] with LazyLogging {
         .opt[Unit]("from-json-schema")
         .action((_, c) => c.copy(fromJsonSchema = true))
         .optional()
-        .text("Input file is a valid JSON Schema")
+        .text("Input file is a valid JSON Schema"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 
@@ -117,7 +118,7 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] with LazyLogging {
       }
     }
     val failures = results.filter(_.isFailure).map {
-      case Failure(exception) => exception.getMessage()
+      case Failure(exception) => exception.getMessage
       case _                  => throw new IllegalStateException("This should never happen")
     }
 

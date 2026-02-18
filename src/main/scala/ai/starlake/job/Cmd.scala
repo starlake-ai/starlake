@@ -4,10 +4,15 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.{CliConfig, JobResult}
 import ai.starlake.workflow.IngestionWorkflow
+import scopt.{OParser, OParserBuilder}
 
 import scala.util.{Failure, Try}
 
-trait Cmd[T] extends CliConfig[T] {
+trait ReportFormatConfig {
+  def reportFormat: Option[String]
+}
+
+trait Cmd[T <: ReportFormatConfig] extends CliConfig[T] {
 
   val shell: String = Main.shell
 
@@ -27,4 +32,15 @@ trait Cmd[T] extends CliConfig[T] {
   def workflow(schemaHandler: SchemaHandler)(implicit settings: Settings): IngestionWorkflow =
     new IngestionWorkflow(settings.storageHandler(), schemaHandler)
 
+  def reportFormat(config: T): Option[String] = config.reportFormat
+
+  def reportFormatOption(builder: OParserBuilder[T])(
+    action: (T, Option[String]) => T
+  ): OParser[String, T] = {
+    builder
+      .opt[String]("reportFormat")
+      .action((x, c) => action(c, Some(x)))
+      .text("Report format: console, json, html")
+      .optional()
+  }
 }

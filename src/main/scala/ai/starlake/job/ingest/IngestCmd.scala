@@ -47,7 +47,8 @@ object IngestCmd extends Cmd[IngestConfig] {
         .opt[String]("scheduledDate")
         .optional()
         .action((x, c) => c.copy(scheduledDate = Some(x)))
-        .text("Scheduled date for the job, in format yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+        .text("Scheduled date for the job, in format yyyy-MM-dd'T'HH:mm:ss.SSSZ"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

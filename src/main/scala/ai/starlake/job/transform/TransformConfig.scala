@@ -1,5 +1,7 @@
 package ai.starlake.job.transform
 
+import ai.starlake.job.ReportFormatConfig
+
 case class TransformConfig(
   name: String = "",
   options: Map[String, String] = Map.empty,
@@ -18,8 +20,9 @@ case class TransformConfig(
   query: Option[String] = None,
   pageSize: Int = 1000,
   pageNumber: Int = 1,
-  scheduledDate: Option[String]
-) {
+  scheduledDate: Option[String],
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig {
   def optionsAsString: String = options.map { case (k, v) => s"$k=$v" }.mkString(",")
   override def toString: String = {
     s"""
@@ -40,6 +43,7 @@ case class TransformConfig(
        |query=$query
        |pageSize=$pageSize
        |pageNumber=$pageNumber
+       |reportFormat=$reportFormat
        |""".stripMargin
   }
 }

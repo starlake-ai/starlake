@@ -21,6 +21,7 @@
 package ai.starlake.job.sink.es
 
 import ai.starlake.config.Settings
+import ai.starlake.job.ReportFormatConfig
 import ai.starlake.schema.model.RowLevelSecurity
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
@@ -36,8 +37,9 @@ case class ESLoadConfig(
   format: String = "",
   dataset: Option[Either[Path, DataFrame]] = None,
   options: Map[String, String] = Map.empty,
-  rls: Option[List[RowLevelSecurity]] = None
-) {
+  rls: Option[List[RowLevelSecurity]] = None,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig {
 
   def getDataset()(implicit settings: Settings): Either[Path, DataFrame] = {
     dataset match {

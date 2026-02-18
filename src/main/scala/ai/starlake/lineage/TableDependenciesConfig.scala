@@ -1,5 +1,6 @@
 package ai.starlake.lineage
 
+import ai.starlake.job.ReportFormatConfig
 import better.files.File
 
 /** @param all
@@ -30,5 +31,6 @@ case class TableDependenciesConfig(
   related: Boolean = false,
   reload: Boolean = false,
   svg: Boolean = false,
-  tables: Option[Seq[String]] = None
-)
+  tables: Option[Seq[String]] = None,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

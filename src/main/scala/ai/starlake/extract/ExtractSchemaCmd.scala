@@ -65,7 +65,8 @@ object ExtractSchemaCmd extends Cmd[ExtractSchemaConfig] {
         .optional()
         .text(
           """Apply snake case when name sanitization is done""".stripMargin
-        )
+        ),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 
