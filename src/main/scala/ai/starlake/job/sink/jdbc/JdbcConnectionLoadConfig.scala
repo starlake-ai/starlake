@@ -1,5 +1,6 @@
 package ai.starlake.job.sink.jdbc
 
+import ai.starlake.job.ReportFormatConfig
 import ai.starlake.schema.model.{RowLevelSecurity, WriteStrategy, WriteStrategyType}
 import ai.starlake.utils.Utils
 import org.apache.spark.sql.DataFrame
@@ -12,8 +13,9 @@ case class JdbcConnectionLoadConfig(
   options: Map[String, String] = Map.empty,
   rls: Option[List[RowLevelSecurity]] = None,
   createTableIfAbsent: Boolean = false,
-  accessToken: Option[String] = None
-) {
+  accessToken: Option[String] = None,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig {
   override def toString: String = {
     val redactedOptions = Utils.redact(options)
     s"""JdbcConnectionLoadConfig(

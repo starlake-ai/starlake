@@ -151,7 +151,8 @@ object KafkaJobCmd extends Cmd[KafkaJobConfig] {
             .action((x, c) => c.copy(streamingWritePartitionBy = x))
             .text("List of columns to use for partitioning")
             .optional()
-        )
+        ),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

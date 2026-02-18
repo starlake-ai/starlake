@@ -65,7 +65,8 @@ trait ESLoadCmd extends Cmd[ESLoadConfig] {
         .valueName("es.batch.size.entries=1000, es.batch.size.bytes=1mb...")
         .text(
           """esSpark configuration options. See https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html""".stripMargin
-        )
+        ),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

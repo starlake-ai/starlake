@@ -35,7 +35,8 @@ object BootstrapCmd extends Cmd[BootstrapConfig] {
         .opt[String]("template")
         .action((x, c) => c.copy(template = Some(x)))
         .text("Template to use to bootstrap project")
-        .optional()
+        .optional(),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

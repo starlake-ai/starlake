@@ -65,7 +65,8 @@ object Yml2DDLCmd extends Cmd[Yml2DDLConfig] {
         .optional()
         .text(
           s"parallelism level. By default equals to the available cores: ${Runtime.getRuntime.availableProcessors()}"
-        )
+        ),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

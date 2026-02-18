@@ -1,5 +1,6 @@
 package ai.starlake.extract
 
+import ai.starlake.job.ReportFormatConfig
 import ai.starlake.schema.model.WriteMode
 
 case class TablesExtractConfig(
@@ -9,5 +10,6 @@ case class TablesExtractConfig(
   database: Option[String] = None,
   persist: Boolean = false,
   external: Boolean = false,
-  accessToken: Option[String] = None
-)
+  accessToken: Option[String] = None,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

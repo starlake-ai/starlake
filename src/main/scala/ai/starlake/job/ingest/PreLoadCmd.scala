@@ -51,7 +51,8 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with LazyLogging {
         .valueName("k1=v1,k2=v2...")
         .optional()
         .action((x, c) => c.copy(options = x))
-        .text("Pre load arguments to be used as substitutions")
+        .text("Pre load arguments to be used as substitutions"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

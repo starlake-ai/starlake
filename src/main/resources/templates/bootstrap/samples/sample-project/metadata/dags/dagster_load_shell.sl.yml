@@ -3,12 +3,12 @@ version: 1
 dag:
     comment: "dag for loading all domain {{domain}} tables"
     template: "load/dagster__scheduled_table__shell.py.j2"
-    filename: "dagster_{{domain}}_tables.py"
+    filename: "{{domain}}_tables_{{sl_project_id}}.py"
     options:
-      sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\", \"SL_ENV\": \"PG\"}"
-      SL_STARLAKE_PATH: "starlake"
-      tags: "{{domain}}"
-      pre_load_strategy: "imported"
-      incoming_path: "{{SL_ROOT}}/datasets/incoming"
-      global_ack_file_path: "{{SL_ROOT}}/datasets/incoming/{{domain}}/ack"
-      ack_wait_timeout: "60"
+        sl_env_var: "{\"SL_ROOT\": \"{{SL_ROOT}}\"}"
+        SL_STARLAKE_PATH: "starlake"
+        pre_load_strategy: "none" # pending, imported, ack, none - default is none
+        global_ack_file_path: "{{SL_ROOT}}/datasets/pending/{{domain}}/GO.ack" # only used when pre_load_strategy is ack
+        ack_wait_timeout: "60" # in seconds, default is 60*60 (1 hour)
+        tags: "{{domain}}"
+        sl_include_env_vars: GOOGLE_APPLICATION_CREDENTIALS,AWS_KEY_ID,AWS_SECRET_KEY

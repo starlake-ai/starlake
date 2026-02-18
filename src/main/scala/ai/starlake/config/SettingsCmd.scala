@@ -26,7 +26,8 @@ trait SettingsCmd extends Cmd[SettingsConfig] {
         .opt[String]("test-connection")
         .action((x, c) => c.copy(testConnection = Some(x)))
         .optional()
-        .text("Test this connection")
+        .text("Test this connection"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

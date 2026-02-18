@@ -84,7 +84,8 @@ object Parquet2CSVCmd extends Cmd[Parquet2CSVConfig] {
         .opt[String]("partitions")
         .action((x, c) => c.copy(partitions = x.toInt))
         .text("How many output partitions")
-        .optional()
+        .optional(),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

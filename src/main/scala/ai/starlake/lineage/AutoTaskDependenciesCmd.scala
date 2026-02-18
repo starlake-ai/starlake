@@ -83,7 +83,8 @@ object AutoTaskDependenciesCmd extends Cmd[AutoTaskDependenciesConfig] {
         .optional()
         .text(
           "Add extra table properties"
-        )
+        ),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

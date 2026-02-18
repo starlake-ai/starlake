@@ -55,7 +55,8 @@ object StageCmd extends Cmd[StageConfig] {
         .valueName("k1=v1,k2=v2...")
         .action((x, c) => c.copy(options = c.options ++ x))
         .unbounded()
-        .text("Stage arguments to be used as substitutions")
+        .text("Stage arguments to be used as substitutions"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

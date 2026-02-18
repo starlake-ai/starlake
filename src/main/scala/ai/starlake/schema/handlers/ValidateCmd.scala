@@ -28,7 +28,8 @@ object ValidateCmd extends Cmd[ValidateConfig] {
         .optional()
         .text(
           "Reload all files from disk before starting validation. Always true regardless of the value set here."
-        )
+        ),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

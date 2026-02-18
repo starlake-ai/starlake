@@ -10,12 +10,12 @@ import ai.starlake.job.convert.Parquet2CSVCmd
 import ai.starlake.job.infer.InferSchemaCmd
 import ai.starlake.job.ingest.*
 import ai.starlake.job.metrics.MetricsCmd
-import ai.starlake.job.sink.es.ESLoadCmd
+import ai.starlake.job.sink.es.{ESLoadCmd, IndexCmd}
 import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
 import ai.starlake.job.sink.kafka.KafkaJobCmd
 import ai.starlake.job.site.SiteCmd
 import ai.starlake.job.tools.SummarizeCmd
-import ai.starlake.job.transform.TransformCmd
+import ai.starlake.job.transform.{JobCmd, TransformCmd}
 import ai.starlake.lineage.{
   AclDependenciesCmd,
   AutoTaskDependenciesCmd,
@@ -86,6 +86,7 @@ object Main extends LazyLogging {
     AutoLoadCmd,
     IngestCmd,
     ESLoadCmd,
+    IndexCmd,
     KafkaJobCmd,
     JdbcConnectionLoadCmd,
     Yml2DDLCmd,
@@ -97,6 +98,7 @@ object Main extends LazyLogging {
     IamPoliciesCmd,
     Xls2YmlCmd,
     Yml2XlsCmd,
+    Yml2XlsIamPolicyTagsCmd,
     Xls2YmlAutoJobCmd,
     TableDependenciesCmd,
     AclDependenciesCmd,
@@ -118,7 +120,8 @@ object Main extends LazyLogging {
     ColLineageCmd,
     PreLoadCmd,
     SettingsCmd,
-    SummarizeCmd
+    SummarizeCmd,
+    JobCmd
   )
 }
 

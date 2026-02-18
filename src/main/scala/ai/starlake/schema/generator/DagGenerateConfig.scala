@@ -19,6 +19,8 @@
  */
 package ai.starlake.schema.generator
 
+import ai.starlake.job.ReportFormatConfig
+
 /** @param outputDir
   *   Path for saving the resulting DAG file(s).
   * @param clean
@@ -34,5 +36,6 @@ case class DagGenerateConfig(
   tasks: Boolean = false,
   masterProjectId: Option[String] = None,
   masterProjectName: Option[String] = None,
-  includeRoles: Boolean = false
-)
+  includeRoles: Boolean = false,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

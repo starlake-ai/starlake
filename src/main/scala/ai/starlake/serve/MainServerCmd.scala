@@ -30,7 +30,8 @@ object MainServerCmd extends Cmd[MainServerConfig] {
         .opt[Int]("port")
         .action((x, c) => c.copy(port = Some(x)))
         .optional()
-        .text("Port on which the server is listening")
+        .text("Port on which the server is listening"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

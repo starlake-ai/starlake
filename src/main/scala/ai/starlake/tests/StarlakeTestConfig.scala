@@ -1,5 +1,7 @@
 package ai.starlake.tests
 
+import ai.starlake.job.ReportFormatConfig
+
 case class StarlakeTestConfig(
   accessToken: Option[String] = None,
   load: Boolean = false,
@@ -8,8 +10,9 @@ case class StarlakeTestConfig(
   table: Option[String] = None,
   test: Option[String] = None,
   generate: Boolean = false,
-  outputDir: Option[String] = None
-) {
+  outputDir: Option[String] = None,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig {
   def runLoad(): Boolean = load || (!load && !transform)
 
   def runTransform(): Boolean = transform || (!load && !transform)

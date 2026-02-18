@@ -19,6 +19,8 @@
  */
 package ai.starlake.schema.generator
 
+import ai.starlake.job.ReportFormatConfig
+
 case class Yml2DDLConfig(
   datawarehouse: String = "",
   outputPath: Option[String] = None,
@@ -27,5 +29,6 @@ case class Yml2DDLConfig(
   schemas: Option[Seq[String]] = None,
   catalog: Option[String] = None,
   apply: Boolean = false,
-  parallelism: Option[Int] = None
-)
+  parallelism: Option[Int] = None,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

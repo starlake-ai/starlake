@@ -1,5 +1,7 @@
 package ai.starlake.extract
 
+import ai.starlake.job.ReportFormatConfig
+
 case class ExtractSchemaConfig(
   extractConfig: String = "",
   all: Boolean = false,
@@ -10,5 +12,6 @@ case class ExtractSchemaConfig(
   external: Boolean = false,
   connectionRef: Option[String] = None,
   accessToken: Option[String] = None,
-  snakeCase: Boolean = false
-)
+  snakeCase: Boolean = false,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

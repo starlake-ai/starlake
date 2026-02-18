@@ -19,6 +19,7 @@
  */
 package ai.starlake.job.infer
 
+import ai.starlake.job.ReportFormatConfig
 import ai.starlake.schema.model.{Format, WriteMode}
 import better.files.File
 
@@ -36,8 +37,10 @@ case class InferSchemaConfig(
   clean: Boolean = false,
   encoding: Charset = StandardCharsets.UTF_8,
   variant: Option[Boolean] = None,
-  fromJsonSchema: Boolean = false
-) {
+  fromJsonSchema: Boolean = false,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig {
+  def isReportFormatJSON: Boolean = reportFormat.getOrElse("console").toLowerCase.equals("json")
   def extractTableNameAndWriteMode(): (String, WriteMode) = {
     val file: File = File(inputPath)
     val fileNameWithoutExt = file.nameWithoutExtension(includeAll = true)
@@ -59,5 +62,4 @@ case class InferSchemaConfig(
       (name, write)
     }
   }
-
 }

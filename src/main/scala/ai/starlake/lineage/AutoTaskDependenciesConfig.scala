@@ -1,5 +1,6 @@
 package ai.starlake.lineage
 
+import ai.starlake.job.ReportFormatConfig
 import better.files.File
 
 case class AutoTaskDependenciesConfig(
@@ -13,5 +14,6 @@ case class AutoTaskDependenciesConfig(
   png: Boolean = false,
   all: Boolean = false,
   verbose: Boolean = false,
-  json: Boolean = false
-)
+  json: Boolean = false,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

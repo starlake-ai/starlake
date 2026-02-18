@@ -76,7 +76,8 @@ trait LoadCmd extends Cmd[LoadConfig] {
         .opt[String]("scheduledDate")
         .optional()
         .action((x, c) => c.copy(scheduledDate = Some(x.replace('T', ' ').replaceAll("'", ""))))
-        .text("Scheduled date for the job, in format yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+        .text("Scheduled date for the job, in format yyyy-MM-dd'T'HH:mm:ss.SSSZ"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

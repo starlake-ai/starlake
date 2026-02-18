@@ -87,7 +87,8 @@ object TableDependenciesCmd extends Cmd[TableDependenciesConfig] {
         .optional()
         .text(
           "JSON output ?"
-        )
+        ),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

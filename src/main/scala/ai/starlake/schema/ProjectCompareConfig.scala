@@ -1,5 +1,7 @@
 package ai.starlake.schema
 
+import ai.starlake.job.ReportFormatConfig
+
 case class ProjectCompareConfig(
   path1: String = "",
   path2: String = "",
@@ -9,5 +11,6 @@ case class ProjectCompareConfig(
   tag1: String = "",
   tag2: String = "",
   template: Option[String] = None,
-  output: Option[String] = None
-)
+  output: Option[String] = None,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

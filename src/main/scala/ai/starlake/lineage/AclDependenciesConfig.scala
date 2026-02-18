@@ -1,5 +1,6 @@
 package ai.starlake.lineage
 
+import ai.starlake.job.ReportFormatConfig
 import better.files.File
 
 case class AclDependenciesConfig(
@@ -10,5 +11,6 @@ case class AclDependenciesConfig(
   svg: Boolean = false,
   png: Boolean = false,
   json: Boolean = false,
-  all: Boolean = false
-)
+  all: Boolean = false,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

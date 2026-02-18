@@ -20,6 +20,7 @@
 
 package ai.starlake.job.ingest
 
+import ai.starlake.job.ReportFormatConfig
 import org.apache.hadoop.fs.Path
 
 /** @param domain
@@ -35,5 +36,6 @@ case class IngestConfig(
   paths: List[Path] = Nil,
   options: Map[String, String] = Map.empty,
   accessToken: Option[String],
-  scheduledDate: Option[String]
-)
+  scheduledDate: Option[String],
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

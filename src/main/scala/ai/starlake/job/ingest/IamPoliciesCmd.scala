@@ -1,14 +1,15 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
-import ai.starlake.job.Cmd
+import ai.starlake.job.{Cmd, ReportFormatConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.JobResult
 import scopt.OParser
 
 import scala.util.Try
 
-case class IamPoliciesConfig(accessToken: Option[String])
+case class IamPoliciesConfig(accessToken: Option[String], reportFormat: Option[String] = None)
+    extends ReportFormatConfig
 
 /** Command to apply IAM policies.
   *
@@ -28,7 +29,8 @@ object IamPoliciesCmd extends Cmd[IamPoliciesConfig] {
         .opt[String]("accessToken")
         .action((x, c) => c.copy(accessToken = Some(x)))
         .text(s"Access token to use for authentication")
-        .optional()
+        .optional(),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

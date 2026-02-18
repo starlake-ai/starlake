@@ -19,10 +19,13 @@
  */
 package ai.starlake.schema.generator
 
+import ai.starlake.job.ReportFormatConfig
+
 case class Xls2YmlConfig(
   files: Seq[String] = Nil,
   iamPolicyTagsFile: Option[String] = None,
   outputPath: Option[String] = None,
   policyFile: Option[String] = None,
-  job: Boolean = false
-)
+  job: Boolean = false,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig

@@ -38,7 +38,8 @@ trait Yml2XlsCmd extends Cmd[Yml2XlsConfig] {
         .opt[String]("xls")
         .action((x, c) => c.copy(xlsDirectory = x))
         .required()
-        .text("directory where XLS files are generated")
+        .text("directory where XLS files are generated"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

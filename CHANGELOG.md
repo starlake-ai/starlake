@@ -1,6 +1,12 @@
 
 # Release notes
 
+# 1.5.7:
+__Improvement__:
+
+__Bug fix__:
+
+
 # 1.5.6:
 __Improvement__:
 - add support for inferring starlake schema from json schema file

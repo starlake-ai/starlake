@@ -1,11 +1,13 @@
 package ai.starlake.migration
 
+import ai.starlake.job.ReportFormatConfig
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 
 case class MigrateConfig(
-  template: Option[String] = None
-)
+  template: Option[String] = None,
+  reportFormat: Option[String] = None
+) extends ReportFormatConfig
 
 object MigrateConfig extends CliConfig[MigrateConfig] {
   val command = "migrate"
@@ -21,7 +23,11 @@ object MigrateConfig extends CliConfig[MigrateConfig] {
           |Print warning for any changes that requires user's attention.
           |Once project is migrated, check the difference and makes sure that everything is working as expected.
           |""".stripMargin
-      )
+      ),
+      opt[String]("reportFormat")
+        .action((x, c) => c.copy(reportFormat = Some(x)))
+        .text("Report format: console, json, html")
+        .optional()
     )
   }
 

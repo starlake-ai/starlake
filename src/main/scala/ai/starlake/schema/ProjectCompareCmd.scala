@@ -66,7 +66,8 @@ object ProjectCompareCmd extends Cmd[ProjectCompareConfig] {
         .opt[String]("output")
         .action { (x, c) => c.copy(output = Some(x)) }
         .optional()
-        .text("Output path")
+        .text("Output path"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

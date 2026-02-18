@@ -62,7 +62,8 @@ trait TablesExtractCmd extends Cmd[TablesExtractConfig] {
         .opt[Boolean]("persist")
         .action { (x, c) => c.copy(persist = x) }
         .optional()
-        .text("Persist results ?")
+        .text("Persist results ?"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 

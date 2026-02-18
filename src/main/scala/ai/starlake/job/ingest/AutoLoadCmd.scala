@@ -56,7 +56,8 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with LazyLogging {
         .valueName("k1=v1,k2=v2...")
         .optional()
         .action((x, c) => c.copy(options = x))
-        .text("Watch arguments to be used as substitutions")
+        .text("Watch arguments to be used as substitutions"),
+      reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
 
