@@ -1,11 +1,11 @@
 ---
 name: yml2xls
-description: Convert YML to XLS
+description: Convert Starlake YAML definitions to Excel spreadsheets
 ---
 
-# YML 2 XLS Skill
+# YML to XLS Skill
 
-This skill converts Starlake YML definitions into Excel files.
+Converts Starlake YAML domain/table definitions back into Excel spreadsheets. This is useful for sharing data models with non-technical stakeholders or for round-tripping between YAML and Excel workflows.
 
 ## Usage
 
@@ -15,14 +15,39 @@ starlake yml2xls [options]
 
 ## Options
 
-- `--domain <value>`: Domains to convert
-- `--iamPolicyTagsFile <value>`: IAM PolicyTag file to convert
-- `--xls <value>`: Output directory (required)
+- `--domain <value>`: Comma-separated list of domains to convert (default: all)
+- `--iamPolicyTagsFile <value>`: IAM PolicyTag YAML file to include (default: `metadata/iam-policy-tags.sl.yml`)
+- `--xls <value>`: Output directory for generated Excel files (required)
+- `--reportFormat <value>`: Report output format: `console`, `json`, or `html`
 
 ## Examples
 
-### Convert Domain to XLS
+### Convert All Domains to Excel
 
 ```bash
-starlake yml2xls --domain mydomain --xls /path/to/output
+starlake yml2xls --xls /tmp/excel
 ```
+
+### Convert Specific Domain
+
+```bash
+starlake yml2xls --domain starbake --xls /tmp/excel
+```
+
+### Convert Multiple Domains
+
+```bash
+starlake yml2xls --domain starbake,sales --xls /tmp/excel
+```
+
+### Convert with IAM Policy Tags
+
+```bash
+starlake yml2xls --domain starbake --xls /tmp/excel --iamPolicyTagsFile metadata/iam-policy-tags.sl.yml
+```
+
+## Related Skills
+
+- [xls2yml](../xls2yml/SKILL.md) - Convert Excel back to YAML
+- [xls2ymljob](../xls2ymljob/SKILL.md) - Convert job Excel to YAML
+- [config](../config/SKILL.md) - Configuration reference

@@ -1,11 +1,11 @@
 ---
 name: cnxload
-description: Load parquet file into a JDBC Table
+description: Load files (Parquet/CSV/JSON) into a JDBC table
 ---
 
-# JDBC Load Skill
+# Connection Load Skill
 
-This skill loads a Parquet file into a JDBC table.
+Loads data from Parquet, CSV, or JSON files directly into a JDBC database table. This provides a simple way to push data into any JDBC-compatible database without going through the full Starlake load pipeline.
 
 ## Usage
 
@@ -15,29 +15,52 @@ starlake cnxload [options]
 
 ## Options
 
-- `--source_file <value>`: Full Path to source file (required). Supports Parquet, CSV, JSON.
-- `--output_table <value>`: JDBC Output Table (required). format: schema.table
-- `--driver <value>`: JDBC Driver class name (e.g. org.postgresql.Driver)
-- `--url <value>`: JDBC URL (e.g. jdbc:postgresql://localhost:5432/mydb)
-- `--user <value>`: Database user
-- `--password <value>`: Database password
-- `--options <value>`: Connection options (key=value,key2=value2)
-- `--write_strategy <value>`: Write strategy (APPEND, OVERWRITE, TRUNCATE, ERROR_IF_EXISTS)
-- `--create_table_if_not_exists`: Create table if it does not exist
+- `--source_file <value>`: Full path to the source file (required). Supports Parquet, CSV, JSON
+- `--output_table <value>`: Target JDBC table in `schema.table` format (required)
+- `--options k1=v1,k2=v2`: JDBC connection options:
+  - `driver`: JDBC driver class (e.g. `org.postgresql.Driver`)
+  - `user`: Database user
+  - `password`: Database password
+  - `url`: JDBC URL (e.g. `jdbc:postgresql://localhost:5432/mydb`)
+  - `partitions`: Number of partitions for parallel write
+  - `batchSize`: Batch size for inserts
+- `--write_strategy <value>`: Write strategy: `APPEND`, `OVERWRITE`
+- `--reportFormat <value>`: Report output format: `console`, `json`, or `html`
 
 ## Examples
 
 ### Load Parquet to PostgreSQL
 
-Load a parquet file into the `public.mytable` table in a PostgreSQL database.
+```bash
+starlake cnxload \
+  --source_file /data/orders.parquet \
+  --output_table public.orders \
+  --options driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/mydb,user=admin,password=secret \
+  --write_strategy APPEND
+```
+
+### Load CSV to Database
 
 ```bash
 starlake cnxload \
-  --source_file /path/to/data.parquet \
-  --output_table public.mytable \
-  --driver org.postgresql.Driver \
-  --url jdbc:postgresql://localhost:5432/mydb \
-  --user myuser \
-  --password mypassword \
+  --source_file /data/customers.csv \
+  --output_table public.customers \
+  --options driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/mydb,user=admin,password=secret \
+  --write_strategy OVERWRITE
+```
+
+### Load with Batch Options
+
+```bash
+starlake cnxload \
+  --source_file /data/orders.parquet \
+  --output_table sales.orders \
+  --options driver=com.mysql.cj.jdbc.Driver,url=jdbc:mysql://localhost:3306/mydb,user=root,password=secret,batchSize=5000 \
   --write_strategy APPEND
 ```
+
+## Related Skills
+
+- [load](../load/SKILL.md) - Full Starlake load pipeline
+- [esload](../esload/SKILL.md) - Load data into Elasticsearch
+- [kafkaload](../kafkaload/SKILL.md) - Load/offload data to/from Kafka

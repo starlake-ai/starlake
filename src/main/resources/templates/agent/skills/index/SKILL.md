@@ -1,11 +1,11 @@
 ---
 name: index
-description: Index data in Elasticsearch (Alias for esload)
+description: Index data in Elasticsearch (alias for esload)
 ---
 
 # Index Skill
 
-This skill is an alias for [esload](../esload/SKILL.md).
+Alias for the [esload](../esload/SKILL.md) command. All options and behavior are identical.
 
 ## Usage
 
@@ -13,4 +13,18 @@ This skill is an alias for [esload](../esload/SKILL.md).
 starlake index [options]
 ```
 
-See `esload` for options.
+## Options
+
+See [esload](../esload/SKILL.md) for all available options.
+
+## Examples
+
+### Index Data in Elasticsearch
+
+```bash
+starlake index --domain starbake --schema orders --format parquet
+```
+
+## Related Skills
+
+- [esload](../esload/SKILL.md) - Full documentation for this command

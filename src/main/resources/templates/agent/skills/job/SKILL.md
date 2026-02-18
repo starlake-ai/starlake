@@ -1,11 +1,11 @@
 ---
 name: job
-description: Run a job (Alias for transform)
+description: Run a job (alias for transform)
 ---
 
 # Job Skill
 
-This skill is an alias for [transform](../transform/SKILL.md).
+Alias for the [transform](../transform/SKILL.md) command. All options and behavior are identical.
 
 ## Usage
 
@@ -15,14 +15,22 @@ starlake job [options]
 
 ## Options
 
-This command supports all options available in the [transform](../transform/SKILL.md) command.
+See [transform](../transform/SKILL.md) for all available options.
 
 ## Examples
 
-### Run Job
-
-Run a job named `myjob`.
+### Run a Job
 
 ```bash
-starlake job --name myjob
+starlake job --name kpi.revenue_summary
 ```
+
+### Run with Recursive Dependencies
+
+```bash
+starlake job --name kpi.order_summary --recursive
+```
+
+## Related Skills
+
+- [transform](../transform/SKILL.md) - Full documentation for this command

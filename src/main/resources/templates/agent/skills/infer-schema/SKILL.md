@@ -1,11 +1,11 @@
 ---
 name: infer-schema
-description: Infer schema from a file
+description: Infer a Starlake schema from a data file
 ---
 
 # Infer Schema Skill
 
-This skill infers a Starlake schema from a data file (CSV, JSON, etc.).
+Analyzes a data file (CSV, JSON, XML, Parquet) and infers the Starlake table schema, generating the corresponding YAML configuration file with detected column names, types, and format metadata.
 
 ## Usage
 
@@ -15,31 +15,97 @@ starlake infer-schema [options]
 
 ## Options
 
-- `--input <value>`: Dataset Input Path (required). Can be a file or a directory.
-- `--domain <value>`: Domain Name (e.g. `starbake`)
-- `--table <value>`: Table Name (e.g. `ingredients`)
-- `--outputDir <value>`: Domain YAML Output Path (default: `metadata/domains`)
-- `--write <value>`: Write Mode (OVERWRITE, APPEND)
-- `--format <value>`: Force input file format (DSV, JSON, XML, PARQUET, etc.)
-- `--rowTag <value>`: Row tag to wrap records (XML only)
-- `--clean`: Delete previous YML file before writing
-- `--encoding <value>`: Input file encoding (default: UTF-8)
-- `--from-json-schema`: Input file is a valid JSON Schema file
+- `--input <value>`: Path to the data file or directory to analyze (required)
+- `--domain <value>`: Domain name for the generated schema (e.g. `starbake`)
+- `--table <value>`: Table name for the generated schema (e.g. `orders`)
+- `--outputDir <value>`: Output directory for the YAML file (default: `metadata/load`)
+- `--write <value>`: Write mode: `OVERWRITE` or `APPEND`
+- `--format <value>`: Force input file format: `DSV`, `JSON`, `JSON_FLAT`, `JSON_ARRAY`, `XML`, `PARQUET`
+- `--rowTag <value>`: Row tag for XML files (e.g. `record`)
+- `--variant`: Infer schema as a single variant attribute (schema-on-read)
+- `--clean`: Delete previous YAML file before writing
+- `--encoding <value>`: Input file encoding (default: `UTF-8`)
+- `--from-json-schema`: Input file is a JSON Schema file (not data)
+- `--reportFormat <value>`: Report output format: `console`, `json`, or `html`
+
+## Generated Output
+
+The command generates a table YAML file like:
+
+```yaml
+# Generated: metadata/load/starbake/orders.sl.yml
+version: 1
+table:
+  name: "orders"
+  pattern: "orders_.*.json"
+  attributes:
+    - name: "customer_id"
+      type: "long"
+      sample: "9"
+    - name: "order_id"
+      type: "long"
+      sample: "99"
+    - name: "status"
+      type: "string"
+      sample: "Pending"
+    - name: "timestamp"
+      type: "iso_date_time"
+      sample: "2024-03-01T09:01:12.529Z"
+  metadata:
+    format: "JSON_FLAT"
+    encoding: "UTF-8"
+    array: true
+    writeStrategy:
+      type: "APPEND"
+```
 
 ## Examples
 
-### Infer from CSV
-
-Infer the schema for the `ingredients` table in the `starbake` domain from a CSV file.
+### Infer from CSV File
 
 ```bash
-starlake infer-schema --domain starbake --table ingredients --input /path/to/ingredients.csv --format DSV
+starlake infer-schema --domain starbake --table order_lines --input /data/order-lines_20240301.csv --format DSV
+```
+
+### Infer from JSON File
+
+```bash
+starlake infer-schema --domain starbake --table orders --input /data/orders_20240301.json
+```
+
+### Infer from XML File
+
+```bash
+starlake infer-schema --domain starbake --table products --input /data/products.xml --rowTag record
+```
+
+### Infer from Parquet File
+
+```bash
+starlake infer-schema --domain starbake --table events --input /data/events.parquet
 ```
 
 ### Infer from JSON Schema
 
-Infer the schema for the `orders` table in the `starbake` domain from a JSON Schema file.
+```bash
+starlake infer-schema --domain starbake --table orders --input /schemas/orders.json --from-json-schema
+```
+
+### Overwrite Existing Schema
 
 ```bash
-starlake infer-schema --domain starbake --table orders --input /path/to/orders_schema.json --from-json-schema
+starlake infer-schema --domain starbake --table orders --input /data/orders.json --clean
 ```
+
+### Infer as Variant (Schema-on-Read)
+
+```bash
+starlake infer-schema --domain starbake --table events --input /data/events.json --variant
+```
+
+## Related Skills
+
+- [autoload](../autoload/SKILL.md) - Infer schemas and load in one step
+- [load](../load/SKILL.md) - Load data using inferred schemas
+- [xls2yml](../xls2yml/SKILL.md) - Generate schemas from Excel definitions
+- [extract-schema](../extract-schema/SKILL.md) - Extract schema from a database
