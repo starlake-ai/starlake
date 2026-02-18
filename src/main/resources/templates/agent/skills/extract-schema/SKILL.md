@@ -1,11 +1,11 @@
 ---
 name: extract-schema
-description: Extract schema from a database to Starlake YAML files
+description: Extract database schemas into Starlake YAML configuration files
 ---
 
 # Extract Schema Skill
 
-This skill helps you extract database schemas into Starlake's YAML configuration format.
+Connects to a JDBC database and extracts table schemas (column names, types, constraints) into Starlake YAML configuration files. This is the first step when reverse-engineering an existing database into a Starlake project.
 
 ## Usage
 
@@ -15,24 +15,119 @@ starlake extract-schema [options]
 
 ## Options
 
-- `--config <value>`: Database tables & connection info (required if not using valid default)
-- `--outputDir <value>`: Where to output YML files
-- `--parallelism <value>`: Parallelism level of the extraction process
-- `--tables <value>`: Database tables info (list of tables)
-- `--connectionRef <value>`: Database connection to use (JDBC connection reference)
-- `--all`: Extract all schemas and tables to external folder
-- `--external`: Output YML files in the external folder
-- `--snakecase`: Apply snake case when name sanitization is done
+- `--config <value>`: Extract configuration name (references a file in `metadata/extract/`)
+- `--outputDir <value>`: Where to output the generated YML files
+- `--tables <value>`: Specific database tables to extract
+- `--connectionRef <value>`: JDBC connection reference defined in `application.sl.yml`
+- `--all`: Extract all schemas and tables to the external folder
+- `--external`: Output YML files in the `metadata/external/` folder
+- `--parallelism <value>`: Parallelism level for extraction (default: available CPU cores)
+- `--snakecase`: Apply snake_case transformation to column names
+- `--reportFormat <value>`: Report output format: `console`, `json`, or `html`
 
-## Configuration
+## Configuration Context
 
-The extraction is often driven by a configuration file.
-The schema for this configuration is defined in `utils/resources/starlake.json` under `ExtractSchemaConfig` (or similar, verifying...).
+### Extract Configuration File (`metadata/extract/{name}.sl.yml`)
+
+```yaml
+# metadata/extract/externals.sl.yml
+version: 1
+extract:
+  connectionRef: "duckdb"
+  jdbcSchemas:
+    - schema: "starbake"
+      tables:
+        - name: "*"              # Extract all tables
+      tableTypes:
+        - "TABLE"                # TABLE, VIEW, SYSTEM TABLE, GLOBAL TEMPORARY
+```
+
+### Connection Configuration
+
+The connection must be defined in `application.sl.yml`:
+
+```yaml
+# metadata/application.sl.yml
+version: 1
+application:
+  connections:
+    duckdb:
+      type: "jdbc"
+      options:
+        url: "jdbc:duckdb:{{SL_ROOT}}/datasets/duckdb.db"
+        driver: "org.duckdb.DuckDBDriver"
+    source_postgres:
+      type: jdbc
+      options:
+        url: "jdbc:postgresql://{{PG_HOST}}:5432/{{PG_DB}}"
+        driver: "org.postgresql.Driver"
+        user: "{{DATABASE_USER}}"
+        password: "{{DATABASE_PASSWORD}}"
+```
+
+### Generated Output
+
+The command generates table YAML files like:
+
+```yaml
+# Generated: metadata/load/starbake/orders.sl.yml
+version: 1
+table:
+  name: "orders"
+  pattern: "orders_.*.json"
+  attributes:
+    - name: "order_id"
+      type: "long"
+      required: true
+    - name: "customer_id"
+      type: "long"
+    - name: "status"
+      type: "string"
+    - name: "timestamp"
+      type: "timestamp"
+```
 
 ## Examples
 
-### Basic Extraction
+### Extract All Schemas from a Config
 
 ```bash
-starlake extract-schema --config my-details --outputDir /path/to/output
+starlake extract-schema --config externals --outputDir metadata/load
 ```
+
+### Extract Using a Connection Reference
+
+```bash
+starlake extract-schema --connectionRef source_postgres --outputDir metadata/load
+```
+
+### Extract Specific Tables
+
+```bash
+starlake extract-schema --config externals --tables starbake.orders,starbake.customers
+```
+
+### Extract All to External Folder
+
+```bash
+starlake extract-schema --config externals --all --external
+```
+
+### Extract with Snake Case Naming
+
+```bash
+starlake extract-schema --config externals --outputDir metadata/load --snakecase
+```
+
+### Parallel Extraction
+
+```bash
+starlake extract-schema --config externals --outputDir metadata/load --parallelism 8
+```
+
+## Related Skills
+
+- [extract](../extract/SKILL.md) - Extract both schema and data
+- [extract-data](../extract-data/SKILL.md) - Extract data from tables
+- [infer-schema](../infer-schema/SKILL.md) - Infer schema from data files
+- [config](../config/SKILL.md) - Configuration reference (connections, types)
