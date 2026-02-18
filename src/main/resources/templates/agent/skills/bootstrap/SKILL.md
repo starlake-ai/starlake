@@ -15,13 +15,23 @@ starlake bootstrap [options]
 
 ## Options
 
-- `--template <value>`: Template to use (default: quickstart)
-- `--no-exit`: Should we exit after project creation?
+- `--template <value>`: Template to use (default: quickstart). Available templates include `quickstart`, `simple`, etc.
+- `--no-exit`: Should the JVM exit after project creation? (Useful for testing)
 
 ## Examples
 
-### Bootstrap Default
+### Bootstrap Default (Quickstart)
+
+Create a new Starlake project using the default quickstart template.
 
 ```bash
 starlake bootstrap
+```
+
+### Bootstrap with Specific Template
+
+Create a new Starlake project using a custom template.
+
+```bash
+starlake bootstrap --template simple
 ```
