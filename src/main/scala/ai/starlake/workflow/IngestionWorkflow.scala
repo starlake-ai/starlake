@@ -35,7 +35,7 @@ import ai.starlake.job.sink.bigquery.{
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{JdbcConnectionLoadConfig, SparkJdbcWriter}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.job.transform.{AutoTask, TransformConfig, TransformContext}
+import ai.starlake.job.transform.{AutoTask, TransformAction, TransformConfig, TransformContext}
 import ai.starlake.lineage.{
   AutoTaskDependencies,
   AutoTaskDependenciesConfig,
@@ -954,7 +954,14 @@ class IngestionWorkflow(
       if (ok.isSuccess) {
         if (jobContext.isTask()) {
           val res =
-            transform(TransformConfig(jobContext.data.name, options, scheduledDate = scheduledDate))
+            transform(
+              TransformConfig(
+                TransformAction.Run,
+                jobContext.data.name,
+                options,
+                scheduledDate = scheduledDate
+              )
+            )
           res
         } else
           Success("")

@@ -74,7 +74,7 @@ class ConnectionJobsSpec extends TestHelper {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
 
-      workflow.autoJob(TransformConfig("myusers.myusers", scheduledDate = None))
+      workflow.autoJob(TransformConfig(name = "myusers.myusers"))
 
       val userOutOptions =
         settings.appConfig.connections(connection).options + ("dbtable" -> "myusers.userout")

@@ -24,6 +24,7 @@ import ai.starlake.config.Settings
 import ai.starlake.core.utils.NamingUtils
 import ai.starlake.schema.exceptions.InvalidFieldNameException
 import ai.starlake.schema.model.*
+import ai.starlake.schema.model.Format.{JSON, JSON_FLAT}
 import ai.starlake.utils.YamlSerde
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
@@ -573,9 +574,10 @@ object InferSchemaHandler extends LazyLogging {
     withHeader: Option[Boolean] = None,
     separator: Option[String] = None,
     options: Option[Map[String, String]] = None
-  ): Metadata =
+  ): Metadata = {
+    val finalFormat = if (format == JSON_FLAT) JSON else format
     Metadata(
-      format = Some(format),
+      format = Some(finalFormat),
       encoding = Some(encoding.name()),
       multiline = None,
       array = if (array.contains(true)) array else None,
@@ -583,6 +585,7 @@ object InferSchemaHandler extends LazyLogging {
       separator = separator,
       options = options
     )
+  }
 
   /** * builds the Schema case class
     *

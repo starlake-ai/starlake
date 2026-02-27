@@ -23,6 +23,13 @@ trait TransformCmd extends Cmd[TransformConfig] {
       builder.head(shell, command, "[options]"),
       builder.note(""),
       builder
+        .opt[String]("action")
+        .action((x, c) => c.copy(action = TransformAction.fromString(x)))
+        .required()
+        .text(
+          "May take one of run (default) or create. When action is set to 'create', only parameters 'name' and 'query' are meaningful"
+        ),
+      builder
         .opt[String]("name")
         .action((x, c) => c.copy(name = x))
         .required()
@@ -46,7 +53,9 @@ trait TransformCmd extends Cmd[TransformConfig] {
         .opt[String]("query")
         .action((x, c) => c.copy(query = Some(x)))
         .optional()
-        .text("Run this query instead of the one in the task"),
+        .text(
+          "if action is 'create', this is the query used to initialize th SQL file. If action is set to 'run', run this query instead of the one in the task"
+        ),
       builder
         .opt[Unit]("dry-run")
         .action((_, c) => c.copy(dryRun = true))

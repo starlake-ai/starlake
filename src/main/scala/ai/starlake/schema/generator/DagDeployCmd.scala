@@ -33,14 +33,16 @@ object DagDeployCmd extends Cmd[DagDeployConfig] {
         .action((x, c) => c.copy(outputDir = x))
         .required()
         .text(
-          """Path where to deploy the library files. This is the root of all DAGs""".stripMargin
+          """Path where to deploy the library files. This is the root directory for all DAGs""".stripMargin
         ),
       builder
         .opt[String]("dagDir")
         .action((x, c) => c.copy(dagDir = Some(x)))
         .optional()
         .text(
-          """outputDir's sub-directory where to deploy the DAG files.""".stripMargin
+          """Optional outputDir's sub-directory where to deploy the DAG files if DAGs should not be deployed at the root level.
+            |DAGs are usually deployed in a subdirectory named after the project name (parent folder of the metadata directory by default)
+            |""".stripMargin
         ),
       builder
         .opt[Unit]("clean")
