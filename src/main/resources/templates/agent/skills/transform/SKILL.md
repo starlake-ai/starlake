@@ -5,7 +5,7 @@ description: Run SQL or Python transformation tasks
 
 # Transform Skill
 
-Runs a defined transformation task. Tasks are SQL or Python scripts that read from source tables and write results to a target table. Tasks can have dependencies, support multiple write strategies, and can be executed recursively with all their upstream dependencies.
+Runs or creates a defined transformation task. Tasks are SQL or Python scripts that read from source tables and write results to a target table. Tasks can have dependencies, support multiple write strategies, and can be executed recursively with all their upstream dependencies.
 
 ## Usage
 
@@ -15,11 +15,12 @@ starlake transform [options]
 
 ## Options
 
+- `--action <value>`: May take one of 2 values 'run' (default) or 'create'. When action is set to 'create', only parameters 'name' and 'query' are meaningful
 - `--name <value>`: Task name in the form `domain.task` (required unless `--tags` is used)
 - `--compile`: Return the final compiled SQL query without executing it
 - `--sync-apply`: Update YAML attributes to match the SQL query columns
 - `--sync-preview`: Preview YAML attribute changes that would match the SQL query
-- `--query <value>`: Run this SQL query instead of the one defined in the task file
+- `--query <value>`: if action is 'create', this is the query used to initialize th SQL file. If action is set to 'run', run this query instead of the one in the task
 - `--dry-run`: Dry run only — compile and validate without executing (BigQuery support)
 - `--tags <value>`: Run all tasks matching these tags
 - `--format`: Pretty-print the final SQL query and update the `.sql` file

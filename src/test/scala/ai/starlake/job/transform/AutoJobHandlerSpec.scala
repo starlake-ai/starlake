@@ -96,7 +96,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
 
-      workflow.autoJob(TransformConfig("user.user", scheduledDate = None))
+      workflow.autoJob(TransformConfig(name = "user.user"))
 
       val result = sparkSession
         .table("user.user")
@@ -202,7 +202,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       sparkSession.sql("DROP TABLE IF EXISTS user.user")
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
-      workflow.autoJob(TransformConfig("user.user", scheduledDate = None, reload = true))
+      workflow.autoJob(TransformConfig(name = "user.user", reload = true))
 
       sparkSession.table("user.user").show()
 
@@ -261,7 +261,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
 
-      workflow.autoJob(TransformConfig("user.user", scheduledDate = None))
+      workflow.autoJob(TransformConfig(name = "user.user"))
 
       sparkSession
         .table("user.user")
@@ -319,7 +319,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
 
-      workflow.autoJob(TransformConfig("user.user", scheduledDate = None))
+      workflow.autoJob(TransformConfig(name = "user.user"))
 
       sparkSession
         .table("user.user")
@@ -378,7 +378,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler)
 
-      workflow.autoJob(TransformConfig("user.graduateProgram", scheduledDate = None))
+      workflow.autoJob(TransformConfig(name = "user.graduateProgram"))
 
       val result = sparkSession
         .table("user.output")

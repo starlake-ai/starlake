@@ -15,7 +15,7 @@ starlake dag-generate [options]
 
 ## Options
 
-- `--outputDir <value>`: Output directory for generated DAG files
+- `--outputDir <value>`: Output directory for the generated DAG files
 - `--clean`: Clean the output directory before generating
 - `--tags <value>`: Generate DAGs only for tasks/tables matching these tags
 - `--tasks`: Generate DAG files for transform tasks

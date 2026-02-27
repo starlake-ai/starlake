@@ -3,6 +3,7 @@ package ai.starlake.job.transform
 import ai.starlake.job.ReportFormatConfig
 
 case class TransformConfig(
+  action: TransformAction = TransformAction.Run,
   name: String = "",
   options: Map[String, String] = Map.empty,
   compile: Boolean = false,
@@ -20,7 +21,7 @@ case class TransformConfig(
   query: Option[String] = None,
   pageSize: Int = 1000,
   pageNumber: Int = 1,
-  scheduledDate: Option[String],
+  scheduledDate: Option[String] = None,
   reportFormat: Option[String] = None
 ) extends ReportFormatConfig {
   def optionsAsString: String = options.map { case (k, v) => s"$k=$v" }.mkString(",")
