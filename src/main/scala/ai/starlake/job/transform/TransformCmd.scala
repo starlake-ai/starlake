@@ -25,7 +25,7 @@ trait TransformCmd extends Cmd[TransformConfig] {
       builder
         .opt[String]("action")
         .action((x, c) => c.copy(action = TransformAction.fromString(x)))
-        .required()
+        .optional()
         .text(
           "May take one of run (default) or create. When action is set to 'create', only parameters 'name' and 'query' are meaningful"
         ),
