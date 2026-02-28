@@ -273,7 +273,7 @@ object Dependencies {
   )
 
   val cache = Seq(
-    "com.github.ben-manes.caffeine" % "caffeine" % "3.2.2"
+    "com.github.ben-manes.caffeine" % "caffeine" % "3.2.3"
   )
 
   val starlakeStreaming = Seq(
