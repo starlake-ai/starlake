@@ -102,7 +102,7 @@ object Bootstrap extends LazyLogging {
         val bootstrapFiles = JarUtil.getResourceFiles(templatePath)
         copyToFolder(bootstrapFiles, templatePath, rootFolder)
 
-        val agentFolder = File(rootFolder, ".agent")
+        val agentFolder = File(rootFolder, ".claude")
         agentFolder.createDirectories()
         val agentPath = s"templates/agent/"
 
