@@ -385,10 +385,15 @@ class SparkAutoTask(
     new SparkExpectationAssertionHandler(session)
 
   private def runPySpark(pythonFile: Path): Option[DataFrame] = {
+    if (SparkSessionBuilder.isSparkConnectActive) {
+      throw new UnsupportedOperationException(
+        "PySpark execution is not supported with Spark Connect. Use a native Spark cluster instead."
+      )
+    }
     SparkUtils.runPySpark(pythonFile, commandParameters)
     val exists = SparkUtils.tableExists(session, "SL_THIS")
     if (exists)
-      Some(session.sqlContext.table("SL_THIS"))
+      Some(session.table("SL_THIS"))
     else
       None
   }
