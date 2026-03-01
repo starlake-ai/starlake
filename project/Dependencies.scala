@@ -108,7 +108,7 @@ object Dependencies {
   )
 
   val azure = Seq(
-    "org.apache.hadoop" % "hadoop-azure" % "3.4.2" % "provided" excludeAll (jacksonExclusions: _*) exclude (
+    "org.apache.hadoop" % "hadoop-azure" % "3.4.3" % "provided" excludeAll (jacksonExclusions: _*) exclude (
       "com.google.guava",
       "guava"
     ),
