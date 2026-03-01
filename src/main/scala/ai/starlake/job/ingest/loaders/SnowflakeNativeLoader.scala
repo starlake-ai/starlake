@@ -19,7 +19,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     extends NativeLoader(ingestionJob, None) {
 
   // We do not use this in snowflake. return whatever
-  override def getIncomingDir(): String = Try(domain.resolveDirectory()).getOrElse("incoming")
+  override def getIncomingDir(): String = domain.resolveDirectory()
 
   def run(): Try[List[IngestionCounters]] = {
     Try {
@@ -43,8 +43,9 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                   List(p),
                   conn
                 )
+                val escapedPath = p.toString.replace("'", "''")
                 val filenameSQL =
-                  s"ALTER TABLE ${domain.finalName}.$tempTable ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '$p';"
+                  s"ALTER TABLE ${domain.finalName}.$tempTable ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '$escapedPath';"
 
                 JdbcDbUtils.execute(filenameSQL, conn)
                 val json = new Gson().toJson(loadResult)
@@ -132,7 +133,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
             )
           }
         }
-    }.map { - =>
+    }.map { _ =>
       List(
         IngestionCounters(
           inputCount = -1,
@@ -151,7 +152,26 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     metadataOptions.get(option).orElse(metadataOptions.get(s"SNOWFLAKE_$option"))
   }
 
-  def copyExtraOptions(commonOptions: List[String]): String = {
+  private lazy val incomingDir: String = domain.resolveDirectory()
+
+  /** True if incomingDir is a local or remote filesystem path (starts with / or has a URI scheme).
+    * False means it is already a Snowflake stage name.
+    */
+  private lazy val isLocalOrRemotePath: Boolean = {
+    incomingDir.startsWith("/") || incomingDir.matches("^[a-zA-Z][a-zA-Z0-9+.-]*:.*")
+  }
+
+  /** The source location to use in COPY INTO ... FROM statements. */
+  private lazy val copySource: String = {
+    if (isLocalOrRemotePath) {
+      s"@$tempStage/${domain.finalName}/"
+    } else {
+      val stage = if (incomingDir.startsWith("@")) incomingDir else s"@$incomingDir"
+      s"$stage/"
+    }
+  }
+
+  private def copyExtraOptions(commonOptions: List[String]): String = {
     var extraOptions = ""
     val options = mergedMetadata.getOptions()
 
@@ -176,13 +196,13 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     }
   }
 
-  private val (compressionFormat, extension): (String, String) = {
+  private val compressionFormat: String = {
     val compression =
       getOption("COMPRESSION").getOrElse("true").equalsIgnoreCase("true")
     if (compression)
-      ("COMPRESSION = AUTO", ".gz")
+      "COMPRESSION = AUTO"
     else
-      ("COMPRESSION = NONE", "")
+      "COMPRESSION = NONE"
   }
 
   private val pattern = this.starlakeSchema.pattern.pattern()
@@ -203,7 +223,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     else
       "FALSE"
 
-  def encoding =
+  private def encoding: String =
     mergedMetadata
       .getOptions()
       .getOrElse("ENCODING", mergedMetadata.resolveEncoding())
@@ -229,7 +249,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     val sql =
       s"""
          |COPY INTO $domainAndTableName
-         |FROM @$tempStage/${domain.finalName}/
+         |FROM $copySource
          |PATTERN = '$pattern'
          |PURGE = ${purge}
          |FILE_FORMAT = (
@@ -257,8 +277,8 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     val sql =
       s"""
          |COPY INTO $domainAndTableName
-         |FROM @$tempStage/${domain.finalName}/
-         |PATTERN = '$pattern
+         |FROM $copySource
+         |PATTERN = '$pattern'
          |PURGE = ${purge}
          |FILE_FORMAT = (
          |  TYPE = XML
@@ -278,7 +298,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     val sql =
       s"""
          |COPY INTO $domainAndTableName
-         |FROM @$tempStage/${domain.finalName}/
+         |FROM $copySource
          |PATTERN = '$pattern'
          |PURGE = $purge
          |FILE_FORMAT = (
@@ -320,7 +340,7 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     val sql =
       s"""
          |COPY INTO $domainAndTableName
-         |FROM @$tempStage/${domain.finalName}/
+         |FROM $copySource
          |PATTERN = '$pattern'
          |PURGE = $purge
          |FILE_FORMAT = (
@@ -355,9 +375,6 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     val ddlMap = schemaHandler.getDdlMapping(schema.attributes)
     val attrsWithDDLTypes = schemaHandler.getAttributesWithDDLType(schema, "snowflake")
 
-    // Create or update table schema first
-    val stmtExternal = conn.createStatement()
-    stmtExternal.close()
     val tableExists = JdbcDbUtils.tableExists(conn, sinkConnection.jdbcUrl, domainAndTableName)
     JdbcDbUtils.createSchema(conn, domain)
     strategy.getEffectiveType() match {
@@ -396,27 +413,24 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
           ddlMap
         )
     }
-    val columnsString =
-      attrsWithDDLTypes
-        .map { case (attr, ddlType) =>
-          s"'$attr': '$ddlType'"
-        }
-        .mkString(", ")
-    val pathsAsString =
-      path
-        .map { p =>
-          val ps = StorageHandler.localFile(p).pathAsString
-          "file://" + ps
-        }
     var res = JdbcDbUtils.executeQueryAsMap(s"USE SCHEMA $domain", conn)
     logger.info(res.toString())
-    res = JdbcDbUtils.executeQueryAsMap(s"CREATE OR REPLACE TEMPORARY STAGE $tempStage", conn)
-    logger.info(res.toString())
-    val putSqls = pathsAsString.map(path => s"PUT $path @$tempStage/$domain AUTO_COMPRESS = FALSE")
-    putSqls.map { putSql =>
-      res = JdbcDbUtils.executeQueryAsMap(putSql, conn)
+    if (isLocalOrRemotePath) {
+      val pathsAsString =
+        path
+          .map { p =>
+            val ps = StorageHandler.localFile(p).pathAsString
+            "file://" + ps
+          }
+      res = JdbcDbUtils.executeQueryAsMap(s"CREATE OR REPLACE TEMPORARY STAGE $tempStage", conn)
       logger.info(res.toString())
-      res
+      val putSqls =
+        pathsAsString.map(path => s"PUT $path @$tempStage/$domain AUTO_COMPRESS = FALSE")
+      putSqls.map { putSql =>
+        res = JdbcDbUtils.executeQueryAsMap(putSql, conn)
+        logger.info(res.toString())
+        res
+      }
     }
     mergedMetadata.resolveFormat() match {
       case Format.DSV =>

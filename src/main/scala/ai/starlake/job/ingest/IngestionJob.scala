@@ -527,8 +527,8 @@ trait IngestionJob extends SparkJob {
           Try {
             val (rejectedDS, acceptedDS) = ingest(dataset)
             if (settings.appConfig.audit.detailedLoadAudit && path.size > 1) {
-              import session.implicits.*
-              rejectedDS
+              // Use Row-based collection to avoid Encoder issues with Spark Connect / Databricks Connect
+              val statsDF = rejectedDS
                 .groupBy("path")
                 .count()
                 .withColumnRenamed("count", "rejectedCount")
@@ -541,14 +541,23 @@ trait IngestionJob extends SparkJob {
                   "full_outer"
                 )
                 .select(
-                  array(col("path")).as("paths"),
+                  col("path"),
                   coalesce(col("rejectedCount"), lit(0L)).as("rejectedCount"),
                   coalesce(col("acceptedCount"), lit(0L)).as("acceptedCount")
                 )
-                .withColumn("inputCount", col("rejectedCount") + col("acceptedCount"))
-                .withColumn("jobid", lit(applicationId()))
-                .as[IngestionCounters]
+              statsDF
                 .collect()
+                .map { row =>
+                  val rejectedCount = row.getAs[Long]("rejectedCount")
+                  val acceptedCount = row.getAs[Long]("acceptedCount")
+                  IngestionCounters(
+                    inputCount = rejectedCount + acceptedCount,
+                    acceptedCount = acceptedCount,
+                    rejectedCount = rejectedCount,
+                    paths = List(row.getAs[String]("path")),
+                    jobid = applicationId()
+                  )
+                }
                 .toList
             } else {
               val totalAcceptedCount = acceptedDS.count()
@@ -569,7 +578,9 @@ trait IngestionJob extends SparkJob {
       }
     }
     // After each ingestion job we explicitly clear the spark cache
-    session.catalog.clearCache()
+    if (!SparkSessionBuilder.isSparkConnectActive) {
+      session.catalog.clearCache()
+    }
     jobResult
   }
 

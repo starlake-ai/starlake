@@ -99,7 +99,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                           CometColumns.cometInputFileNameColumn,
                           StandardSQLTypeName.STRING
                         )
-                        .setDefaultValueExpression(s"'$sourceUri'")
+                        .setDefaultValueExpression(s"'${sourceUri.replace("'", "\\\\'")}'")
                         .build()).asJava
                     )
                   ),

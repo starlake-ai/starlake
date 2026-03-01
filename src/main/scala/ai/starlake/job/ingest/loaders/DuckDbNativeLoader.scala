@@ -60,6 +60,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
       val initialRowCount =
         JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnection.options) {
           conn =>
+            // the two lines below are used to initialize the duckdb database
             val stmtExternal = conn.createStatement()
             stmtExternal.close()
             val tableExists =
@@ -83,8 +84,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
               logger.info(
                 s"Table ${domain.finalName}.${schema.finalName} does not exist and will be created"
               )
+              0
             }
-            0
         }
       val twoSteps = requireTwoSteps(effectiveSchema)
       if (twoSteps) {
@@ -93,8 +94,9 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             logger.info(s"Loading $p to temporary table")
             val tempTable = SQLUtils.temporaryTableName(effectiveSchema.finalName)
             singleStepLoad(domain.finalName, tempTable, schemaWithMergedMetadata, List(p))
+            val escapedPath = p.toString.replace("'", "''")
             val filenameSQL =
-              s"ALTER TABLE ${domain.finalName}.$tempTable ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '$p';"
+              s"ALTER TABLE ${domain.finalName}.$tempTable ADD COLUMN ${CometColumns.cometInputFileNameColumn} STRING DEFAULT '$escapedPath';"
 
             JdbcDbUtils.withJDBCConnection(
               this.schemaHandler.dataBranch(),
@@ -106,7 +108,9 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             tempTable
           }
 
-        val unionTempTables = tempTables.map("SELECT * FROM " + _).mkString("(", " UNION ALL ", ")")
+        val unionTempTables = tempTables
+          .map(s"SELECT * FROM ${domain.finalName}." + _)
+          .mkString("(", " UNION ALL ", ")")
         val targetFullTableName = s"${domain.finalName}.${schema.finalName}"
         val sqlWithTransformedFields = schema.buildSecondStepSqlSelectOnLoad(unionTempTables)
 
@@ -210,7 +214,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
                 )
                 assert(
                   mergedMetadata.resolveEscape().length <= 1,
-                  "quote must be a single character"
+                  "escape must be a single character"
                 )
                 val csvParserSettings = new CsvParserSettings()
                 val format = new CsvFormat()
@@ -269,7 +273,13 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
       }
     }
   }
-  def singleStepLoad(domain: String, table: String, schema: SchemaInfo, path: List[Path]) = {
+
+  private def singleStepLoad(
+    domain: String,
+    table: String,
+    schema: SchemaInfo,
+    path: List[Path]
+  ) = {
     val isTemporary = table.startsWith("zztmp_")
     val incomingSparkSchema =
       schema.sparkSchemaWithIgnoreAndScript(schemaHandler, !isTemporary)
@@ -282,6 +292,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     // Create or update table schema first
     JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnection.options) {
       conn =>
+        // the two lines below are intentional to initialize the database
         val stmtExternal = conn.createStatement()
         stmtExternal.close()
         val tableExists = JdbcDbUtils.tableExists(conn, sinkConnection.jdbcUrl, domainAndTableName)
@@ -340,7 +351,7 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
               val ps = p.toString
               if (ps.startsWith("file:"))
                 StorageHandler.localFile(p).pathAsString
-              else if (ps.contains { "://" }) {
+              else if (ps.contains("://")) {
                 // For accessing secured storage like S3 with DuckDB HTTPFS extension,
                 // user needs to have created a secret with the proper configuration
                 JdbcDbUtils.execute("INSTALL httpfs;", conn)
