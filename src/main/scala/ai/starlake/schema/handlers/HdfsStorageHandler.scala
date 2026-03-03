@@ -170,7 +170,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
       val secretKey =
         connectionOptions.get("s3SecretKey").map(("fs.s3a.secret.key", _)).toList.toMap
 
-      // https://github.com/GoogleCloudDataproc/hadoop-connectors/blob/master/gcs/CONFIGURATION.md
+      // https://hadoop.apache.org/docs/current/hadoop-aws/tools/hadoop-aws/index.html
       Map(
         "fs.s3a.endpoint"          -> "s3.amazonaws.com",
         "fs.s3a.fast.upload"       -> "true",
@@ -220,10 +220,10 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     _conf
   }
 
-  private def extracSchemeAndBucketAndFilePath(uri: URI): (String, Option[String], String) = {
+  private def extractSchemeAndBucketAndFilePath(uri: URI): (String, Option[String], String) = {
     uri.getScheme match {
       case "file" =>
-        (uri.getScheme, None, "/" + uri.getPath)
+        (uri.getScheme, None, uri.getPath)
       case _ =>
         // Do not use getHost as it may be null if the bucket contains invalid host name characters like '_'
         val bucket = uri.getSchemeSpecificPart.split("/").drop(2).head
@@ -259,24 +259,29 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     val path =
       if (inputPath.toString.contains(':')) inputPath
       else new Path(settings.appConfig.fileSystem, inputPath.toString)
-    val (scheme, bucketOpt, _) = extracSchemeAndBucketAndFilePath(path.toUri)
+    val (scheme, bucketOpt, _) = extractSchemeAndBucketAndFilePath(path.toUri)
     val fs = scheme match {
       case "gs" | "s3" | "s3a" | "s3n" =>
         bucketOpt match {
           case Some(bucket) =>
+            conf // load extra config first
+            // Set fs.defaultFS after conf to prevent loadExtraConf from overwriting it
             _conf.set("fs.defaultFS", normalizedFileSystem(s"$scheme://$bucket"))
+            val sensitiveKeys = Set("access.key", "secret.key", "session.token")
             _conf.getPropsWithPrefix("fs.s3a.").asScala.foreach { case (k, v) =>
-              logger.debug(s"fs.s3a.$k=$v")
+              val displayValue = if (sensitiveKeys.contains(k)) "***" else v
+              logger.debug(s"fs.s3a.$k=$displayValue")
             }
-            FileSystem.get(conf)
+            FileSystem.get(_conf)
           case None =>
             throw new RuntimeException(
               s"${path}: Using gs/s3 scheme must be with a bucket name. gs://bucketName"
             )
         }
       case "file" =>
+        conf // load extra config first
         _conf.set("fs.defaultFS", "file:///")
-        FileSystem.get(conf)
+        FileSystem.get(_conf)
       case _ => defaultFS
     }
     fs.setWriteChecksum(false)
@@ -292,8 +297,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     */
   private def getOutputStream(path: Path): OutputStream = {
     val currentFS = fs(path)
-    currentFS.delete(path, false)
-    val outputStream: FSDataOutputStream = currentFS.create(path)
+    val outputStream: FSDataOutputStream = currentFS.create(path, true) // overwrite if exists
     outputStream
   }
 
@@ -346,9 +350,9 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     */
   def write(data: String, path: Path)(implicit charset: Charset): Unit = {
     pathSecurityCheck(path)
-    val os: FSDataOutputStream = getOutputStream(path).asInstanceOf[FSDataOutputStream]
-    os.write(data.getBytes(charset))
-    os.close()
+    Using.resource(getOutputStream(path)) { os =>
+      os.write(data.getBytes(charset))
+    }
   }
 
   /** Write bytes to binary file. Used for zip / gzip input test files.
@@ -360,9 +364,9 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     */
   def writeBinary(data: Array[Byte], path: Path): Unit = {
     pathSecurityCheck(path)
-    val os: OutputStream = getOutputStream(path)
-    os.write(data, 0, data.length)
-    os.close()
+    Using.resource(getOutputStream(path)) { os =>
+      os.write(data, 0, data.length)
+    }
   }
 
   def listDirectories(path: Path): List[Path] = {
@@ -626,6 +630,8 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     dstFile: Path,
     deleteSource: Boolean
   ): Boolean = {
+    pathSecurityCheck(srcDir)
+    pathSecurityCheck(dstFile)
     val currentFS = fs(dstFile)
 
     if (currentFS.exists(dstFile)) {
@@ -640,13 +646,13 @@ class HdfsStorageHandler(fileSystem: String)(implicit
         .map(_.getPath)
       if (parts.nonEmpty || header.nonEmpty) {
         val outputStream = currentFS.create(dstFile)
-        header.foreach { header =>
-          val headerWithNL = if (header.endsWith("\n")) header else header + "\n"
-          val inputStream = new ByteArrayInputStream(headerWithNL.getBytes)
-          try { org.apache.hadoop.io.IOUtils.copyBytes(inputStream, outputStream, conf, false) }
-          finally { inputStream.close() }
-        }
         try {
+          header.foreach { header =>
+            val headerWithNL = if (header.endsWith("\n")) header else header + "\n"
+            val inputStream = new ByteArrayInputStream(headerWithNL.getBytes)
+            try { org.apache.hadoop.io.IOUtils.copyBytes(inputStream, outputStream, conf, false) }
+            finally { inputStream.close() }
+          }
           parts
             .filter(part => part.getName().startsWith("part-"))
             .sortBy(_.getName)
@@ -657,7 +663,6 @@ class HdfsStorageHandler(fileSystem: String)(implicit
                 if (deleteSource) delete(part)
               } finally { inputStream.close() }
             }
-
         } finally { outputStream.close() }
       }
       true
@@ -677,7 +682,10 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     }
   }
 
-  override def output(path: Path): OutputStream = getOutputStream(path)
+  override def output(path: Path): OutputStream = {
+    pathSecurityCheck(path)
+    getOutputStream(path)
+  }
 
   def initFS(options: Map[String, String]): Unit = {
     _connectionOptions = options
@@ -687,7 +695,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     val awsRegion = options.getOrElse("fs.s3a.endpoint.region", "")
     val awsEndpoint = options.getOrElse("fs.s3a.endpoint", "https://s3.amazonaws.com")
     val awsDataPath =
-      options.get("SL_DATA_PATH").orElse(options.get("SL_DATA_PATH")).getOrElse("")
+      options.getOrElse("SL_DATA_PATH", "")
     val awsDatasets = options.getOrElse("SL_DATASETS", "")
     if (awsKey.nonEmpty) {
       _conf.set("fs.s3a.access.key", awsKey)
