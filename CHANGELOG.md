@@ -5,7 +5,7 @@
 __Improvement__:
 
 __Bug fix__:
-
+- Expectations on BigQuery should be merged using UNION ALL
 
 # 1.5.6:
 __Improvement__:
