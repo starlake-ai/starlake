@@ -6,6 +6,7 @@ __Improvement__:
 
 __Bug fix__:
 - Expectations on BigQuery should be merged using UNION ALL
+- Orchestration uses now the rest instead of the gRPC api to avoid issues on some operating systems  
 
 # 1.5.6:
 __Improvement__:
