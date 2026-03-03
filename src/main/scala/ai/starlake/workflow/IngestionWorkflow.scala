@@ -443,20 +443,6 @@ class IngestionWorkflow(
                         _.attributes.map(_.resolvePrivacy()).exists(!TransformInput.None.equals(_))
                       )
                     }
-                  // files for schemas without any privacy attributes are moved directly to accepted area
-                  /*
-                  noPrivacy.foreach {
-                    case (Some(schema), fileInfo) =>
-                      storageHandler.move(
-                        fileInfo.path,
-                        new Path(
-                          new Path(DatasetArea.accepted(domain.name), schema.name),
-                          fileInfo.path.getName
-                        )
-                      )
-                    case (None, _) => throw new Exception("Should never happen")
-                  }
-                   */
                   withPrivacy
                 } else {
                   resolved
