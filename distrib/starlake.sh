@@ -435,6 +435,21 @@ case "$1" in
         echo "Downloading $API_JAR_NAME to $API_LIB_DIR..."
         get_binary_from_url "$API_JAR_URL" "$API_LIB_DIR/ai.starlake.$API_JAR_NAME"
 
+        # Update python libs
+        PYTHON_LIBS_BASE_URL="https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/python-libs"
+        PYTHON_LIBS_DIR="$SL_PYTHON_LIBS_DIR"
+        echo "Updating python libs in $PYTHON_LIBS_DIR..."
+        rm -rf "$PYTHON_LIBS_DIR"
+        mkdir -p "$PYTHON_LIBS_DIR"
+        get_binary_from_url "$PYTHON_LIBS_BASE_URL/versions.txt" "$PYTHON_LIBS_DIR/versions.txt"
+        while IFS= read -r line; do
+            line=$(echo "$line" | tr -d '[:space:]')
+            if [ -n "$line" ] && [[ "$line" != \#* ]]; then
+                echo "Downloading $line..."
+                get_binary_from_url "$PYTHON_LIBS_BASE_URL/$line" "$PYTHON_LIBS_DIR/$line"
+            fi
+        done < "$PYTHON_LIBS_DIR/versions.txt"
+
         echo "Upgrade complete."
     fi
     ;;
