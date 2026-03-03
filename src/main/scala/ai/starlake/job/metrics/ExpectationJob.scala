@@ -256,7 +256,7 @@ class ExpectationJob(
                 settings.appConfig.audit.sink.getSink().getConnection().getJdbcEngineName()
               )
             )
-            .mkString("", " UNION ", "")
+            .mkString("", " UNION ALL ", "")
           val taskDesc = AutoTaskInfo(
             name = applicationId(),
             sql = Some(sqls),
