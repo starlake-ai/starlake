@@ -106,10 +106,6 @@ object Bootstrap extends LazyLogging {
         agentFolder.createDirectories()
         val agentPath = s"templates/agent/"
 
-        // copy skill files
-        val skillFiles = JarUtil.getResourceFiles(agentPath)
-        copyToFolder(skillFiles, agentPath, agentFolder)
-
         // copy starlake.json schema file to metadata folder for IDE support
         val starlakeJsonResource = "starlake.json"
         val starlakeJsonSource = Source.fromResource(starlakeJsonResource)
