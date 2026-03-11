@@ -125,6 +125,7 @@ class Parquet2CSVSpec extends TestHelper {
           |  --options k1=v1,k2=v2...
           |                           Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)
           |  --partitions <value>     How many output partitions
+          |  --reportFormat <value>   Report format: console, json, html
           |""".stripMargin
       }
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
@@ -176,6 +177,7 @@ class Parquet2CSVSpec extends TestHelper {
           |--write_mode `<value>`|*Optional*|One of Set(OVERWRITE, APPEND)
           |--options `k1=v1,k2=v2...`|*Optional*|Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)
           |--partitions `<value>`|*Optional*|How many output partitions
+          |--reportFormat `<value>`|*Optional*|Report format: console, json, html
           |""".stripMargin
       println(Parquet2CSVCmd.markdown(1))
       Parquet2CSVCmd.markdown(1).replaceAll("\\s", "") shouldEqual expected.replaceAll("\\s", "")

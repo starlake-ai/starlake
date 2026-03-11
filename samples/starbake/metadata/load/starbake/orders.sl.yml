@@ -21,7 +21,7 @@ table:
     array: false
     sample: "2024-03-01T09:01:12.529Z"
   metadata:
-    format: "JSON_FLAT"
+    format: "JSON"
     encoding: "UTF-8"
     array: true
     withHeader: true

@@ -171,6 +171,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
           |  --domain <value>   Domain Name
           |  --schema <value>   Schema Name
           |  --authInfo <value> Auth Info.  Google Cloud use: gcpProjectId and gcpSAJsonKey
+          |  --reportFormat <value> Report format: console, json, html
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

@@ -88,6 +88,7 @@ class Yml2XlsSpec extends TestHelper {
         |  --iamPolicyTagsFile <value>
         |                           IAM PolicyTag file to convert to XLS, SL_METADATA/iam-policy-tags.sl.yml by default)
         |  --xls <value>     directory where XLS files are generated
+        |  --reportFormat <value> Report format: console, json, html
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")

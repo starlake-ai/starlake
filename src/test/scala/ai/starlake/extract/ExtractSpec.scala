@@ -750,6 +750,7 @@ class ExtractSpec extends TestHelper {
         |                           Schemas to include during extraction.
         |  --excludeTables table1,table2,table3...
         |                           Schemas to exclude during extraction. if `include-schemas` is defined, this config is ignored.
+        |  --reportFormat <value>   Report format: console, json, html
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")
@@ -769,6 +770,7 @@ class ExtractSpec extends TestHelper {
         |  --external             Should we output YML files in the external folder
         |  --parallelism <value>  parallelism level of the extraction process. By default equals to the available cores
         |  --snakecase            Apply snake case when name sanitization is done
+        |  --reportFormat <value> Report format: console, json, html
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")

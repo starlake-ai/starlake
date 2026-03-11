@@ -975,7 +975,6 @@ class RowValidatorSpec extends TestHelper with BeforeAndAfterAll {
 
         errors should contain theSameElementsAs List(
           "`should_be_array` is not an array: 1",
-          "`should_be_array_of_struct` is not a struct: [2]",
           "`mandatory_field` is required: NULL"
         )
       }

@@ -15,6 +15,7 @@ class IngestJobSpec extends TestHelper {
           |  paths   list of comma separated paths
           |  options arguments to be used as substitutions
           |  --scheduledDate <value> Scheduled date for the job, in format yyyy-MM-dd'T'HH:mm:ss.SSSZ
+          |  --reportFormat <value>  Report format: console, json, html
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")
