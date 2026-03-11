@@ -10,7 +10,7 @@ import scopt.OParser
 import scala.util.{Failure, Success, Try}
 
 object GizmoCmd extends Cmd[GizmoConfig] with StrictLogging {
-  override def command: String = "gizmo"
+  override def command: String = "gizmosql"
 
   val parser: OParser[Unit, GizmoConfig] = {
     val builder = OParser.builder[GizmoConfig]
