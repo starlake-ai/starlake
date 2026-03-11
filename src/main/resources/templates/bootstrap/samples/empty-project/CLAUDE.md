@@ -4,42 +4,89 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**StarBake** is a Starlake starter/demo project for an e-commerce bakery. It demonstrates data ingestion and transformation pipelines using the [Starlake](https://starlake.ai) framework. The default backend is DuckDB (configured in `metadata/application.sl.yml`).
+This is a **Starlake** data pipeline project ("StarBake") — a sample bakery analytics system demonstrating data ingestion, transformation, and KPI computation. The default engine is **DuckDB** (configurable via environment files).
 
-## Repository Structure
+## Key Commands
 
-- `metadata/application.sl.yml` — Main config: connections (DuckDB by default), audit sink, DAG references
-- `metadata/env.sl.yml` — Environment variables (e.g., `activeConnection`)
-- `metadata/types/` — Type definitions with regex patterns and DDL mappings across dialects (BigQuery, Snowflake, Postgres, DuckDB, Synapse)
-- `metadata/load/` — Domain/table load definitions (user-created YAML + schema)
-- `metadata/transform/` — SQL transform definitions (user-created YAML + SQL)
-- `metadata/dags/` — DAG generation templates for Airflow, Dagster, and Snowflake across execution environments (shell, Cloud Run, Fargate, SQL)
-- `metadata/expectations/` — Jinja2 data quality macros (Completeness, Schema, Volume, Uniqueness, Numeric, Validity)
-- `metadata/starlake.json` — JSON Schema for all `.sl.yml` files
-- `datasets/incoming/` — Landing zone for raw input data
+```bash
+# Validate project configuration
+starlake validate
 
-## Key Conventions
+# Load source data (CSV/JSON) into the warehouse
+starlake load
 
-- All config files use `.sl.yml` extension and follow `version: 1` schema defined in `starlake.json`
-- Jinja2 templating is used throughout (`{{domain}}`, `{{table}}`, `{{SL_ROOT}}`, `{{activeConnection}}`)
-- Type definitions in `types/default.sl.yml` map primitive types to multiple SQL dialects via `ddlMapping`
-- Custom types (e.g., `email`) go in `types/types.sl.yml` with regex validation patterns
+# Run a specific transformation
+starlake transform --name starbake_analytics.customer_purchase_history
+starlake transform --name starbake_analytics.order_items_analysis
+starlake transform --name starbake_kpis.overall_kpis
 
-## Data Model
+# Auto-infer schema and load
+starlake autoload
 
-Four source tables with different ingestion formats:
-- **Customers** (CSV) — customer_id, first_name, last_name, email, join_date
-- **Orders** (JSON) — order_id, customer_id, timestamp, status, products[] (nested array)
-- **Products** (JSON-ND) — product_id, name, details (nested record), ingredients[] (nested array)
-- **Ingredients** (TSV) — ingredient_id, name, price, quantity_in_stock
+# Generate DAGs for orchestration
+starlake dag-generate
 
-Transformation lineage: raw tables → CustomerLifetimeValue, ProductPerformance, ProductProfitability → HighValueCustomers, TopSellingProducts, MostProfitableProducts → TopSellingProfitableProducts
+# Print settings / test a connection
+starlake settings
 
-## DAG Configuration
+# Run integration tests
+starlake test
 
-DAG files in `metadata/dags/` follow the naming pattern: `{orchestrator}_{operation}_{execution}.sl.yml`. Key options include:
-- `pre_load_strategy`: none | pending | ack | imported
-- `template`: references Jinja2 templates for DAG code generation
-- `filename`: output filename pattern with variable substitution
+# Switch environment (default: DuckDB)
+export SL_ENV=BQ        # BigQuery
+export SL_ENV=PG        # PostgreSQL
+export SL_ENV=SNOW      # Snowflake
+export SL_ENV=REDSHIFT  # Redshift
+```
 
-The default DAG references in `application.sl.yml` are `airflow_load_shell` and `airflow_transform_shell`.
+## Architecture
+
+### Data Pipeline Flow
+
+```
+datasets/incoming/starbake/     →  Load (metadata/load/)
+    customers.*.csv                    ↓
+    orders.*.json               →  starbake domain tables
+    products.*.json                    ↓
+                                   Transform (metadata/transform/)
+                                       ↓
+                               starbake_analytics/
+                                 ├─ customer_purchase_history
+                                 └─ order_items_analysis
+                                       ↓
+                               starbake_kpis/
+                                 └─ overall_kpis
+```
+
+### Project Structure
+
+- **`metadata/application.sl.yml`** — Main config: connections (DuckDB, BigQuery, Snowflake, PostgreSQL, Redshift), DAG references, schedule presets
+- **`metadata/env.sl.yml`** — Default env vars (`activeConnection: duckdb`). Override with `metadata/env.{BQ,PG,SNOW,...}.sl.yml`
+- **`metadata/load/starbake/`** — Source table schemas (3 tables). Each `.sl.yml` defines pattern, format, attributes, write strategy
+- **`metadata/transform/`** — SQL transformations with paired `.sl.yml` (task metadata) + `.sql` (query) files
+- **`metadata/types/`** — Custom data types with DDL mappings for each engine
+- **`metadata/expectations/`** — Jinja2 data quality templates (completeness, uniqueness, volume, etc.)
+- **`metadata/dags/`** — DAG definitions for Airflow (shell/Cloud Run/Fargate), Dagster, and Snowflake native
+- **`metadata/external/`** — External table definitions for reading outputs
+- **`datasets/`** — Sample data files and DuckDB database
+
+### Transformation Dependency Chain
+
+Transforms have an implicit dependency order based on table references in SQL:
+1. `starbake_analytics.customer_purchase_history` and `starbake_analytics.order_items_analysis` read from `starbake.*` (loaded tables)
+2. `starbake_kpis.overall_kpis` reads from both `starbake_analytics.*` tables (must run after step 1)
+
+### Configuration Conventions
+
+- All metadata files use `.sl.yml` extension and start with `version: 1`
+- Variables use `{{VAR_NAME}}` Mustache-style templating, resolved from env files or shell environment
+- Load tables define `pattern`, `metadata.format` (DSV/JSON_FLAT), and `writeStrategy`
+- Transform tasks pair a `.sl.yml` (columns, domain, write strategy) with a `.sql` file (query logic)
+- SQL uses DuckDB syntax by default; alternative Snowflake/Redshift syntax is often commented in `.sql` files
+- `metadata/starlake.json` provides the JSON Schema for all `.sl.yml` files — used for IDE validation
+- Data quality expectations in `metadata/expectations/` are Jinja2 macros invoked with `{{ macro_name(table, column, ...) }}`
+
+### Tooling
+
+- **VSCode extensions**: Starlake (`Starlake.starlake`), Jinja HTML (`samuelcolvin.jinjahtml`), Output Colorizer (`IBM.output-colorizer`)
+- **Claude Code skills**: 45+ Starlake-specific skills installed at `.claude/skills/starlake-skills/` covering all CLI commands, config patterns, and best practices
