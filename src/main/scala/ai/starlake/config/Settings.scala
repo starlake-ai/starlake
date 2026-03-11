@@ -763,6 +763,11 @@ object Settings extends LazyLogging {
     port: Int
   )
 
+  final case class Gizmo(
+    url: String,
+    apiKey: String
+  )
+
   final case class Lock(
     path: String,
     timeout: Long,
@@ -948,7 +953,8 @@ object Settings extends LazyLogging {
     syncSqlWithYaml: Boolean,
     syncYamlWithDb: Boolean,
     onExceptionRetries: Int,
-    pythonLibsDir: String
+    pythonLibsDir: String,
+    gizmo: Gizmo
     // createTableIfNotExists: Boolean
   ) extends Serializable {
 
