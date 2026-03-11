@@ -11,6 +11,7 @@ import ai.starlake.config.Settings.{
   ConnectionInfo,
   DagRef,
   ExpectationsConfig,
+  Gizmo,
   Http,
   Internal,
   JdbcEngine,
@@ -1471,7 +1472,8 @@ object YamlConfigGenerators {
       syncSqlWithYaml = syncSqlWithYaml,
       syncYamlWithDb = syncYamlWithDb,
       onExceptionRetries = onExceptionRetries,
-      pythonLibsDir = pythonLibsDir
+      pythonLibsDir = pythonLibsDir,
+      gizmo = Gizmo("http://localhost:10900", "")
     )
   }
 
