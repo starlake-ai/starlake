@@ -21,6 +21,7 @@ class InferSchemaInfoSpec extends TestHelper {
           |  --clean                Delete previous YML before writing
           |  --encoding <value>     Input file encoding. Default to UTF-8
           |  --from-json-schema    Input file is a valid JSON Schema
+          |  --reportFormat <value> Report format: console, json, html
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

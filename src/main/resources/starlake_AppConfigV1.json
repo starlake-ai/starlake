@@ -974,6 +974,10 @@
     "onExceptionRetries": {
       "description": "Number of retries on transient exceptions",
       "type": "integer"
+    },
+    "pythonLibsDir": {
+      "description": "Directory containing python libraries to use instead of pip install",
+      "type": "string"
     }
   },
   "required": []

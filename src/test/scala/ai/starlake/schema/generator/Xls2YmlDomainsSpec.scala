@@ -142,6 +142,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
           | Starlake domains path is used by default.
           |  --policyFile <value>  Optional File for centralising ACL & RLS definition.
           |  --job <value>         If true generate YML for a Job.
+          |  --reportFormat <value> Report format: console, json, html
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

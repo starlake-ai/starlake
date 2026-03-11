@@ -16,6 +16,7 @@ class ConnectionLoadJobSpec extends TestHelper {
           |  --options <value>        Connection options eq for jdbc:driver,user,password,url,partitions,batchSize
           |  --write_strategy <value>
           |                           One of the write strategies: APPEND, OVERWRITE (see strategy types)
+          |  --reportFormat <value>   Report format: console, json, html
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

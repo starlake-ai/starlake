@@ -20,6 +20,7 @@ class ESLoadJobSpec extends TestHelper {
           |  --conf es.batch.size.entries=1000,es.batch.size.bytes=1mb...
           |   esSpark configuration options.
           |   See https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html
+          |  --reportFormat <value>   Report format: console, json, html
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")
