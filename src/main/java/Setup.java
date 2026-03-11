@@ -246,7 +246,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
 
     // BIGQUERY
-    private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.43.1");
+    private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.44.0");
 
     // deltalake
     private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("3.3.2");
@@ -265,11 +265,11 @@ public class Setup extends ProxySelector implements X509TrustManager {
     };
 
     // SNOWFLAKE
-    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.26.1");
-    private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.1.6");
+    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.28.0");
+    private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.1.7");
 
     // POSTGRESQL
-    private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.7.9");
+    private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.7.10");
 
     // MARIADB
     private static final String MARIADB_VERSION = getEnv("MARIADB_VERSION").orElse("3.5.4");
@@ -282,12 +282,13 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String TRINODB_VERSION = getEnv("TRINODB_VERSION").orElse("478");
 
     // DUCKDB
-    private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.4.4.0");
+    private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.5.0.0");
 
     // REDSHIFT
-    private static final String AWS_JAVA_SDK_VERSION = getEnv("AWS_JAVA_SDK_VERSION").orElse("1.12.787");
-    private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.3.4");
-    private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.33");
+    private static final String AWS_JAVA_SDK_VERSION = getEnv("AWS_JAVA_SDK_VERSION").orElse("1.12.797");
+    private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.3.6");
+    private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.34");
+//    private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("6.5.0-spark_3.5-SNAPSHOT");
     private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("6.5.0-spark_3.5-SNAPSHOT");
 
     // KAFKA CONFLUENT
