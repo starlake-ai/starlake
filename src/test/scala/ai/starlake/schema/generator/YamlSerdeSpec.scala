@@ -1294,6 +1294,13 @@ object YamlConfigGenerators {
     } yield Http(interface = interface, port = port)
   }
 
+  implicit val gizmo: Arbitrary[Gizmo] = Arbitrary {
+    for {
+      url    <- arbitrary[String]
+      apiKey <- arbitrary[String]
+    } yield Gizmo(url = url, apiKey = apiKey)
+  }
+
   implicit val timezone: Arbitrary[TimeZone] = Arbitrary {
     Gen.oneOf(TimeZone.getAvailableIDs).map(TimeZone.getTimeZone)
   }
@@ -1385,6 +1392,7 @@ object YamlConfigGenerators {
       syncYamlWithDb          <- arbitrary[Boolean]
       onExceptionRetries      <- arbitrary[Int]
       pythonLibsDir           <- arbitrary[String]
+      gizmo                   <- arbitrary[Gizmo]
     } yield AppConfig(
       env = env,
       datasets = datasets,
@@ -1473,7 +1481,7 @@ object YamlConfigGenerators {
       syncYamlWithDb = syncYamlWithDb,
       onExceptionRetries = onExceptionRetries,
       pythonLibsDir = pythonLibsDir,
-      gizmo = Gizmo("http://localhost:10900", "")
+      gizmo = gizmo
     )
   }
 
