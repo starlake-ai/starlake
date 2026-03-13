@@ -36,6 +36,11 @@ object BootstrapCmd extends Cmd[BootstrapConfig] {
         .action((x, c) => c.copy(template = Some(x)))
         .text("Template to use to bootstrap project")
         .optional(),
+      builder
+        .opt[String]("project-location")
+        .action((x, c) => c.copy(projectLocation = Some(x)))
+        .text("Absolute path where the project should be created")
+        .optional(),
       reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
@@ -46,7 +51,7 @@ object BootstrapCmd extends Cmd[BootstrapConfig] {
   override def run(config: BootstrapConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
-    Bootstrap.bootstrap(config.template)
+    Bootstrap.bootstrap(config.template, projectLocation = config.projectLocation)
     Utils.printOut(s"Project created based on ${config.template.getOrElse("default")} template")
     Success(JobResult.empty)
   }

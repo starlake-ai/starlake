@@ -75,22 +75,53 @@ object Bootstrap extends LazyLogging {
     template
   }
 
-  def bootstrap(inputTemplate: Option[String], connectionOptions: Map[String, String] = Map.empty)(
-    implicit settings: Settings
+  def bootstrap(
+    inputTemplate: Option[String],
+    connectionOptions: Map[String, String] = Map.empty,
+    projectLocation: Option[String] = None
+  )(implicit
+    settings: Settings
   ): Unit = {
-    settings.storageHandler().initFS(connectionOptions)
+    val effectiveSettings: Settings = projectLocation match {
+      case Some(location) =>
+        val locationFile = File(location)
+        locationFile.createDirectories()
+        val newRoot = locationFile.pathAsString + "/"
+        val oldRoot = settings.appConfig.root
+        def pathFromRoot(path: String): String = {
+          if (oldRoot.isEmpty && !path.contains(":/")) newRoot + path
+          else if (oldRoot.nonEmpty && path.startsWith(oldRoot))
+            newRoot + path.substring(oldRoot.length)
+          else path
+        }
+        settings.copy(
+          appConfig = settings.appConfig.copy(
+            root = newRoot,
+            metadata = pathFromRoot(settings.appConfig.metadata),
+            datasets = pathFromRoot(settings.appConfig.datasets),
+            dags = pathFromRoot(settings.appConfig.dags),
+            tests = pathFromRoot(settings.appConfig.tests),
+            writeStrategies = pathFromRoot(settings.appConfig.writeStrategies),
+            loadStrategies = pathFromRoot(settings.appConfig.loadStrategies),
+            types = pathFromRoot(settings.appConfig.types),
+            macros = pathFromRoot(settings.appConfig.macros)
+          )
+        )
+      case None => settings
+    }
+    effectiveSettings.storageHandler().initFS(connectionOptions)
     val template = askTemplate(inputTemplate)
-    val metadataFolder = File(DatasetArea.metadata.toString)
+    val metadataFolder = File(DatasetArea.metadata(effectiveSettings).toString)
     metadataFolder.createDirectories()
     File(metadataFolder.parent, "datasets").createDirectories()
     if (metadataFolder.collectChildren(!_.isDirectory).nonEmpty) {
       println(s"Folder ${metadataFolder.pathAsString} already exists and is not empty. Aborting.")
       System.exit(1)
     }
-    DatasetArea.initMetadata(settings.storageHandler())
+    DatasetArea.initMetadata(effectiveSettings.storageHandler())(effectiveSettings)
     // val dagLibDir = File(metadataFolder, "dags", "generated")
 
-    val dagLibDir = File(File(DatasetArea.build.toString), "dags")
+    val dagLibDir = File(File(DatasetArea.build(effectiveSettings).toString), "dags")
     dagLibDir.createDirectories()
 
     template
