@@ -7,7 +7,8 @@ import scopt.OParser
 case class BootstrapConfig(
   template: Option[String] = None,
   noExit: Option[Boolean] = None,
-  reportFormat: Option[String] = None
+  reportFormat: Option[String] = None,
+  projectLocation: Option[String] = None
 ) extends ReportFormatConfig
 
 object BootstrapConfig extends CliConfig[BootstrapConfig] {
@@ -26,6 +27,10 @@ object BootstrapConfig extends CliConfig[BootstrapConfig] {
       opt[String]("template")
         .action((x, c) => c.copy(template = Some(x)))
         .text("Template to use to bootstrap project")
+        .optional(),
+      opt[String]("project-location")
+        .action((x, c) => c.copy(projectLocation = Some(x)))
+        .text("Absolute path where the project should be created")
         .optional(),
       opt[String]("reportFormat")
         .action((x, c) => c.copy(reportFormat = Some(x)))
