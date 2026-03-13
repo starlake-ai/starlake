@@ -51,9 +51,9 @@ object GizmoCmd extends Cmd[GizmoConfig] with StrictLogging {
   override def run(config: GizmoConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {
-    val gizmoUrl = settings.appConfig.gizmo.url
+    val gizmoUrl = settings.appConfig.gizmosql.url
     val gizmoApiKey = {
-      val key = settings.appConfig.gizmo.apiKey
+      val key = settings.appConfig.gizmosql.apiKey
       if (key.nonEmpty) Some(key) else None
     }
     val client = new GizmoProcessClient(gizmoUrl, gizmoApiKey)
