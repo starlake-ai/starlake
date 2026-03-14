@@ -1392,7 +1392,7 @@ object YamlConfigGenerators {
       syncYamlWithDb          <- arbitrary[Boolean]
       onExceptionRetries      <- arbitrary[Int]
       pythonLibsDir           <- arbitrary[String]
-      gizmo                   <- arbitrary[GizmoSql]
+      gizmosql                <- arbitrary[GizmoSql]
     } yield AppConfig(
       env = env,
       datasets = datasets,
