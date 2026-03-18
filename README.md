@@ -1,121 +1,107 @@
-![Build Status](https://github.com/starlake-ai/starlake/workflows/Build/badge.svg)
-[![Maven Central Starlake Spark 3](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-core_2.12/badge.svg)](https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-core_2.12)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-
-# Installing Starlake
-Please refer to the documentation: https://docs.starlake.ai/setup/starlake-core-setup
-
-
-To install one of the pre-built data stacks: [Starlake Pragmatic Data Stacks](https://github.com/starlake-ai/starlake-data-stack)
-
-
-<img src="docs/static/img/intent.png" />
-
-Starlake is a declarative text based tool that enables analysts and engineers to extract, load, transform and orchestrate their data pipelines.
-
 <p align="center">
-  <img src="docs/static/img/starlake-draw.png" />
+  <img src="docs/static/img/starlake-draw.png" alt="Starlake" width="600"/>
 </p>
 
+<h3 align="center">Declarative Data Pipelines. Extract. Load. Transform. Orchestrate.</h3>
 
-Starlake is a configuration only Extract, Load, Transform and Orchestration Declarative Data Pipeline Tool.
-The workflow below is a typical use case:
-* **Extract** your data as a set of Fixed Position, DSV (Delimiter-separated values) or JSON or XML files
-* Define or infer table schemas fom text files (csv, json, xml, fixed-width ...)
-* **Load**: Define transformations at load time using YAML and start **loading** files into your datawarehouse.
-* **Transform**: Build aggregates using regular SQL SELECT statements and let Starlake build your tables with respect to your selected strategy (Append, Overwrite, Merge ...).
-* **Orchestrate**: Let Starlake handle your data lineage and run your data pipelines on your favorite orchestrator (Airflow, Dagster ... ).
+<p align="center">
+  <a href="https://github.com/starlake-ai/starlake/workflows/Build/badge.svg"><img src="https://github.com/starlake-ai/starlake/workflows/Build/badge.svg" alt="Build Status"/></a>
+  <a href="https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-core_2.12"><img src="https://maven-badges.herokuapp.com/maven-central/ai.starlake/starlake-core_2.12/badge.svg" alt="Maven Central"/></a>
+  <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"/></a>
+</p>
 
-You may use Starlake for Extract, Load and Transform steps or any combination of these steps.
+<p align="center">
+  <a href="https://docs.starlake.ai/">Documentation</a> &bull;
+  <a href="https://docs.starlake.ai/setup/starlake-core-setup">Installation</a> &bull;
+  <a href="https://github.com/starlake-ai/starlake-data-stack">Data Stacks</a> &bull;
+  <a href="https://docs.starlake.ai/devguide/contribute">Contributing</a>
+</p>
 
-# How it works
+---
 
-The advent of declarative programming, exemplified by tools like Ansible and Terraform,
-has revolutionized infrastructure deployment by allowing developers to express intended goals without specifying the order of code execution.
-This paradigm shift brings forth benefits such as reduced error prone coding tasks, significantly shortened development cycles,
-enhanced code readability, and increased accessibility for developers of all levels.
+Starlake replaces hundreds of lines of BigQuery/Snowflake/Redshift/Spark/SQL boilerplate with simple YAML declarations. Define **what** your data pipeline should do — Starlake figures out **how**.
 
-Starlake is a YAML-based declarative tool designed for expressing Extract, Load, Transform, and Orchestration tasks.
-Drawing inspiration from the successes of declarative programming in infrastructure,
-Starlake aims to bring similar advantages to the realm of data engineering.
+Inspired by Terraform and Ansible, Starlake brings declarative programming to data engineering: schema inference, merge strategies, data quality checks, lineage tracking, and DAG generation — all from configuration files.
 
-This paradigm shift  encourages a focus on defining goals for data warehouses,
-rather than the intricacies of implementation details.
+## Why Starlake?
 
+- **No code, just config** - YAML declarations replace custom ETL scripts
+- **Any warehouse** - BigQuery, Snowflake, Redshift, DuckDB, PostgreSQL, Delta Lake, Iceberg
+- **Any orchestrator** - Airflow, Dagster, Snowflake Tasks with auto-generated DAGs
+- **Any source** - JDBC databases, CSV, JSON, XML, fixed-width, Parquet, Kafka
+- **Schema inference** - Auto-detect formats, headers, separators, and data types
+- **Built-in data quality** - Expectations and validation at load time
+- **Data lineage** - Automatic dependency tracking across your entire pipeline
+- **Privacy controls** - Column-level encryption and access policies
 
-The YAML DSL is self-explanatory and easy to understand. This is best explained with an example:
+## Quick Start
 
-## Extract
+```bash
+# Install (macOS/Linux)
+curl -sSL https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.sh | bash
 
-Let's say we want to extract data from a Postgres Server database on a daily basis
+# Create a new project from a template
+starlake bootstrap
+
+# Load data
+starlake load
+
+# Run transformations
+starlake transform --name my_domain.my_table
+```
+
+Or use Docker:
+```bash
+docker run -it starlakeai/starlake:latest starlake bootstrap
+```
+
+For pre-built production-ready data stacks, see [Starlake Pragmatic Data Stacks](https://github.com/starlake-ai/starlake-data-stack).
+
+## How It Works
+
+<img src="docs/static/img/intent.png" alt="Starlake pipeline flow"/>
+
+### 1. Extract
+
+Pull data from any JDBC source with a few lines of YAML:
+
 ```yaml
 extract:
-  connectionRef: "pg-adventure-works-db" # or mssql-adventure-works-db i extracting from SQL Server
+  connectionRef: "pg-adventure-works-db"
   jdbcSchemas:
     - schema: "sales"
       tables:
-        - name: "salesorderdetail"              # table name or simple "*" to extract all tables
-          partitionColumn: "salesorderdetailid" # (optional)  you may parallelize the extraction based on this field
-          fetchSize: 100                        # (optional)  the number of rows to fetch at a time
-          timestamp: salesdatetime              # (optional) the timestamp field to use for incremental extraction
-      tableTypes:
-        - "TABLE"
-        #- "VIEW"
-        #- "SYSTEM TABLE"
-        #- "GLOBAL TEMPORARY"
-        #- "LOCAL TEMPORARY"
-        #- "ALIAS"
-        #- "SYNONYM"
+        - name: "salesorderdetail"
+          partitionColumn: "salesorderdetailid"  # parallel extraction
+          timestamp: salesdatetime               # incremental
 ```
 
-That's it, we have defined our extraction pipeline.
+### 2. Load
 
-## Load
-
-Let's say we want to load the data extracted from the previous example into a datawarehouse
+Define schemas, merge strategies, and data quality rules:
 
 ```yaml
----
 table:
-  pattern: "salesorderdetail.*.psv" # This property is a regular expression that will be used to match the file name.
-  schedule: "when_available"        # (optional) cron expression to schedule the loading
+  pattern: "salesorderdetail.*.psv"
   metadata:
-    mode: "FILE"
-    format: "CSV"       # (optional) auto-detected if not specified
-    encoding: "UTF-8"
-    withHeader: yes     # (optional) auto-detected if not specified
-    separator: "|"      # (optional) auto-detected if not specified
     writeStrategy:
       type: "UPSERT_BY_KEY_AND_TIMESTAMP"
       timestamp: signup
       key: [id]
-      # Please replace it by the adequate file pattern eq. customers-.*.psv if required
-  attributes:           # Description of the fields to recognize
-    - name: "id"        # attribute name and column name in the destination table if no rename attribute is defined
-      type: "string"    # expected type
-      required: false   # Is this field required in the source (false by default, change it accordingly) ?
-      privacy: "NONE"   # Should we encrypt this field before loading to the warehouse (No encryption by default )?
-      ignore: false     # Should this field be excluded (false by default) ?
-    - name: "signup"    # second attribute
-      type: "timestamp" # auto-detected if  specified
-    - name: "contact"
+  attributes:
+    - name: "id"
       type: "string"
-      ...
+      required: true
+    - name: "signup"
+      type: "timestamp"
 ```
 
-That's it, we have defined our loading pipeline.
+### 3. Transform
 
-
-## Transform
-
-Let's say we want to build aggregates from the previously loaded data
+Write SQL, Starlake generates the correct MERGE/INSERT/OVERWRITE logic:
 
 ```yaml
-
 transform:
-  default:
-    writeStrategy:
-      type: "OVERWRITE"
   tasks:
     - name: most_profitable_products
       writeStrategy:
@@ -124,39 +110,51 @@ transform:
         key: [id]
 ```
 ```sql
-SELECT          # the SQL query will be translated into the appropriate MERGE INTO or INSERT OVERWRITE statement
-productid,
-SUM(unitprice * orderqty) AS total_revenue
+SELECT
+  productid,
+  SUM(unitprice * orderqty) AS total_revenue
 FROM salesorderdetail
 GROUP BY productid
 ORDER BY total_revenue DESC
 ```
 
-Starlake will automatically apply the right merge strategy (INSERT OVERWRITE or MERGE INTO) based on `writeStrategy` property and the input /output tables .
+### 4. Orchestrate
 
-## Orchestrate
+Starlake extracts SQL dependencies and generates DAGs automatically:
 
-Starlake will take care of generating the corresponding DAG (Directed Acyclic Graph) and will run it
-whenever  the tables referenced in the SQL query are updated.
+<p align="center"><img src="docs/static/img/transform-viz.svg" alt="Dependency graph" width="500"/></p>
+<p align="center"><img src="docs/static/img/transform-dags.png" alt="Generated DAG" width="500"/></p>
 
-Starlake comes with a set of DAG templates that can be used to orchestrate your data pipelines on your favorite orchestrator (Airflow, Dagster, ...).
-Simply reference them in your YAML files  and optionally customize them to your needs.
+Reference built-in templates for Airflow, Dagster, or Snowflake Tasks in your YAML — no custom DAG code required.
 
+## Supported Platforms
 
-The following dependencies are extracted from your SQL query and used to generate the corresponding DAG:
-![](docs/static/img/transform-viz.svg)
+<p align="center">
+  <img src="docs/static/img/data-star.png" alt="Supported platforms"/>
+</p>
 
+| Category | Supported |
+|---|---|
+| **Warehouses** | BigQuery, Snowflake, Redshift, DuckDB, PostgreSQL, Spark/Hive |
+| **Lake Formats** | Delta Lake, Apache Iceberg, Parquet |
+| **File Formats** | CSV/DSV, JSON, XML, Fixed-width, Parquet |
+| **Orchestrators** | Airflow (v2 & v3), Dagster, Snowflake Tasks |
+| **Streaming** | Kafka |
+| **Cloud Storage** | GCS, S3, Azure Blob, HDFS, Local |
 
-The resulting DAG is shown below:
+## Documentation
 
-![](docs/static/img/transform-dags.png)
+Full documentation at **[docs.starlake.ai](https://docs.starlake.ai/)**
 
-# Supported platforms
+- [Installation Guide](https://docs.starlake.ai/setup/starlake-core-setup)
+- [Concepts & Architecture](https://docs.starlake.ai/)
+- [Configuration Reference](https://docs.starlake.ai/)
+- [Contributing](https://docs.starlake.ai/devguide/contribute)
 
-The Load & Transform steps support multiple configurations for inputs and outputs.
+## Contributing
 
-![Anywhere](docs/static/img/data-star.png "Anywhere")
+Contributions are welcome! See our [Contributing Guide](https://docs.starlake.ai/devguide/contribute) and [Code of Conduct](CODE_OF_CONDUCT.md).
 
+## License
 
-# Documentation
-Complete documentation available [here](https://docs.starlake.ai/)
+Apache License 2.0 - see [LICENSE](LICENSE) for details.
