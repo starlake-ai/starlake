@@ -14,6 +14,7 @@ class BootstrapConfigSpec extends TestHelper {
         |Create a ne project optionally based on a specific template eq. quickstart / userguide
         |
         |  --template <value>  Template to use to bootstrap project
+        |  --project-location <value> Absolute path where the project should be created
         |  --reportFormat <value> Report format: console, json, html
         |""".stripMargin
       val rendered = BootstrapConfig.usage()
