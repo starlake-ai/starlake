@@ -30,7 +30,10 @@ object SchedulingQueries {
     CaseInsensitiveMap(tableStreams ++ taskStreams)
   }
 
-  def orderSchedules(orderBy: Option[String], schedules: List[ObjectSchedule]): List[ObjectSchedule] = {
+  def orderSchedules(
+    orderBy: Option[String],
+    schedules: List[ObjectSchedule]
+  ): List[ObjectSchedule] = {
     orderBy match {
       case Some("name") =>
         schedules.sortBy(s => s"${s.domain}.${s.table}")

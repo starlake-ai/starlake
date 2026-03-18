@@ -41,26 +41,22 @@ object AccessControlQueries {
     tasks: List[AutoTaskInfo]
   ): CaseInsensitiveMap[String] = {
     val result =
-      domains
-        .flatMap { domain =>
-          domain.tables.flatMap { table =>
-            table.attributes.flatMap { attr =>
-              attr.accessPolicy.map { policy =>
-                (s"${domain.finalName}.${table.finalName}.${attr.getFinalName()}", policy)
-              }
-            }
-          }
-        }
-        .toMap ++
-      tasks
-        .flatMap { task =>
-          task.attributes.flatMap { attr =>
+      domains.flatMap { domain =>
+        domain.tables.flatMap { table =>
+          table.attributes.flatMap { attr =>
             attr.accessPolicy.map { policy =>
-              (s"${task.domain}.${task.name}.${attr.getFinalName()}", policy)
+              (s"${domain.finalName}.${table.finalName}.${attr.getFinalName()}", policy)
             }
           }
         }
-        .toMap
+      }.toMap ++
+      tasks.flatMap { task =>
+        task.attributes.flatMap { attr =>
+          attr.accessPolicy.map { policy =>
+            (s"${task.domain}.${task.name}.${attr.getFinalName()}", policy)
+          }
+        }
+      }.toMap
     CaseInsensitiveMap(result)
   }
 }

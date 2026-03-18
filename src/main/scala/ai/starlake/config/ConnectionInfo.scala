@@ -17,8 +17,8 @@ import scala.annotation.nowarn
   * @param options
   *   any option required by the format used to ingest / tranform / compute the data. Eg for JDBC
   *   uri, user and password are required uri the URI of the database engine. It must start with
-  *   "jdbc:" user the username under which to connect to the database engine password the
-  *   password to use in order to connect to the database engine
+  *   "jdbc:" user the username under which to connect to the database engine password the password
+  *   to use in order to connect to the database engine
   */
 final case class ConnectionInfo(
   `type`: ConnectionType,
@@ -83,9 +83,7 @@ final case class ConnectionInfo(
     */
   def withAccessToken(accessToken: Option[String]): ConnectionInfo = {
     accessToken
-      .map(accessToken =>
-        this.copy(options = this.options.updated("sl_access_token", accessToken))
-      )
+      .map(accessToken => this.copy(options = this.options.updated("sl_access_token", accessToken)))
       .getOrElse {
         if (
           this.options.get("account").contains("SL_STARLAKE_ACCOUNT") && this.options
