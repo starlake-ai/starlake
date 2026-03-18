@@ -24,79 +24,35 @@ import java.util.regex.Pattern
 import scala.util.{Failure, Success, Try}
 
 object SparkUtils extends LazyLogging {
-  def added(incoming: StructType, existing: StructType): StructType = {
-    val incomingFields = incoming.fields.map(_.name).toSet
-    val existingFields = existing.fields.map(_.name.toLowerCase()).toSet
-    val newFields = incomingFields.filter(f => !existingFields.contains(f.toLowerCase()))
-    val fields = incoming.fields.filter(f => newFields.contains(f.name))
-    StructType(fields)
-  }
-
-  def dropped(incoming: StructType, existing: StructType): StructType = {
-    val incomingFields = incoming.fields.map(_.name.toLowerCase()).toSet
-    val existingFields = existing.fields.map(_.name).toSet
-    val deletedFields = existingFields.filter(f => !incomingFields.contains(f.toLowerCase()))
-    val fields = existing.fields.filter(f => deletedFields.contains(f.name))
-    StructType(fields)
-  }
-
+  // --- Delegated to SparkDDLBuilder ---
+  def added(incoming: StructType, existing: StructType): StructType =
+    SparkDDLBuilder.added(incoming, existing)
+  def dropped(incoming: StructType, existing: StructType): StructType =
+    SparkDDLBuilder.dropped(incoming, existing)
   def alterTableDropColumnsString(
     engineName: String,
     fields: StructType,
     tableName: String
-  ): Seq[String] = {
-    val dropFields = fields.map(_.name)
-    // Some engines do not support IF EXISTS
-    val ifExists = if (engineName.toLowerCase() == "redshift") "" else "IF EXISTS"
-    dropFields.map(dropColumn => s"ALTER TABLE $tableName DROP COLUMN $ifExists $dropColumn")
-  }
-
+  ): Seq[String] = SparkDDLBuilder.alterTableDropColumnsString(engineName, fields, tableName)
   def alterTableAddColumnsString(
     engineName: String,
     allFields: StructType,
     tableName: String,
     attributesWithDDLType: Map[String, String]
-  ): Seq[String] = {
-    allFields.fields
-      .flatMap(alterTableAddColumnString(engineName, _, tableName, attributesWithDDLType))
-      .toIndexedSeq
-  }
-
+  ): Seq[String] = SparkDDLBuilder.alterTableAddColumnsString(
+    engineName,
+    allFields,
+    tableName,
+    attributesWithDDLType
+  )
   def alterTableAddColumnString(
     engineName: String,
     field: StructField,
     tableName: String,
     attributesWithDDLType: Map[String, String]
-  ): Option[String] = {
-    val addField = field.name
-    val addFieldType = field.dataType
-
-    val (jdbcType, isArray) = JdbcDbUtils.getCommonJDBCType(addFieldType)
-    val typeStr = jdbcType.map(_.databaseTypeDefinition)
-    val withArray =
-      if (isArray) {
-        engineName match {
-          case "snowflake" => typeStr.map(_ => "ARRAY") // Snowflake has its own ARRAY <VARIANT>
-          case "duckdb"    => typeStr.map(_ + "[]")
-          case _           => typeStr // ignore array info
-        }
-      } else
-        typeStr
-    val addJdbcType =
-      attributesWithDDLType
-        .get(addField)
-        .orElse(withArray)
-
-    val nullable =
-      "" // Always nullable since it is added on top of existing data [if (!field.nullable) "NOT NULL" else ""]
-
-    // Some engines do not support IF NOT EXISTS
-    val ifNotExists =
-      if (engineName.toLowerCase() == "redshift") "" else "IF NOT EXISTS"
-    addJdbcType.map(jdbcType =>
-      s"ALTER TABLE $tableName ADD COLUMN $ifNotExists $addField $jdbcType $nullable"
-    )
-  }
+  ): Option[String] =
+    SparkDDLBuilder.alterTableAddColumnString(engineName, field, tableName, attributesWithDDLType)
+  def isFlat(fields: StructType): Boolean = SparkDDLBuilder.isFlat(fields)
 
   def updateJdbcTableSchema(
     engineName: String,
@@ -288,11 +244,6 @@ object SparkUtils extends LazyLogging {
         None
 
     (createSchemaSQL, createTableSQL, commentSQL)
-  }
-
-  def isFlat(fields: StructType): Boolean = {
-    val deep = fields.fields.exists(_.dataType.isInstanceOf[StructType])
-    !deep
   }
 
   def dialectForUrl(url: String): JdbcDialect = {
