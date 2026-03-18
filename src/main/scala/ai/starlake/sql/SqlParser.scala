@@ -2,7 +2,12 @@ package ai.starlake.sql
 
 import com.typesafe.scalalogging.LazyLogging
 import net.sf.jsqlparser.parser.{CCJSqlParser, CCJSqlParserUtil}
-import net.sf.jsqlparser.statement.select.{PlainSelect, SelectVisitorAdapter, SetOperationList, Select}
+import net.sf.jsqlparser.statement.select.{
+  PlainSelect,
+  Select,
+  SelectVisitorAdapter,
+  SetOperationList
+}
 import net.sf.jsqlparser.statement.{Statement, StatementVisitorAdapter}
 import net.sf.jsqlparser.util.TablesNamesFinder
 

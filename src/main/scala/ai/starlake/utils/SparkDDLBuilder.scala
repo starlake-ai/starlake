@@ -4,8 +4,8 @@ import ai.starlake.extract.JdbcDbUtils
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.types.{StructField, StructType}
 
-/** Pure SQL DDL string generation methods extracted from SparkUtils.
-  * These methods generate SQL strings but do not execute them.
+/** Pure SQL DDL string generation methods extracted from SparkUtils. These methods generate SQL
+  * strings but do not execute them.
   */
 object SparkDDLBuilder extends LazyLogging {
 
