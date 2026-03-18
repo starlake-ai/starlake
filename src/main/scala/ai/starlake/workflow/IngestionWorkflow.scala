@@ -929,16 +929,27 @@ class IngestionWorkflow(
     options: Map[String, String],
     scheduledDate: Option[String]
   ): Try[String] = {
+    val executed = java.util.concurrent.ConcurrentHashMap.newKeySet[String]()
+    transform(dependencyTree, options, scheduledDate, executed)
+  }
+
+  private def transform(
+    dependencyTree: List[TaskViewDependencyNode],
+    options: Map[String, String],
+    scheduledDate: Option[String],
+    executed: java.util.Set[String]
+  ): Try[String] = {
+
     implicit val forkJoinTaskSupport =
       ParUtils.createForkSupport(Some(settings.appConfig.maxParTask))
 
     val parJobs =
       ParUtils.makeParallel(dependencyTree)
     val res = parJobs.iterator.map { jobContext =>
-      logger.info(s"Transforming ${jobContext.data.name}")
-      val ok = transform(jobContext.children, options, scheduledDate)
+      val ok = transform(jobContext.children, options, scheduledDate, executed)
       if (ok.isSuccess) {
-        if (jobContext.isTask()) {
+        if (jobContext.isTask() && executed.add(jobContext.data.name)) {
+          logger.info(s"Transforming ${jobContext.data.name}")
           val res =
             transform(
               TransformConfig(
@@ -949,8 +960,12 @@ class IngestionWorkflow(
               )
             )
           res
-        } else
+        } else {
+          if (jobContext.isTask()) {
+            logger.info(s"Skipping already executed transform ${jobContext.data.name}")
+          }
           Success("")
+        }
       } else
         ok
     }
