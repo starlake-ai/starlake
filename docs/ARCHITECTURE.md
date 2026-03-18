@@ -22,7 +22,7 @@ Starlake is a Scala-based declarative data pipeline platform. Users define Extra
                           │  └────┬────┘ └──┬───┘ └────┬────┘ └──┬───┘   │
                           │       │         │          │         │       │
                           │  ┌────▼─────────▼──────────▼─────────▼───┐   │
-                          │  │        Execution Layer                 │  │
+                          │  │        Execution Layer                │   │
                           │  │  Native Loaders │ Spark │ JDBC │ API  │   │
                           │  └────┬─────────┬──────────┬─────────┬───┘   │
                           └───────┼─────────┼──────────┼─────────┼───────┘
