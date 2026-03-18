@@ -249,10 +249,19 @@ object YamlSerde extends LazyLogging with YamlUtils {
 
   private def deserializeYamlTables(jsonRootNode: JsonNode, path: String): List[TableDesc] = {
     Try {
-      val rootNode = if (YamlMigrator.PreV1.TableConfig.canMigrate(jsonRootNode)) {
-        YamlMigrator.PreV1.TableConfig.migrate(jsonRootNode).asInstanceOf[ObjectNode]
-      } else {
-        jsonRootNode.asInstanceOf[ObjectNode]
+      val rootNode = {
+        val node = if (YamlMigrator.PreV1.TableConfig.canMigrate(jsonRootNode)) {
+          YamlMigrator.PreV1.TableConfig.migrate(jsonRootNode)
+        } else {
+          jsonRootNode
+        }
+        node match {
+          case on: ObjectNode => on
+          case _ =>
+            throw new RuntimeException(
+              s"Expected an ObjectNode in $path but found ${node.getClass.getSimpleName}"
+            )
+        }
       }
       val tableListSubPath = "tables"
       val tablesNode = if (rootNode.has(tableListSubPath)) {
