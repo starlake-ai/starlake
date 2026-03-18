@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/starlake-ai/starlake/workflows/Build/badge.svg"><img src="https://github.com/starlake-ai/starlake/workflows/Build/badge.svg" alt="Build Status"/></a>
-  <a href="https://central.sonatype.com/artifact/ai.starlake/starlake-core_2.13"><img src="https://img.shields.io/maven-central/v/ai.starlake/starlake-core_2.12?label=Maven%20Central" alt="Maven Central"/></a>
+  <a href="https://central.sonatype.com/artifact/ai.starlake/starlake-core_2.13"><img src="https://img.shields.io/maven-central/v/ai.starlake/starlake-core_2.13?label=Maven%20Central" alt="Maven Central"/></a>
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"/></a>
 </p>
 
