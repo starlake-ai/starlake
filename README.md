@@ -125,7 +125,7 @@ Starlake extracts SQL dependencies and generates DAGs automatically:
 <p align="center"><img src="docs/static/img/transform-viz.svg" alt="Dependency graph" width="500"/></p>
 <p align="center"><img src="docs/static/img/transform-dags.png" alt="Generated DAG" width="500"/></p>
 
-Reference built-in templates for Airflow, Dagster, or Snowflake Tasks in your YAML — no custom DAG code required.
+Reference built-in templates for Airflow, Dagster, or Snowflake Tasks in your YAML. No custom DAG code required.
 
 ## Supported Platforms
 
@@ -146,11 +146,11 @@ Reference built-in templates for Airflow, Dagster, or Snowflake Tasks in your YA
 
 ### VS Code Extension
 
-The [Starlake VS Code Extension](https://marketplace.visualstudio.com/items?itemName=Starlake.starlake) brings the full power of Starlake into your editor — schema inference, SQL transformations, ER diagrams, lineage visualization, and workflow orchestration, all without leaving VS Code.
+The [Starlake VS Code Extension](https://marketplace.visualstudio.com/items?itemName=Starlake.starlake) brings the full power of Starlake into your editor: schema inference, SQL transformations, ER diagrams, lineage visualization, and workflow orchestration, all without leaving VS Code.
 
 ### Starlake Skills
 
-The extension ships with [Starlake Skills](https://github.com/starlake-ai/starlake-skills) — MCP-based skills that supercharge AI coding assistants like **Claude Code** and **GitHub Copilot** with deep knowledge of the Starlake platform. Your AI assistant can help you build, debug, and optimize data pipelines using Starlake best practices.
+The extension ships with [Starlake Skills](https://github.com/starlake-ai/starlake-skills): MCP-based skills that supercharge AI coding assistants like **Claude Code** and **GitHub Copilot** with deep knowledge of the Starlake platform. Your AI assistant can help you build, debug, and optimize data pipelines using Starlake best practices.
 
 ## Documentation
 
