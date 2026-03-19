@@ -142,6 +142,16 @@ Reference built-in templates for Airflow, Dagster, or Snowflake Tasks in your YA
 | **Streaming** | Kafka |
 | **Cloud Storage** | GCS, S3, Azure Blob, HDFS, Local |
 
+## IDE & AI Support
+
+### VS Code Extension
+
+The [Starlake VS Code Extension](https://marketplace.visualstudio.com/items?itemName=Starlake.starlake) brings the full power of Starlake into your editor — schema inference, SQL transformations, ER diagrams, lineage visualization, and workflow orchestration, all without leaving VS Code.
+
+### Starlake Skills
+
+The extension ships with [Starlake Skills](https://github.com/starlake-ai/starlake-skills) — MCP-based skills that supercharge AI coding assistants like **Claude Code** and **GitHub Copilot** with deep knowledge of the Starlake platform. Your AI assistant can help you build, debug, and optimize data pipelines using Starlake best practices.
+
 ## Documentation
 
 Full documentation at **[docs.starlake.ai](https://docs.starlake.ai/)**
