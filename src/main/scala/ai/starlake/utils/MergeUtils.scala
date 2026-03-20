@@ -62,13 +62,17 @@ object MergeUtils extends LazyLogging with DatasetLogging {
 
     val newColumns = expectedColumns.keySet.diff(actualColumns.keySet)
     val newColumnsNotNullable =
-      newColumns.flatMap(expectedColumns.get(_)).filterNot(_.nullable).map(_.name)
-    if (newColumnsNotNullable.nonEmpty)
-      throw new RuntimeException(
-        "The new columns from Input Dataset should be nullable. The following columns were not: " + newColumnsNotNullable
-          .mkString(", ")
+      newColumns.flatMap(expectedColumns.get(_)).filterNot(_.nullable)
+    if (newColumnsNotNullable.nonEmpty) {
+      logger.info(
+        s"Forcing new columns to be nullable for schema evolution: ${newColumnsNotNullable.map(_.name).mkString(", ")}"
       )
-    expectedColumns.filter { case (key, value) => newColumns.contains(key) }.values.toList
+    }
+    expectedColumns
+      .filter { case (key, _) => newColumns.contains(key) }
+      .values
+      .map(f => if (f.nullable) f else f.copy(nullable = true))
+      .toList
   }
 
   def buildMissingType(

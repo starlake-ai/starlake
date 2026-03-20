@@ -266,7 +266,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     // SNOWFLAKE
     private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.28.0");
-    private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.1.7");
+    private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.1.8");
 
     // POSTGRESQL
     private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.7.10");
