@@ -981,84 +981,21 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     _externals
   }
 
-  def listDagNames(): List[String] = {
-    val dags = storage.list(DatasetArea.dags, ".sl.yml", recursive = false)
-    dags.map(_.path.getName().dropRight(".sl.yml".length))
-  }
+  def listDagNames(): List[String] =
+    DagHandler.listDagNames(storage)
 
-  def checkDagNameValidity(dagRef: String): Either[List[ValidationMessage], Boolean] = {
-    val allDagNames = listDagNames()
-    val dagName =
-      if (dagRef.endsWith(".sl.yml")) dagRef.dropRight(".sl.yml".length) else dagRef
-    if (!allDagNames.contains(dagName)) {
-      Left(
-        List(
-          ValidationMessage(
-            Error,
-            "Table metadata",
-            s"dagRef: $dagRef is not a valid DAG reference. Valid DAG references are ${allDagNames.mkString(",")}"
-          )
-        )
-      )
-    } else {
-      Right(true)
-    }
-  }
+  def checkDagNameValidity(dagRef: String): Either[List[ValidationMessage], Boolean] =
+    DagHandler.checkDagNameValidity(dagRef, storage)
 
-  def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagInfo] = {
-    val dagsConfigsPaths =
-      storage
-        .list(path = dagPath, extension = ".sl.yml", recursive = false)
-        .map(_.path)
-    dagsConfigsPaths.map { dagsConfigsPath =>
-      val dagConfigName = dagsConfigsPath.getName().dropRight(".sl.yml".length)
-      val dagFileContent = storage.read(dagsConfigsPath)
-      val dagConfig = YamlSerde
-        .deserializeYamlDagConfig(
-          dagFileContent,
-          dagsConfigsPath.toString
-        ) match {
-        case Success(dagConfig) => dagConfig
-        case Failure(err) =>
-          logger.error(
-            s"Failed to load dag config in $dagsConfigsPath"
-          )
-          Utils.logException(logger, err)
-          throw err
-      }
-      logger.info(s"Successfully loaded Dag config $dagConfigName in $dagsConfigsPath")
-      dagConfigName -> dagConfig
-    }.toMap
-  }
+  def deserializedDagGenerationConfigs(dagPath: Path): Map[String, DagInfo] =
+    DagHandler.deserializedDagGenerationConfigs(dagPath, storage)
 
   /** Global dag generation config can only be defined in "dags" folder in the metadata folder.
     * Override of dag generation config can be done inside domain config file at domain or table
     * level.
     */
-  def loadDagGenerationConfigs(instantiateVars: Boolean): Map[String, DagInfo] = {
-    if (storage.exists(DatasetArea.dags)) {
-      val dagMap = deserializedDagGenerationConfigs(DatasetArea.dags)
-      dagMap.map { case (dagName, dagInfo) =>
-        if (instantiateVars) {
-          val scriptDir = Option(System.getenv("SL_SCRIPT_DIR")).filter(_.nonEmpty).getOrElse("")
-          val starlakePath = dagInfo.options.get("SL_STARLAKE_PATH")
-          if (
-            scriptDir.nonEmpty &&
-            (starlakePath.contains("starlake") || starlakePath.isEmpty)
-          ) {
-            dagName -> dagInfo.copy(options =
-              dagInfo.options.updated("SL_STARLAKE_PATH", s"$scriptDir/starlake")
-            )
-          } else
-            dagName -> dagInfo
-        } else
-          dagName -> dagInfo
-      }
-    } else {
-      logger.info("No dags config provided. Use only configuration defined in domain config files.")
-      Map.empty[String, DagInfo]
-    }
-  }
+  def loadDagGenerationConfigs(instantiateVars: Boolean): Map[String, DagInfo] =
+    DagHandler.loadDagGenerationConfigs(storage, instantiateVars)
 
   /** All defined domains Domains are defined under the "domains" folder in the metadata folder
     */
@@ -2099,71 +2036,31 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     sql: String,
     connection: ConnectionInfo,
     allVars: Map[String, String] = Map.empty
-  ): String = {
-    if (sql.trim.isEmpty)
-      sql
-    else {
-      val selectStatement = Utils.parseJinja(sql, allVars)
-      val select =
-        SQLUtils.substituteRefInSQLSelect(
-          selectStatement,
-          refs(),
-          domains(),
-          tasks(),
-          connection
-        )
-      select
-    }
-  }
+  ): String =
+    SqlTransformations.substituteRefTaskMainSQL(
+      sql,
+      connection,
+      refs(),
+      domains(),
+      tasks(),
+      allVars
+    )
 
   def transpileAndSubstituteSelectStatement(
     sql: String,
     connection: ConnectionInfo,
     allVars: Map[String, String] = Map.empty,
     test: Boolean
-  ): String = {
-
-    if (sql.startsWith("DESCRIBE ")) {
-      // Do not transpile DESCRIBE statements
-      sql
-    } else {
-      val sqlWithParameters =
-        Try {
-          substituteRefTaskMainSQL(
-            sql,
-            connection,
-            allVars
-          )
-        } match {
-          case Success(substitutedSQL) =>
-            substitutedSQL
-          case Failure(e) =>
-            Utils.logException(logger, e)
-            sql
-        }
-
-      val sqlWithParametersTranspiledIfInTest =
-        if (test || connection._transpileDialect.isDefined) {
-          val envVars = allVars
-          val timestamps =
-            if (test) {
-              List(
-                "SL_CURRENT_TIMESTAMP",
-                "SL_CURRENT_DATE",
-                "SL_CURRENT_TIME"
-              ).flatMap { e =>
-                val value = envVars.get(e).orElse(Option(System.getenv().get(e)))
-                value.map { v => e -> v }
-              }.toMap
-            } else
-              Map.empty[String, String]
-
-          SQLUtils.transpile(sqlWithParameters, connection, timestamps)(settings)
-        } else
-          sqlWithParameters
-      sqlWithParametersTranspiledIfInTest
-    }
-  }
+  ): String =
+    SqlTransformations.transpileAndSubstituteSelectStatement(
+      sql,
+      connection,
+      refs(),
+      domains(),
+      tasks(),
+      allVars,
+      test
+    )
 
   def deleteTablePK(
     domainName: String,
@@ -2250,76 +2147,20 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     taskUpdated(domainName, tableName)
   }
 
-  def streams(): CaseInsensitiveMap[String] = {
-    val tableStreams =
-      domains().flatMap { domain =>
-        domain.tables.flatMap { table =>
-          table.streams.map { stream =>
-            stream -> s"${domain.finalName}.${table.finalName}"
-          }
-        }
-      }.toMap
+  def streams(): CaseInsensitiveMap[String] =
+    SchedulingQueries.streams(domains(), jobs())
 
-    val taskStreams =
-      jobs().flatMap { job =>
-        job.tasks.flatMap { task =>
-          task.streams.map { stream =>
-            stream -> s"${job.getName()}.${task.getTableName()}"
-          }
-        }
-      }.toMap
+  private def orderSchedules(orderBy: Option[String], schedules: List[ObjectSchedule]) =
+    SchedulingQueries.orderSchedules(orderBy, schedules)
 
-    CaseInsensitiveMap(tableStreams ++ taskStreams)
-  }
+  def taskSchedules(orderBy: Option[String]): List[ObjectSchedule] =
+    SchedulingQueries.taskSchedules(jobs(), orderBy)
 
-  private def orderSchedules(orderBy: Option[String], schedules: List[ObjectSchedule]) = {
-    orderBy match {
-      case Some("name") =>
-        schedules.sortBy(s => s"${s.domain}.${s.table}")
-      case Some("cron") =>
-        schedules.sortBy(_.cron)
-      case _ =>
-        schedules
-    }
-  }
+  def tableSchedules(orderBy: Option[String]): List[ObjectSchedule] =
+    SchedulingQueries.tableSchedules(domains(), orderBy)
 
-  def taskSchedules(orderBy: Option[String]): List[ObjectSchedule] = {
-    val schedules = jobs().flatMap { job =>
-      job.tasks.map { task =>
-        ObjectSchedule(
-          domain = job.getName(),
-          table = task.getTableName(),
-          cron = task.schedule,
-          comment = task.comment,
-          typ = "task"
-        )
-      }
-    }
-    orderSchedules(orderBy, schedules)
-  }
-
-  def tableSchedules(orderBy: Option[String]): List[ObjectSchedule] = {
-    val schedules = domains().flatMap { domain =>
-      domain.tables.map { table =>
-        val metadata = table.metadata.getOrElse(Metadata())
-        ObjectSchedule(
-          domain = domain.finalName,
-          table = table.finalName,
-          cron = metadata.schedule,
-          comment = table.comment,
-          typ = "table"
-        )
-      }
-    }
-    orderSchedules(orderBy, schedules)
-  }
-
-  def allSchedules(orderBy: Option[String]): List[ObjectSchedule] = {
-    val taskSchedulesList = taskSchedules(orderBy)
-    val tableSchedulesList = tableSchedules(orderBy)
-    val schedules = taskSchedulesList ++ tableSchedulesList
-    orderSchedules(orderBy, schedules)
-  }
+  def allSchedules(orderBy: Option[String]): List[ObjectSchedule] =
+    SchedulingQueries.allSchedules(jobs(), domains(), orderBy)
 
   def updateTableSchedule(obj: ObjectSchedule)(implicit settings: Settings) = {
     val domain = getDomain(obj.domain).getOrElse(
@@ -2567,54 +2408,15 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     columnDesc: Option[String]
   ) = ???
 
-  def acls(): List[(String, List[AccessControlEntry])] = {
-    this.domains().flatMap { domain =>
-      domain.tables.map { table =>
-        (domain.finalName + "." + table.finalName, table.acl)
-      }
-    } ++
-    this.tasks().map { task =>
-      (task.domain + "." + task.name, task.acl)
-    }
-  }
+  def acls(): List[(String, List[AccessControlEntry])] =
+    AccessControlQueries.acls(this.domains(), this.tasks())
 
-  def rls(): List[(String, List[RowLevelSecurity])] = {
-    this.domains().flatMap { domain =>
-      domain.tables.map { table =>
-        (domain.finalName + "." + table.finalName, table.rls)
-      }
-    } ++
-    this.tasks().map { task =>
-      (task.domain + "." + task.name, task.rls)
-    }
-  }
+  def rls(): List[(String, List[RowLevelSecurity])] =
+    AccessControlQueries.rls(this.domains(), this.tasks())
 
-  def cls(): List[IamPolicyTag] = this.iamPolicyTags().toList.flatMap { _.iamPolicyTags }
+  def cls(): List[IamPolicyTag] =
+    AccessControlQueries.cls(this.iamPolicyTags())
 
-  def accessPolicies(): CaseInsensitiveMap[String] = {
-    val result =
-      this
-        .domains()
-        .flatMap { domain =>
-          domain.tables.flatMap { table =>
-            table.attributes.flatMap { attr =>
-              attr.accessPolicy.map { policy =>
-                (s"${domain.finalName}.${table.finalName}.${attr.getFinalName()}", policy)
-              }
-            }
-          }
-        }
-        .toMap ++
-      this
-        .tasks()
-        .flatMap { task =>
-          task.attributes.flatMap { attr =>
-            attr.accessPolicy.map { policy =>
-              (s"${task.domain}.${task.name}.${attr.getFinalName()}", policy)
-            }
-          }
-        }
-        .toMap
-    CaseInsensitiveMap(result)
-  }
+  def accessPolicies(): CaseInsensitiveMap[String] =
+    AccessControlQueries.accessPolicies(this.domains(), this.tasks())
 }
