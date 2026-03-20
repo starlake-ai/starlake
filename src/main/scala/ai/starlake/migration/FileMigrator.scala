@@ -3,10 +3,10 @@ package ai.starlake.migration
 import ai.starlake.config.Settings.latestSchemaVersion
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.TypesInfo
-import ai.starlake.utils.YamlSerde
+import ai.starlake.utils.{YamlMigrator, YamlSerde}
 import org.apache.hadoop.fs.Path
 
-import scala.util.Try
+import scala.util.{Success, Try}
 import ai.starlake.utils.ImplicitRichPath._
 
 trait YamlFileMigrator {
@@ -230,17 +230,23 @@ object EnvYamlFileMigrator extends YamlFileMigrator {
   override def migrate(
     path: Path
   )(implicit storageHandler: StorageHandler): Try[List[PostMigrationAction]] = {
-    Try {
-      YamlSerde
-        .deserializeYamlEnvConfig(
-          storageHandler.read(path),
-          path.toString
-        )
-    }
-      .map { migratedYamlEntity =>
-        YamlSerde.serializeToPath(path, migratedYamlEntity)
-        Nil
+    val content = storageHandler.read(path)
+    val rootNode = YamlSerde.mapper.readTree(content)
+    if (!YamlMigrator.V1.EnvConfig.canMigrate(rootNode)) {
+      Success(Nil)
+    } else {
+      Try {
+        YamlSerde
+          .deserializeYamlEnvConfig(
+            content,
+            path.toString
+          )
       }
+        .map { migratedYamlEntity =>
+          YamlSerde.serializeToPath(path, migratedYamlEntity)
+          Nil
+        }
+    }
   }
 
   override def isEligibleForMigration(
