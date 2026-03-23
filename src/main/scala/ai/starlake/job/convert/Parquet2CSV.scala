@@ -1,26 +1,20 @@
 package ai.starlake.job.convert
 
 import ai.starlake.config.Settings
+import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model.WriteMode.APPEND
-import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
+import ai.starlake.utils.{JdbcJobResult, JobBase, JobResult}
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
 import scala.util.{Failure, Success, Try}
 
-/** Convert parquet files to CSV. The folder hierarchy should be in the form
-  * /input_folder/domain/schema/part*.parquet Once converted the csv files is put in the folder
-  * /output_folder/domain/schema.csv file When the specified number of parittions is 1 then
-  * /output_folder/domain/schema.csv is the file containing the data otherwise, it is a folder
-  * containing the part*.csv files. When output_folder is not specified, then the input_folder is
-  * used a the base output folder.
-  * @param config
-  * @param storageHandler
-  * @param settings
+/** Convert parquet files to CSV using DuckDB.
   */
 class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)(implicit
   val settings: Settings
-) extends SparkJob {
+) extends JobBase
+    with LazyLogging {
 
   override def name: String = s"parquet-2-csv"
 
@@ -40,6 +34,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
       case None         => config.inputFolder
       case Some(folder) => folder
     }
+    val connectionOptions = settings.appConfig.getDefaultConnection().options
     allPaths.flatMap { path =>
       val fileFound = Try {
         storageHandler.list(path, recursive = false).nonEmpty ||
@@ -49,36 +44,27 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
         Try {
           val csvPath =
             new Path(new Path(outputPath, path.getParent.getName()), path.getName() + ".csv")
-          val writer = session.read
-            .format(settings.appConfig.defaultWriteFormat)
-            .load(path.toString)
-            .repartition(config.partitions)
-            .write
-            .mode(config.writeMode.getOrElse(APPEND).toSaveMode)
-          writer
-            .options(config.options)
-            .option("ignoreLeadingWhiteSpace", false)
-            .option("ignoreTrailingWhiteSpace", false)
-            .csv(csvPath.toString)
-          if (config.partitions == 1) {
-            storageHandler.moveSparkPartFile(csvPath, ".csv")
+          val inputPath = StorageHandler.localFile(path).pathAsString
+          val outputCsvPath = StorageHandler.localFile(csvPath).pathAsString
+          JdbcDbUtils.withJDBCConnection(None, connectionOptions) { conn =>
+            val sql =
+              s"COPY (SELECT * FROM read_parquet('$inputPath')) TO '$outputCsvPath' (FORMAT CSV, HEADER)"
+            JdbcDbUtils.execute(sql, conn)
           }
           if (config.deleteSource)
             storageHandler.delete(path)
           Some(csvPath)
         } match {
-          case Success(result) =>
-            Option(result)
+          case Success(result) => Option(result)
           case Failure(e) =>
             e.printStackTrace()
             None
-
         }
       } else {
         None
       }
     }
-    Success(SparkJobResult(None, None))
+    Success(JdbcJobResult(Nil))
   }
 }
 

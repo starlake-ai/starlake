@@ -55,7 +55,7 @@ import better.files.Resource
 import com.databricks.spark.xml.util.XSDToSchema
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
+import ai.starlake.utils.CaseInsensitiveMap
 
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}

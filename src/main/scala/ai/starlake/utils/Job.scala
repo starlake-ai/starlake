@@ -152,6 +152,14 @@ object JobResult {
   def empty: JobResult = EmptyJobResult
 }
 
+case class IngestionJobResult(
+  counters: Option[IngestionCounters]
+) extends JobResult {
+  override def prettyPrint(format: String, dryRun: Boolean = false): String = {
+    counters.map(_.toString).getOrElse("")
+  }
+}
+
 case class DagGenerateJobResult(dagFiles: List[Path]) extends JobResult
 
 case object EmptyJobResult extends JobResult
@@ -179,7 +187,7 @@ case class PreLoadJobResult(domain: String, tables: Map[String, Int]) extends Jo
   * application.conf.
   */
 
-trait JobBase extends LazyLogging with DatasetLogging {
+trait JobBase extends LazyLogging {
   def name: String
   implicit def settings: Settings
 

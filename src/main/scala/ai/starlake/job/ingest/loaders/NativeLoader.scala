@@ -8,11 +8,10 @@ import ai.starlake.job.transform.{AutoTask, TransformContext}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
-import ai.starlake.utils.{SparkUtils, Utils}
+import ai.starlake.utils.{DDLBuilder, Utils}
 import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 
 import java.nio.charset.Charset
 import java.sql.Timestamp
@@ -363,32 +362,31 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
 
     val ddlMap: Map[String, Map[String, String]] =
       schemaHandler.getDdlMapping(starlakeSchema.attributes)
-    val options =
-      new JdbcOptionsInWrite(sinkConnection.jdbcUrl, targetFullTableName, sinkConnection.options)
+    val ddlOptions = sinkConnection.options + ("url" -> sinkConnection.jdbcUrl)
 
     val connectionPreActions =
       sinkConnection.options.get("preActions").map(_.split(';')).getOrElse(Array.empty).toList
 
-    val tempSparkSchema =
-      starlakeSchema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = false)
-    val finalSparkSchema =
-      starlakeSchema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = true)
+    val tempSLSchema =
+      starlakeSchema.slSchemaWithIgnoreAndScript(schemaHandler, withFinalName = false)
+    val finalSLSchema =
+      starlakeSchema.slSchemaWithIgnoreAndScript(schemaHandler, withFinalName = true)
 
     val stepMap =
       if (twoSteps) {
-        val (tempCreateSchemaSql, tempCreateTableSql, _) = SparkUtils.buildCreateTableSQL(
+        val (tempCreateSchemaSql, tempCreateTableSql, _) = DDLBuilder.buildCreateTableSQL(
           sinkConnection.getJdbcEngineName().toString,
           tempTableName,
-          tempSparkSchema,
+          tempSLSchema,
           caseSensitive = false,
           temporaryTable = true,
-          options,
+          ddlOptions,
           ddlMap
         )
-        val schemaString = SparkUtils.sqlSchemaString(
-          finalSparkSchema,
+        val schemaString = DDLBuilder.sqlSchemaString(
+          finalSLSchema,
           caseSensitive = false,
-          options.url,
+          sinkConnection.jdbcUrl,
           ddlMap,
           0
         )
@@ -424,13 +422,13 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
             loadTaskSQL.asJava
           )
       } else {
-        val (createSchemaSql, createTableSql, _) = SparkUtils.buildCreateTableSQL(
+        val (createSchemaSql, createTableSql, _) = DDLBuilder.buildCreateTableSQL(
           sinkConnection.getJdbcEngineName().toString,
           targetFullTableName,
-          finalSparkSchema,
+          finalSLSchema,
           caseSensitive = false,
           temporaryTable = false,
-          options,
+          ddlOptions,
           ddlMap
         )
         val createTableSqls = List(createSchemaSql, createTableSql)

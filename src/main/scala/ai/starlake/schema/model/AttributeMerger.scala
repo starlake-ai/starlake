@@ -1,7 +1,6 @@
 package ai.starlake.schema.model
 
 import ai.starlake.schema.handlers.SchemaHandler
-import org.apache.spark.sql.types.{ArrayType, DataType, StructType}
 
 import scala.annotation.tailrec
 
@@ -15,28 +14,31 @@ object AttributeMerger {
     refAttr: TableAttribute,
     sourceAttr: TableAttribute
   ): Unit = {
-    assert(
-      refAttr.attributes.isEmpty == sourceAttr.attributes.isEmpty,
-      s"attribute with name ${sourceAttr.name} has mismatch on attributes emptiness"
-    )
+    if (refAttr.attributes.isEmpty != sourceAttr.attributes.isEmpty)
+      assert(
+        refAttr.attributes.isEmpty == sourceAttr.attributes.isEmpty,
+        s"attribute with name ${sourceAttr.name}: container type mismatch"
+      )
   }
 
-  /** Compare refAttr with sourceAttr type and reject if containers (struct or array) doesn't match.
-    * Furthermore, if it's an array type, check that nested element are the same container type as
-    * well recursively.
+  /** Compare refAttr with sourceAttr and reject if container type is not the same. Furthermore, if
+    * it's an array type, check that nested element are the same container type as well recursively.
     */
   private def checkContainerMismatch(refAttr: TableAttribute, sourceAttr: TableAttribute)(implicit
     schemaHandler: SchemaHandler
   ): Unit = {
     @tailrec
-    def matchContainerType(refDataType: DataType, sourceDataType: DataType): Unit = {
+    def matchContainerType(
+      refDataType: StarlakeDataType,
+      sourceDataType: StarlakeDataType
+    ): Unit = {
       (refDataType, sourceDataType) match {
-        case (_: ArrayType, _) | (_, _: ArrayType) =>
+        case (_: StarlakeDataType.SLArray, _) | (_, _: StarlakeDataType.SLArray) =>
           assert(
             refDataType.getClass.getSimpleName == sourceDataType.getClass.getSimpleName,
             s"attribute with name ${sourceAttr.name} is not in array in both schema"
           )
-        case (_: StructType, _) =>
+        case (_: StarlakeDataType.SLStruct, _) =>
           assert(
             refDataType.getClass.getSimpleName == sourceDataType.getClass.getSimpleName,
             s"attribute with name ${sourceAttr.name} found with type '${sourceAttr.`type`}' where type '${refAttr.`type`}' is expected"
@@ -44,14 +46,14 @@ object AttributeMerger {
         case _ =>
       }
       (refDataType, sourceDataType) match {
-        case (refArrayType: ArrayType, sourceArrayType: ArrayType) =>
-          matchContainerType(refArrayType.elementType, sourceArrayType.elementType)
+        case (StarlakeDataType.SLArray(refElem), StarlakeDataType.SLArray(srcElem)) =>
+          matchContainerType(refElem, srcElem)
         case _ =>
       }
     }
 
-    val refAttrDataType = refAttr.primitiveSparkType(schemaHandler)
-    val sourceAttrDataType = sourceAttr.primitiveSparkType(schemaHandler)
+    val refAttrDataType = refAttr.primitiveSLType(schemaHandler)
+    val sourceAttrDataType = sourceAttr.primitiveSLType(schemaHandler)
     matchContainerType(refAttrDataType, sourceAttrDataType)
   }
 
@@ -66,8 +68,8 @@ object AttributeMerger {
     if (attributeMergeStrategy.failOnAttributesEmptinessMismatch) {
       checkAttributesEmptinessMismatch(refAttr, sourceAttr)
     }
-    val refAttrDataType = refAttr.primitiveSparkType(schemaHandler)
-    val sourceAttrDataType = sourceAttr.primitiveSparkType(schemaHandler)
+    val refAttrDataType = refAttr.primitiveSLType(schemaHandler)
+    val sourceAttrDataType = sourceAttr.primitiveSLType(schemaHandler)
     val attributes = mergeContainerAttributes(
       refAttr,
       sourceAttr,
@@ -77,10 +79,14 @@ object AttributeMerger {
     )
     val (referenceSource, fallbackSource) =
       attributeMergeStrategy.attributePropertiesMergeStrategy match {
-        case RefFirst    => refAttr    -> sourceAttr
-        case SourceFirst => sourceAttr -> refAttr
+        case RefFirst    => (refAttr, sourceAttr)
+        case SourceFirst => (sourceAttr, refAttr)
       }
-    refAttr.copy(
+    TableAttribute(
+      name = referenceSource.name,
+      `type` = referenceSource.`type`,
+      array = referenceSource.array.orElse(fallbackSource.array),
+      required = referenceSource.required.orElse(fallbackSource.required),
       privacy =
         if (
           referenceSource.privacy.isDefined && !referenceSource.privacy
@@ -106,27 +112,22 @@ object AttributeMerger {
     refAttr: TableAttribute,
     sourceAttr: TableAttribute,
     attributeMergeStrategy: AttributeMergeStrategy,
-    refAttrDataType: DataType,
-    sourceAttrDataType: DataType
+    refAttrDataType: StarlakeDataType,
+    sourceAttrDataType: StarlakeDataType
   )(implicit schemaHandler: SchemaHandler) = {
     val attributes = (refAttrDataType, sourceAttrDataType) match {
-      case (_: StructType, _: StructType) =>
+      case (_: StarlakeDataType.SLStruct, _: StarlakeDataType.SLStruct) =>
         mergeAll(refAttr.attributes, sourceAttr.attributes, attributeMergeStrategy)
-      case (_: StructType, _) =>
+      case (_: StarlakeDataType.SLStruct, _) =>
         mergeAll(refAttr.attributes, Nil, attributeMergeStrategy)
-      case (refType: ArrayType, sourceType: ArrayType) =>
-        (refType.elementType, sourceType.elementType) match {
-          case (_: StructType, _: StructType) =>
+      case (StarlakeDataType.SLArray(refElem), StarlakeDataType.SLArray(srcElem)) =>
+        (refElem, srcElem) match {
+          case (_: StarlakeDataType.SLStruct, _: StarlakeDataType.SLStruct) =>
             mergeAll(refAttr.attributes, sourceAttr.attributes, attributeMergeStrategy)
-          case (_: StructType, _) =>
+          case (_: StarlakeDataType.SLStruct, _) =>
             mergeAll(refAttr.attributes, Nil, attributeMergeStrategy)
           case _ =>
             Nil
-        }
-      case (refType: ArrayType, _) =>
-        refType.elementType match {
-          case _: StructType => mergeAll(refAttr.attributes, Nil, attributeMergeStrategy)
-          case _             => Nil
         }
       case _ =>
         Nil
@@ -134,34 +135,22 @@ object AttributeMerger {
     attributes
   }
 
-  /** @param refAttrs
-    *   attributes to enrich
-    * @param sourceAttrs
-    *   attributes used to enrich refAttrs
-    * @return
-    */
   def mergeAll(
-    refAttrs: List[TableAttribute],
-    sourceAttrs: List[TableAttribute],
+    refAttributes: List[TableAttribute],
+    sourceAttributes: List[TableAttribute],
     attributeMergeStrategy: AttributeMergeStrategy
   )(implicit schemaHandler: SchemaHandler): List[TableAttribute] = {
-    val missingAttributes = attributeMergeStrategy.keepSourceDiffAttributesStrategy match {
-      case KeepAllDiff =>
-        val missingAttributeNames = sourceAttrs.map(_.name).diff(refAttrs.map(_.name))
-        missingAttributeNames.flatMap(attrName => sourceAttrs.find(_.name == attrName))
-      case KeepOnlyScriptDiff =>
-        val missingScriptAttributeNames =
-          sourceAttrs.filter(_.script.isDefined).map(_.name).diff(refAttrs.map(_.name))
-        missingScriptAttributeNames.flatMap(attrName => sourceAttrs.find(_.name == attrName))
-      case DropAll => Nil
-    }
-    refAttrs.map { refAttr =>
-      sourceAttrs.find(_.name == refAttr.name) match {
+    val sourceAttrsByName = sourceAttributes.map(a => a.name -> a).toMap
+    val refAttrsByName = refAttributes.map(a => a.name -> a).toMap
+    val mergedFromRef = refAttributes.map { refAttr =>
+      sourceAttrsByName.get(refAttr.name) match {
         case Some(sourceAttr) =>
           merge(refAttr, sourceAttr, attributeMergeStrategy)
         case None =>
           refAttr
       }
-    } ++ missingAttributes
+    }
+    val newFromSource = sourceAttributes.filterNot(a => refAttrsByName.contains(a.name))
+    mergedFromRef ++ newFromSource
   }
 }

@@ -3,7 +3,7 @@ package ai.starlake.extract
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.ConnectionInfo
 import ai.starlake.utils.Formatter.RichFormatter
-import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
+import ai.starlake.utils.CaseInsensitiveMap
 
 import java.sql.Timestamp
 

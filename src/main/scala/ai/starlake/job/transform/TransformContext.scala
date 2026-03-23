@@ -130,25 +130,15 @@ case class TransformContext(
     *   The appropriate AutoTask subclass instance
     */
   def toTask(engine: Engine): AutoTask = {
-    import ai.starlake.schema.model.{BigQuerySink, FsSink, JdbcSink}
+    import ai.starlake.schema.model.BigQuerySink
 
     val sinkConfig = taskDesc.getSinkConfig()
-    val runConnectionRef = taskDesc.getRunConnectionRef()
     engine match {
       case Engine.BQ if sinkConfig.isInstanceOf[BigQuerySink] || interactive.isDefined =>
         TransformContext.createBigQueryTask(this)
-      case Engine.JDBC
-          if sinkConfig
-            .isInstanceOf[JdbcSink] && sinkConfig
-            .getConnectionRef() == runConnectionRef || interactive.isDefined =>
-        TransformContext.createJdbcTask(this)
       case _ =>
-        sinkConfig match {
-          case fs: FsSink if fs.isExport() && interactive.isEmpty =>
-            TransformContext.createSparkExportTask(this)
-          case _ =>
-            TransformContext.createSparkTask(this)
-        }
+        // All non-BQ engines (JDBC, SPARK, FS) route to JdbcAutoTask (DuckDB)
+        TransformContext.createJdbcTask(this)
     }
   }
 }
@@ -298,66 +288,6 @@ object TransformContext {
       conn = conn,
       scheduledDate = context.scheduledDate,
       syncSchema = context.syncSchema
-    )(context.settings, context.storageHandler, context.schemaHandler)
-  }
-
-  /** Creates a SparkAutoTask from a TransformContext.
-    *
-    * SparkAutoTask is the most versatile task type, capable of reading from and writing to various
-    * sources (Hive, JDBC, BigQuery, filesystem). It can also delegate to BigQueryAutoTask or
-    * JdbcAutoTask when the sink requires native execution.
-    *
-    * @param context
-    *   The TransformContext containing all task parameters
-    * @param schema
-    *   Optional Starlake schema definition for the target table
-    * @return
-    *   A new SparkAutoTask instance configured with the context's parameters
-    */
-  def createSparkTask(
-    context: TransformContext,
-    schema: Option[ai.starlake.schema.model.SchemaInfo] = None
-  ): SparkAutoTask = {
-    new SparkAutoTask(
-      appId = context.appId,
-      taskDesc = context.taskDesc,
-      commandParameters = context.commandParameters,
-      interactive = context.interactive,
-      truncate = context.truncate,
-      test = context.test,
-      logExecution = context.logExecution,
-      accessToken = context.accessToken,
-      resultPageSize = context.resultPageSize,
-      resultPageNumber = context.resultPageNumber,
-      schema = schema,
-      scheduledDate = context.scheduledDate,
-      syncSchema = context.syncSchema
-    )(context.settings, context.storageHandler, context.schemaHandler)
-  }
-
-  /** Creates a SparkExportTask from a TransformContext.
-    *
-    * SparkExportTask is used when exporting data to the filesystem in formats like CSV, JSON,
-    * Parquet, etc. It differs from SparkAutoTask in that it writes to files rather than tables.
-    *
-    * @param context
-    *   The TransformContext containing all task parameters
-    * @return
-    *   A new SparkExportTask instance configured with the context's parameters
-    */
-  def createSparkExportTask(context: TransformContext): SparkExportTask = {
-    new SparkExportTask(
-      appId = context.appId,
-      taskDesc = context.taskDesc,
-      commandParameters = context.commandParameters,
-      interactive = context.interactive,
-      truncate = context.truncate,
-      test = context.test,
-      logExecution = context.logExecution,
-      accessToken = context.accessToken,
-      resultPageSize = context.resultPageSize,
-      resultPageNumber = context.resultPageNumber,
-      scheduledDate = context.scheduledDate
     )(context.settings, context.storageHandler, context.schemaHandler)
   }
 

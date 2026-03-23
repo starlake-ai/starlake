@@ -13,7 +13,7 @@ import ai.starlake.utils.{SparkUtils, StarlakeJdbcOps, Utils}
 import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.LazyLogging
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
-import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
+import ai.starlake.utils.CaseInsensitiveMap
 import org.apache.spark.sql.jdbc.JdbcType
 import org.apache.spark.sql.types.*
 import org.duckdb.DuckDBConnection

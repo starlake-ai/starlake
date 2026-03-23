@@ -2,14 +2,16 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.{DomainInfo, SchemaInfo, TableAttribute}
-import ai.starlake.utils.{JobResult, SparkJob}
+import ai.starlake.utils.{JobBase, JobResult}
+import com.typesafe.scalalogging.LazyLogging
 
 import java.util.regex.Pattern
 import scala.util.{Success, Try}
 
 class SparkExtractorJob(domainAndTablesNames: Map[String, List[String]] = Map.empty)(implicit
   s: Settings
-) extends SparkJob {
+) extends JobBase
+    with LazyLogging {
   override def name: String = "extractor"
 
   override implicit def settings: Settings = s
@@ -19,60 +21,64 @@ class SparkExtractorJob(domainAndTablesNames: Map[String, List[String]] = Map.em
   }
 
   def schemasAndTableNames(): Try[List[(String, List[String])]] = Try {
-    session
-      .sql("show databases")
-      .collect()
-      .map { row =>
-        val dbName = row.getString(0)
+    val connectionOptions = settings.appConfig.getDefaultConnection().options
+    JdbcDbUtils.withJDBCConnection(None, connectionOptions) { conn =>
+      val stmt = conn.createStatement()
+      val rs = stmt.executeQuery("SHOW DATABASES")
+      val databases = Iterator.continually(rs).takeWhile(_.next()).map(_.getString(1)).toList
+      rs.close()
+      stmt.close()
+      databases.map { dbName =>
+        val tableStmt = conn.createStatement()
+        val tableRs = tableStmt.executeQuery(s"SHOW TABLES IN $dbName")
         val tables =
-          session.sql(s"show tables in $dbName").collect().map(_.getString(1)).toList
+          Iterator.continually(tableRs).takeWhile(_.next()).map(_.getString(1)).toList
+        tableRs.close()
+        tableStmt.close()
         dbName -> tables
       }
-      .toList
+    }
   }
-  def schemasAndTables(
-  ): Try[List[DomainInfo]] = Try {
+
+  def schemasAndTables(): Try[List[DomainInfo]] = Try {
     val tableMap =
       if (domainAndTablesNames.isEmpty) {
         schemasAndTableNames()
       } else {
         Success(domainAndTablesNames)
       }
-    val tableNames =
-      tableMap match {
-        case Success(value) =>
-          value.flatMap { case (schema, tables) =>
-            tables.map(table => s"$schema.$table")
-          }
-        case _ => throw new Exception("Failed to extract schemas and tables")
-      }
+    val domainNameMap = tableMap match {
+      case Success(value) => value
+      case _              => throw new Exception("Failed to extract schemas and tables")
+    }
 
-    val domains =
-      tableMap match {
-        case Success(domainNameMap) =>
-          domainNameMap.map { case (schemaName, tables) =>
-            val schemas =
-              tables.map { table =>
-                val cols =
-                  session
-                    .sql(s"describe $schemaName.$table")
-                    .collect()
-                    .map { row =>
-                      val colName = row.getString(0)
-                      val colType = row.getString(1)
-                      TableAttribute(colName, colType)
-                    }
-                    .toList
-                SchemaInfo(
-                  table,
-                  pattern = Pattern.compile(s"$schemaName.$table.*"),
-                  attributes = cols
-                )
+    val connectionOptions = settings.appConfig.getDefaultConnection().options
+    JdbcDbUtils
+      .withJDBCConnection(None, connectionOptions) { conn =>
+        domainNameMap.map { case (schemaName, tables) =>
+          val schemas = tables.map { table =>
+            val stmt = conn.createStatement()
+            val rs = stmt.executeQuery(s"DESCRIBE $schemaName.$table")
+            val cols = Iterator
+              .continually(rs)
+              .takeWhile(_.next())
+              .map { r =>
+                val colName = r.getString(1)
+                val colType = r.getString(2)
+                TableAttribute(colName, colType)
               }
-            DomainInfo(schemaName, tables = schemas)
+              .toList
+            rs.close()
+            stmt.close()
+            SchemaInfo(
+              table,
+              pattern = Pattern.compile(s"$schemaName.$table.*"),
+              attributes = cols
+            )
           }
-        case _ => throw new Exception("Failed to extract schemas and tables")
+          DomainInfo(schemaName, tables = schemas)
+        }
       }
-    domains.toList
+      .toList
   }
 }

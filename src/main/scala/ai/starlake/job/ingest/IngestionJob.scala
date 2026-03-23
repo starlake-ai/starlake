@@ -1,6 +1,6 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.config.{CometColumns, DatasetArea, Settings, SparkSessionBuilder}
+import ai.starlake.config.Settings
 import ai.starlake.exceptions.DisallowRejectRecordException
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.ingest.loaders.{
@@ -11,41 +11,21 @@ import ai.starlake.job.ingest.loaders.{
 }
 import ai.starlake.job.metrics.*
 import ai.starlake.job.sink.bigquery.*
-import ai.starlake.job.transform.TransformContext
-import ai.starlake.job.validator.{CheckValidityResult, GenericRowValidator, SimpleRejectedRecord}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
 import ai.starlake.utils.*
 import ai.starlake.utils.Formatter.*
 import com.google.cloud.bigquery.TableId
 import org.apache.hadoop.fs.Path
-import org.apache.spark.SparkConf
-import org.apache.spark.sql.*
-import org.apache.spark.sql.functions.*
-import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.sql.Timestamp
 import java.time.Instant
 import scala.util.{Failure, Success, Try}
 
-trait IngestionJob extends SparkJob {
+trait IngestionJob extends JobBase {
   val accessToken: Option[String]
   val test: Boolean
   val scheduledDate: Option[String]
-  private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
-    val validatorClassName = loader.toLowerCase() match {
-      case "native" =>
-        logger.warn(s"Unexpected '$loader' loader !!!")
-        validatorClass
-      case "spark" => validatorClass
-      case _ =>
-        throw new Exception(s"Unexpected '$loader' loader !!!")
-    }
-    Utils.loadInstance[GenericRowValidator](validatorClassName)
-  }
-
-  protected lazy val rowValidator: GenericRowValidator =
-    loadGenericValidator(settings.appConfig.rowValidatorClass)
 
   def domain: DomainInfo
 
@@ -79,99 +59,6 @@ trait IngestionJob extends SparkJob {
     */
   lazy val mergedMetadata: Metadata = schema.mergedMetadata(domain.metadata)
   lazy val loader: String = mergedMetadata.loader.getOrElse(settings.appConfig.loader)
-
-  private val accessTokenOptions: Map[String, String] =
-    accessToken.map(token => Map("gcpAccessToken" -> token)).getOrElse(Map.empty)
-
-  protected val sparkOptions = mergedMetadata.getOptions() ++ accessTokenOptions
-
-  override protected def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {
-    val conf = super.withExtraSparkConf(sourceConfig)
-    conf.set("spark.sql.parser.escapedStringLiterals", "true")
-  }
-
-  /** Apply the schema to the dataset. This is where all the magic happen Valid records are stored
-    * in the accepted path / table and invalid records in the rejected path / table
-    *
-    * @param dataset
-    *   : Spark Dataset
-    */
-  protected def ingest(dataset: DataFrame): (Dataset[SimpleRejectedRecord], Dataset[Row]) = {
-    val validationResult = rowValidator.validate(
-      session,
-      mergedMetadata.resolveFormat(),
-      mergedMetadata.resolveSeparator(),
-      dataset,
-      schema.attributesWithoutScriptedFieldsWithInputFileName,
-      types,
-      schema.sourceSparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler),
-      settings.appConfig.privacy.options,
-      settings.appConfig.cacheStorageLevel,
-      settings.appConfig.sinkReplayToFile,
-      mergedMetadata.emptyIsNull.getOrElse(settings.appConfig.emptyIsNull),
-      settings.appConfig.rejectWithValue
-    )(schemaHandler)
-
-    saveRejected(
-      validationResult.errors,
-      validationResult.rejected.drop(CometColumns.cometInputFileNameColumn)
-    )(
-      settings,
-      storageHandler,
-      schemaHandler
-    ).flatMap { _ =>
-      saveAccepted(validationResult) // prefer to let Spark compute the final schema
-    } match {
-      case Failure(exception) =>
-        throw exception
-      case Success(_) => // rejectedRecordCount is always 0 in saveAccepted
-        (validationResult.errors, validationResult.accepted);
-    }
-  }
-
-  protected def reorderTypes(orderedAttributes: List[TableAttribute]): (List[Type], StructType) = {
-    val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
-    val (tpes, sparkFields) = orderedAttributes.map { attribute =>
-      val tpe = typeMap(attribute.`type`)
-      (tpe, tpe.sparkType(attribute.name, !attribute.resolveRequired(), attribute.comment))
-    }.unzip
-    (tpes, StructType(sparkFields))
-  }
-
-  /** @param datasetHeaders
-    *   : Headers found in the dataset
-    * @param schemaHeaders
-    *   : Headers defined in the schema
-    * @return
-    *   two lists : One with thecolumns present in the schema and the dataset and another with the
-    *   headers present in the dataset only
-    */
-  protected def intersectHeaders(
-    datasetHeaders: List[String],
-    schemaHeaders: List[String]
-  ): (List[String], List[String]) = {
-    datasetHeaders.partition(schemaHeaders.contains)
-  }
-
-  private def extractHiveTableAcl(): List[String] = {
-
-    if (settings.appConfig.isHiveCompatible()) {
-      val fullTableName = schemaHandler.getFullTableName(domain, schema)
-      schema.acl.flatMap { ace =>
-        ace.asSql(fullTableName, engine = Engine.SPARK)
-      }
-    } else {
-      Nil
-    }
-  }
-
-  def applyHiveTableAcl(): Try[Unit] =
-    Try {
-      val sqls = extractHiveTableAcl()
-      sqls.foreach { sql =>
-        SparkUtils.sql(session, sql)
-      }
-    }
 
   def applyJdbcAcl(connection: Settings.ConnectionInfo, forceApply: Boolean = false): Try[Unit] = {
     val fullTableName = schemaHandler.getFullTableName(domain, schema)
@@ -226,12 +113,16 @@ trait IngestionJob extends SparkJob {
         }
 
       case _ =>
-        val exists = SparkUtils.tableExists(session, targetTableName)
-        if (exists)
-          session.sql(s"select * from $targetTableName").createOrReplaceTempView("SL_THIS")
-        sqls.foreach { sql =>
-          val compiledSql = sql.richFormat(schemaHandler.activeEnvVars(), options)
-          SparkUtils.sql(session, compiledSql)
+        // Default: execute via JDBC (DuckDB)
+        val connection = mergedMetadata.getSinkConnection()
+        JdbcDbUtils.withJDBCConnection(
+          this.schemaHandler.dataBranch(),
+          connection.withAccessToken(accessToken).options
+        ) { conn =>
+          sqls.foreach { sql =>
+            val compiledSql = sql.richFormat(schemaHandler.activeEnvVars(), options)
+            JdbcDbUtils.executeUpdate(compiledSql, conn)
+          }
         }
     }
   }
@@ -244,13 +135,13 @@ trait IngestionJob extends SparkJob {
 
     val loader =
       if (nativeCandidate) {
-        val loaders = Set("bigquery", "duckdb", "spark", "snowflake")
+        val loaders = Set("bigquery", "duckdb", "snowflake")
         if (loaders.contains(dbName))
           dbName
         else
-          "spark"
+          "duckdb"
       } else {
-        "spark"
+        "duckdb"
       }
     logger.info(s"Using $loader as ingestion engine")
     loader
@@ -276,7 +167,7 @@ trait IngestionJob extends SparkJob {
           // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
           csvOrJsonLines
         case "duckdb" =>
-          Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
+          Set(Format.DSV, Format.JSON, Format.JSON_FLAT, Format.PARQUET, Format.POSITION)
             .contains(
               mergedMetadata.resolveFormat()
             )
@@ -403,8 +294,6 @@ trait IngestionJob extends SparkJob {
           ???
         case "duckdb" =>
           ???
-        case "spark" =>
-          ???
         case "snowflake" =>
           val statementsMap = new NativeLoader(this, None).buildSQLStatements()
           statementsMap
@@ -432,13 +321,10 @@ trait IngestionJob extends SparkJob {
       case "duckdb" =>
         val ingestionCounters = new DuckDbNativeLoader(this).run()
         ingestionCounters
-      case "spark" => // databricks
-        val result = ingestWithSpark()
-        result
       case other =>
-        logger.warn(s"Unsupported engine $other, falling back to spark")
-        val result = ingestWithSpark()
-        result
+        logger.warn(s"Unsupported engine $other, falling back to duckdb")
+        val ingestionCounters = new DuckDbNativeLoader(this).run()
+        ingestionCounters
     }
     jobResult
       .recoverWith { case exception =>
@@ -486,8 +372,7 @@ trait IngestionJob extends SparkJob {
                 }
                 .orElse(Some(counters))
           }
-        SparkJobResult(
-          None,
+        IngestionJobResult(
           globalCounters.orElse(
             Some(
               IngestionCounters(
@@ -501,100 +386,6 @@ trait IngestionJob extends SparkJob {
           )
         )
       }
-  }
-
-  ///////////////////////////////////////////////////////////////////////////
-  /////// SPARK ENGINE ONLY /////////////////////////////////////////////////
-  ///////////////////////////////////////////////////////////////////////////
-
-  /** Main entry point as required by the Spark Job interface
-    *
-    * @return
-    *   : Spark Session used for the job
-    */
-  def ingestWithSpark(): Try[List[IngestionCounters]] = {
-    if (!SparkSessionBuilder.isSparkConnectActive) {
-      session.sparkContext.setLocalProperty(
-        "spark.scheduler.pool",
-        settings.appConfig.sparkScheduling.poolName
-      )
-    }
-    val jobResult = {
-      val start = Timestamp.from(Instant.now())
-      val dataset = loadDataSet()
-      dataset match {
-        case Success(dataset) =>
-          Try {
-            val (rejectedDS, acceptedDS) = ingest(dataset)
-            if (settings.appConfig.audit.detailedLoadAudit && path.size > 1) {
-              // Use Row-based collection to avoid Encoder issues with Spark Connect / Databricks Connect
-              val statsDF = rejectedDS
-                .groupBy("path")
-                .count()
-                .withColumnRenamed("count", "rejectedCount")
-                .join(
-                  acceptedDS
-                    .groupBy(col(CometColumns.cometInputFileNameColumn).as("path"))
-                    .count()
-                    .withColumnRenamed("count", "acceptedCount"),
-                  "path",
-                  "full_outer"
-                )
-                .select(
-                  col("path"),
-                  coalesce(col("rejectedCount"), lit(0L)).as("rejectedCount"),
-                  coalesce(col("acceptedCount"), lit(0L)).as("acceptedCount")
-                )
-              statsDF
-                .collect()
-                .map { row =>
-                  val rejectedCount = row.getAs[Long]("rejectedCount")
-                  val acceptedCount = row.getAs[Long]("acceptedCount")
-                  IngestionCounters(
-                    inputCount = rejectedCount + acceptedCount,
-                    acceptedCount = acceptedCount,
-                    rejectedCount = rejectedCount,
-                    paths = List(row.getAs[String]("path")),
-                    jobid = applicationId()
-                  )
-                }
-                .toList
-            } else {
-              val totalAcceptedCount = acceptedDS.count()
-              val totalRejectedCount = rejectedDS.count()
-              List(
-                IngestionCounters(
-                  inputCount = totalAcceptedCount + totalRejectedCount,
-                  acceptedCount = totalAcceptedCount,
-                  rejectedCount = totalRejectedCount,
-                  paths = path.map(_.toString),
-                  jobid = applicationId()
-                )
-              )
-            }
-          }
-        case Failure(exception) =>
-          logLoadFailureInAudit(start, exception)
-      }
-    }
-    // After each ingestion job we explicitly clear the spark cache
-    if (!SparkSessionBuilder.isSparkConnectActive) {
-      session.catalog.clearCache()
-    }
-    jobResult
-  }
-
-  // /////////////////////////////////////////////////////////////////////////
-  // endregion
-  // /////////////////////////////////////////////////////////////////////////
-
-  def reorderAttributes(dataFrame: DataFrame): List[TableAttribute] = {
-    val finalSchema = schema.attributesWithoutScriptedFields :+ TableAttribute(
-      name = CometColumns.cometInputFileNameColumn
-    )
-    val attributesMap =
-      finalSchema.map(attr => (attr.name, attr)).toMap
-    dataFrame.columns.map(colName => attributesMap(colName)).toList
   }
 
   private def runExpectations(): Try[JobResult] = {
@@ -611,22 +402,12 @@ trait IngestionJob extends SparkJob {
             .orElse(settings.appConfig.getDefaultDatabase())
         )
         runBigQueryExpectations(bqNativeJob(tableId, ""))
-      case _: JdbcSink =>
+      case _ =>
         val options = mergedMetadata.getSinkConnection().withAccessToken(accessToken).options
         runJdbcExpectations(options)
-      case _ =>
-        runSparkExpectations(session)
     }
   }
 
-  /** Runs expectations using the provided assertion handler. This is a unified method that replaces
-    * the duplicated runJdbcExpectations, runSparkExpectations, and runBigQueryExpectations methods.
-    *
-    * @param handler
-    *   The expectation assertion handler to use
-    * @return
-    *   Success with job result if expectations pass, Failure otherwise
-    */
   private def runExpectationsWithHandler(handler: ExpectationAssertionHandler): Try[JobResult] = {
     if (settings.appConfig.expectations.active) {
       new ExpectationJob(
@@ -641,395 +422,13 @@ trait IngestionJob extends SparkJob {
         false
       ).run()
     } else {
-      Success(SparkJobResult(None, None))
+      Success(JdbcJobResult(Nil))
     }
   }
 
   private def runJdbcExpectations(jdbcOptions: Map[String, String]): Try[JobResult] =
     runExpectationsWithHandler(new JdbcExpectationAssertionHandler(jdbcOptions))
 
-  private def runSparkExpectations(session: SparkSession): Try[JobResult] =
-    runExpectationsWithHandler(new SparkExpectationAssertionHandler(session))
-
   def runBigQueryExpectations(job: BigQueryNativeJob): Try[JobResult] =
     runExpectationsWithHandler(new BigQueryExpectationAssertionHandler(job))
-
-  private def runMetrics(acceptedDF: DataFrame) = {
-    if (settings.appConfig.metrics.active) {
-      new MetricsJob(
-        Option(applicationId()),
-        this.domain,
-        this.schema,
-        this.storageHandler,
-        this.schemaHandler
-      )
-        .run(acceptedDF, System.currentTimeMillis())
-    }
-  }
-
-  private def buildColumnMetadata(attr: TableAttribute) = {
-    val builder = new org.apache.spark.sql.types.MetadataBuilder()
-    if (attr.`type` == "variant") {
-      builder.putString("sqlType", "JSON")
-    }
-    attr.comment.foreach(builder.putString("description", _))
-    builder.build()
-  }
-
-  /** This function expects intersect schema to be compatible therefore, no check is done during
-    * fitting. This function also fill the gap with input schema for missing columns.
-    * @param inputDF
-    * @return
-    */
-  def renameAttributesWithReport(
-    dfSchema: List[TableAttribute],
-    slSchema: List[TableAttribute]
-  )(inputDF: DataFrame): (DataFrame, List[String]) = {
-
-    val renamed = scala.collection.mutable.ListBuffer[String]()
-
-    def normalizePath(path: String, isArray: Boolean): String =
-      if (isArray) {
-        if (path.endsWith("[]")) path else path + "[]"
-      } else path
-
-    /** inArrayElement = true : do NOT record rename of the array element root */
-    def collectRename(
-      dfAttr: TableAttribute,
-      slAttr: TableAttribute,
-      normalizedPath: String,
-      isArray: Boolean,
-      inArrayElement: Boolean
-    ): Unit = {
-      slAttr.rename.foreach { newName =>
-        if (!inArrayElement && newName != dfAttr.name) {
-          val newName = normalizePath(slAttr.rename.get, isArray)
-          renamed += s"$normalizedPath -> ${newName}"
-        }
-      }
-    }
-
-    def renameField(
-      dfAttr: TableAttribute,
-      slAttr: TableAttribute,
-      path: String,
-      inArrayElement: Boolean
-    ): Column => Column = {
-
-      val isArray = dfAttr.resolveArray() && slAttr.resolveArray()
-      val normalizedPath = normalizePath(path, isArray)
-
-      // RECORD RENAME (but avoid recording rename twice inside the array)
-      collectRename(dfAttr, slAttr, normalizedPath, isArray, inArrayElement)
-
-      if (isArray) { (arrayCol: Column) =>
-        transform(
-          arrayCol,
-          elemCol =>
-            renameField(
-              dfAttr.copy(array = Some(false)),
-              slAttr.copy(array = Some(false)),
-              normalizedPath,
-              inArrayElement = true // <-- IMPORTANT: prevent duplicate when diving inside the array
-            )(elemCol)
-        ).as(
-          slAttr.rename.getOrElse(slAttr.name),
-          metadata = buildColumnMetadata(slAttr)
-        )
-
-      } else if (dfAttr.attributes.nonEmpty && slAttr.attributes.nonEmpty) { (structCol: Column) =>
-        struct(dfAttr.attributes.map { nestedDfAttr =>
-          slAttr.attributes
-            .find(_.name == nestedDfAttr.name)
-            .map { nestedSlAttr =>
-              val nestedPath = s"$normalizedPath.${nestedDfAttr.name}"
-              renameField(nestedDfAttr, nestedSlAttr, nestedPath, inArrayElement = false)(
-                structCol(nestedDfAttr.name)
-              )
-                .as(
-                  nestedSlAttr.rename.getOrElse(nestedSlAttr.name),
-                  metadata = buildColumnMetadata(slAttr)
-                )
-            }
-            .getOrElse(structCol(nestedDfAttr.name))
-        }: _*).as(
-          slAttr.rename.getOrElse(slAttr.name),
-          metadata = buildColumnMetadata(slAttr)
-        )
-
-      } else { (col: Column) =>
-        col.as(
-          slAttr.rename.getOrElse(slAttr.name),
-          metadata = buildColumnMetadata(slAttr)
-        )
-      }
-    }
-
-    val projections: List[Column] = dfSchema.map { dfField =>
-      slSchema
-        .find(_.name == dfField.name)
-        .map { slField =>
-          renameField(dfField, slField, dfField.name, inArrayElement = false)(col(dfField.name))
-            .as(
-              slField.rename.getOrElse(slField.name),
-              metadata = buildColumnMetadata(slField)
-            )
-        }
-        .getOrElse(col(dfField.name))
-    }
-
-    (inputDF.select(projections: _*), renamed.toList)
-  }
-
-  def dfWithAttributesRenamed(acceptedDF: DataFrame): DataFrame = {
-    val (resultDF, renamedAttributes) =
-      renameAttributesWithReport(Attributes.from(acceptedDF.schema), schema.attributes)(acceptedDF)
-    logger.whenInfoEnabled {
-      renamedAttributes.foreach { case rename =>
-        logger.info(s"renaming column $rename")
-      }
-    }
-    resultDF
-  }
-
-  /** Merge new and existing dataset if required Save using overwrite / Append mode
-    *
-    * @param validationResult
-    */
-  protected def saveAccepted(
-    validationResult: CheckValidityResult
-  ): Try[Long] = {
-    if (!settings.appConfig.rejectAllOnError || validationResult.rejected.isEmpty) {
-      logger.whenDebugEnabled {
-        logger.debug(s"accepted SIZE ${validationResult.accepted.count()}")
-        logger.debug(validationResult.accepted.showString(1000))
-      }
-
-      val finalAcceptedDF = computeFinalDF(validationResult.accepted)
-      sinkAccepted(finalAcceptedDF)
-        .map { rejectedRecordCount =>
-          runMetrics(finalAcceptedDF)
-          rejectedRecordCount
-        }
-    } else {
-      Success(0)
-    }
-  }
-
-  private def computeFinalDF(accepted: DataFrame): DataFrame = {
-    val acceptedRenamedFields = dfWithAttributesRenamed(accepted)
-
-    val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(
-      acceptedRenamedFields
-    )
-
-    val acceptedDfWithScriptAndTransformedFields: DataFrame = computeTransformedAttributes(
-      acceptedDfWithScriptFields
-    )
-
-    val acceptedDfFiltered = filterData(acceptedDfWithScriptAndTransformedFields)
-
-    val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
-      acceptedDfFiltered
-    )
-
-    val acceptedDF = acceptedDfWithoutIgnoredFields.drop(CometColumns.cometInputFileNameColumn)
-    val finalAcceptedDF: DataFrame =
-      computeFinalSchema(acceptedDF).persist(settings.appConfig.cacheStorageLevel)
-    finalAcceptedDF
-  }
-
-  private def filterData(acceptedDfWithScriptAndTransformedFields: DataFrame): Dataset[Row] = {
-    if (
-      mergedMetadata.resolveFormat() == Format.POSITION
-    ) // This is done at read time for position format
-      acceptedDfWithScriptAndTransformedFields
-    else
-      schema.filter
-        .map { filterExpr =>
-          logger.info(s"Applying data filter: $filterExpr")
-          acceptedDfWithScriptAndTransformedFields.filter(filterExpr)
-        }
-        .getOrElse(acceptedDfWithScriptAndTransformedFields)
-  }
-
-  private def computeFinalSchema(acceptedDfWithoutIgnoredFields: DataFrame) = {
-    val finalAcceptedDF: DataFrame = if (schema.attributes.exists(_.script.isDefined)) {
-      logger.whenDebugEnabled {
-        logger.debug("Accepted Dataframe schema right after adding computed columns")
-        logger.debug(acceptedDfWithoutIgnoredFields.schemaString())
-      }
-      // adding computed columns can change the order of columns, we must force the order defined in the schema
-      val cols = schema.finalAttributeNames().map(col)
-      val orderedWithScriptFieldsDF = acceptedDfWithoutIgnoredFields.select(cols: _*)
-      logger.whenDebugEnabled {
-        logger.debug("Accepted Dataframe schema after applying the defined schema")
-        logger.debug(orderedWithScriptFieldsDF.schemaString())
-      }
-      orderedWithScriptFieldsDF
-    } else {
-      acceptedDfWithoutIgnoredFields
-    }
-    finalAcceptedDF
-  }
-
-  private def removeIgnoredAttributes(
-    acceptedDfWithScriptAndTransformedFields: DataFrame
-  ): DataFrame = {
-    val ignoredAttributes = schema.attributes.filter(_.resolveIgnore()).map(_.getFinalName())
-    val acceptedDfWithoutIgnoredFields =
-      acceptedDfWithScriptAndTransformedFields.drop(ignoredAttributes: _*)
-    acceptedDfWithoutIgnoredFields
-  }
-
-  private def computeTransformedAttributes(acceptedDfWithScriptFields: DataFrame): DataFrame = {
-    val sqlAttributes =
-      schema.attributes.filter(_.resolvePrivacy().sql).filter(_.transform.isDefined)
-    sqlAttributes.foldLeft(acceptedDfWithScriptFields) { case (df, attr) =>
-      df.withColumn(
-        attr.getFinalName(),
-        expr(
-          attr.transform
-            .getOrElse(throw new Exception("Should never happen"))
-            .richFormat(schemaHandler.activeEnvVars(), options)
-        )
-          .cast(attr.primitiveSparkType(schemaHandler))
-          .as(attr.getFinalName(), metadata = buildColumnMetadata(attr))
-      )
-    }
-  }
-
-  private def computeScriptedAttributes(acceptedDF: DataFrame): DataFrame = {
-    def enrichStructField(attr: TableAttribute, structField: StructField) = {
-      structField.copy(
-        name = attr.getFinalName(),
-        nullable = if (attr.script.isDefined) true else !attr.resolveRequired()
-      )
-    }
-    schema.attributes
-      .filter(_.script.isDefined)
-      .map(attr =>
-        (
-          attr.getFinalName(),
-          attr.sparkType(schemaHandler, enrichStructField),
-          attr.resolveScript(),
-          buildColumnMetadata(attr)
-        )
-      )
-      .foldLeft(acceptedDF) { case (df, (name, sparkType, script, metadata)) =>
-        df.withColumn(
-          name,
-          expr(script.richFormat(schemaHandler.activeEnvVars(), options))
-            .cast(sparkType)
-            .as(name, metadata = metadata)
-        )
-      }
-  }
-
-  private def sinkAccepted(mergedDF: DataFrame): Try[Long] = {
-    val result: Try[Try[Long]] = Try {
-      val taskDesc = AutoTaskInfo(
-        name = schema.finalName,
-        presql = schema.presql,
-        postsql = schema.postsql,
-        sql = None,
-        database = schemaHandler.getDatabase(domain),
-        domain = domain.finalName,
-        table = schema.finalName,
-        sink = mergedMetadata.sink,
-        acl = schema.acl,
-        rls = schema.rls,
-        comment = schema.comment,
-        tags = schema.tags,
-        writeStrategy = Some(strategy),
-        connectionRef = Option(mergedMetadata.getSinkConnectionRef())
-      )
-      val context = TransformContext(
-        appId = Option(applicationId()),
-        taskDesc = taskDesc,
-        commandParameters = Map.empty,
-        interactive = None,
-        truncate = false,
-        test = test,
-        logExecution = false,
-        accessToken = accessToken,
-        resultPageSize = 200,
-        resultPageNumber = 1,
-        dryRun = false,
-        scheduledDate = scheduledDate,
-        syncSchema = false
-      )(settings, storageHandler, schemaHandler)
-
-      val autoTask =
-        taskDesc.getSinkConfig() match {
-          case fsSink: FsSink if fsSink.isExport() && !strategy.isMerge() =>
-            TransformContext.createSparkExportTask(context)
-          case _ =>
-            TransformContext.createSparkTask(context, Some(schema))
-        }
-      if (autoTask.sink(mergedDF, Some(this.schema))) {
-        Success(0L)
-      } else {
-        Failure(new Exception("Failed to sink"))
-      }
-    }
-    result.flatten
-  }
-
-  def loadDataSet(): Try[DataFrame]
-
-  def defineOutputAsOriginalFormat(rejectedLines: DataFrame): DataFrameWriter[Row]
-
-  protected def saveRejected(
-    errMessagesDS: Dataset[SimpleRejectedRecord],
-    rejectedLinesDS: DataFrame
-  )(implicit
-    settings: Settings,
-    storageHandler: StorageHandler,
-    schemaHandler: SchemaHandler
-  ): Try[Path] = {
-    logger.whenDebugEnabled {
-      logger.debug(s"rejected SIZE ${errMessagesDS.count()}")
-      errMessagesDS
-        .take(100)
-        .foreach(rejected => logger.debug(rejected.errors.replaceAll("\n", "|")))
-    }
-    val domainName = domain.name
-    val schemaName = schema.name
-
-    val start = Timestamp.from(Instant.now())
-    val formattedDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(start)
-
-    if (settings.appConfig.sinkReplayToFile && !rejectedLinesDS.isEmpty) {
-      val replayArea = DatasetArea.replay(domainName)
-      val targetPath =
-        new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay")
-      val formattedRejectedLinesDF: DataFrameWriter[Row] = defineOutputAsOriginalFormat(
-        rejectedLinesDS.repartition(1)
-      )
-      formattedRejectedLinesDF
-        .save(targetPath.toString)
-      storageHandler.moveSparkPartFile(
-        targetPath,
-        "0000" // When saving as text file, no extension is added.
-      )
-    }
-
-    IngestionUtil.sinkRejected(
-      applicationId(),
-      session,
-      errMessagesDS,
-      domainName,
-      schemaName,
-      now,
-      path,
-      scheduledDate
-    ) match {
-      case Success((rejectedDF, rejectedPath)) =>
-        Success(rejectedPath)
-      case Failure(exception) =>
-        logger.error("Failed to save Rejected", exception)
-        Failure(exception)
-    }
-  }
 }

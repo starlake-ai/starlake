@@ -7,11 +7,10 @@ import ai.starlake.job.transform.TransformContext
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
-import ai.starlake.utils.{IngestionCounters, SparkUtils}
+import ai.starlake.utils.{DDLBuilder, IngestionCounters}
 import com.google.gson.Gson
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
-import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
+import ai.starlake.utils.CaseInsensitiveMap
 
 import scala.util.{Failure, Success, Try}
 
@@ -97,8 +96,8 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
             )(settings, storageHandler, schemaHandler)
             val job = TransformContext.createJdbcTask(context, Some(conn))
 
-            job.updateJdbcTableSchema(
-              starlakeSchema.sparkSchemaWithoutIgnore(
+            job.updateJdbcTableSchemaUsingSL(
+              starlakeSchema.slSchemaWithoutIgnore(
                 schemaHandler,
                 withFinalName = true
               ),
@@ -367,11 +366,10 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
   ): List[Map[String, String]] = {
     val temporary = table.startsWith("zztmp_")
     val sinkConnection = mergedMetadata.getSinkConnection()
-    val incomingSparkSchema =
-      schema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = !temporary)
+    val incomingSLSchema =
+      schema.slSchemaWithIgnoreAndScript(schemaHandler, withFinalName = !temporary)
     val domainAndTableName = domain + "." + table
-    val optionsWrite =
-      new JdbcOptionsInWrite(sinkConnection.jdbcUrl, domainAndTableName, sinkConnection.options)
+    val ddlOptions = sinkConnection.options + ("url" -> sinkConnection.jdbcUrl)
     val ddlMap = schemaHandler.getDdlMapping(schema.attributes)
     val attrsWithDDLTypes = schemaHandler.getAttributesWithDDLType(schema, "snowflake")
 
@@ -380,36 +378,36 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     strategy.getEffectiveType() match {
       case WriteStrategyType.APPEND =>
         if (tableExists) {
-          SparkUtils.updateJdbcTableSchema(
+          DDLBuilder.updateJdbcTableSchema(
             "snowflake",
             conn,
-            sinkConnection.options,
+            ddlOptions,
             domainAndTableName,
-            incomingSparkSchema,
+            incomingSLSchema,
             attrsWithDDLTypes.toMap
           )
         } else {
-          SparkUtils.createTable(
+          DDLBuilder.createTable(
             "snowflake",
             conn,
             domainAndTableName,
-            incomingSparkSchema,
+            incomingSLSchema,
             caseSensitive = true,
             temporaryTable = temporary,
-            optionsWrite,
+            ddlOptions,
             ddlMap
           )
         }
       case _ => //  WriteStrategyType.OVERWRITE or first step of other strategies
         JdbcDbUtils.dropTable(conn, domainAndTableName)
-        SparkUtils.createTable(
+        DDLBuilder.createTable(
           "snowflake",
           conn,
           domainAndTableName,
-          incomingSparkSchema,
+          incomingSLSchema,
           caseSensitive = true,
           temporaryTable = temporary,
-          optionsWrite,
+          ddlOptions,
           ddlMap
         )
     }

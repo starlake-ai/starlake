@@ -121,7 +121,7 @@ class ExpectationJob(
   sqlRunner: ExpectationAssertionHandler,
   interactive: Boolean
 )(implicit val settings: Settings)
-    extends SparkJob {
+    extends JobBase {
 
   private var _failOnError: Boolean = false
 

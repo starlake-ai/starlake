@@ -3,7 +3,7 @@ package ai.starlake.workflow
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{DummyIngestionJob, LoadConfig}
 import ai.starlake.job.metrics.{MetricsConfig, MetricsJob}
-import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQueryNativeJob}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
 import ai.starlake.utils.{JobResult, Utils}
@@ -56,7 +56,7 @@ trait MetricsSecurityWorkflow extends LazyLogging {
     schemaHandler
       .iamPolicyTags()
       .map { iamPolicyTags =>
-        new BigQuerySparkJob(ignore).applyIamPolicyTags(iamPolicyTags)
+        new BigQueryNativeJob(ignore, "").applyIamPolicyTags(iamPolicyTags)
       }
       .getOrElse(Success(()))
   }
@@ -89,7 +89,8 @@ trait MetricsSecurityWorkflow extends LazyLogging {
             settings.appConfig.connections(connectionName).withAccessToken(config.accessToken)
           sink match {
             case _: FsSink =>
-              dummyIngestionJob.applyHiveTableAcl()
+              // Hive ACL no longer supported (Spark removed)
+              dummyIngestionJob.applyJdbcAcl(connection)
             case jdbcSink: JdbcSink =>
               dummyIngestionJob.applyJdbcAcl(connection)
             case _: BigQuerySink =>
@@ -115,7 +116,7 @@ trait MetricsSecurityWorkflow extends LazyLogging {
                 outputDatabase = database,
                 accessToken = config.accessToken
               )
-              val res = new BigQuerySparkJob(bqConfig).applyRLSAndCLS(forceApply = true)
+              val res = new BigQueryNativeJob(bqConfig, "").applyRLSAndCLS(forceApply = true)
               res.recover { case e =>
                 Utils.logException(logger, e)
                 throw e

@@ -7,11 +7,10 @@ import ai.starlake.job.transform.TransformContext
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
-import ai.starlake.utils.{IngestionCounters, SparkUtils}
+import ai.starlake.utils.{DDLBuilder, IngestionCounters}
 import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
 
 import java.nio.charset.Charset
 import java.sql.Connection
@@ -149,11 +148,11 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
           syncSchema = false
         )(settings, storageHandler, schemaHandler)
         val job = TransformContext.createJdbcTask(context, None)
-        val incomingSchema = schema.sparkSchemaWithoutIgnore(
+        val incomingSchema = schema.slSchemaWithoutIgnore(
           schemaHandler,
           withFinalName = true
         )
-        job.updateJdbcTableSchema(
+        job.updateJdbcTableSchemaUsingSL(
           incomingSchema = incomingSchema,
           tableName = targetFullTableName,
           syncStrategy = TableSync.ALL,
@@ -281,11 +280,9 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     path: List[Path]
   ) = {
     val isTemporary = table.startsWith("zztmp_")
-    val incomingSparkSchema =
-      schema.sparkSchemaWithIgnoreAndScript(schemaHandler, !isTemporary)
+    val incomingSLSchema =
+      schema.slSchemaWithIgnoreAndScript(schemaHandler, !isTemporary)
     val domainAndTableName = domain + "." + table
-    val optionsWrite =
-      new JdbcOptionsInWrite(sinkConnection.jdbcUrl, domainAndTableName, sinkConnection.options)
     val ddlMap = schemaHandler.getDdlMapping(schema.attributes)
     val attrsWithDDLTypes = schemaHandler.getAttributesWithDDLType(schema, "duckdb")
 
@@ -297,26 +294,27 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
         stmtExternal.close()
         val tableExists = JdbcDbUtils.tableExists(conn, sinkConnection.jdbcUrl, domainAndTableName)
         JdbcDbUtils.createSchema(conn, domain)
+        val ddlOptions = sinkConnection.options + ("url" -> sinkConnection.jdbcUrl)
         strategy.getEffectiveType() match {
           case WriteStrategyType.APPEND =>
             if (tableExists) {
-              SparkUtils.updateJdbcTableSchema(
+              DDLBuilder.updateJdbcTableSchema(
                 "duckdb",
                 conn,
-                sinkConnection.options,
+                ddlOptions,
                 domainAndTableName,
-                incomingSparkSchema,
+                incomingSLSchema,
                 attrsWithDDLTypes.toMap
               )
             } else {
-              SparkUtils.createTable(
+              DDLBuilder.createTable(
                 "duckdb",
                 conn,
                 domainAndTableName,
-                incomingSparkSchema,
+                incomingSLSchema,
                 caseSensitive = true,
                 temporaryTable = false,
-                optionsWrite,
+                ddlOptions,
                 ddlMap
               )
               if (!isTemporary) {
@@ -325,14 +323,14 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             }
           case _ => //  WriteStrategyType.OVERWRITE or first step of other strategies
             JdbcDbUtils.dropTable(conn, domainAndTableName)
-            SparkUtils.createTable(
+            DDLBuilder.createTable(
               "duckdb",
               conn,
               domainAndTableName,
-              incomingSparkSchema,
+              incomingSLSchema,
               caseSensitive = true,
               temporaryTable = false,
-              optionsWrite,
+              ddlOptions,
               ddlMap
             )
             if (!isTemporary) {
@@ -413,6 +411,26 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
                   s"""INSERT INTO $domainAndTableName SELECT * FROM read_json($paths, auto_detect = true, format = '$format');"""
               }
             }
+          case Format.PARQUET =>
+            val sql =
+              s"""INSERT INTO $domainAndTableName SELECT * FROM read_parquet($paths);"""
+            JdbcDbUtils.execute(sql, conn)
+
+          case Format.POSITION =>
+            val positionColumns = schema.attributesWithoutScriptedFields.map { attr =>
+              val pos = attr.position.getOrElse(
+                throw new RuntimeException(
+                  s"Attribute ${attr.name} does not have position set"
+                )
+              )
+              // DuckDB substr is 1-based: substr(value, start, length)
+              s"CAST(substr(column0, ${pos.first + 1}, ${pos.last - pos.first + 1}) AS VARCHAR) AS ${attr.name}"
+            }
+            val selectClause = positionColumns.mkString(", ")
+            val sql =
+              s"""INSERT INTO $domainAndTableName SELECT $selectClause FROM read_csv($paths, columns = {'column0': 'VARCHAR'}, header = false, sep = chr(0));"""
+            JdbcDbUtils.execute(sql, conn)
+
           case _ =>
         }
     }
