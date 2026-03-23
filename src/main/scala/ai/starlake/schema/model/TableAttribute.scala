@@ -135,6 +135,45 @@ case class TableAttribute(
       .getOrElse(PrimitiveType.struct.sparkType(None))
   }
 
+  def primitiveSLType(schemaHandler: SchemaHandler): StarlakeDataType = {
+    `type`(schemaHandler)
+      .map { tpe =>
+        if (resolveArray())
+          StarlakeDataType.SLArray(tpe.primitiveType.slType(tpe.zone))
+        else
+          tpe.primitiveType.slType(tpe.zone)
+      }
+      .getOrElse(PrimitiveType.struct.slType(None))
+  }
+
+  def slType(schemaHandler: SchemaHandler): StarlakeDataType = {
+    def buildSLStruct(): Seq[StarlakeField] = {
+      if (attributes.isEmpty)
+        throw new Exception(
+          s"Attribute `$name` of type ${`type`} is considered as struct but doesn't have any attributes."
+        )
+      attributes.map { attr =>
+        StarlakeField(
+          attr.name,
+          attr.slType(schemaHandler),
+          !attr.resolveRequired(),
+          attr.comment
+        )
+      }
+    }
+
+    val tpe = primitiveSLType(schemaHandler)
+    tpe match {
+      case StarlakeDataType.SLArray(_: StarlakeDataType.SLStruct) =>
+        val fields = buildSLStruct()
+        StarlakeDataType.SLArray(StarlakeDataType.SLStruct(fields))
+      case _: StarlakeDataType.SLStruct =>
+        val fields = buildSLStruct()
+        StarlakeDataType.SLStruct(fields)
+      case simpleType => simpleType
+    }
+  }
+
   def toDiffAttribute(): DiffAttribute = {
     new DiffAttribute(getFinalName(), `type`, this.resolveArray(), null, AttributeStatus.UNCHANGED)
   }

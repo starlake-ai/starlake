@@ -280,6 +280,49 @@ case class SchemaInfo(
   ): StructType =
     sparkSchemaWithCondition(schemaHandler, _ => true, withFinalName)
 
+  // --- StarlakeSchema methods (engine-independent) ---
+
+  def slSchema(schemaHandler: SchemaHandler): StarlakeSchema = {
+    val temporary = this.name.startsWith("zztmp_")
+    val fields = attributes.map { attr =>
+      StarlakeField(
+        if (temporary) attr.name else attr.getFinalName(),
+        attr.slType(schemaHandler),
+        !attr.resolveRequired(),
+        attr.comment
+      )
+    }
+    StarlakeSchema(fields)
+  }
+
+  private def slSchemaWithCondition(
+    schemaHandler: SchemaHandler,
+    p: TableAttribute => Boolean,
+    withFinalName: Boolean
+  ): StarlakeSchema = {
+    val fields = attributes.filter(p).map { attr =>
+      StarlakeField(
+        if (withFinalName) attr.getFinalName() else attr.name,
+        attr.slType(schemaHandler),
+        if (attr.script.isDefined) true else !attr.resolveRequired(),
+        attr.comment
+      )
+    }
+    StarlakeSchema(fields)
+  }
+
+  def slSchemaWithoutIgnore(
+    schemaHandler: SchemaHandler,
+    withFinalName: Boolean
+  ): StarlakeSchema =
+    slSchemaWithCondition(schemaHandler, attr => !attr.resolveIgnore(), withFinalName)
+
+  def slSchemaWithIgnoreAndScript(
+    schemaHandler: SchemaHandler,
+    withFinalName: Boolean
+  ): StarlakeSchema =
+    slSchemaWithCondition(schemaHandler, _ => true, withFinalName)
+
   def bigquerySchemaWithoutIgnore(
     schemaHandler: SchemaHandler,
     withFinalName: Boolean

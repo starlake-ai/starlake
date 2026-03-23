@@ -38,11 +38,12 @@ import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils.*
+import ai.starlake.schema.model.StarlakeSchema
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.types.StructType
 
 import java.sql.Timestamp
+import scala.collection.immutable.TreeMap
 import scala.util.{Failure, Success, Try}
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it
@@ -75,7 +76,7 @@ abstract class AutoTask(
   val scheduledDate: Option[String],
   syncSchema: Boolean
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
-    extends SparkJob {
+    extends JobBase {
 
   /** Returns the engine-specific ExpectationAssertionHandler.
     *
@@ -147,8 +148,16 @@ abstract class AutoTask(
     * needed for the target database engine. For BigQuery and Spark, no need to implement it since
     * these are schema on write databases
     */
+  @deprecated("Use buildTableSchemaSQLUsingSL with StarlakeSchema", "")
   def buildTableSchemaSQL(
     incomingSchema: StructType,
+    tableName: String,
+    syncStrategy: TableSync,
+    createIfAbsent: Boolean
+  ): (List[String], Boolean) = (Nil, true)
+
+  def buildTableSchemaSQLUsingSL(
+    incomingSchema: StarlakeSchema,
     tableName: String,
     syncStrategy: TableSync,
     createIfAbsent: Boolean
@@ -364,8 +373,8 @@ abstract class AutoTask(
               // but in BigQuery this is done inside the build table schema sql function because we do it using the bq api
               // For Spark we do not need this since Spark is schema on read
               val (columnStatements, _) =
-                buildTableSchemaSQL(
-                  incomingSchema = updatedTaskDesc.sparkSchema(schemaHandler),
+                buildTableSchemaSQLUsingSL(
+                  incomingSchema = updatedTaskDesc.slSchema(schemaHandler),
                   tableName = this.fullTableName,
                   syncStrategy = updatedTaskDesc.getSyncStrategyValue(),
                   createIfAbsent = false
@@ -496,7 +505,7 @@ abstract class AutoTask(
     log.foreach(al => AuditLog.sink(List(al), accessToken))
   }
 
-  def dependencies(streams: CaseInsensitiveMap[String]): List[String] = {
+  def dependencies(streams: Map[String, String]): List[String] = {
     if (taskDesc.parseSQL.getOrElse(true)) {
       val result = SQLUtils.extractTableNamesUsingRegEx(
         parseJinja(taskSQL, schemaHandler.activeEnvVars())
@@ -619,15 +628,9 @@ abstract class AutoTask(
       buildAddSCD2ColumnsSqls(sinkConnection.getJdbcEngineName())
 
     val ddlMap: Map[String, Map[String, String]] = schemaHandler.getDdlMapping(taskDesc.attributes)
-    val sparkSchema =
-      SparkUtils.sparkSchemaWithCondition(
-        schemaHandler,
-        taskDesc.attributes,
-        _ => true,
-        withFinalName = false // no rename in the task schema
-      )
-    val sqlSchema = SparkUtils.sqlSchema(
-      sparkSchema,
+    val slSchema = taskDesc.slSchema(schemaHandler)
+    val sqlSchema = DDLBuilder.sqlSchema(
+      slSchema,
       caseSensitive = false,
       sinkConnection.jdbcUrl,
       ddlMap,
@@ -767,7 +770,8 @@ object AutoTask extends LazyLogging {
       case Engine.JDBC =>
         JdbcAutoTask.executeUpdate(sql, connectionRef, accessToken)
       case Engine.SPARK =>
-        SparkAutoTask.executeUpdate(sql, connectionRef /* ignored */, accessToken /* ignored */ )
+        // Spark removed — route to JDBC (DuckDB)
+        JdbcAutoTask.executeUpdate(sql, connectionRef, accessToken)
       case _ =>
         Failure(new Exception(s"Unsupported engine $engine"))
     }

@@ -1,7 +1,7 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.schema.model._
-import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
+import ai.starlake.utils.CaseInsensitiveMap
 
 object AccessControlQueries {
 

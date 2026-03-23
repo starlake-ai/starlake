@@ -693,6 +693,17 @@ class BigQueryAutoTask(
     (Nil, true)
   }
 
+  override def buildTableSchemaSQLUsingSL(
+    incomingSchema: StarlakeSchema,
+    tableName: String,
+    syncStrategy: TableSync,
+    createIfAbsent: Boolean
+  ): (List[String], Boolean) = {
+    // BigQuery handles schema changes internally via BQ API
+    updateBigQueryTableSchema(None, createIfAbsent)
+    (Nil, true)
+  }
+
   /** Builds Row-Level Security (RLS) policy queries for BigQuery.
     *
     * ==RLS in BigQuery==

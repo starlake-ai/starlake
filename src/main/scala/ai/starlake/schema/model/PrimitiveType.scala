@@ -55,6 +55,8 @@ sealed abstract case class PrimitiveType(value: String) {
 
   def sparkType(zone: Option[String]): DataType
 
+  def slType(zone: Option[String]): StarlakeDataType
+
 }
 
 class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
@@ -92,12 +94,16 @@ object PrimitiveType {
     def fromString(str: String, pattern: String, zone: Option[String]): Any = str
 
     def sparkType(zone: Option[String]): DataType = StringType
+
+    def slType(zone: Option[String]): StarlakeDataType = StarlakeDataType.SLString
   }
 
   object variant extends PrimitiveType("variant") {
     def fromString(str: String, pattern: String, zone: Option[String]): Any = str
 
     def sparkType(zone: Option[String]): DataType = StringType // VarcharType(Int.MaxValue)
+
+    def slType(zone: Option[String]): StarlakeDataType = StarlakeDataType.SLVariant
   }
 
   object long extends PrimitiveType("long") {
@@ -106,6 +112,8 @@ object PrimitiveType {
       if (str == null || str.isEmpty) null else str.trim.toLong
 
     def sparkType(zone: Option[String]): DataType = LongType
+
+    def slType(zone: Option[String]): StarlakeDataType = StarlakeDataType.SLLong
   }
 
   object int extends PrimitiveType("int") {
@@ -114,6 +122,8 @@ object PrimitiveType {
       if (str == null || str.isEmpty) null else str.trim.toInt
 
     def sparkType(zone: Option[String]): DataType = IntegerType
+
+    def slType(zone: Option[String]): StarlakeDataType = StarlakeDataType.SLInt
   }
 
   object short extends PrimitiveType("short") {
@@ -122,6 +132,8 @@ object PrimitiveType {
       if (str == null || str.isEmpty) null else str.trim.toShort
 
     def sparkType(zone: Option[String]): DataType = ShortType
+
+    def slType(zone: Option[String]): StarlakeDataType = StarlakeDataType.SLShort
   }
 
   object double extends PrimitiveType("double") {
@@ -149,6 +161,8 @@ object PrimitiveType {
     }
 
     def sparkType(zone: Option[String]): DataType = DoubleType
+
+    def slType(zone: Option[String]): StarlakeDataType = StarlakeDataType.SLDouble
 
     def parseUDF(zone: Option[String]) = {
       udf((input: String) => {
@@ -186,6 +200,17 @@ object PrimitiveType {
             case Success(res) => res
             case Failure(_)   => defaultDecimalType
           }
+      }
+    }
+
+    override def slType(zone: Option[String]): StarlakeDataType = {
+      zone match {
+        case None => StarlakeDataType.SLDecimal()
+        case Some(zone) =>
+          Try {
+            val precisionScale = zone.split(",")
+            StarlakeDataType.SLDecimal(precisionScale(0).toInt, precisionScale(1).toInt)
+          }.getOrElse(StarlakeDataType.SLDecimal())
       }
     }
   }
@@ -250,6 +275,8 @@ object PrimitiveType {
 
     def sparkType(zone: Option[String]): DataType = BooleanType
 
+    def slType(zone: Option[String]): StarlakeDataType = StarlakeDataType.SLBoolean
+
     def parseUDF(pattern: String) = {
       val (truePattern, falsePattern) = getPatterns(pattern)
       udf((str: String) => {
@@ -267,6 +294,8 @@ object PrimitiveType {
 
     def sparkType(zone: Option[String]): DataType = ByteType
 
+    def slType(zone: Option[String]): StarlakeDataType = StarlakeDataType.SLByte
+
     // Could not find the equivalent spark sql expression
     def parseUDF =
       udf((str: String) => Option(str).flatMap(_.headOption).flatMap(c => Try(c.toByte).toOption))
@@ -279,6 +308,8 @@ object PrimitiveType {
       if (str == null || str.isEmpty) null else str.toByte
 
     def sparkType(zone: Option[String]): DataType = new StructType(Array.empty[StructField])
+
+    def slType(zone: Option[String]): StarlakeDataType = StarlakeDataType.SLStruct(Seq.empty)
   }
 
   private def instantFromString(str: String, pattern: String, zoneId: ZoneId): Instant = {
@@ -398,6 +429,8 @@ object PrimitiveType {
 
     def sparkType(zone: Option[String]): DataType = DateType
 
+    def slType(zone: Option[String]): StarlakeDataType = StarlakeDataType.SLDate
+
     def parseUDF(pattern: String, zone: Option[String]) =
       udf((str: String) =>
         Option(str).flatMap { str =>
@@ -428,6 +461,8 @@ object PrimitiveType {
     }
 
     def sparkType(zone: Option[String]): DataType = TimestampType
+
+    def slType(zone: Option[String]): StarlakeDataType = StarlakeDataType.SLTimestamp
 
     def parseUDF(timeFormat: String, zone: Option[String]) =
       udf((str: String) =>
@@ -477,6 +512,29 @@ object PrimitiveType {
           case "timestamp" | "datetime"                        => PrimitiveType.timestamp
           case _                                               => PrimitiveType.string
         }
+    }
+  }
+
+  def fromSL(dataType: StarlakeDataType): PrimitiveType = {
+    dataType match {
+      case StarlakeDataType.SLBinary       => PrimitiveType.string
+      case StarlakeDataType.SLByte         => PrimitiveType.byte
+      case StarlakeDataType.SLShort        => PrimitiveType.short
+      case StarlakeDataType.SLInt          => PrimitiveType.int
+      case StarlakeDataType.SLLong         => PrimitiveType.long
+      case StarlakeDataType.SLBoolean      => PrimitiveType.boolean
+      case StarlakeDataType.SLFloat        => PrimitiveType.double
+      case StarlakeDataType.SLDouble       => PrimitiveType.double
+      case _: StarlakeDataType.SLDecimal   => PrimitiveType.decimal
+      case StarlakeDataType.SLString       => PrimitiveType.string
+      case StarlakeDataType.SLTimestamp    => PrimitiveType.timestamp
+      case StarlakeDataType.SLTimestampNTZ => PrimitiveType.timestamp
+      case StarlakeDataType.SLTime         => PrimitiveType.string // no native TIME in Spark
+      case StarlakeDataType.SLDate         => PrimitiveType.date
+      case StarlakeDataType.SLVariant      => PrimitiveType.variant
+      case _: StarlakeDataType.SLStruct    => PrimitiveType.struct
+      case _: StarlakeDataType.SLArray =>
+        throw new IllegalArgumentException("Array type must be unwrapped before mapping")
     }
   }
 

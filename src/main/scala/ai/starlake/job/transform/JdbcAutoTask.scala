@@ -13,7 +13,8 @@ import ai.starlake.schema.model.{
 }
 import ai.starlake.sql.SQLUtils
 import ai.starlake.utils.Formatter.RichFormatter
-import ai.starlake.utils.{JdbcJobResult, JobResult, SparkUtils, Utils}
+import ai.starlake.schema.model.{StarlakeDataType, StarlakeField, StarlakeSchema}
+import ai.starlake.utils.{DDLBuilder, JdbcJobResult, JobResult, SparkUtils, Utils}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
@@ -587,6 +588,145 @@ class JdbcAutoTask(
                 }
               }
             }
+        }
+    }
+  }
+
+  def updateJdbcTableSchemaUsingSL(
+    incomingSchema: StarlakeSchema,
+    tableName: String,
+    syncStrategy: TableSync,
+    createIfAbsent: Boolean
+  ): Unit = {
+    buildTableSchemaSQLUsingSL(incomingSchema, tableName, syncStrategy, createIfAbsent) match {
+      case (sqls, exists) =>
+        JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnection.options) {
+          conn =>
+            sqls.filter(_.nonEmpty).foreach { sql =>
+              if (exists) {
+                JdbcDbUtils.executeAlterTable(sql, conn)
+              } else {
+                JdbcDbUtils.executeUpdate(sql, conn) match {
+                  case Success(_) =>
+                  case Failure(e) =>
+                    logger.error(s"Error executing $sql", e)
+                    throw e
+                }
+              }
+            }
+        }
+    }
+  }
+
+  override def buildTableSchemaSQLUsingSL(
+    incomingSchema: StarlakeSchema,
+    tableName: String,
+    syncStrategy: TableSync,
+    createIfAbsent: Boolean
+  ): (List[String], Boolean) = {
+    val isSCD2 = writeStrategy.getEffectiveType() == WriteStrategyType.SCD2
+    val incomingSchemaWithSCD2 =
+      if (isSCD2) {
+        val startTs = writeStrategy.startTs.getOrElse(settings.appConfig.scd2StartTimestamp)
+        val withStart =
+          if (incomingSchema.fieldNames.contains(startTs)) {
+            logger.warn(
+              s"Incoming schema already contains SCD2 start timestamp column '$startTs'."
+            )
+            incomingSchema
+          } else {
+            incomingSchema.add(
+              StarlakeField(startTs, StarlakeDataType.SLTimestamp, nullable = true)
+            )
+          }
+        val endTs = writeStrategy.endTs.getOrElse(settings.appConfig.scd2EndTimestamp)
+        if (withStart.fieldNames.contains(endTs)) {
+          logger.warn(
+            s"Incoming schema already contains SCD2 end timestamp column '$endTs'."
+          )
+          withStart
+        } else {
+          withStart.add(
+            StarlakeField(endTs, StarlakeDataType.SLTimestamp, nullable = true)
+          )
+        }
+      } else {
+        incomingSchema
+      }
+    val sinkConnectionRefOptions = sinkConnection.options
+    val jdbcUrl = sinkConnectionRefOptions("url")
+    val targetTableExists: Boolean = tableExists
+    JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnectionRefOptions) {
+      conn =>
+        if (targetTableExists) {
+          val existingSchema =
+            DDLBuilder.getSchemaOption(conn, sinkConnectionRefOptions, tableName)
+          val addedSchema =
+            DDLBuilder.added(
+              incomingSchemaWithSCD2,
+              existingSchema.getOrElse(incomingSchema)
+            )
+          val alterTableDropColumns =
+            if (syncStrategy == TableSync.ALL) {
+              val deletedSchema =
+                DDLBuilder.dropped(
+                  incomingSchemaWithSCD2,
+                  existingSchema.getOrElse(incomingSchema)
+                )
+              val columnsToDrop =
+                DDLBuilder.alterTableDropColumnsString(
+                  sinkConnection.getJdbcEngineName().toString,
+                  deletedSchema,
+                  tableName
+                )
+              if (columnsToDrop.nonEmpty) {
+                logger.info(
+                  s"alter table $tableName with ${columnsToDrop.size} columns to drop"
+                )
+              }
+              columnsToDrop
+            } else {
+              Nil
+            }
+          val alterTableAddColumns =
+            if (syncStrategy == TableSync.ALL || syncStrategy == TableSync.ADD) {
+              val columnsToAdd =
+                DDLBuilder.alterTableAddColumnsString(
+                  sinkConnection.getJdbcEngineName().toString,
+                  addedSchema,
+                  tableName,
+                  Map.empty
+                )
+              if (columnsToAdd.nonEmpty) {
+                logger.info(
+                  s"alter table $tableName with ${columnsToAdd.size} columns to add"
+                )
+              }
+              columnsToAdd
+            } else {
+              Nil
+            }
+          val allAlter = alterTableAddColumns ++ alterTableDropColumns
+          (allAlter.toList, true)
+        } else if (createIfAbsent) {
+          val ddlOptions = sinkConnectionRefOptions + ("url" -> jdbcUrl)
+          logger.info(
+            s"Table $tableName not found, creating it with schema $incomingSchemaWithSCD2"
+          )
+          val (createSchema, createTable, commentSQL) =
+            DDLBuilder.buildCreateTableSQL(
+              sinkConnection.getJdbcEngineName().toString,
+              tableName,
+              incomingSchemaWithSCD2,
+              caseSensitive = false,
+              temporaryTable = false,
+              ddlOptions,
+              attDdl()
+            )
+          val allSqls = List(createSchema, createTable, commentSQL.getOrElse(""))
+          (allSqls, false)
+        } else {
+          (Nil, false)
         }
     }
   }

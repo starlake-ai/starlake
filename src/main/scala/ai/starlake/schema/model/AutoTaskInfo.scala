@@ -511,6 +511,21 @@ case class AutoTaskInfo(
     )
   }
 
+  def slSchema(
+    schemaHandler: SchemaHandler
+  ): StarlakeSchema = {
+    val temporary = this.name.startsWith("zztmp_")
+    val fields = attributes.map { attr =>
+      StarlakeField(
+        if (temporary) attr.name else attr.getFinalName(),
+        attr.slType(schemaHandler),
+        if (attr.script.isDefined) true else !attr.resolveRequired(),
+        attr.comment
+      )
+    }
+    StarlakeSchema(fields)
+  }
+
   /** Is the task ready to be synced
     *   - has attributes
     *   - all attributes have a type
