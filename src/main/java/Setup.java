@@ -331,8 +331,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // API
-    private static final ResourceDependency SL_API_ZIP = new ResourceDependency("starlake-api", "https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-api" + "_" + SCALA_VERSION + "/" + SL_API_VERSION + "/starlake-api"+ "_" + SCALA_VERSION + "-" + SL_API_VERSION + ".zip");
+    // API — use snapshots repo for SNAPSHOT versions, Maven Central for releases
+    private static final ResourceDependency SL_API_SNAPSHOT_ZIP = new ResourceDependency("starlake-api", "https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-api" + "_" + SCALA_VERSION + "/" + SL_API_VERSION + "/starlake-api"+ "_" + SCALA_VERSION + "-" + SL_API_VERSION + ".zip");
+    private static final ResourceDependency SL_API_RELEASE_ZIP = new ResourceDependency("starlake-api", "https://repo1.maven.org/maven2/ai/starlake/starlake-api" + "_" + SCALA_VERSION + "/" + SL_API_VERSION + "/starlake-api" + "_" + SCALA_VERSION + "-" + SL_API_VERSION + ".zip");
 
     // SPARK
     private static final ResourceDependency SPARK_JAR = new ResourceDependency("dist/spark", "https://www.apache.org/dyn/closer.lua/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION  + "-scala2.13.tgz?action=download");
@@ -1003,7 +1004,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
         deleteRecursively(apiDir);
 
 
-        ResourceDependency apiZip = SL_API_ZIP;
+        ResourceDependency apiZip = SL_API_VERSION.endsWith("SNAPSHOT") ? SL_API_SNAPSHOT_ZIP : SL_API_RELEASE_ZIP;
         downloadAndDisplayProgress(new ResourceDependency[]{apiZip}, binDir, false);
         apiZip.getUrlNames().stream().map(zipName -> new File(binDir, zipName)).filter(File::exists).forEach(zipFile -> {
             try {
