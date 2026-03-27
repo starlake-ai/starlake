@@ -233,12 +233,45 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     private static final boolean ENABLE_API = envIsTrueWithDefaultTrue("ENABLE_API");
 
-    private static final String SL_API_VERSION = getEnv("SL_API_VERSION").orElse("1.5.8-SNAPSHOT");
-
     private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.13");
 
-    // STARLAKE
-    private static final String SL_VERSION = getEnv("SL_VERSION").orElse("1.5.8-SNAPSHOT");
+    // STARLAKE — SL_VERSION is the single source of truth; SL_API_VERSION defaults to it
+    // If SL_VERSION env var is not set, fetch the latest release from Maven Central
+    private static final String SL_VERSION = getEnv("SL_VERSION").orElse(getLatestMavenRelease());
+    private static final String SL_API_VERSION = getEnv("SL_API_VERSION").orElse(SL_VERSION);
+
+    /**
+     * Fetch the latest released version of starlake-core from Maven Central metadata.
+     * Falls back to the compile-time version if the fetch fails.
+     */
+    private static String getLatestMavenRelease() {
+        try {
+            String metadataUrl = "https://repo1.maven.org/maven2/ai/starlake/starlake-core_"
+                    + SCALA_VERSION + "/maven-metadata.xml";
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection)
+                    new java.net.URL(metadataUrl).openConnection();
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    // Parse: <release>1.5.7</release>
+                    line = line.trim();
+                    if (line.startsWith("<release>") && line.endsWith("</release>")) {
+                        String version = line.substring("<release>".length(), line.length() - "</release>".length());
+                        System.out.println("Latest starlake release on Maven Central: " + version);
+                        return version;
+                    }
+                }
+            } finally {
+                conn.disconnect();
+            }
+        } catch (Exception e) {
+            System.err.println("Could not fetch latest version from Maven Central: " + e.getMessage());
+            System.err.println("Please set the SL_VERSION environment variable manually.");
+        }
+        return null;
+    }
 
     // SPARK
     private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.8");
