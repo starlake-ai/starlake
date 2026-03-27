@@ -136,7 +136,7 @@ class ESLoadJob(
       u <- username
       p <- password
     } yield {
-      "Basic " + Base64.getEncoder.encodeToString("$u:$p".getBytes(StandardCharsets.UTF_8))
+      "Basic " + Base64.getEncoder.encodeToString(s"$u:$p".getBytes(StandardCharsets.UTF_8))
 
     }
     val templateURL = s"$protocol://$host:$port/_template/${getIndexName()}"

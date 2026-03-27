@@ -25,7 +25,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 /** Any Spark Job will inherit from this class. All properties defined in application conf file and
   * prefixed by the "spark" key will be loaded into the Spark Job
@@ -49,12 +49,15 @@ class SparkEnv private (
 
   def isSessionStarted() = _session.isDefined
 
-  def closeSession() =
-    Try { // ignore exceptions on close
+  def closeSession(): Unit =
+    Try {
       if (isSessionStarted()) {
         _session.get.close()
         _session = None
       }
+    } match {
+      case Failure(e) => logger.warn("Error closing Spark session", e)
+      case _          =>
     }
 
   /** Creates a Spark Session with the spark.* keys defined the application conf file.

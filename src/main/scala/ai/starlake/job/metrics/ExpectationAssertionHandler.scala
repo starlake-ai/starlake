@@ -7,7 +7,7 @@ import ai.starlake.utils.SparkUtils
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.SparkSession
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success, Try, Using}
 
 trait ExpectationAssertionHandler extends LazyLogging {
   def handle(sql: String)(implicit settings: Settings): Int
@@ -53,20 +53,17 @@ class JdbcExpectationAssertionHandler(jdbcProperties: Map[String, String])
   ): Int = {
     JdbcDbUtils.withJDBCConnection(settings.schemaHandler().dataBranch(), jdbcProperties) {
       connection =>
-        val statement = connection.createStatement()
-        try {
-          val rs = statement.executeQuery(sql)
-          if (rs != null && rs.next()) {
-            val returnValue = Try(rs.getInt(1)).getOrElse(Integer.MIN_VALUE)
-            if (rs.next()) // More than one line this is a mistake
+        Using.resource(connection.createStatement()) { statement =>
+          Using.resource(statement.executeQuery(sql)) { rs =>
+            if (rs != null && rs.next()) {
+              val returnValue = Try(rs.getInt(1)).getOrElse(Integer.MIN_VALUE)
+              if (rs.next()) // More than one line this is a mistake
+                Integer.MIN_VALUE
+              else
+                returnValue
+            } else
               Integer.MIN_VALUE
-            else
-              returnValue
-
-          } else
-            Integer.MIN_VALUE
-        } finally {
-          statement.close()
+          }
         }
     }
   }
@@ -77,20 +74,17 @@ class SQLConnectionExpectationAssertionHandler(connection: java.sql.Connection)
   override def handle(sql: String)(implicit
     settings: Settings
   ): Int = {
-    val statement = connection.createStatement()
-    try {
-      val rs = statement.executeQuery(sql)
-      if (rs != null && rs.next()) {
-        val returnValue = Try(rs.getInt(1)).getOrElse(Integer.MIN_VALUE)
-        if (rs.next()) // More than one line this is a mistake
+    Using.resource(connection.createStatement()) { statement =>
+      Using.resource(statement.executeQuery(sql)) { rs =>
+        if (rs != null && rs.next()) {
+          val returnValue = Try(rs.getInt(1)).getOrElse(Integer.MIN_VALUE)
+          if (rs.next()) // More than one line this is a mistake
+            Integer.MIN_VALUE
+          else
+            returnValue
+        } else
           Integer.MIN_VALUE
-        else
-          returnValue
-
-      } else
-        Integer.MIN_VALUE
-    } finally {
-      statement.close()
+      }
     }
   }
 }

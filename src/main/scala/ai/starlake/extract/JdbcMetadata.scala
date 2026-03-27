@@ -149,13 +149,15 @@ sealed trait JdbcColumnMetadata extends LazyLogging {
     columnRemarks.map { remarks =>
       val sql = formatRemarksSQL(jdbcSchema, table, remarks)
       logger.debug(s"Extracting column remarks using $sql")
-      val statement = connection.createStatement()
-      val rs = statement.executeQuery(sql)
-      val res = mutable.Map.empty[String, String]
-      while (rs.next()) {
-        res.put(rs.getString(1), rs.getString(2))
+      Using.resource(connection.createStatement()) { statement =>
+        Using.resource(statement.executeQuery(sql)) { rs =>
+          val res = mutable.Map.empty[String, String]
+          while (rs.next()) {
+            res.put(rs.getString(1), rs.getString(2))
+          }
+          res.toMap
+        }
       }
-      res.toMap
     }
   }
 

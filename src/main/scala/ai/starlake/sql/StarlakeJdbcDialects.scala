@@ -219,19 +219,23 @@ private case object MariaDbDialect extends JdbcDialect with SQLConfHelper {
           case 1061 =>
             // The message is: Failed to create index indexName in tableName
             val regex = "(?s)Failed to create index (.*) in (.*)".r
-            val indexName = regex.findFirstMatchIn(message).get.group(1)
-            val tableName = regex.findFirstMatchIn(message).get.group(2)
-            throw new IndexAlreadyExistsException(
-              indexName = indexName,
-              tableName = tableName,
-              cause = Some(e)
-            )
+            regex.findFirstMatchIn(message) match {
+              case Some(m) =>
+                throw new IndexAlreadyExistsException(
+                  indexName = m.group(1),
+                  tableName = m.group(2),
+                  cause = Some(e)
+                )
+              case None => super.classifyException(message, e)
+            }
           case 1091 =>
             // The message is: Failed to drop index indexName in tableName
             val regex = "(?s)Failed to drop index (.*) in (.*)".r
-            val indexName = regex.findFirstMatchIn(message).get.group(1)
-            val tableName = regex.findFirstMatchIn(message).get.group(2)
-            throw new NoSuchIndexException(indexName, tableName, cause = Some(e))
+            regex.findFirstMatchIn(message) match {
+              case Some(m) =>
+                throw new NoSuchIndexException(m.group(1), m.group(2), cause = Some(e))
+              case None => super.classifyException(message, e)
+            }
           case _ => super.classifyException(message, e)
         }
       case unsupported: UnsupportedOperationException => throw unsupported

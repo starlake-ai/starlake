@@ -10,21 +10,22 @@ import java.io.BufferedReader
 import java.sql.{Array => _, _}
 import java.text.SimpleDateFormat
 import java.util
+import scala.util.Using
 
 object SLResultSetHelperService {
   private def read(c: Clob): String = {
     val sb = new StringBuilder(c.length.toInt)
-    val br = new BufferedReader(c.getCharacterStream())
-
-    def appendToSB(): Unit = {
-      Option(br.readLine()) match {
-        case Some(line) =>
-          sb.append(line)
-          appendToSB()
-        case None => // end of reading line
+    Using.resource(new BufferedReader(c.getCharacterStream())) { br =>
+      def appendToSB(): Unit = {
+        Option(br.readLine()) match {
+          case Some(line) =>
+            sb.append(line)
+            appendToSB()
+          case None => // end of reading line
+        }
       }
+      appendToSB()
     }
-    appendToSB()
     sb.toString
   }
 }

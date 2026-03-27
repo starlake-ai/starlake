@@ -93,10 +93,15 @@ class BigQueryAutoTask(
       syncSchema
     ) {
 
-  private lazy val bqSink = taskDesc.sink
+  private lazy val bqSink: BigQuerySink = taskDesc.sink
     .map(_.getSink())
-    .getOrElse(BigQuerySink(connectionRef = Some(sinkConnectionRef)))
-    .asInstanceOf[BigQuerySink]
+    .getOrElse(BigQuerySink(connectionRef = Some(sinkConnectionRef))) match {
+    case bq: BigQuerySink => bq
+    case other =>
+      throw new IllegalStateException(
+        s"BigQueryAutoTask requires BigQuerySink but got ${other.getClass.getSimpleName}"
+      )
+  }
 
   private lazy val targetTableId = BigQueryJobBase
     .extractProjectDatasetAndTable(
@@ -151,12 +156,6 @@ class BigQueryAutoTask(
   }
 
   private val bigQuerySinkConfig: BigQueryLoadConfig = {
-    val bqSink =
-      taskDesc.sink
-        .map(_.getSink())
-        .getOrElse(BigQuerySink(connectionRef = Some(sinkConnectionRef)))
-        .asInstanceOf[BigQuerySink]
-
     BigQueryLoadConfig(
       connectionRef = Some(sinkConnectionRef),
       outputTableId = Some(targetTableId),
@@ -170,7 +169,10 @@ class BigQueryAutoTask(
       engine = Engine.BQ,
       acl = taskDesc.acl,
       materialization = taskDesc.sink
-        .flatMap(_.getSink().asInstanceOf[BigQuerySink].materialization)
+        .flatMap(_.getSink() match {
+          case bq: BigQuerySink => bq.materialization
+          case _                => None
+        })
         .getOrElse(Materialization.TABLE),
       enableRefresh = bqSink.enableRefresh,
       refreshIntervalMs = bqSink.refreshIntervalMs,
@@ -284,7 +286,7 @@ class BigQueryAutoTask(
                   presqlResultError match {
                     case Some(fail) => fail
                     case None =>
-                      taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
+                      bqSink.sharding match {
                         case Some(shardColumns) =>
                           // We are sharding the data ((Multi partitioning in BigQuery)
                           // We run the presql once before sharding
@@ -344,7 +346,7 @@ class BigQueryAutoTask(
 
               case None =>
                 // We are in native mode (no Spark Dataframe)
-                taskDesc.getSinkConfig().asInstanceOf[BigQuerySink].sharding match {
+                bqSink.sharding match {
                   case Some(shardColumns) =>
                     val presqlResultError = runPrePostSql(preSql)
                     presqlResultError match {
@@ -808,7 +810,7 @@ class BigQueryAutoTask(
               }
           } else if (createIfAbsent) {
             val bqSchema = BigQueryUtils.bqSchema(incomingSparkSchema)
-            val sink = sinkConfig.asInstanceOf[BigQuerySink]
+            val sink = bqSink
 
             val partitionField = sink.getPartitionColumn().map { partitionField =>
               FieldPartitionInfo(
