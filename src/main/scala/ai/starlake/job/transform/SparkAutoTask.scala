@@ -23,7 +23,7 @@ import org.postgresql.core.BaseConnection
 import java.io.{BufferedReader, FileReader}
 import java.sql.Timestamp
 import java.time.Instant
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success, Try, Using}
 
 /** SparkAutoTask executes SQL transformations using Apache Spark.
   *
@@ -108,7 +108,7 @@ class SparkAutoTask(
                   ConnectionType.FS
                 ) =>
               // Both source and sink are filesystem/Spark - most efficient path
-              if (sinkConfig.asInstanceOf[FsSink].isExport()) {
+              if (sinkConfig match { case fs: FsSink => fs.isExport(); case _ => false }) {
                 runSparkOnAny() // Export to filesystem (CSV, JSON, Parquet files)
               } else {
                 runSparkOnSpark(taskDesc.getSql()) // Native Spark table operations
@@ -152,7 +152,7 @@ class SparkAutoTask(
   private def sinkToES(dataframe: DataFrame): Try[JobResult] = {
     val sink: EsSink = this.taskDesc.sink
       .map(_.getSink())
-      .map(_.asInstanceOf[EsSink])
+      .collect { case es: EsSink => es }
       .getOrElse(
         throw new Exception("Sink of type ES must be specified when loading data to ES !!!")
       )
@@ -575,9 +575,13 @@ class SparkAutoTask(
         SparkUtils.sql(session, s"ALTER TABLE $fullTableName ADD COLUMNS ($colsAsString)")
       }
     } else {
-      val sink =
-        sinkConfig
-          .asInstanceOf[FsSink]
+      val sink = sinkConfig match {
+        case fs: FsSink => fs
+        case _ =>
+          throw new IllegalStateException(
+            s"Expected FsSink but got ${sinkConfig.getClass.getSimpleName}"
+          )
+      }
 
       val comment = taskDesc.comment.map(c => s"COMMENT '$c'").getOrElse("")
       val tableTagPairs = Utils.extractTags(taskDesc.tags)
@@ -622,7 +626,13 @@ class SparkAutoTask(
     // This is called by sinkRejected and sinkAccepted
     // We check if the table exists before updating the table schema below
     val incomingSchema = dataset.schema
-    val fsSink = sinkConfig.asInstanceOf[FsSink]
+    val fsSink = sinkConfig match {
+      case fs: FsSink => fs
+      case _ =>
+        throw new IllegalStateException(
+          s"Expected FsSink but got ${sinkConfig.getClass.getSimpleName}"
+        )
+    }
     if (taskDesc._auditTableName.isEmpty && !fsSink.isExport()) {
       // We are not writing to an audit table. We are writing to the final table
       // Update the table schema and create it if required
@@ -890,10 +900,9 @@ class SparkAutoTask(
                   val localFile = StorageHandler.localFile(file.path).toString()
                   val copySql =
                     s"COPY $firstStepTempTable FROM '$localFile' DELIMITER ',' CSV HEADER"
-                  manager.copyIn(
-                    copySql,
-                    new BufferedReader(new FileReader(localFile))
-                  )
+                  Using.resource(new BufferedReader(new FileReader(localFile))) { reader =>
+                    manager.copyIn(copySql, reader)
+                  }
                 }
           }
           settings.storageHandler().delete(tablePath)

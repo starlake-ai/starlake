@@ -97,11 +97,15 @@ trait IngestionJob extends SparkJob {
     *   : Spark Dataset
     */
   protected def ingest(dataset: DataFrame): (Dataset[SimpleRejectedRecord], Dataset[Row]) = {
+    // Persist the input dataset before validation splits it into accepted/rejected.
+    // Without this, saveRejected triggers an action that reads the source data,
+    // and saveAccepted would re-read it from disk since the accepted DF shares the same lineage.
+    val cachedDataset = dataset.persist(settings.appConfig.cacheStorageLevel)
     val validationResult = rowValidator.validate(
       session,
       mergedMetadata.resolveFormat(),
       mergedMetadata.resolveSeparator(),
-      dataset,
+      cachedDataset,
       schema.attributesWithoutScriptedFieldsWithInputFileName,
       types,
       schema.sourceSparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler),
@@ -123,9 +127,13 @@ trait IngestionJob extends SparkJob {
       saveAccepted(validationResult) // prefer to let Spark compute the final schema
     } match {
       case Failure(exception) =>
+        // Unpersist input — validator outputs will be cleared by session.catalog.clearCache()
+        cachedDataset.unpersist()
         throw exception
-      case Success(_) => // rejectedRecordCount is always 0 in saveAccepted
-        (validationResult.errors, validationResult.accepted);
+      case Success(_) =>
+        // Input no longer needed — validator outputs materialized their own caches
+        cachedDataset.unpersist()
+        (validationResult.errors, validationResult.accepted)
     }
   }
 
@@ -806,11 +814,15 @@ trait IngestionJob extends SparkJob {
       }
 
       val finalAcceptedDF = computeFinalDF(validationResult.accepted)
-      sinkAccepted(finalAcceptedDF)
-        .map { rejectedRecordCount =>
-          runMetrics(finalAcceptedDF)
-          rejectedRecordCount
-        }
+      try {
+        sinkAccepted(finalAcceptedDF)
+          .map { rejectedRecordCount =>
+            runMetrics(finalAcceptedDF)
+            rejectedRecordCount
+          }
+      } finally {
+        finalAcceptedDF.unpersist()
+      }
     } else {
       Success(0)
     }

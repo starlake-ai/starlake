@@ -40,7 +40,7 @@ object GraphVizUtils extends LazyLogging {
       val stdout = new StringBuilder
       val stderr = new StringBuilder
       val plogger = ProcessLogger(stdout append _, stderr append _)
-      val p = Process(s"dot -T$format ${dotFile.pathAsString}  -o ${svgFile.pathAsString}")
+      val p = Process(Seq("dot", s"-T$format", dotFile.pathAsString, "-o", svgFile.pathAsString))
       val exitCode = p.run(plogger).exitValue()
       if (exitCode != 0) {
         throw new Exception(

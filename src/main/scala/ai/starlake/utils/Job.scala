@@ -234,12 +234,16 @@ trait SparkJob extends JobBase {
 
   def getTableLocation(fullTableName: String): String = {
     import session.implicits.*
-    session
+    val rows = session
       .sql(s"desc formatted $fullTableName")
       .toDF()
       .filter(Symbol("col_name") === "Location")
-      .collect()(0)(1)
-      .toString
+      .collect()
+    rows.headOption
+      .map(_(1).toString)
+      .getOrElse(
+        throw new NoSuchElementException(s"Location not found for table $fullTableName")
+      )
   }
 
   protected def registerUdf(udf: String): Unit = {

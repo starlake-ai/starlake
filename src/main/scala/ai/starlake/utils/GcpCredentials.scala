@@ -38,7 +38,7 @@ object GcpCredentials extends LazyLogging {
                 cred.refresh()
               } match {
                 case Failure(e) =>
-                  logger.warn(s"Error refreshing credentials: ${e.getMessage}")
+                  logger.error(s"Error refreshing credentials: ${e.getMessage}", e)
                   None
                 case Success(_) =>
                   Some(cred)

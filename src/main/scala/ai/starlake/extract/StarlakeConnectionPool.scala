@@ -58,7 +58,7 @@ object StarlakeConnectionPool extends LazyLogging {
     duckDbPool.clear()
   }
 
-  private def cleanupIdleDuckDbConnections(): Unit = {
+  private def cleanupIdleDuckDbConnections(): Unit = duckDbPool.synchronized {
     val now = System.currentTimeMillis()
     duckDbPool.foreach { case (key, entry) =>
       if (now - entry.lastAccessTime > duckDbPoolMaxIdleTimeMs) {
@@ -87,8 +87,8 @@ object StarlakeConnectionPool extends LazyLogging {
       .toList
       .sorted
       .mkString("&") + "@" + url
-    // get MD5 hash of the pool key to avoid too long names
-    val md = java.security.MessageDigest.getInstance("MD5")
+    // get SHA-256 hash of the pool key to avoid too long names
+    val md = java.security.MessageDigest.getInstance("SHA-256")
     val hash = md.digest(poolKey.getBytes).map("%02x".format(_)).mkString
     hash
   }
@@ -137,7 +137,8 @@ object StarlakeConnectionPool extends LazyLogging {
 
       logger.debug(s"DuckDB Connection Key: $dbKey")
       // Clean up idle connections before getting/creating a new one
-      val mainConnection =
+      // Synchronized to prevent race conditions on compound get-then-put operations
+      val mainConnection = duckDbPool.synchronized {
         duckDbPool.get(dbKey) match {
           case Some(entry) =>
             logger.debug(s"Reusing existing DuckDB connection for $url")
@@ -150,7 +151,7 @@ object StarlakeConnectionPool extends LazyLogging {
               key.startsWith(url)
             } match {
               case Some((key, entry)) =>
-                entry.connection.close()
+                Try(entry.connection.close())
                 duckDbPool.remove(key)
               case None =>
             }
@@ -158,6 +159,7 @@ object StarlakeConnectionPool extends LazyLogging {
             duckDbPool.put(dbKey, DuckDbPoolEntry(sqlConn, System.currentTimeMillis()))
             sqlConn
         }
+      }
 
       mainConnection match {
         case c: DuckDBConnection => c.duplicate()

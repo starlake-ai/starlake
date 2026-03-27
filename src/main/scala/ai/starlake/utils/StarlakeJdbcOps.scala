@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 import java.sql.Connection
 import java.time.Instant
+import scala.util.Using
 
 object StarlakeJdbcOps extends StrictLogging {
 
@@ -40,39 +41,47 @@ object StarlakeJdbcOps extends StrictLogging {
       false
     } else {
       // We keep the sql history and the snapshot tables
-      connection
-        .createStatement()
-        .execute(s"BRANCH START $dataBranch WITH PERSIST = TRUE, KEEP = TRUE ")
-      true
+      Using.resource(connection.createStatement()) { stmt =>
+        stmt.execute(s"BRANCH START $dataBranch WITH PERSIST = TRUE, KEEP = TRUE ")
+      }
     }
   }
 
   def branchTruncate(dataBranch: String, connection: Connection): Boolean = {
     // We keep the sql statements history but deletes all snapshot tables. Schema is kept but snapshots are removed
-    connection.createStatement().execute(s"BRANCH DROP $dataBranch WITH KEEP = TRUE")
+    Using.resource(connection.createStatement()) { stmt =>
+      stmt.execute(s"BRANCH DROP $dataBranch WITH KEEP = TRUE")
+    }
   }
 
   def branchDrop(dataBranch: String, connection: Connection): Boolean = {
-    // Drop all the snapshot tables adn all teh sql statements history. Schema is removed thus all data is lost
-    connection.createStatement().execute(s"BRANCH DROP $dataBranch")
+    // Drop all the snapshot tables and all the sql statements history. Schema is removed thus all data is lost
+    Using.resource(connection.createStatement()) { stmt =>
+      stmt.execute(s"BRANCH DROP $dataBranch")
+    }
   }
 
   def branchApply(dataBranch: String, connection: Connection): Boolean = {
     // run all the sql statements in history onto the production database
-    connection.createStatement().execute(s"BRANCH APPLY $dataBranch")
+    Using.resource(connection.createStatement()) { stmt =>
+      stmt.execute(s"BRANCH APPLY $dataBranch")
+    }
   }
 
   def branchDescribe(dataBranch: String, connection: Connection): List[BranchStatement] = {
     // list all sql statements in the branch history
-    val rs = connection.createStatement().executeQuery(s"BRANCH DESCRIBE $dataBranch")
-    val result = scala.collection.mutable.ListBuffer[StarlakeJdbcOps.BranchStatement]()
-    while (rs.next()) {
-      val ts = rs.getObject(1).asInstanceOf[Instant]
-      val sql = rs.getString(2)
-      val item = StarlakeJdbcOps.BranchStatement(sql, ts)
-      result += item
+    Using.resource(connection.createStatement()) { stmt =>
+      Using.resource(stmt.executeQuery(s"BRANCH DESCRIBE $dataBranch")) { rs =>
+        val result = scala.collection.mutable.ListBuffer[StarlakeJdbcOps.BranchStatement]()
+        while (rs.next()) {
+          val ts = rs.getObject(1).asInstanceOf[Instant]
+          val sql = rs.getString(2)
+          val item = StarlakeJdbcOps.BranchStatement(sql, ts)
+          result += item
+        }
+        result.toList.sortBy(_.ts).reverse
+      }
     }
-    result.toList.sortBy(_.ts).reverse
   }
 
   def driverAndUrl(dataBranch: Option[String], driver: String, url: String): (String, String) = {

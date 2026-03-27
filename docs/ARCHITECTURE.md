@@ -1,7 +1,7 @@
-# Starlake - Architecture Document
+Up# Starlake - Architecture Document
 
 **Version:** 1.5.x
-**Last Updated:** 2026-03-18
+**Last Updated:** 2026-03-25
 
 ---
 
@@ -505,13 +505,100 @@ The separate `starlake-api` project wraps starlake-core with:
 
 ---
 
-## 11. Design Principles
+## 11. Resource Management & Caching
 
-### 11.1 Declarative Over Imperative
+### 11.1 JDBC Resource Management
+
+All JDBC statements and result sets must be wrapped in `scala.util.Using.resource` to guarantee cleanup:
+
+```scala
+// Project convention — always use Using.resource for AutoCloseable
+Using.resource(connection.createStatement()) { stmt =>
+  Using.resource(stmt.executeQuery(sql)) { rs =>
+    // process results
+  }
+}
+```
+
+This pattern is used consistently in `JdbcMetadata`, `JdbcDbUtils`, `StarlakeJdbcOps`, `ExpectationAssertionHandler`, and `ExtractDataJob`.
+
+### 11.2 Connection Pool
+
+**Entry Point:** `StarlakeConnectionPool.scala`
+
+```
+StarlakeConnectionPool
+ ├─▶ HikariCP pools        # For JDBC connections (optional, via SL_USE_CONNECTION_POOLING=true)
+ └─▶ DuckDB pool           # Single-writer pool with idle cleanup
+      ├── Pool key: URL + properties hash (SHA-256)
+      ├── Idle timeout: 15 seconds
+      ├── Background cleanup via ScheduledExecutorService
+      └── Synchronized compound operations (get/put/remove)
+```
+
+DuckDB connections use `synchronized` blocks around compound get-then-put operations to prevent race conditions in concurrent access.
+
+### 11.3 Spark DataFrame Caching Strategy
+
+The ingestion pipeline caches DataFrames at specific points to prevent redundant disk reads:
+
+```
+dataset (input)                      ← persist before validation
+    │
+    ▼
+validate() → errors, rejected, accepted  ← each persisted by validator
+    │
+    ├─▶ saveRejected(errors, rejected)   reads from cached input
+    │
+    ├─▶ saveAccepted(accepted)           reads from cached input
+    │       └─▶ computeFinalDF()
+    │            └─▶ finalAcceptedDF     ← persist for sink + metrics
+    │                                      unpersist after sink completes
+    │
+    ▼
+input.unpersist()                        ← freed after both saves complete
+    │
+    ▼
+caller .count() on errors, accepted      ← hits validator caches
+    │
+    ▼
+session.catalog.clearCache()             ← clears remaining validator caches
+```
+
+**Key invariant:** the input dataset is persisted before the validator splits it, so both `saveRejected` and `saveAccepted` compute from cache rather than re-reading source files. Each cache is unpersisted as soon as its last consumer finishes.
+
+The default storage level is `MEMORY_AND_DISK`, configurable via `cacheStorageLevel` in `AppConfig`.
+
+---
+
+## 12. Security Patterns
+
+### 12.1 SQL Safety
+
+- **Identifier quoting:** Table and column names are quoted via `ConnectionInfo.quoteIdentifier()` using the appropriate dialect (`"col"` for standard, `` `col` `` for MySQL/DuckDB).
+- **String literal escaping:** Values interpolated into DuckDB SET commands are escaped via `escapeSqlStringLiteral()` (single-quote doubling) to prevent SQL injection.
+- **Parameterized queries:** Data extraction uses `PreparedStatement` with typed setters for all user-facing values (see `ExtractDataJob`, `LastExportUtils`).
+
+### 12.2 Credential Handling
+
+- **Redaction utilities:** `Utils.redact()` and `Utils.obfuscate()` mask sensitive map values before logging.
+- **Log hygiene:** Connection options containing `password`, `token`, or `access` keys are masked in log output. DuckDB SET commands for credentials log only the setting name, not the value.
+- **Pool key hashing:** Connection pool keys are hashed with SHA-256 to avoid exposing credentials in pool identifiers.
+- **AES encryption:** `AESEncryption` uses AES/CBC with random IV per operation via `SecureRandom`.
+
+### 12.3 Process Execution
+
+External process invocation (e.g., GraphViz) uses `Process(Seq(...))` with argument lists instead of string interpolation to prevent shell metacharacter injection.
+
+---
+
+## 13. Design Principles
+
+### 13.1 Declarative Over Imperative
 
 All pipeline behavior is driven by YAML configuration. No custom Scala/Python code is required for standard ELT operations. The engine translates declarations into warehouse-specific operations.
 
-### 11.2 Convention Over Configuration
+### 13.2 Convention Over Configuration
 
 Sensible defaults minimize required configuration:
 - File format auto-detection
@@ -519,15 +606,15 @@ Sensible defaults minimize required configuration:
 - Default write strategy (APPEND)
 - Standard directory layout
 
-### 11.3 Warehouse Abstraction
+### 13.3 Warehouse Abstraction
 
 A single pipeline definition targets multiple warehouses. Dialect-specific SQL generation is handled internally via `StarlakeJdbcDialects` and engine-specific type mappings.
 
-### 11.4 Governance as Configuration
+### 13.4 Governance as Configuration
 
 Data quality, privacy, access control, and lineage are declared alongside the pipeline — not as separate systems. This ensures governance is version-controlled and reviewed with every change.
 
-### 11.5 Zero Lock-in
+### 13.5 Zero Lock-in
 
 - YAML configuration is portable across warehouses
 - SQL transforms use standard SQL (transpiled per target)

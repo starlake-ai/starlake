@@ -1,12 +1,14 @@
 package ai.starlake.utils
 
+import com.typesafe.scalalogging.LazyLogging
+
 import java.io.{File, IOException}
 import java.net.{JarURLConnection, URISyntaxException, URL}
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters.*
 
 // Utility object for handling JAR and resource file operations
-object JarUtil {
+object JarUtil extends LazyLogging {
 
   // Collects resource entries from a single classpath URL matching the given path
   private def collectFromUrl(
@@ -60,7 +62,8 @@ object JarUtil {
             }
           }
         } catch {
-          case _: URISyntaxException => // ignore
+          case e: URISyntaxException =>
+            logger.warn(s"Invalid URI syntax for resource URL: $url", e)
         }
 
       case _ => // unsupported protocol, skip

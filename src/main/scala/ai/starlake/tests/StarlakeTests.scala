@@ -19,7 +19,7 @@ import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import scala.jdk.CollectionConverters.*
 import scala.reflect.io.Directory
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success, Try, Using}
 
 case class StarlakeTestCoverage(
   testedDomains: Set[String],
@@ -88,9 +88,9 @@ case class StarlakePreSQLScript(path: String, preSQLStatements: String) {
         Console.println("*********************************************************")
         Console.println(s"Executing pre test script $path")
         Console.println("*********************************************************")
-        val stmt = conn.createStatement()
-        stmt.execute(preSQLStatements)
-        stmt.close()
+        Using.resource(conn.createStatement()) { stmt =>
+          stmt.execute(preSQLStatements)
+        }
       } match {
         case Failure(exception) =>
           Console.err.println(s"an error occurred while executing $path -> ${exception.getMessage}")
@@ -242,12 +242,11 @@ object StarlakeTestData {
                         |($selectStatement)
                         |TO '$outputPath' (HEADER, DELIMITER ',') """.stripMargin
     execute(conn, diffSql)
-    try {
+    if (!Files.exists(outputPath.toPath)) {
+      true
+    } else {
       val allLines = Files.readAllLines(outputPath.toPath)
       allLines.size() <= 1 // We ignore the header
-    } catch {
-      case _: Exception => // ignore. File does not exists
-        true
     }
   }
 

@@ -14,6 +14,7 @@ import org.apache.spark.sql.{DataFrame, DatasetLogging, SparkSession}
 
 import java.time.Duration
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 import scala.jdk.CollectionConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
@@ -55,9 +56,20 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
 
   def close(): Unit = client.close()
 
+  private val kafkaTimeoutSeconds = 30L
+
   def deleteTopic(topicName: String): Unit = {
-    val found = client.listTopics().names().get().contains(topicName)
-    logger.info(client.listTopics().names().get().asScala.toSet.mkString("\n"))
+    val found =
+      client.listTopics().names().get(kafkaTimeoutSeconds, TimeUnit.SECONDS).contains(topicName)
+    logger.info(
+      client
+        .listTopics()
+        .names()
+        .get(kafkaTimeoutSeconds, TimeUnit.SECONDS)
+        .asScala
+        .toSet
+        .mkString("\n")
+    )
     if (found) {
       logger.info(s"Deleting topic $topicName")
       client.deleteTopics(List(topicName).asJavaCollection)
@@ -65,9 +77,13 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   }
 
   def createTopicIfNotPresent(topic: NewTopic, conf: Map[String, String]): Unit = {
-    val found = client.listTopics().names().get().contains(topic.name)
+    val found =
+      client.listTopics().names().get(kafkaTimeoutSeconds, TimeUnit.SECONDS).contains(topic.name)
     if (!found) {
-      client.createTopics(java.util.Collections.singleton(topic.configs(conf.asJava))).all().get()
+      client
+        .createTopics(java.util.Collections.singleton(topic.configs(conf.asJava)))
+        .all()
+        .get(kafkaTimeoutSeconds, TimeUnit.SECONDS)
     }
   }
 
@@ -159,7 +175,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     client
       .describeTopics(java.util.Collections.singleton(topicName))
       .allTopicNames()
-      .get()
+      .get(kafkaTimeoutSeconds, TimeUnit.SECONDS)
       .get(topicName)
       .partitions()
       .asScala

@@ -48,8 +48,15 @@ class SparkExportTask(
       syncSchema = false
     ) {
 
+  private lazy val fsSink: FsSink = sinkConfig match {
+    case fs: FsSink => fs
+    case other =>
+      throw new IllegalStateException(
+        s"SparkExportTask requires FsSink but got ${other.getClass.getSimpleName}"
+      )
+  }
+
   override protected def effectiveSinkToFile(dataset: DataFrame): Try[JobResult] = {
-    val fsSink = sinkConfig.asInstanceOf[FsSink]
     val location = getExportFilePath(taskDesc.domain, taskDesc.table)
     (isCSV, isXls) match {
       case (true, _) =>
@@ -101,7 +108,7 @@ class SparkExportTask(
     * @return
     */
   private def csvOutputExtension(): String =
-    sinkConfig.asInstanceOf[FsSink].extension.getOrElse(settings.appConfig.csvOutputExt)
+    fsSink.extension.getOrElse(settings.appConfig.csvOutputExt)
 
   def exportToCSV(
     domainName: String,
@@ -121,7 +128,6 @@ class SparkExportTask(
       } else {
         ".csv"
       }
-    val fsSink = sinkConfig.asInstanceOf[FsSink]
     val finalCsvPath: Path = fsSink.finalPath
       .map { p =>
         val parsed = parseJinja(List(p), allVars).head
@@ -149,7 +155,7 @@ class SparkExportTask(
     file
   }
 
-  private def outputExtension(): Option[String] = sinkConfig.asInstanceOf[FsSink].extension
+  private def outputExtension(): Option[String] = fsSink.extension
 
   private val startCellRegex: Regex = """([a-zA-Z]+)(\d+)""".r
 
@@ -175,9 +181,6 @@ class SparkExportTask(
             case _ => ".xlsx"
           }
         }
-
-        // retrieve the FS Sink configuration
-        val fsSink = sinkConfig.asInstanceOf[FsSink]
 
         // define the full path to the xls file
         val finalXlsPath =

@@ -20,6 +20,7 @@ import org.duckdb.DuckDBConnection
 
 import java.sql.{Connection, DatabaseMetaData, DriverManager, PreparedStatement, ResultSet}
 import java.util.Properties
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
 import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters._
@@ -103,14 +104,14 @@ object JdbcDbUtils extends LazyLogging {
     * @tparam T
     * @return
     */
-  private var depth = 0
-  private var count = 0
+  private val depth = new AtomicInteger(0)
+  private val count = new AtomicInteger(0)
   def withJDBCConnection[T](
     dataBranch: Option[String],
     connectionOptions: Map[String, String],
     existingConnection: Option[Connection] = None
   )(f: Connection => T): T = {
-    count = count + 1
+    count.incrementAndGet()
     val tryConn =
       Try {
         existingConnection match {
@@ -129,7 +130,7 @@ object JdbcDbUtils extends LazyLogging {
         throw exception
       case Success(connection) =>
         // logger.info(s"count=$count / depth=$depth Created connection $connection")
-        depth = depth + 1
+        depth.incrementAndGet()
         // run preActions
         val preActions = connectionOptions.get("preActions")
 
@@ -145,9 +146,9 @@ object JdbcDbUtils extends LazyLogging {
             postActions.foreach { actions =>
               actions.split(";").foreach { action =>
                 Try {
-                  val statement = connection.createStatement()
-                  statement.execute(action)
-                  statement.close()
+                  Using.resource(connection.createStatement()) { statement =>
+                    statement.execute(action)
+                  }
                 } match {
                   case Failure(exception) =>
                     logger.error(s"Error running postAction $action", exception)
@@ -169,7 +170,7 @@ object JdbcDbUtils extends LazyLogging {
               logger.warn(s"Could not close connection to $url", exception)
           }
         }
-        depth = depth - 1
+        depth.decrementAndGet()
         result match {
           case Failure(exception) =>
             throw exception
@@ -178,6 +179,10 @@ object JdbcDbUtils extends LazyLogging {
     }
   }
 
+  /** Escape a value for use in a SQL single-quoted string literal to prevent SQL injection. */
+  private def escapeSqlStringLiteral(value: String): String =
+    value.replace("'", "''")
+
   def runDuckLakePreActions(
     connection: java.sql.Connection,
     connectionOptions: Map[String, String],
@@ -185,35 +190,38 @@ object JdbcDbUtils extends LazyLogging {
   ): Unit = {
     val isDucklake = preActions.getOrElse("").contains("ducklake:")
     connectionOptions.get("fs.s3a.endpoint").foreach { endpoint =>
-      logger.info(s"Setting s3a.endpoint to $endpoint")
-      val endpointStatement = connection.createStatement()
-      var schemeIndex = endpoint.indexOf("://") + 3
-      val s3Endpoint = endpoint.substring(schemeIndex)
-      endpointStatement.execute(s"SET s3_endpoint='$s3Endpoint'")
+      logger.info(s"Setting s3a.endpoint")
+      Using.resource(connection.createStatement()) { endpointStatement =>
+        val schemeIndex = endpoint.indexOf("://") + 3
+        val s3Endpoint = escapeSqlStringLiteral(endpoint.substring(schemeIndex))
+        endpointStatement.execute(s"SET s3_endpoint='$s3Endpoint'")
 
-      if (endpoint.startsWith("https"))
-        endpointStatement.execute(s"SET s3_use_ssl=true")
-      else
-        endpointStatement.execute(s"SET s3_use_ssl=false")
+        if (endpoint.startsWith("https"))
+          endpointStatement.execute(s"SET s3_use_ssl=true")
+        else
+          endpointStatement.execute(s"SET s3_use_ssl=false")
 
-      if (s3Endpoint.contains("s3.amazonaws.com"))
-        endpointStatement.execute("SET s3_url_style='vhost'")
-      else
-        endpointStatement.execute("SET s3_url_style='path'")
+        if (s3Endpoint.contains("s3.amazonaws.com"))
+          endpointStatement.execute("SET s3_url_style='vhost'")
+        else
+          endpointStatement.execute("SET s3_url_style='path'")
 
-      connectionOptions.get("fs.s3a.endpoint.region").foreach { region =>
-        logger.info(s"Setting s3a.endpoint.region to $region")
-        endpointStatement.execute(s"SET s3_region='$region'")
+        connectionOptions.get("fs.s3a.endpoint.region").foreach { region =>
+          logger.info(s"Setting s3a.endpoint.region")
+          val escapedRegion = escapeSqlStringLiteral(region)
+          endpointStatement.execute(s"SET s3_region='$escapedRegion'")
+        }
+        connectionOptions.get("fs.s3a.access.key").foreach { accessKey =>
+          logger.info("Setting s3a.access.key")
+          val escapedAccessKey = escapeSqlStringLiteral(accessKey)
+          endpointStatement.execute(s"SET s3_access_key_id='$escapedAccessKey'")
+        }
+        connectionOptions.get("fs.s3a.secret.key").foreach { secretKey =>
+          logger.info("Setting s3a.secret.key")
+          val escapedSecretKey = escapeSqlStringLiteral(secretKey)
+          endpointStatement.execute(s"SET s3_secret_access_key='$escapedSecretKey'")
+        }
       }
-      connectionOptions.get("fs.s3a.access.key").foreach { accessKey =>
-        logger.info(s"Setting s3a.access.key to $accessKey")
-        endpointStatement.execute(s"SET s3_access_key_id='$accessKey'")
-      }
-      connectionOptions.get("fs.s3a.secret.key").foreach { secretKey =>
-        logger.info(s"Setting s3a.secret.key to $secretKey")
-        endpointStatement.execute(s"SET s3_secret_access_key='$secretKey'")
-      }
-      endpointStatement.close()
     }
 
     Try {
@@ -221,11 +229,15 @@ object JdbcDbUtils extends LazyLogging {
         .get("SL_DUCKDB_HOME")
         .orElse(Option(System.getenv("SL_DUCKDB_HOME")))
         .foreach { duckdbHome =>
-          logger.info(s"Setting duckdb_home to $duckdbHome")
-          val duckdbHomeStatement = connection.createStatement()
-          duckdbHomeStatement.execute(s"SET home_directory='$duckdbHome'")
-          duckdbHomeStatement.close()
+          logger.info(s"Setting duckdb_home")
+          Using.resource(connection.createStatement()) { duckdbHomeStatement =>
+            val escapedHome = escapeSqlStringLiteral(duckdbHome)
+            duckdbHomeStatement.execute(s"SET home_directory='$escapedHome'")
+          }
         }
+    } match {
+      case Failure(e) => logger.warn("Failed to set duckdb home_directory", e)
+      case _          =>
     }
 
     Try {
@@ -235,11 +247,15 @@ object JdbcDbUtils extends LazyLogging {
         .orElse(connectionOptions.get("SL_DUCKDB_HOME"))
         .orElse(Option(System.getenv("SL_DUCKDB_HOME")))
         .foreach { duckdbSecretDir =>
-          logger.info(s"Setting duckdb secret directory to $duckdbSecretDir")
-          val statement = connection.createStatement()
-          statement.execute(s"SET secret_directory='$duckdbSecretDir'")
-          statement.close()
+          logger.info(s"Setting duckdb secret directory")
+          Using.resource(connection.createStatement()) { statement =>
+            val escapedDir = escapeSqlStringLiteral(duckdbSecretDir)
+            statement.execute(s"SET secret_directory='$escapedDir'")
+          }
         }
+    } match {
+      case Failure(e) => logger.warn("Failed to set duckdb secret_directory", e)
+      case _          =>
     }
 
     preActions.foreach { actions =>
@@ -460,7 +476,9 @@ object JdbcDbUtils extends LazyLogging {
     settings: Settings
   ): Boolean = {
     withJDBCConnection(settings.schemaHandler().dataBranch(), connectionOptions) { conn =>
-      conn.createStatement().execute(script)
+      Using.resource(conn.createStatement()) { stmt =>
+        stmt.execute(script)
+      }
     }
   }
 
@@ -484,13 +502,15 @@ object JdbcDbUtils extends LazyLogging {
     tableRemarks.map { remarks =>
       val sql = formatRemarksSQL(jdbcSchema, table, remarks)
       logger.debug(s"Extracting table remarks using $sql")
-      val statement = connection.createStatement()
-      val rs = statement.executeQuery(sql)
-      if (rs.next()) {
-        rs.getString(1)
-      } else {
-        logger.warn(s"Not table remark found for table $table")
-        ""
+      Using.resource(connection.createStatement()) { statement =>
+        Using.resource(statement.executeQuery(sql)) { rs =>
+          if (rs.next()) {
+            rs.getString(1)
+          } else {
+            logger.warn(s"Not table remark found for table $table")
+            ""
+          }
+        }
       }
     }
   }
