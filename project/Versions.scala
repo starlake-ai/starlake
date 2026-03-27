@@ -1,5 +1,4 @@
 object Versions {
-  val curator = "2.6.0"
   val spark3 = "3.5.8"
   val deltaSpark3d0 = "3.3.2"
   val scalatest = "3.2.19"
@@ -9,8 +8,6 @@ object Versions {
   val springBoot = "2.0.6.RELEASE"
   val typesafeConfig = "1.4.6"
   val scalaLogging = "3.9.6"
-  val zookeeper = "3.4.6"
-  val jets3t = "0.9.3"
   val hive = "3.1.0"
   val log4s = "1.3.3"
   val swaggerParser = "2.1.39"
