@@ -205,17 +205,17 @@ public class Setup extends ProxySelector implements X509TrustManager {
     }
 
     // ENV VARS
-    public static boolean ENABLE_ALL = envIsTrue("ENABLE_ALL");
-    public static boolean ENABLE_BIGQUERY = ENABLE_ALL || envIsTrue("ENABLE_BIGQUERY");
-    public static boolean ENABLE_AZURE = ENABLE_ALL || envIsTrue("ENABLE_AZURE");
-    public static boolean ENABLE_SNOWFLAKE = ENABLE_ALL || envIsTrue("ENABLE_SNOWFLAKE");
-    public static boolean ENABLE_REDSHIFT = ENABLE_ALL || envIsTrue("ENABLE_REDSHIFT");
-    public static boolean ENABLE_POSTGRESQL = ENABLE_ALL || envIsTrue("ENABLE_POSTGRESQL");
-    public static boolean ENABLE_DUCKDB = ENABLE_ALL || envIsTrue("ENABLE_DUCKDB");
-    public static boolean ENABLE_KAFKA = ENABLE_ALL || envIsTrue("ENABLE_KAFKA");
-    public static boolean ENABLE_MARIADB = ENABLE_ALL || envIsTrue("ENABLE_MARIA");
-    public static boolean ENABLE_CLICKHOUSE = ENABLE_ALL || envIsTrue("ENABLE_CLICKHOUSE");
-    public static boolean ENABLE_TRINODB = ENABLE_ALL || envIsTrue("ENABLE_TRINODB");
+    public static boolean ENABLE_ALL = envIsTrueWithDefaultTrue("ENABLE_ALL");
+    public static boolean ENABLE_BIGQUERY = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_BIGQUERY");
+    public static boolean ENABLE_AZURE = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_AZURE");
+    public static boolean ENABLE_SNOWFLAKE = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_SNOWFLAKE");
+    public static boolean ENABLE_REDSHIFT = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_REDSHIFT");
+    public static boolean ENABLE_POSTGRESQL = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_POSTGRESQL");
+    public static boolean ENABLE_DUCKDB = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_DUCKDB");
+    public static boolean ENABLE_KAFKA = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_KAFKA");
+    public static boolean ENABLE_MARIADB = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_MARIA");
+    public static boolean ENABLE_CLICKHOUSE = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_CLICKHOUSE");
+    public static boolean ENABLE_TRINODB = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_TRINODB");
     public static boolean ENABLE_SPARK = ENABLE_ALL;
 
     private static boolean[] getAllEnablers() {
@@ -880,10 +880,6 @@ public class Setup extends ProxySelector implements X509TrustManager {
             if (args.length == 0) {
                 System.out.println("Please specify the target directory");
                 System.exit(1);
-            }
-
-            if (!anyDependencyEnabled()) {
-                askUserWhichConfigToEnable();
             }
 
             final File targetDir = new File(args[0]);
