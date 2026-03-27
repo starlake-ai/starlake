@@ -96,6 +96,7 @@ enablePlugins(Common.starlakePlugins: _*)
 buildInfoPackage := "ai.starlake.buildinfo"
 
 
+
 scalacOptions ++= {
   val extractOptions = {
     CrossVersion.partialVersion(scalaVersion.value) match {
