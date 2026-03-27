@@ -4,11 +4,17 @@ set -euo pipefail
 # ============================================================================
 # Starlake Release Script
 #
+# Releases starlake-core and starlake-api in lockstep, then bumps all version
+# references across repos to the next SNAPSHOT.
+#
+# The SBT release plugin handles: version.sbt, git tag, publish, push.
+# This script handles: pre-flight version checks, coordinating both repos,
+# and updating non-SBT files (versions.sh, .versions, Dockerfile, etc.).
+#
 # Usage:
-#   ./release.sh                    # Full release: publish + bump + rebuild
-#   ./release.sh 1.5.9-SNAPSHOT     # Full release with specific next version
-#   ./release.sh --dry-run 1.5.9-SNAPSHOT  # Preview version bump without changes
-#   ./release.sh --skip-release 1.5.9-SNAPSHOT  # Skip Sonatype, just bump versions
+#   ./release.sh                              # Full release + bump
+#   ./release.sh --skip-release               # Skip Sonatype, just bump versions
+#   ./release.sh --dry-run                    # Preview what would change
 # ============================================================================
 
 SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
@@ -24,130 +30,162 @@ while [[ "${1:-}" == --* ]]; do
   esac
 done
 
-# --- 1. Read current version from version.sbt (single source of truth) ---
-CURRENT_VERSION=$(sed -n 's/.*"\(.*\)".*/\1/p' "$SCRIPT_DIR/version.sbt")
-echo "Current version: $CURRENT_VERSION"
-
-# Repo paths
+# --- Repo paths ---
 API_DIR="${SL_API_DIR:-$HOME/git/starlake-api}"
+UI_DIR="${SL_UI_DIR:-$HOME/git/starlake-ui2}"
+STARLAKE_HOME="${STARLAKE_HOME:-$HOME/starlake}"
+PROFILE="$HOME/.bash_profile"
 
-# --- 2. Release current version to Sonatype ---
-if [[ "$DRY_RUN" == false && "$SKIP_RELEASE" == false ]]; then
-  # --- 2a. Release starlake-core ---
+# --- Helper: extract version from a version.sbt file ---
+read_version() {
+  sed -n 's/.*"\(.*\)".*/\1/p' "$1"
+}
+
+# ============================================================================
+# Step 0: Pre-flight — verify all repos are on the same version
+# ============================================================================
+echo "============================================"
+echo "Pre-flight: checking version alignment"
+echo "============================================"
+
+CORE_VERSION=$(read_version "$SCRIPT_DIR/version.sbt")
+echo "  starlake-core:  $CORE_VERSION"
+
+ERRORS=0
+if [[ -f "$API_DIR/version.sbt" ]]; then
+  API_VERSION=$(read_version "$API_DIR/version.sbt")
+  echo "  starlake-api:   $API_VERSION"
+  if [[ "$CORE_VERSION" != "$API_VERSION" ]]; then
+    echo "  ERROR: starlake-api version ($API_VERSION) != starlake-core version ($CORE_VERSION)"
+    ((ERRORS++))
+  fi
+else
+  echo "  starlake-api:   (not found at $API_DIR)"
+fi
+
+# Check non-SBT files too
+for file in "$STARLAKE_HOME/versions.sh" "$API_DIR/.versions" "$UI_DIR/.versions"; do
+  if [[ -f "$file" ]]; then
+    if ! grep -q "SL_VERSION.*$CORE_VERSION\|SL_VERSION=$CORE_VERSION" "$file" 2>/dev/null; then
+      ACTUAL=$(grep "SL_VERSION" "$file" | head -1)
+      echo "  WARNING: $file has $ACTUAL (expected $CORE_VERSION)"
+    fi
+  fi
+done
+
+if [[ "$ERRORS" -gt 0 ]]; then
   echo ""
-  echo "============================================"
-  echo "Step 1a: Releasing starlake-core $CURRENT_VERSION to Sonatype"
-  echo "============================================"
-  read -p "Proceed with starlake-core release? [y/N]: " CONFIRM
-  if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
-    cd "$SCRIPT_DIR"
+  echo "Version mismatch detected. Fix before releasing."
+  echo "To align starlake-api: update $API_DIR/version.sbt to match $CORE_VERSION"
+  exit 1
+fi
+
+echo "  All versions aligned."
+echo ""
+
+# ============================================================================
+# Step 1: Release to Sonatype (SBT handles version.sbt + git tag + push)
+# ============================================================================
+if [[ "$DRY_RUN" == false && "$SKIP_RELEASE" == false ]]; then
+
+  # Helper: stash dirty files, release, then pop stash
+  release_repo() {
+    local repo_dir="$1"
+    local repo_name="$2"
+    cd "$repo_dir"
+
+    local stashed=false
+    if ! git diff --quiet HEAD 2>/dev/null; then
+      echo "  Stashing uncommitted changes in $repo_name..."
+      git stash --include-untracked
+      stashed=true
+    fi
+
     RELEASE_SONATYPE=true sbt 'release with-defaults'
-    echo "starlake-core release published."
+
+    if [[ "$stashed" == true ]]; then
+      echo "  Restoring stashed changes in $repo_name..."
+      git stash pop || echo "  WARNING: stash pop had conflicts — resolve manually"
+    fi
+  }
+
+  echo "============================================"
+  echo "Step 1a: Release starlake-core $CORE_VERSION"
+  echo "============================================"
+  read -p "Proceed? [y/N]: " CONFIRM
+  if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
+    release_repo "$SCRIPT_DIR" "starlake-core"
+    echo "starlake-core released."
   else
-    echo "starlake-core release skipped."
+    echo "Skipped."
   fi
 
-  # --- 2b. Release starlake-api ---
   if [[ -d "$API_DIR" ]]; then
     echo ""
     echo "============================================"
-    echo "Step 1b: Releasing starlake-api $CURRENT_VERSION to Sonatype"
+    echo "Step 1b: Release starlake-api $CORE_VERSION"
     echo "============================================"
-    read -p "Proceed with starlake-api release? [y/N]: " CONFIRM_API
+    read -p "Proceed? [y/N]: " CONFIRM_API
     if [[ "$CONFIRM_API" =~ ^[Yy]$ ]]; then
-      cd "$API_DIR"
-      RELEASE_SONATYPE=true sbt 'release with-defaults'
-      echo "starlake-api release published."
+      release_repo "$API_DIR" "starlake-api"
+      echo "starlake-api released."
     else
-      echo "starlake-api release skipped."
+      echo "Skipped."
     fi
     cd "$SCRIPT_DIR"
-  else
-    echo "Skipping starlake-api release (directory not found: $API_DIR)"
   fi
+
+  echo ""
+  echo "SBT release plugin has updated version.sbt in both repos."
+  echo ""
 fi
 
-# --- 3. Determine next version ---
-echo ""
+# ============================================================================
+# Step 2: Read the new SNAPSHOT version (set by SBT release plugin)
+#         and propagate to all non-SBT files
+# ============================================================================
+NEXT_VERSION=$(read_version "$SCRIPT_DIR/version.sbt")
+
 echo "============================================"
-echo "Step 2: Bump to next SNAPSHOT version"
+echo "Step 2: Propagate $NEXT_VERSION to all config files"
 echo "============================================"
-if [[ -n "${1:-}" ]]; then
-  NEXT_VERSION="$1"
-else
-  # Auto-suggest: increment patch number
-  BASE=$(echo "$CURRENT_VERSION" | sed 's/-SNAPSHOT//')
-  MAJOR=$(echo "$BASE" | cut -d. -f1)
-  MINOR=$(echo "$BASE" | cut -d. -f2)
-  PATCH=$(echo "$BASE" | cut -d. -f3)
-  SUGGESTED="$MAJOR.$MINOR.$((PATCH + 1))-SNAPSHOT"
-  read -p "Next version [$SUGGESTED]: " NEXT_VERSION
-  NEXT_VERSION="${NEXT_VERSION:-$SUGGESTED}"
-fi
 
-echo "Bumping: $CURRENT_VERSION -> $NEXT_VERSION"
-echo ""
-
-# --- 3. Define all files that contain the version ---
-
-# Core repo (this repo)
-CORE_FILES=(
-  "$SCRIPT_DIR/version.sbt"
-  # Setup.java no longer needs updating — it reads the version from
-  # starlake-version.properties generated by SBT at build time
-)
-
-# Local starlake installation
-STARLAKE_HOME="${STARLAKE_HOME:-$HOME/starlake}"
-LOCAL_FILES=(
+# These files are NOT managed by SBT release plugin — we update them manually.
+# version.sbt files are already updated by SBT, so they're excluded.
+NON_SBT_FILES=(
   "$STARLAKE_HOME/versions.sh"
-)
-
-# starlake-api repo
-API_FILES=(
-  "$API_DIR/version.sbt"
-  "$API_DIR/build.sbt"
   "$API_DIR/.versions"
   "$API_DIR/versions.sh"
-)
-
-# starlake-ui2 repo
-UI_DIR="${SL_UI_DIR:-$HOME/git/starlake-ui2}"
-UI_FILES=(
   "$UI_DIR/.versions"
   "$UI_DIR/Dockerfile"
   "$UI_DIR/.github/workflows/docker-hub-amd-arm.yml"
 )
 
-# Combine all
-ALL_FILES=("${CORE_FILES[@]}" "${LOCAL_FILES[@]}" "${API_FILES[@]}" "${UI_FILES[@]}")
-
-# --- 4. Replace version in all files that reference the current version ---
 UPDATED=0
 SKIPPED=0
 
-for file in "${ALL_FILES[@]}"; do
+for file in "${NON_SBT_FILES[@]}"; do
   if [[ -f "$file" ]]; then
-    if grep -q "$CURRENT_VERSION" "$file"; then
+    if grep -q "$CORE_VERSION" "$file"; then
       if [[ "$DRY_RUN" == true ]]; then
-        echo "[DRY-RUN] Would update: $file"
+        echo "  [DRY-RUN] Would update: $file"
       else
-        sed -i'' -e "s/$CURRENT_VERSION/$NEXT_VERSION/g" "$file"
-        echo "Updated: $file"
+        sed -i'' -e "s/$CORE_VERSION/$NEXT_VERSION/g" "$file"
+        echo "  Updated: $file"
       fi
       ((UPDATED++))
     else
-      echo "Skipped (version not found): $file"
+      echo "  Skipped (version not found): $file"
       ((SKIPPED++))
     fi
   else
-    echo "Skipped (file missing): $file"
+    echo "  Skipped (file missing): $file"
     ((SKIPPED++))
   fi
 done
 
 echo ""
-echo "Updated: $UPDATED files, Skipped: $SKIPPED files"
+echo "Updated: $UPDATED files, Skipped: $SKIPPED"
 
 if [[ "$DRY_RUN" == true ]]; then
   echo ""
@@ -155,20 +193,20 @@ if [[ "$DRY_RUN" == true ]]; then
   exit 0
 fi
 
-# --- 5. Update LOCAL_STARLAKE_VERSION in bash profile ---
-PROFILE="$HOME/.bash_profile"
+# --- Update LOCAL_STARLAKE_VERSION in bash profile ---
 if [[ -f "$PROFILE" ]] && grep -q "LOCAL_STARLAKE_VERSION" "$PROFILE"; then
   sed -i'' -e "s/LOCAL_STARLAKE_VERSION=.*/LOCAL_STARLAKE_VERSION=$NEXT_VERSION/" "$PROFILE"
   echo "Updated LOCAL_STARLAKE_VERSION in $PROFILE"
-  echo "Run: source $PROFILE"
 fi
 
-# --- 6. Rebuild setup and assembly ---
+# ============================================================================
+# Step 3: Rebuild
+# ============================================================================
 echo ""
 echo "============================================"
-echo "Step 3: Rebuild"
+echo "Step 3: Rebuild setup + assembly"
 echo "============================================"
-read -p "Run 'sbt clean compile packageSetup' + './tmpsbt.sh'? [y/N]: " REBUILD
+read -p "Run rebuild? [y/N]: " REBUILD
 if [[ "$REBUILD" =~ ^[Yy]$ ]]; then
   cd "$SCRIPT_DIR"
   source "$PROFILE" 2>/dev/null || true
@@ -179,13 +217,15 @@ if [[ "$REBUILD" =~ ^[Yy]$ ]]; then
   echo "Rebuild complete."
 fi
 
+# ============================================================================
+# Summary
+# ============================================================================
 echo ""
 echo "============================================"
-echo "Release complete: $CURRENT_VERSION released, now on $NEXT_VERSION"
+echo "Done! Released $CORE_VERSION, now on $NEXT_VERSION"
 echo ""
-echo "Remaining steps:"
-echo "  1. Commit & push starlake-core"
-echo "  2. Commit & push starlake-api"
-echo "  3. Commit & push starlake-ui2"
-echo "  4. Rebuild docker images"
+echo "Remaining manual steps:"
+echo "  1. Commit & push non-SBT file changes in starlake-api"
+echo "  2. Commit & push non-SBT file changes in starlake-ui2"
+echo "  3. Rebuild docker images"
 echo "============================================"
