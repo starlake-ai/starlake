@@ -190,7 +190,7 @@ if should_run 2; then
           echo "  [DRY-RUN] Would update: $file"
           grep "SL_VERSION" "$file" | head -2 | while read -r line; do echo "    $line"; done
         else
-          sed -i'' -e "/SL_VERSION/s/$VER_RE/$NEXT_VERSION/g" "$file"
+          sed -i '' "/SL_VERSION/s/$VER_RE/$NEXT_VERSION/g" "$file"
           echo "  Updated: $file"
         fi
         UPDATED=$((UPDATED + 1))
@@ -212,7 +212,7 @@ if should_run 2; then
           echo "  [DRY-RUN] Would update: $file"
           grep -n "$VER_RE" "$file" | head -5 | while read -r line; do echo "    $line"; done
         else
-          sed -i'' -e "s/$VER_RE/$NEXT_VERSION/g" "$file"
+          sed -i '' "s/$VER_RE/$NEXT_VERSION/g" "$file"
           echo "  Updated: $file"
         fi
         UPDATED=$((UPDATED + 1))
@@ -230,7 +230,7 @@ if should_run 2; then
 
   if [[ "$DRY_RUN" == false ]]; then
     if [[ -f "$PROFILE" ]] && grep -q "LOCAL_STARLAKE_VERSION" "$PROFILE"; then
-      sed -i'' -e "s/LOCAL_STARLAKE_VERSION=.*/LOCAL_STARLAKE_VERSION=$NEXT_VERSION/" "$PROFILE"
+      sed -i '' "s/LOCAL_STARLAKE_VERSION=.*/LOCAL_STARLAKE_VERSION=$NEXT_VERSION/" "$PROFILE"
       echo "  Updated LOCAL_STARLAKE_VERSION in $PROFILE"
     fi
   fi
@@ -251,7 +251,7 @@ if should_run 3; then
     echo "[DRY-RUN] Would run: sbt clean compile packageSetup + git push distrib/setup.jar"
   else
     cd "$REPO_DIR"
-    source "$PROFILE" 2>/dev/null || true
+    set +u; source "$PROFILE" 2>/dev/null || true; set -u
     sbt clean compile packageSetup
 
     if [[ -f "$REPO_DIR/distrib/setup.jar" ]]; then
@@ -277,7 +277,7 @@ if should_run 4; then
     echo "[DRY-RUN] Would run: tmpsbt.sh"
   else
     cd "$REPO_DIR"
-    source "$PROFILE" 2>/dev/null || true
+    set +u; source "$PROFILE" 2>/dev/null || true; set -u
     if [[ -x "$REPO_DIR/tmpsbt.sh" ]]; then
       "$REPO_DIR/tmpsbt.sh"
       echo "Assembly complete."
