@@ -25,10 +25,16 @@ set "SPARK_TARGET_FOLDER=%SCRIPT_DIR%bin\spark"
 set "SPARK_EXTRA_LIB_FOLDER=%SCRIPT_DIR%bin"
 set "DEPS_EXTRA_LIB_FOLDER=%SPARK_EXTRA_LIB_FOLDER%\deps"
 set "STARLAKE_EXTRA_LIB_FOLDER=%SPARK_EXTRA_LIB_FOLDER%\sl"
+if not defined SL_DATASETS (
+    set "SL_SQL_WH=%SL_ROOT%/datasets"
+) else (
+    set "SL_SQL_WH=%SL_DATASETS%"
+)
 
 if not defined SPARK_DRIVER_MEMORY set "SPARK_DRIVER_MEMORY=4g"
 set "SL_MAIN=ai.starlake.job.Main"
 if not defined SPARK_MASTER_URL set "SPARK_MASTER_URL=local[*]"
+if not defined SL_PYTHON_LIBS_DIR set "SL_PYTHON_LIBS_DIR=%SCRIPT_DIR%bin\deps\python-libs"
 
 if defined SL_VERSION (
     set "SL_JAR_NAME=%SL_ARTIFACT_NAME%-%SL_VERSION%-assembly.jar"
@@ -42,17 +48,17 @@ if defined https_proxy (
 )
 
 set "JAVA_ARGS="
+
 if defined HTTPS_PROXY (
     echo Using HTTPS_PROXY: %HTTPS_PROXY%
-    set "JAVA_ARGS=%JAVA_ARGS% -Dhttps.proxyHost=%HTTPS_PROXY_HOST% -Dhttps.proxyPort=%HTTPS_PROXY_PORT%"
-    if defined HTTPS_PROXY_USER set "JAVA_ARGS=%JAVA_ARGS% -Dhttps.proxyUser=%HTTPS_PROXY_USER%"
-    if defined HTTPS_PROXY_PASS set "JAVA_ARGS=%JAVA_ARGS% -Dhttps.proxyPassword=%HTTPS_PROXY_PASS%"
+    call :parse_proxy_and_build_args "https" "%HTTPS_PROXY%"
+    if defined proxy_args set "JAVA_ARGS=%JAVA_ARGS% %proxy_args%"
 )
+
 if defined HTTP_PROXY (
     echo Using HTTP_PROXY: %HTTP_PROXY%
-    set "JAVA_ARGS=%JAVA_ARGS% -Dhttp.proxyHost=%HTTP_PROXY_HOST% -Dhttp.proxyPort=%HTTP_PROXY_PORT%"
-    if defined HTTP_PROXY_USER set "JAVA_ARGS=%JAVA_ARGS% -Dhttp.proxyUser=%HTTP_PROXY_USER%"
-    if defined HTTP_PROXY_PASS set "JAVA_ARGS=%JAVA_ARGS% -Dhttp.proxyPassword=%HTTP_PROXY_PASS%"
+    call :parse_proxy_and_build_args "http" "%HTTP_PROXY%"
+    if defined proxy_args set "JAVA_ARGS=%JAVA_ARGS% %proxy_args%"
 )
 
 if defined SPARK_DRIVER_OPTIONS (
@@ -64,6 +70,32 @@ if defined SPARK_DRIVER_OPTIONS (
 set "JAVA_OPTS=%JAVA_OPTS% %JAVA_ARGS%"
 
 goto :handle_command
+
+:parse_proxy_and_build_args
+    REM Args: %1=type (http/https), %2=url
+    REM Sets proxy_args variable with -Dtype.proxyHost/Port/User/Password flags
+    set "proxy_args="
+    set "_ptype=%~1"
+    set "_purl=%~2"
+
+    set "_tmpps=%TEMP%\sl_proxy_%RANDOM%.ps1"
+    > "%_tmpps%" (
+        echo $url = '%_purl%'
+        echo if ($url -notmatch '://') { Write-Error "No protocol in proxy URL, assuming http://"; $url = 'http://' + $url }
+        echo try { $uri = [uri]$url } catch { Write-Error "Cannot parse proxy URL: $url"; exit 0 }
+        echo if (-not $uri.Host) { Write-Error "Warning: Could not parse %_ptype% proxy URL: $url"; exit 0 }
+        echo $r = '-D%_ptype%.proxyHost=' + $uri.Host
+        echo if ($uri.Port -gt 0) { $r += ' -D%_ptype%.proxyPort=' + [string]$uri.Port }
+        echo if ($uri.UserInfo) {
+        echo     $p = $uri.UserInfo.Split(':', 2)
+        echo     $r += ' -D%_ptype%.proxyUser=' + [uri]::UnescapeDataString($p[0])
+        echo     if ($p.Length -gt 1) { $r += ' -D%_ptype%.proxyPassword=' + [uri]::UnescapeDataString($p[1]) }
+        echo }
+        echo Write-Output $r
+    )
+    for /f "usebackq delims=" %%a in (`powershell -NoProfile -File "%_tmpps%"`) do set "proxy_args=%%a"
+    del "%_tmpps%" 2>nul
+    goto :eof
 
 :get_binary_from_url
     set "url=%~1"
@@ -113,6 +145,13 @@ goto :eof
     if not exist "%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%" (
         echo Starlake jar %SL_JAR_NAME% does not exist. Please install it.
         exit /b 1
+    )
+
+    if defined SL_LOG_LEVEL (
+        if /i not "%SL_LOG_LEVEL%" == "error" (
+            echo - JAVA_HOME=%JAVA_HOME%
+            echo - SL_ROOT=%SL_ROOT%
+        )
     )
 
     if defined SL_ENV (
@@ -193,7 +232,7 @@ goto :eof
 
 :select_starlake_version
     echo Fetching available versions...
-    
+
     set "temp_meta=%TEMP%\sl_metadata_%RANDOM%.xml"
     call :get_binary_from_url "https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-core_%SCALA_VERSION%/maven-metadata.xml" "%temp_meta%"
     if exist "%temp_meta%" (
@@ -211,15 +250,15 @@ goto :eof
     )
 
     set "VERSIONS=%SNAPSHOT_VERSION% %LATEST_RELEASE_VERSIONS%"
-    
+
     :ask_version
     echo Last 5 available versions:
     for %%v in (%VERSIONS%) do echo %%v
-    
+
     set "DEFAULT_VERSION=%SNAPSHOT_VERSION%"
     set /p "NEW_SL_VERSION=Which version do you want to install? [%DEFAULT_VERSION%]: "
     if not defined NEW_SL_VERSION set "NEW_SL_VERSION=%DEFAULT_VERSION%"
-    
+
     echo Selected version: %NEW_SL_VERSION%
     goto :eof
 
@@ -264,12 +303,32 @@ goto :eof
         REM Download new files
         echo Downloading !CORE_ASSEMBLY_NAME! to !SL_LIB_DIR!...
         call :get_binary_from_url "!CORE_ASSEMBLY_URL!" "!SL_LIB_DIR!\!CORE_ASSEMBLY_NAME!"
-        
+
         echo Downloading !CORE_JAR_NAME! to !API_LIB_DIR!...
         call :get_binary_from_url "!CORE_JAR_URL!" "!API_LIB_DIR!\!CORE_JAR_NAME!"
-        
+
         echo Downloading !API_JAR_NAME! to !API_LIB_DIR!...
         call :get_binary_from_url "!API_JAR_URL!" "!API_LIB_DIR!\ai.starlake.!API_JAR_NAME!"
+
+        REM Update python libs
+        set "PYTHON_LIBS_BASE_URL=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/python-libs"
+        set "PYTHON_LIBS_DIR=%SL_PYTHON_LIBS_DIR%"
+        echo Updating python libs in !PYTHON_LIBS_DIR!...
+        if exist "!PYTHON_LIBS_DIR!" rmdir /s /q "!PYTHON_LIBS_DIR!"
+        mkdir "!PYTHON_LIBS_DIR!"
+        call :get_binary_from_url "!PYTHON_LIBS_BASE_URL!/versions.txt" "!PYTHON_LIBS_DIR!\versions.txt"
+        for /f "usebackq delims=" %%L in ("!PYTHON_LIBS_DIR!\versions.txt") do (
+            set "_line=%%L"
+            REM Strip leading/trailing whitespace and skip comments
+            set "_line=!_line: =!"
+            if defined _line (
+                echo !_line! | findstr /r "^#" >nul 2>&1
+                if errorlevel 1 (
+                    echo Downloading !_line!...
+                    call :get_binary_from_url "!PYTHON_LIBS_BASE_URL!/!_line!" "!PYTHON_LIBS_DIR!\!_line!"
+                )
+            )
+        )
 
         echo Upgrade complete.
     )
@@ -284,7 +343,9 @@ goto :eof
 
 :serve_command
     if defined SL_API_DEBUG (
-        set "JAVA_OPTS=%JAVA_OPTS% -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
+        set "JAVA_OPTS=--add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED %JAVA_OPTS% -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
+    ) else (
+        set "JAVA_OPTS=--add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/sun.nio.cs=ALL-UNNAMED --add-opens=java.base/sun.security.action=ALL-UNNAMED --add-opens=java.base/sun.util.calendar=ALL-UNNAMED --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED %JAVA_OPTS%"
     )
     call "%SCRIPT_DIR%bin\api\bin\local-run-api.bat" "%SCRIPT_DIR%" dummy
     goto :eof
