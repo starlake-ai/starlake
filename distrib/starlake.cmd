@@ -131,7 +131,7 @@ goto :handle_command
             exit /b 1
         )
     )
-    "%RUNNER%" -cp "%SCRIPT_DIR%setup.jar" Setup "%SCRIPT_DIR%" "windows"
+    "%RUNNER%" -cp "%SCRIPT_DIR%setup.jar" Setup "%SCRIPT_DIR:~0,-1%" "windows"
 
     if exist "%API_BIN_DIR%" (
         for %%f in ("%API_BIN_DIR%\local-*") do (
