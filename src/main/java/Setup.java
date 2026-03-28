@@ -123,7 +123,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
         }
 
         public String getUrlName(String url) {
-            return url.substring(url.lastIndexOf("/") + 1);
+            String name = url.substring(url.lastIndexOf("/") + 1);
+            int q = name.indexOf("?");
+            return q >= 0 ? name.substring(0, q) : name;
         }
     }
 
@@ -1139,6 +1141,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 final int CHUNK_SIZE = 1024;
                 int filePartIndex = urlStr.lastIndexOf("/") + 1;
                 String name = urlStr.substring(filePartIndex);
+                int qIdx = name.indexOf("?");
+                if (qIdx >= 0) name = name.substring(0, qIdx);
                 String urlFolder = urlStr.substring(0, filePartIndex);
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(URI.create(urlStr))
