@@ -18,61 +18,46 @@ function get_installation_directory {
     $INSTALL_DIR
 }
 
-function get_versions_from_url {
-    param (
-        [string]$url
-    )
-    try {
-        # Download the content from the URL
-        $response = Invoke-RestMethod -Uri $url -ErrorAction Stop
-    }
-    catch {
-        # Suppress the error message and return an empty result
-        return @()
-    }
-
-    # Extract text content within <text> tags
-    $textContents = $response.SelectNodes("//text").InnerText
-
-    # Define the version pattern regex
-    $versionPattern = '(\d+\.\d+\.\d+(-SNAPSHOT)?)'
-
-    # Filter and extract only the matching versions
-    $matchingVersions = $textContents | Where-Object { $_ -match $versionPattern }
-
-    # Sort the matching versions in descending order
-    $matchingVersions | Sort-Object -Descending
-}
 
 function get_version_to_install {
-    # Extract the version number from command-line arguments
-    for ($i=0; $i -lt $args.Length; $i++) {
-        $arg = $args[$i]
-        if ($arg.StartsWith("--version=")) {
-            $VERSION=$arg.Substring(10)
-        }
-    }
+    param([string]$RequestedVersion = "")
 
-    $ALL_SNAPSHOT_VERSIONS = (get_versions_from_url https://s01.oss.sonatype.org/service/local/repositories/snapshots/content/ai/starlake/starlake-core_2.12/)
-    $ALL_RELEASE_NEW_PATTERN_VERSIONS = (get_versions_from_url https://s01.oss.sonatype.org/service/local/repositories/releases/content/ai/starlake/starlake-core_2.12/)
-    $ALL_RELEASE_OLD_PATTERN_VERSIONS = (get_versions_from_url https://s01.oss.sonatype.org/service/local/repositories/releases/content/ai/starlake/starlake-spark3_2.12/)
-    $ALL_RELEASE_VERSIONS = @($ALL_RELEASE_NEW_PATTERN_VERSIONS) + @($ALL_RELEASE_OLD_PATTERN_VERSIONS)
-    $SNAPSHOT_VERSION = @($ALL_SNAPSHOT_VERSIONS)[0]
-    $LATEST_RELEASE_VERSIONS = $ALL_RELEASE_VERSIONS[0..4]
+    $SCALA_VERSION = "2.13"
 
-    $VERSIONS = @($SNAPSHOT_VERSION) + $LATEST_RELEASE_VERSIONS
+    $SNAPSHOT_VERSION = $null
+    try {
+        $xml = [xml](Invoke-WebRequest -Uri "https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-core_$SCALA_VERSION/maven-metadata.xml" -UseBasicParsing).Content
+        $SNAPSHOT_VERSION = $xml.metadata.versioning.versions.version |
+            Where-Object { $_ -match '^\d+\.\d+\.\d+-SNAPSHOT$' } |
+            Sort-Object -Descending |
+            Select-Object -First 1
+    } catch {}
 
+    $RELEASE_VERSIONS = @()
+    try {
+        $xml = [xml](Invoke-WebRequest -Uri "https://repo1.maven.org/maven2/ai/starlake/starlake-core_$SCALA_VERSION/maven-metadata.xml" -UseBasicParsing).Content
+        $RELEASE_VERSIONS = @($xml.metadata.versioning.versions.version |
+            Where-Object { $_ -match '^\d+\.\d+\.\d+$' } |
+            Sort-Object -Descending |
+            Select-Object -First 5)
+    } catch {}
+
+    $VERSIONS = @()
+    if ($SNAPSHOT_VERSION) { $VERSIONS += $SNAPSHOT_VERSION }
+    $VERSIONS += $RELEASE_VERSIONS
+
+    $DEFAULT_VERSION = if ($VERSIONS.Count -gt 0) { $VERSIONS[0] } else { $null }
+
+    $VERSION = $RequestedVersion
     while ($VERSION -notin $VERSIONS) {
-        if($version){
+        if ($VERSION -ne "") {
             Write-Host "Invalid version $VERSION. Please choose from the available versions."
         }
-        Write-Host "Last 5 available versions:"
-        foreach ($version in $VERSIONS) {
-            Write-Host $version
-        }
-        $VERSION = Read-Host "Which version do you want to install? [$($VERSIONS[0])]"
+        Write-Host "Last available versions:"
+        foreach ($v in $VERSIONS) { Write-Host "  $v" }
+        $VERSION = Read-Host "Which version do you want to install? [$DEFAULT_VERSION]"
         if ($VERSION -eq "") {
-            $VERSION = $VERSIONS[0]
+            $VERSION = $DEFAULT_VERSION
         }
     }
 
@@ -92,7 +77,13 @@ function install_starlake {
     }
 
     Write-Host "Downloading $url to $INSTALL_DIR"
-    wget $url -OutFile $INSTALL_DIR/starlake.cmd
+    try {
+        Invoke-WebRequest -Uri $url -OutFile "$INSTALL_DIR\starlake.cmd" -UseBasicParsing -ErrorAction Stop
+    } catch {
+        Write-Host "Error: Failed to download starlake.cmd from $url"
+        Write-Host $_.Exception.Message
+        exit 1
+    }
 
     Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process
 }
@@ -112,10 +103,16 @@ function add_starlake_to_path {
 }
 
 function run_installation_command {
-    $env:SL_VERSION = $VERSION
-    Start-Process -FilePath "$INSTALL_DIR\starlake.cmd" -ArgumentList 'install' -Wait -NoNewWindow
-    del "$INSTALL_DIR/setup.jar"
-
+    param([string]$InstallDir, [string]$Version)
+    # Remove stale versions.bat so setup.jar uses the correct SL_VERSION from the env
+    if (Test-Path "$InstallDir\versions.bat") {
+        Remove-Item "$InstallDir\versions.bat"
+    }
+    $env:SL_VERSION = $Version
+    Start-Process -FilePath "$InstallDir\starlake.cmd" -ArgumentList 'install' -Wait -NoNewWindow
+    if (Test-Path "$InstallDir\setup.jar") {
+        Remove-Item "$InstallDir\setup.jar"
+    }
 }
 
 
@@ -142,13 +139,20 @@ function check_java_version {
 }
 
 function main {
+    param([string[]]$ScriptArgs = @())
+    $RequestedVersion = ""
+    foreach ($arg in $ScriptArgs) {
+        if ($arg.StartsWith("--version=")) {
+            $RequestedVersion = $arg.Substring(10)
+        }
+    }
     check_java_version
     print_starlake_ascii_art
-    $INSTALL_DIR=get_installation_directory
-    $VERSION=get_version_to_install
+    $INSTALL_DIR = get_installation_directory
+    $VERSION = get_version_to_install -RequestedVersion $RequestedVersion
     install_starlake $INSTALL_DIR $VERSION
     add_starlake_to_path $INSTALL_DIR
-    run_installation_command $INSTALL_DIR
+    run_installation_command -InstallDir $INSTALL_DIR -Version $VERSION
     print_success_message
 }
 
