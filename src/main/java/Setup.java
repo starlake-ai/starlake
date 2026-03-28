@@ -1140,10 +1140,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 File file = fileProducer.apply(resource, urlStr);
                 final int CHUNK_SIZE = 1024;
                 int filePartIndex = urlStr.lastIndexOf("/") + 1;
-                String name = urlStr.substring(filePartIndex);
-                int qIdx = name.indexOf("?");
-                if (qIdx >= 0) name = name.substring(0, qIdx);
                 String urlFolder = urlStr.substring(0, filePartIndex);
+                int qIdx = urlFolder.indexOf("?");
+                if (qIdx >= 0) urlFolder = urlFolder.substring(0, qIdx);
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(URI.create(urlStr))
                         .build();
