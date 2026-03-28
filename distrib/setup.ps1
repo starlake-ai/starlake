@@ -104,9 +104,9 @@ function add_starlake_to_path {
 
 function run_installation_command {
     param([string]$InstallDir, [string]$Version)
-    # Remove stale versions.bat so setup.jar uses the correct SL_VERSION from the env
-    if (Test-Path "$InstallDir\versions.bat") {
-        Remove-Item "$InstallDir\versions.bat"
+    # Remove stale versions.cmd so setup.jar uses the correct SL_VERSION from the env
+    if (Test-Path "$InstallDir\versions.cmd") {
+        Remove-Item "$InstallDir\versions.cmd"
     }
     $env:SL_VERSION = $Version
     Start-Process -FilePath "$InstallDir\starlake.cmd" -ArgumentList 'install' -Wait -NoNewWindow
@@ -122,13 +122,13 @@ function print_success_message {
 
 function check_java_version {
     # Check if Java is installed using JAVA_HOME env variable
-    if ($env:JAVA_HOME -eq $null) {
+    if ($null -eq $env:JAVA_HOME) {
         $runner = "java"
     } else {
         $runner = "$env:JAVA_HOME\bin\java"
     }
     $javaVersion = (Get-Command $runner | Select-Object -ExpandProperty Version).tostring()
-    if ($javaVersion -eq $null) {
+    if ($null -eq $javaVersion) {
         Write-Host "Java is not installed. Please install Java 11 or above."
         exit 1
     }

@@ -11,14 +11,15 @@ if not defined SL_ROOT (
 )
 
 if /i "%1" == "reinstall" (
-    if exist "%SCRIPT_DIR%versions.bat" del "%SCRIPT_DIR%versions.bat"
+    if exist "%SCRIPT_DIR%versions.cmd" del "%SCRIPT_DIR%versions.cmd"
     if exist "%SCRIPT_DIR%bin\spark" rmdir /s /q "%SCRIPT_DIR%bin\spark"
 ) else (
-    if exist "%SCRIPT_DIR%versions.bat" (
-        call "%SCRIPT_DIR%versions.bat"
+    if exist "%SCRIPT_DIR%versions.cmd" (
+        call "%SCRIPT_DIR%versions.cmd"
     )
 )
 
+if not defined SCALA_VERSION set "SCALA_VERSION=2.13"
 set "SL_ARTIFACT_NAME=starlake-core_%SCALA_VERSION%"
 set "SPARK_DIR_NAME=spark-%SPARK_VERSION%-bin-hadoop%HADOOP_VERSION%"
 set "SPARK_TARGET_FOLDER=%SCRIPT_DIR%bin\spark"
@@ -125,7 +126,7 @@ goto :handle_command
     if defined JAVA_HOME (
         set "RUNNER=%JAVA_HOME%\bin\java.exe"
     ) else (
-        for %%X in (java.exe) do (set RUNNER=%%~dp$PATH:X)
+        for %%X in (java.exe) do (set RUNNER=%%~$PATH:X)
         if not defined RUNNER (
             echo JAVA_HOME is not set and java not in PATH
             exit /b 1
@@ -265,9 +266,9 @@ goto :eof
 :upgrade_command
     call :select_starlake_version
     if defined NEW_SL_VERSION (
-        if exist "%SCRIPT_DIR%versions.bat" (
-             powershell -Command "(Get-Content '%SCRIPT_DIR%versions.bat') -replace 'SL_VERSION=.*', 'SL_VERSION=%NEW_SL_VERSION%' | Set-Content '%SCRIPT_DIR%versions.bat'"
-             echo Updated versions.bat with SL_VERSION=%NEW_SL_VERSION%
+        if exist "%SCRIPT_DIR%versions.cmd" (
+             powershell -Command "(Get-Content '%SCRIPT_DIR%versions.cmd') -replace 'SL_VERSION=.*', 'SL_VERSION=%NEW_SL_VERSION%' | Set-Content '%SCRIPT_DIR%versions.cmd'"
+             echo Updated versions.cmd with SL_VERSION=%NEW_SL_VERSION%
         )
         set "SL_VERSION=%NEW_SL_VERSION%"
         echo Upgrading Starlake to %NEW_SL_VERSION%...
