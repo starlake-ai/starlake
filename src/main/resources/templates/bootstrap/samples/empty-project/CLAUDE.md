@@ -13,7 +13,11 @@ This is a **Starlake** data pipeline project ("StarBake") — a sample bakery an
 starlake validate
 
 # Load source data (CSV/JSON) into the warehouse
-starlake load
+# Always specify --domains, --tables, and --files explicitly
+starlake load --domains starbake --tables customers --files "${SL_ROOT}/datasets/incoming/starbake/customers.csv"
+starlake load --domains starbake --tables orders --files "${SL_ROOT}/datasets/incoming/starbake/orders.json"
+starlake load --domains starbake --tables products --files "${SL_ROOT}/datasets/incoming/starbake/products.json"
+
 
 # Run a specific transformation
 starlake transform --name starbake_analytics.customer_purchase_history
