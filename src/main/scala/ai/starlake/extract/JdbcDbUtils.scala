@@ -3,27 +3,22 @@ package ai.starlake.extract
 import ai.starlake.config.Settings.{ConnectionInfo, JdbcEngine}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.core.utils.StringUtils
-import ai.starlake.extract.JdbcDbUtils.{lastExportTableName, Columns}
 import ai.starlake.jdbc.StarlakeDriver
 import ai.starlake.job.Main
 import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.tests.StarlakeTestData.DomainName
-import ai.starlake.utils.{SparkUtils, StarlakeJdbcOps, Utils}
+import ai.starlake.utils.{SparkUtils, Utils}
 import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.LazyLogging
-import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.jdbc.JdbcType
 import org.apache.spark.sql.types.*
-import org.duckdb.DuckDBConnection
 
-import java.sql.{Connection, DatabaseMetaData, DriverManager, PreparedStatement, ResultSet}
-import java.util.Properties
+import java.sql.*
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
 import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try, Using}
 
 object JdbcDbUtils extends LazyLogging {
@@ -1022,7 +1017,7 @@ object JdbcDbUtils extends LazyLogging {
     table: String,
     remarks: String
   )(implicit settings: Settings): String = {
-    import ai.starlake.utils.Formatter._
+    import ai.starlake.utils.Formatter.*
     val parameters = Map(
       "catalog" -> jdbcSchema.catalog.getOrElse(""),
       "schema"  -> jdbcSchema.schema,
