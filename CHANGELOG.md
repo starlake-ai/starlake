@@ -1,6 +1,23 @@
 
 # Release notes
 
+# 1.5.11:
+- Code cleanup (unused imports)
+
+# 1.5.10:
+- Skipped
+
+# 1.5.9:
+__Improvement__:
+- Setup auto-resolves starlake version from Maven Central when SL_VERSION is not set
+- All Setup dependencies (BigQuery, Snowflake, DuckDB, etc.) are now enabled by default
+- Setup proceeds immediately to installation after version selection — no interactive dependency menu
+- Windows support for Setup installer
+
+__Bug fix__:
+- Fix URL query string leaking into downloaded filenames during setup
+- Fix local-release.sh failing silently when sourcing bash profile under `set -u`
+
 # 1.5.7:
 __Improvement__:
 
