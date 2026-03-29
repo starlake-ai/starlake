@@ -10,6 +10,11 @@ if not defined SL_ROOT (
     set "SL_ROOT=!SL_ROOT:\=/!"
 )
 
+if not defined HADOOP_HOME (
+    set "HADOOP_HOME=%SCRIPT_DIR%bin\hadoop"
+)
+set "PATH=%HADOOP_HOME%\bin;%PATH%"
+
 if /i "%1" == "reinstall" (
     if exist "%SCRIPT_DIR%versions.cmd" del "%SCRIPT_DIR%versions.cmd"
     if exist "%SCRIPT_DIR%bin\spark" rmdir /s /q "%SCRIPT_DIR%bin\spark"
