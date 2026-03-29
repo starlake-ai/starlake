@@ -187,20 +187,20 @@ goto :eof
 
         if /i "%SPARK_MASTER_URL:~0,5%" == "local" (
             if defined deps_jars (
-                set "extra_classpath=%extra_classpath%;%deps_jars:,=;%"
+                set "extra_classpath=!extra_classpath!;!deps_jars:,=;!"
             )
             set "SPARK_LOCAL_HOSTNAME=127.0.0.1"
             set "SPARK_HOME=%SCRIPT_DIR%bin\spark"
             set "SL_ROOT=!SL_ROOT!"
-            call "%SPARK_SUBMIT%" %SPARK_EXTRA_PACKAGES% --driver-java-options "%SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --driver-class-path "%extra_classpath%" --class "%SL_MAIN%" --master "%SPARK_MASTER_URL%" "%SPARK_TARGET_FOLDER%\README.md" %*
+            call "!SPARK_SUBMIT!" %SPARK_EXTRA_PACKAGES% --driver-java-options "!SPARK_DRIVER_OPTIONS!" %SPARK_CONF_OPTIONS% --driver-class-path "!extra_classpath!" --class "%SL_MAIN%" --master "%SPARK_MASTER_URL%" "%SPARK_TARGET_FOLDER%\README.md" %*
         ) else (
             if defined deps_jars (
-                set "extra_classpath=%deps_jars:,=;%"
-                set "extra_jars=%extra_jars%,%deps_jars%"
+                set "extra_classpath=!deps_jars:,=;!"
+                set "extra_jars=!extra_jars!,!deps_jars!"
             )
             set "SPARK_HOME=%SCRIPT_DIR%bin\spark"
             set "SL_ROOT=!SL_ROOT!"
-            call "%SPARK_SUBMIT%" %SPARK_EXTRA_PACKAGES% %SPARK_CONF_OPTIONS% --driver-java-options "%SPARK_DRIVER_OPTIONS%" --driver-class-path "%extra_classpath%" --class "%SL_MAIN%" --master "%SPARK_MASTER_URL%" --jars "%extra_jars%" "%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%" %*
+            call "!SPARK_SUBMIT!" %SPARK_EXTRA_PACKAGES% %SPARK_CONF_OPTIONS% --driver-java-options "!SPARK_DRIVER_OPTIONS!" --driver-class-path "!extra_classpath!" --class "%SL_MAIN%" --master "%SPARK_MASTER_URL%" --jars "!extra_jars!" "%STARLAKE_EXTRA_LIB_FOLDER%\%SL_JAR_NAME%" %*
         )
     )
 goto :eof
