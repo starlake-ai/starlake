@@ -42,7 +42,7 @@ object Versions {
   val scalaParallelCollections = "1.0.4"
   val derbyVersion =
     "10.15.2.0" // last version compatible with Java 11, see https://db.apache.org/derby/derby_downloads.html
-  val jSqlParser = "5.3.186"
+  val jSqlParser = "5.3.203"
   val jSqlTranspiler = "1.8"
   val starlakejdbc = "0.4"
   val jSqlFormatter = "5.3.9"
