@@ -73,7 +73,6 @@ trait SummarizeCmd extends Cmd[SummarizeConfig] {
       schemaHandler
     )
     if (ai.starlake.job.Main.cliMode)
-      println(">>>>>>")
     result.map { res =>
       Utils.printOut(JsonSerializer.serializeObject(res))
       JobResult.empty

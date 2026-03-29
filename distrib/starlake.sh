@@ -277,7 +277,7 @@ launch_starlake() {
       echo "- JAVA_HOME=$JAVA_HOME"
       echo "- SL_ROOT=$SL_ROOT"
     fi
-    if [ "$SL_ENV" != "" ]; then
+    if [ "$SL_ENV" != "" ]; then·
       echo "- SL_ENV=$SL_ENV"
     fi
 #    echo "- SL_MAIN=$SL_MAIN"

@@ -244,8 +244,6 @@ trait TransformWorkflow extends LazyLogging {
     logger.info(s"Entering ${action.taskDesc.getRunEngine()} engine")
     val runEngine = action.taskDesc.getRunEngine()
 
-    if (ai.starlake.job.Main.cliMode)
-      println(">>>>>>")
     runEngine match {
       case BQ =>
         val result = action.run()
