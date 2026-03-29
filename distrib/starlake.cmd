@@ -7,8 +7,8 @@ set "API_BIN_DIR=%SCRIPT_DIR%\bin\api\bin"
 
 if not defined SL_ROOT (
     set "SL_ROOT=%cd%"
-    set "SL_ROOT=!SL_ROOT:\=/!"
 )
+set "SL_ROOT=!SL_ROOT:\=/!"
 
 if not defined HADOOP_HOME (
     set "HADOOP_HOME=%SCRIPT_DIR%bin\hadoop"
