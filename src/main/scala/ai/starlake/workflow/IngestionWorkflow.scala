@@ -22,40 +22,13 @@ package ai.starlake.workflow
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.{ExtractUtils, ParUtils}
-import ai.starlake.job.infer.{InferSchemaConfig, InferSchemaJob}
 import ai.starlake.job.ingest.*
 import ai.starlake.job.load.LoadStrategy
-import ai.starlake.job.metrics.{MetricsConfig, MetricsJob}
-import ai.starlake.job.sink.bigquery.{
-  BigQueryJobBase,
-  BigQueryJobResult,
-  BigQueryLoadConfig,
-  BigQuerySparkJob
-}
-import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.sink.jdbc.{JdbcConnectionLoadConfig, SparkJdbcWriter}
-import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.job.transform.{AutoTask, TransformAction, TransformConfig, TransformContext}
-import ai.starlake.lineage.{
-  AutoTaskDependencies,
-  AutoTaskDependenciesConfig,
-  TaskViewDependencyNode
-}
 import ai.starlake.schema.AdaptiveWriteStrategy
-import ai.starlake.schema.generator.*
 import ai.starlake.schema.handlers.{FileInfo, SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.*
-import ai.starlake.schema.model.Engine.BQ
-import ai.starlake.sql.SQLUtils
-import ai.starlake.tests.{
-  StarlakeTestConfig,
-  StarlakeTestCoverage,
-  StarlakeTestData,
-  StarlakeTestResult
-}
 import ai.starlake.utils.*
 import better.files.File
-import com.manticore.jsqlformatter.JSQLFormatter
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
@@ -63,7 +36,6 @@ import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.time.Instant
 import java.util.Collections
 import scala.annotation.nowarn
-import scala.reflect.io.Directory
 import scala.util.{Failure, Success, Try}
 
 /** The whole worklfow works as follow :
