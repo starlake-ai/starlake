@@ -741,6 +741,9 @@ object Settings extends LazyLogging {
     aesSecretKey: Option[String],
     datasets: Option[String]
   ): Settings = {
+    // Normalize Windows backslash paths to forward slashes to prevent YAML parsing issues
+    val normalizedRoot = root.map(_.replace('\\', '/'))
+    val normalizedDatasets = datasets.map(_.replace('\\', '/'))
     val jobId = UUID.randomUUID().toString
     val effectiveConfig =
       config.withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
@@ -748,7 +751,7 @@ object Settings extends LazyLogging {
     // Load reference.conf
     val loadedConfig = loadConf(Some(effectiveConfig))
     val withRootUpdatedConfig =
-      root
+      normalizedRoot
         .map { root =>
           def pathFromRoot(path: String): String = {
             val loadedConfigRootLen = loadedConfig.root.length
@@ -765,7 +768,7 @@ object Settings extends LazyLogging {
               .copy(path = pathFromRoot(loadedConfig.audit.path)),
             expectations = loadedConfig.expectations
               .copy(path = pathFromRoot(loadedConfig.expectations.path)),
-            datasets = datasets.getOrElse(pathFromRoot(loadedConfig.datasets)),
+            datasets = normalizedDatasets.getOrElse(pathFromRoot(loadedConfig.datasets)),
             metadata = pathFromRoot(loadedConfig.metadata),
             lock = loadedConfig.lock.copy(path = pathFromRoot(loadedConfig.lock.path)),
             metrics = loadedConfig.metrics
@@ -836,7 +839,7 @@ object Settings extends LazyLogging {
       )
     // Load application.conf / application.sl.yml
     val loadedSettings =
-      loadApplicationYaml(withUpdatedEnvConfig, settings, env, root)
+      loadApplicationYaml(withUpdatedEnvConfig, settings, env, normalizedRoot)
         .orElse(loadApplicationConf(withUpdatedEnvConfig, settings, env))
         .getOrElse(settings)
 
