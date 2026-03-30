@@ -144,7 +144,9 @@ install_starlake() {
     if [[ $VERSION == *"SNAPSHOT"* ]]; then
         local url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
     else
-        local url=https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/starlake.sh
+#        local url=https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/starlake.sh
+        local url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
+
     fi
     get_from_url $url > "$INSTALL_DIR/starlake"
     chmod +x "$INSTALL_DIR/starlake"
