@@ -24,6 +24,15 @@ function get_version_to_install {
 
     $SCALA_VERSION = "2.13"
 
+    $SNAPSHOT_VERSION = $null
+    try {
+        $xml = [xml](Invoke-WebRequest -Uri "https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-core_$SCALA_VERSION/maven-metadata.xml" -UseBasicParsing).Content
+        $SNAPSHOT_VERSION = $xml.metadata.versioning.versions.version |
+            Where-Object { $_ -match '^\d+\.\d+\.\d+-SNAPSHOT$' } |
+            Sort-Object -Descending |
+            Select-Object -First 1
+    } catch {}
+
     $RELEASE_VERSIONS = @()
     try {
         $xml = [xml](Invoke-WebRequest -Uri "https://repo1.maven.org/maven2/ai/starlake/starlake-core_$SCALA_VERSION/maven-metadata.xml" -UseBasicParsing).Content
@@ -34,6 +43,7 @@ function get_version_to_install {
     } catch {}
 
     $VERSIONS = @()
+    if ($SNAPSHOT_VERSION) { $VERSIONS += $SNAPSHOT_VERSION }
     $VERSIONS += $RELEASE_VERSIONS
 
     $DEFAULT_VERSION = if ($VERSIONS.Count -gt 0) { $VERSIONS[0] } else { $null }
