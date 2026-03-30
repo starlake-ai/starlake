@@ -29,7 +29,7 @@ function get_version_to_install {
         $xml = [xml](Invoke-WebRequest -Uri "https://repo1.maven.org/maven2/ai/starlake/starlake-core_$SCALA_VERSION/maven-metadata.xml" -UseBasicParsing).Content
         $RELEASE_VERSIONS = @($xml.metadata.versioning.versions.version |
             Where-Object { $_ -match '^\d+\.\d+\.\d+$' } |
-            Sort-Object -Descending |
+            Sort-Object -Descending { [version]$_ } |
             Select-Object -First 5)
     } catch {}
 
