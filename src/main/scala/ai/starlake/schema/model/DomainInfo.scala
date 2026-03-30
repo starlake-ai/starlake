@@ -432,15 +432,20 @@ object DomainInfo {
     settings: Settings
   ): (Path, String) = {
     val rootPath = new Path(new Path(DatasetArea.extract, "ddl"), datawarehouse)
-    val mustache = new Path(rootPath, s"$ddlType.mustache")
+    val j2 = new Path(rootPath, s"$ddlType.j2")
     val ssp = new Path(rootPath, s"$ddlType.ssp")
+    val mustache = new Path(rootPath, s"$ddlType.mustache")
     val template =
-      if (settings.storageHandler().exists(mustache))
-        mustache
+      if (settings.storageHandler().exists(j2))
+        j2
       else if (settings.storageHandler().exists(ssp))
         ssp
+      else if (settings.storageHandler().exists(mustache))
+        mustache
       else
-        throw new Exception(s"No $mustache or $ssp found for datawarehouse $datawarehouse")
+        throw new Exception(
+          s"No $j2, $ssp or $mustache found for datawarehouse $datawarehouse"
+        )
     template -> settings.storageHandler().read(template)
   }
 

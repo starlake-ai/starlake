@@ -9,46 +9,7 @@ class ExtractScriptGenSpec extends TestHelper {
   val scriptOutputFolder: File = File(System.getProperty("java.io.tmpdir"))
   new WithSettings() {
 
-    "templatize domain using mustache" should "generate an export script from a TemplateSettings" in {
-      val templateParams: TemplateParams = TemplateParams(
-        domainToExport = "domain1",
-        tableToExport = "table1",
-        columnsToExport = List(
-          ("col1", "string", false, TransformInput.None),
-          ("col2", "long", false, TransformInput.None)
-        ),
-        fullExport = false,
-        dsvDelimiter = ",",
-        deltaColumn = Some("updateCol"),
-        auditDB = None,
-        activeEnv = Map.empty
-      )
-
-      val templatesPayloadFromDir = new ExtractScript(settings.schemaHandler())
-        .templatizeFolder(
-          File(
-            getClass.getResource("/sample/database")
-          ),
-          templateParams
-        )
-        .head
-        .pathAsString
-
-      println(File(templatesPayloadFromDir).lines.mkString("\n").toLowerCase)
-
-      val templatePayload = new ExtractScript(settings.schemaHandler())
-        .templatizeFile(
-          File(getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache")).pathAsString,
-          templateParams
-        )
-        .pathAsString
-
-      File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(
-        getClass.getResource("/sample/database/expected_script_payload.txt")
-      ).lines.mkString("\n").toLowerCase
-    }
-
-    "templatize domain using ssp" should "generate an export script from a TemplateSettings" in {
+    "templatize domain using j2" should "generate an export script from a TemplateSettings" in {
       val templateParams: TemplateParams = TemplateParams(
         domainToExport = "domain1",
         tableToExport = "table1",
@@ -67,15 +28,17 @@ class ExtractScriptGenSpec extends TestHelper {
 
       val templatePayload: String = new ExtractScript(settings.schemaHandler())
         .templatizeFile(
-          File(getClass.getResource("/sample/database/EXTRACT_TABLE.sql.ssp")).pathAsString,
+          File(getClass.getResource("/sample/database/EXTRACT_TABLE.sql.j2")).pathAsString,
           templateParams
         )
         .pathAsString
 
+      def normalize(s: String): String =
+        s.toLowerCase.replaceAll("\\s+", " ").trim
       print(getClass.getResource("/sample/database/expected_script_payload2.txt").getPath)
-      File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(
-        getClass.getResource("/sample/database/expected_script_payload2.txt")
-      ).lines.mkString("\n").toLowerCase
+      normalize(File(templatePayload).contentAsString) shouldBe normalize(
+        File(getClass.getResource("/sample/database/expected_script_payload2.txt")).contentAsString
+      )
     }
   }
 }

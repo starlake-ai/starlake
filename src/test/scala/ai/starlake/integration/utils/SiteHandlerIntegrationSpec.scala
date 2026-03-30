@@ -7,16 +7,9 @@ import better.files.File
 
 class SiteHandlerIntegrationSpec extends IntegrationTestBase {
 
-  val starbakeDir = File(System.getProperty("user.home") + "/git/starbake")
   override val directoriesToClear = List("site")
 
-  // select quickstart or starbake here
   val projectDir = theSampleFolder
-  // val projectDir = starbakeDir
-
-  // select docusaurus folder
-  val docusaurusFolder =
-    File(System.getProperty("user.home") + "/tmp/docusaurus/my-website/docs")
 
   protected def clearDataDirectories(): Unit = {
     directoriesToClear.foreach { dir =>
@@ -32,20 +25,22 @@ class SiteHandlerIntegrationSpec extends IntegrationTestBase {
     if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {}
   }
 
-  "Generate Docusaurus site" should "succeed" in {
-    // select quickstart or starbake here
+  "Generate standalone site" should "succeed" in {
     withEnvs("SL_ROOT" -> projectDir.pathAsString) {
       clearDataDirectories()
       implicit val settings: Settings = Settings(Settings.referenceConfig, None, None, None, None)
       val schemaHandler = settings.schemaHandler()
-      val config = SiteConfig(
-        docusaurusFolder,
-        templateName = Some("docusaurus")
-      )
+      val outputDir = projectDir / "site"
+      val config = SiteConfig(outputDir)
 
       val siteHandler = new SiteHandler(config, schemaHandler)
       siteHandler.run() match {
-        case scala.util.Success(_) => logger.info("Site generated successfully")
+        case scala.util.Success(_) =>
+          logger.info("Standalone site generated successfully")
+          assert((outputDir / "index.html").exists)
+          assert((outputDir / "style.css").exists)
+          assert((outputDir / "flow.js").exists)
+          assert((outputDir / "load").exists || (outputDir / "transform").exists)
         case scala.util.Failure(e) =>
           e.printStackTrace()
           logger.error("Site generation failed", e)

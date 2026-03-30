@@ -24,7 +24,8 @@ object Dependencies {
 
   def scalaReflection(scalaVersion: String): Seq[ModuleID] =
     Seq(
-      "org.scala-lang" % "scala-reflect" % scalaVersion
+      "org.scala-lang" % "scala-reflect"  % scalaVersion,
+      "org.scala-lang" % "scala-compiler" % scalaVersion
     )
 
   // Exclusions
@@ -191,12 +192,7 @@ object Dependencies {
     "org.apache.poi" % "poi-ooxml" % Versions.poi
   )
 
-  val scalate = Seq(
-    "org.scalatra.scalate" %% "scalate-core" % Versions.scalate exclude (
-      "org.scala-lang.modules",
-      "scala-xml_2.12"
-    )
-  )
+  val scalate = Seq.empty
 
   val kafkaClients = Seq(
     "org.apache.kafka" % "kafka-clients" % Versions.kafkaClients excludeAll (jacksonExclusions: _*),

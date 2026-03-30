@@ -24,11 +24,10 @@ import ai.starlake.config.Settings
 import ai.starlake.extract.{ExtractExecutionContext, ExtractTableAttributes, JdbcDbUtils, ParUtils}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{DomainInfo, JDBCSchema, SchemaInfo}
-import ai.starlake.utils.Utils
+import ai.starlake.utils.{JinjaUtils, Utils}
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path as StoragePath
-import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 
 import scala.util.Try
 
@@ -42,9 +41,27 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
       .get(key.toLowerCase())
       .orElse(m.get(key.toUpperCase())) // you can add more orElse in chain
   }
-  val engine: TemplateEngine = new TemplateEngine
 
   def name: String = "InferDDL"
+
+  /** Pre-compute DDL string for an attribute map (handles recursive struct fields) */
+  private def attributeToDdl(attr: Map[String, Any]): String = {
+    val required = if (attr("required").toString.toBoolean) "NOT NULL" else ""
+    val attrName = attr("name")
+    val attrType = attr("type")
+    attr("nodeType") match {
+      case "leaf" => s"$attrName $attrType $required"
+      case "node" =>
+        val fields = attr("fields").asInstanceOf[List[Map[String, Any]]]
+        val ddlFields = fields.map(attributeToDdl).mkString(",")
+        s"$attrName $attrType<$ddlFields> $required"
+      case _ => s"$attrName $attrType $required"
+    }
+  }
+
+  /** Enrich attribute maps with pre-computed DDL strings */
+  private def withDdl(attrs: List[Map[String, Any]]): List[Map[String, Any]] =
+    attrs.map(a => a + ("ddl" -> attributeToDdl(a)))
 
   /** Just to force any job to implement its entry point using within the "run" method
     *
@@ -65,14 +82,13 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
       val sqlString = new StringBuffer()
       Try(DomainInfo.ddlExtract(config.datawarehouse, "global")) match {
         case scala.util.Success(_) =>
-          // global.ssp exists
-          val customParamMap = Map(
+          val customParamMap = Map[String, Any](
             "domains" -> domains
           )
           val result = applyTemplate("global", customParamMap)
           sqlString.append(result)
         case scala.util.Failure(_) =>
-        // no global.ssp file, do nothing
+        // no global template, do nothing
       }
 
       domains.map { domain =>
@@ -80,8 +96,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
 
         Try(DomainInfo.ddlExtract(config.datawarehouse, "domain")) match {
           case scala.util.Success(_) =>
-            // domain.ssp exists
-            val customParamMap = Map(
+            val customParamMap = Map[String, Any](
               "domain"        -> domain,
               "domainName"    -> domain.finalName,
               "domainComment" -> domain.comment.getOrElse(""),
@@ -90,7 +105,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             val result = applyTemplate("domain", customParamMap)
             sqlString.append(result)
           case scala.util.Failure(_) =>
-          // no domain.ssp file, do nothing
+          // no domain template, do nothing
         }
         val schemas: Seq[SchemaInfo] = config.schemas match {
           case Some(schemas) =>
@@ -136,8 +151,8 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             }
             .getOrElse(table)
 
-          val dropParamMap = Map(
-            "attributes"              -> List.empty[Map[String, Any]],
+          val dropParamMap = Map[String, Any](
+            "attributes"              -> Nil,
             "newAttributes"           -> Nil,
             "alterAttributes"         -> Nil,
             "alterCommentAttributes"  -> Nil,
@@ -145,7 +160,9 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             "alterRequiredAttributes" -> Nil,
             "droppedAttributes"       -> Nil,
             "domainName"              -> domain.finalName,
+            "domain"                  -> domain.finalName,
             "tableName"               -> schema,
+            "schema"                  -> schema,
             "partitions"              -> Nil,
             "clustered"               -> Nil,
             "primaryKeys"             -> Nil,
@@ -166,8 +183,9 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
 
           val isNew = existingTables.iget(schema.finalName).isEmpty
           if (isNew) {
-            val createParamMap = Map(
-              "attributes"              -> ddlFields.map(_.toMap()),
+            val rawAttrs = ddlFields.map(_.toMap())
+            val createParamMap = Map[String, Any](
+              "attributes"              -> withDdl(rawAttrs),
               "newAttributes"           -> Nil,
               "alterAttributes"         -> Nil,
               "alterCommentAttributes"  -> Nil,
@@ -175,8 +193,9 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
               "alterRequiredAttributes" -> Nil,
               "droppedAttributes"       -> Nil,
               "domainName"              -> domain.finalName,
+              "domain"                  -> domain.finalName,
               "tableName"               -> schema.finalName,
-              "domain"                  -> domain,
+              "schema"                  -> schema.finalName,
               "table"                   -> schema,
               "partitions" -> mergedMetadata
                 .getSink()
@@ -243,31 +262,43 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 )
               }
 
-            val alterParamMap = Map(
+            val alterParamMap = Map[String, Any](
               "attributes" -> Nil,
-              "newAttributes" -> addColumns.map(
-                _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
+              "newAttributes" -> withDdl(
+                addColumns.map(
+                  _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
+                )
               ),
-              "alterAttributes" -> alterColumns.map(
-                _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
+              "alterAttributes" -> withDdl(
+                alterColumns.map(
+                  _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
+                )
               ),
-              "alterCommentAttributes" -> alterDescriptionColumns.map(
-                _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
+              "alterCommentAttributes" -> withDdl(
+                alterDescriptionColumns.map(
+                  _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
+                )
               ),
-              "alterDataTypeAttributes" -> alterDataTypeColumns.map(
-                _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
+              "alterDataTypeAttributes" -> withDdl(
+                alterDataTypeColumns.map(
+                  _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
+                )
               ),
-              "alterRequiredAttributes" -> alterRequiredColumns.map(
-                _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
+              "alterRequiredAttributes" -> withDdl(
+                alterRequiredColumns.map(
+                  _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
+                )
               ),
-              "droppedAttributes" -> dropColumns.map(
-                _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
+              "droppedAttributes" -> withDdl(
+                dropColumns.map(
+                  _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
+                )
               ),
               "domainName"    -> domain.finalName,
+              "domain"        -> domain.finalName,
               "tableName"     -> schema.finalName,
-              "domain"        -> domain,
+              "schema"        -> schema.finalName,
               "table"         -> schema,
-              "tableName"     -> schema.finalName,
               "partitions"    -> Nil,
               "clustered"     -> Nil,
               "primaryKeys"   -> Nil,
@@ -302,18 +333,17 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
 
   private def applyTemplate(
     ddlType: String,
-    dropParamMap: Map[String, Any]
+    paramMap: Map[String, Any]
   ): String = {
-    val (templatePath, templateContent) =
+    val (_, templateContent) =
       DomainInfo.ddlExtract(
         config.datawarehouse,
         ddlType
       )
-    engine.layout(
-      TemplateSource.fromText(templatePath.toString, templateContent),
-      dropParamMap
-    )
+    val javaParams = JinjaUtils.ctx(paramMap.toSeq: _*)
+    JinjaUtils.renderJinja(templateContent, javaParams)
   }
+
   private def writeScript(sqlScript: String, output: String): Try[Unit] = {
     Try(settings.storageHandler().write(sqlScript, new StoragePath(output)))
   }

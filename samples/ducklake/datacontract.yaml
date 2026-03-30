@@ -1,0 +1,378 @@
+dataContractSpecification: 1.2.1
+id: tpch-data-contract
+info:
+  title: TPC-H Benchmark Data Contract
+  version: 1.0.0
+  description: |
+    Data contract for TPC-H benchmark tables.
+    TPC-H is a decision support benchmark consisting of a suite of business-oriented 
+    ad-hoc queries and concurrent data modifications.
+  owner: Data Platform Team
+  status: active
+  contact:
+    name: Data Platform Team
+    url: https://github.com/starlake-ai/starlake
+servers:
+  ducklake_local:
+    type: postgres
+    description: Local DuckLake instance using DuckDB
+    environment: local
+terms:
+  usage: |
+    Data can be used for analytics, reporting, and decision support queries.
+    Standard TPC-H benchmark queries (Q1-Q22) are supported.
+  limitations: |
+    This is benchmark data for testing and development purposes.
+models:
+  region:
+    description: Geographic regions for the TPC-H benchmark
+    type: table
+    fields:
+      r_regionkey:
+        type: integer
+        description: Unique identifier for the region
+        required: true
+        primaryKey: true
+        examples: ["4"]
+      r_name:
+        type: string
+        description: Name of the region
+        required: true
+        examples: ["MIDDLE EAST", "EUROPE", "ASIA", "AMERICA", "AFRICA"]
+      r_comment:
+        type: string
+        description: Additional comments about the region
+
+  nation:
+    description: Nations belonging to regions
+    type: table
+    fields:
+      n_nationkey:
+        type: integer
+        description: Unique identifier for the nation
+        required: true
+        primaryKey: true
+        examples: ["9"]
+      n_name:
+        type: string
+        description: Name of the nation
+        required: true
+        examples: ["VIETNAM", "FRANCE", "GERMANY"]
+      n_regionkey:
+        type: integer
+        description: Foreign key to region
+        required: true
+        references: region.r_regionkey
+        examples: ["4"]
+      n_comment:
+        type: string
+        description: Additional comments about the nation
+
+  customer:
+    description: Customer information partitioned by nation
+    type: table
+    fields:
+      c_custkey:
+        type: integer
+        description: Unique identifier for the customer
+        required: true
+        primaryKey: true
+        examples: ["99999"]
+      c_name:
+        type: string
+        description: Name of the customer
+        required: true
+        examples: ["Customer#000150000"]
+      c_address:
+        type: string
+        description: Customer address
+        examples: ["zzxGktzXTMKS1BxZlgQ9nqQ"]
+      c_nationkey:
+        type: integer
+        description: Foreign key to nation
+        required: true
+        references: nation.n_nationkey
+        examples: ["9"]
+      c_phone:
+        type: string
+        description: Customer phone number
+        examples: ["34-999-618-6881"]
+      c_acctbal:
+        type: double
+        description: Customer account balance
+        examples: ["9999.99"]
+      c_mktsegment:
+        type: string
+        description: Market segment
+        examples: ["MACHINERY", "BUILDING", "AUTOMOBILE", "HOUSEHOLD", "FURNITURE"]
+      c_comment:
+        type: string
+        description: Additional comments
+
+  supplier:
+    description: Supplier information partitioned by nation
+    type: table
+    fields:
+      s_suppkey:
+        type: integer
+        description: Unique identifier for the supplier
+        required: true
+        primaryKey: true
+        examples: ["9999"]
+      s_name:
+        type: string
+        description: Name of the supplier
+        required: true
+        examples: ["Supplier#000010000"]
+      s_address:
+        type: string
+        description: Supplier address
+        examples: ["zzfDhdtZcvmVzA8rNFU,Yctj1zBN"]
+      s_nationkey:
+        type: integer
+        description: Foreign key to nation
+        required: true
+        references: nation.n_nationkey
+        examples: ["9"]
+      s_phone:
+        type: string
+        description: Supplier phone number
+        examples: ["34-998-900-4911"]
+      s_acctbal:
+        type: double
+        description: Supplier account balance
+        examples: ["9999.72"]
+      s_comment:
+        type: string
+        description: Additional comments
+
+  part:
+    description: Part catalog partitioned by size
+    type: table
+    fields:
+      p_partkey:
+        type: integer
+        description: Unique identifier for the part
+        required: true
+        primaryKey: true
+        examples: ["99999"]
+      p_name:
+        type: string
+        description: Name of the part
+        required: true
+        examples: ["yellow white seashell lavender black"]
+      p_mfgr:
+        type: string
+        description: Manufacturer
+        examples: ["Manufacturer#5"]
+      p_brand:
+        type: string
+        description: Brand of the part
+        examples: ["Brand#55"]
+      p_type:
+        type: string
+        description: Type of part
+        examples: ["STANDARD POLISHED TIN"]
+      p_size:
+        type: integer
+        description: Size of the part
+        examples: ["9"]
+      p_container:
+        type: string
+        description: Container type
+        examples: ["WRAP PKG"]
+      p_retailprice:
+        type: double
+        description: Retail price
+        examples: ["999.09"]
+      p_comment:
+        type: string
+        description: Additional comments
+
+  partsupp:
+    description: Part-Supplier relationship (many-to-many) partitioned by part key
+    type: table
+    fields:
+      ps_partkey:
+        type: integer
+        description: Foreign key to part
+        required: true
+        references: part.p_partkey
+        examples: ["99999"]
+      ps_suppkey:
+        type: integer
+        description: Foreign key to supplier
+        required: true
+        references: supplier.s_suppkey
+        examples: ["9999"]
+      ps_availqty:
+        type: integer
+        description: Available quantity
+        examples: ["9999"]
+      ps_supplycost:
+        type: double
+        description: Supply cost
+        examples: ["999.99"]
+      ps_comment:
+        type: string
+        description: Additional comments
+    primaryKey: ["ps_partkey", "ps_suppkey"]
+
+  orders:
+    description: Customer orders partitioned by order date
+    type: table
+    fields:
+      o_orderkey:
+        type: integer
+        description: Unique identifier for the order
+        required: true
+        primaryKey: true
+        examples: ["999975"]
+      o_custkey:
+        type: integer
+        description: Foreign key to customer
+        required: true
+        references: customer.c_custkey
+        examples: ["99998"]
+      o_orderstatus:
+        type: string
+        description: Order status (O=Open, F=Fulfilled, P=Pending)
+        required: true
+        enum: ["O", "F", "P"]
+        examples: ["P"]
+      o_totalprice:
+        type: double
+        description: Total price of the order
+        examples: ["99999.89"]
+      o_orderdate:
+        type: date
+        description: Date when order was placed
+        required: true
+        examples: ["1998-08-02"]
+      o_orderpriority:
+        type: string
+        description: Order priority level
+        examples: ["5-LOW", "1-URGENT", "2-HIGH", "3-MEDIUM", "4-NOT SPECIFIED"]
+      o_clerk:
+        type: string
+        description: Clerk who processed the order
+        examples: ["Clerk#000001000"]
+      o_shippriority:
+        type: integer
+        description: Shipping priority
+        examples: ["0"]
+      o_comment:
+        type: string
+        description: Additional comments
+
+  lineitem:
+    description: Order line items (fact table) partitioned by ship date
+    type: table
+    fields:
+      l_orderkey:
+        type: integer
+        description: Foreign key to orders
+        required: true
+        references: orders.o_orderkey
+        examples: ["999975"]
+      l_partkey:
+        type: integer
+        description: Foreign key to part
+        required: true
+        references: part.p_partkey
+        examples: ["99999"]
+      l_suppkey:
+        type: integer
+        description: Foreign key to supplier
+        required: true
+        references: supplier.s_suppkey
+        examples: ["9999"]
+      l_linenumber:
+        type: integer
+        description: Line number within the order
+        required: true
+        examples: ["7"]
+      l_quantity:
+        type: double
+        description: Quantity ordered
+        examples: ["9.00"]
+      l_extendedprice:
+        type: double
+        description: Extended price (quantity * unit price)
+        examples: ["99999.50"]
+      l_discount:
+        type: double
+        description: Discount percentage
+        minimum: 0
+        maximum: 1
+        examples: ["0.10"]
+      l_tax:
+        type: double
+        description: Tax rate
+        minimum: 0
+        maximum: 1
+        examples: ["0.08"]
+      l_returnflag:
+        type: string
+        description: Return flag (R=Returned, A=Accepted, N=None)
+        enum: ["R", "A", "N"]
+        examples: ["R"]
+      l_linestatus:
+        type: string
+        description: Line status (O=Open, F=Fulfilled)
+        enum: ["O", "F"]
+        examples: ["O"]
+      l_shipdate:
+        type: date
+        description: Ship date
+        examples: ["1998-12-01"]
+      l_commitdate:
+        type: date
+        description: Commit date
+        examples: ["1998-10-31"]
+      l_receiptdate:
+        type: date
+        description: Receipt date
+        examples: ["1998-12-31"]
+      l_shipinstruct:
+        type: string
+        description: Shipping instructions
+        examples: ["TAKE BACK RETURN", "DELIVER IN PERSON", "NONE", "COLLECT COD"]
+      l_shipmode:
+        type: string
+        description: Shipping mode
+        examples: ["TRUCK", "RAIL", "SHIP", "AIR", "FOB", "MAIL", "REG AIR"]
+      l_comment:
+        type: string
+        description: Additional comments
+    primaryKey: ["l_orderkey", "l_linenumber"]
+
+definitions:
+  nationkey:
+    title: Nation Key
+    type: integer
+    description: Unique identifier for a nation in the TPC-H schema
+    examples: [0, 1, 2, 3, 4]
+  custkey:
+    title: Customer Key
+    type: integer
+    description: Unique identifier for a customer
+  suppkey:
+    title: Supplier Key
+    type: integer
+    description: Unique identifier for a supplier
+  partkey:
+    title: Part Key
+    type: integer
+    description: Unique identifier for a part
+  orderkey:
+    title: Order Key
+    type: integer
+    description: Unique identifier for an order
+
+tags:
+  - tpch
+  - benchmark
+  - analytics
+  - ducklake
+
