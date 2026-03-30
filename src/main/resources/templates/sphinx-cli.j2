@@ -1,0 +1,28 @@
+.. _cli_{{ programName }}:
+
+***************************************************************************************************
+{{ programName }}
+***************************************************************************************************
+
+
+Synopsis
+--------
+
+**{{ synopsis }}**
+
+
+Description
+-----------
+
+{{ description }}
+
+Options
+-------
+
+{% for option in options %}
+    .. option:: --{{ option.name }}: {{ option.value }}
+
+    *{{ option.required }}{{ option.unbounded }}*. {{ option.description }}
+
+
+{% endfor %}

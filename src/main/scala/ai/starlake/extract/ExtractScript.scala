@@ -3,22 +3,22 @@ package ai.starlake.extract
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.DomainInfo
+import ai.starlake.utils.JinjaUtils
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
-import org.fusesource.scalate._
 
 import scala.util.Try
 
 class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings) extends LazyLogging {
-  val engine: TemplateEngine = new TemplateEngine
 
   private def formatOutputScriptName(name: String, templateParams: TemplateParams): String = {
     val vars = schemaHandler.slDateVars ++ Map(
       "domain" -> templateParams.domainToExport,
       "table"  -> templateParams.tableToExport
     )
-    vars.foldLeft(name.substring(0, name.lastIndexOf("."))) { case (a, (cometVar, cometVal)) =>
+    val baseName = name.substring(0, name.lastIndexOf("."))
+    vars.foldLeft(baseName) { case (a, (cometVar, cometVal)) =>
       a.replace(cometVar, cometVal)
     }
   }
@@ -41,7 +41,7 @@ class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings) e
     val filesPath = if (templateFolder.isDirectory) {
       templateFolder.list
         .map(_.pathAsString)
-        .filter(name => name.endsWith(".ssp") || name.endsWith(".mustache"))
+        .filter(name => name.endsWith(".j2"))
     } else {
       throw new Exception(s"Invalid template folder ${templateFolder.pathAsString}")
     }
@@ -52,15 +52,13 @@ class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings) e
   }
 
   def templatizeFile(inputPath: String, templateParams: TemplateParams): File = {
-    val scriptPayload = engine.layout(
-      inputPath,
-      templateParams.paramMap
-    )
+    val templateContent = File(inputPath).contentAsString
+    val javaParams = JinjaUtils.ctx(templateParams.paramMap.toSeq: _*)
+    val scriptPayload = JinjaUtils.renderJinja(templateContent, javaParams)
     val outputPath = formatOutputScriptName(inputPath, templateParams)
     val outputFile = File(outputPath)
     val generatedOutputFile =
       File(StorageHandler.localFile(DatasetArea.build), "extract", outputFile.name)
-    // val generatedOutputFile = File(outputFile.parent, "generated", outputFile.name)
     generatedOutputFile.parent.createDirectoryIfNotExists()
     generatedOutputFile.createFileIfNotExists().overwrite(scriptPayload)
 
