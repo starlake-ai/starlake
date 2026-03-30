@@ -3,7 +3,6 @@ package ai.starlake.integration.utils
 import ai.starlake.config.Settings
 import ai.starlake.integration.IntegrationTestBase
 import ai.starlake.job.site.{SiteConfig, SiteHandler}
-import better.files.File
 
 class SiteHandlerIntegrationSpec extends IntegrationTestBase {
 
