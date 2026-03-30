@@ -181,8 +181,8 @@ trait TestHelper
 
   val allExtracts: List[FileToImport] = List(
     FileToImport(
-      "create.ssp",
-      "/sample/ddl/bigquery/create.ssp",
+      "create.j2",
+      "/sample/ddl/bigquery/create.j2",
       Some("ddl/bigquery")
     )
   )

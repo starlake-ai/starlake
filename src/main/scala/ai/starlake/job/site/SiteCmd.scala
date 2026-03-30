@@ -35,12 +35,12 @@ object SiteCmd extends Cmd[SiteConfig] {
       builder
         .opt[String]("template")
         .action((x, c) => c.copy(templateName = Some(x)))
-        .text("Template name or template path to use")
+        .text("Template name or path to custom templates (default: standalone)")
         .optional(),
       builder
         .opt[String]("format")
         .action((x, c) => c.copy(format = Some(x)))
-        .text("json / docusaurus MDX")
+        .text("json / html (default: html)")
         .optional(),
       builder
         .opt[Unit]("json")
@@ -57,9 +57,6 @@ object SiteCmd extends Cmd[SiteConfig] {
 
   def parse(args: Seq[String]): Option[SiteConfig] =
     OParser.parse(parser, args, SiteConfig(), setup)
-
-  val TABLE_TEMPLATE = "table"
-  val TASK_TEMPLATE = "task"
 
   override def run(config: SiteConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
