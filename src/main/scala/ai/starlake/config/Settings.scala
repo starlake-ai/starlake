@@ -1129,7 +1129,9 @@ object Settings extends LazyLogging {
               s"Invalid DuckDB database URL: $k:$dbName. It should match the connection name or be 'duckdb.db' for 'sl_duckdb'."
             )
             val pathAsString =
-              java.nio.file.Paths.get(DatasetArea.secureDuckdbPath(dbName.split('/').last)(settings).toUri).toString
+              java.nio.file.Paths
+                .get(DatasetArea.secureDuckdbPath(dbName.split('/').last)(settings).toUri)
+                .toString
             v.copy(options = v.options.updated("url", s"jdbc:duckdb:$pathAsString"))
           case _ =>
             v
