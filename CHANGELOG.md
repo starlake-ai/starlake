@@ -1,6 +1,14 @@
 
 # Release notes
 
+# 1.5.12:
+__Improvement__:
+- **Standalone site generation**: The `site` command now generates a self-contained responsive HTML website instead of Docusaurus MDX. Features sidebar navigation, tabbed views, and modern CSS.
+- **ReactFlow diagrams**: Relations, Lineage, and Access Control tabs render interactive diagrams using ReactFlow with dagre layout (ported from starlake-ui2), replacing static SVG images.
+- **SQL/Python syntax highlighting**: Code blocks in task pages display with syntax coloring (Material Oceanic palette) and line numbers.
+- **Jinjava template engine**: All templates migrated from SSP (Scalate) and Mustache to Jinja2 (.j2) via Jinjava. Scalate dependency removed.
+- **Setup installer**: Snapshot versions removed from the version selection menu in setup.sh/setup.ps1.
+
 # 1.5.11:
 - Code cleanup (unused imports)
 
