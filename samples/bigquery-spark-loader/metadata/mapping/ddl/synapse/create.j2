@@ -1,0 +1,6 @@
+CREATE TABLE {{ domain }}.{{ schema }} (
+{% for attribute in attributes %}
+    {{ attribute.ddl }}{% if not loop.last %},{% endif %}
+
+{% endfor %}
+);
