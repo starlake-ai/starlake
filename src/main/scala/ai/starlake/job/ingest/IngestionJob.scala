@@ -97,11 +97,15 @@ trait IngestionJob extends SparkJob {
     *   : Spark Dataset
     */
   protected def ingest(dataset: DataFrame): (Dataset[SimpleRejectedRecord], Dataset[Row]) = {
-    // Materialize the input dataset with localCheckpoint so the source file is read exactly once.
+    // Materialize the input dataset so the source file is read exactly once.
     // A lazy persist() is not enough: Spark's optimizer creates separate physical plans for
     // the rejected/accepted/count branches that bypass the cache and re-read from disk.
-    // localCheckpoint() forces a single read and truncates lineage, preventing any re-scan.
-    val cachedDataset = dataset.localCheckpoint()
+    // In local mode, localCheckpoint() truncates lineage to prevent re-scans.
+    // In cluster mode, we fall back to persist() since localCheckpoint data is not
+    // recoverable if an executor fails (truncated lineage means no recomputation).
+    val cachedDataset =
+      if (session.sparkContext.isLocal) dataset.localCheckpoint()
+      else dataset.persist(settings.appConfig.cacheStorageLevel)
     val validationResult = rowValidator.validate(
       session,
       mergedMetadata.resolveFormat(),
