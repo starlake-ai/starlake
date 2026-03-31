@@ -97,7 +97,11 @@ trait IngestionJob extends SparkJob {
     *   : Spark Dataset
     */
   protected def ingest(dataset: DataFrame): (Dataset[SimpleRejectedRecord], Dataset[Row]) = {
-    val cachedDataset = withMetadata.localCheckpoint()
+    // Materialize the input dataset with localCheckpoint so the source file is read exactly once.
+    // A lazy persist() is not enough: Spark's optimizer creates separate physical plans for
+    // the rejected/accepted/count branches that bypass the cache and re-read from disk.
+    // localCheckpoint() forces a single read and truncates lineage, preventing any re-scan.
+    val cachedDataset = dataset.localCheckpoint()
     val validationResult = rowValidator.validate(
       session,
       mergedMetadata.resolveFormat(),
@@ -915,7 +919,7 @@ trait IngestionJob extends SparkJob {
         nullable = if (attr.script.isDefined) true else !attr.resolveRequired()
       )
     }
-    schema.attributes
+    val scripts = schema.attributes
       .filter(_.script.isDefined)
       .map(attr =>
         (
@@ -925,7 +929,34 @@ trait IngestionJob extends SparkJob {
           buildColumnMetadata(attr)
         )
       )
-      .foldLeft(acceptedDF) { case (df, (name, sparkType, script, metadata)) =>
+    // If any script references _metadata, reconstruct it as a real column from
+    // sl_input_file_name and source file info. _metadata is a Spark virtual column
+    // that is lost after localCheckpoint or column projections.
+    val needsMetadata = scripts.exists { case (_, _, script, _) =>
+      script.exists(_.contains("_metadata"))
+    }
+    val dfWithMetadata =
+      if (needsMetadata && acceptedDF.columns.contains(CometColumns.cometInputFileNameColumn)) {
+        val inputFileCol = col(CometColumns.cometInputFileNameColumn)
+        acceptedDF.withColumn(
+          "_metadata",
+          struct(
+            element_at(split(inputFileCol, "/"), -1).as("file_name"),
+            inputFileCol.as("file_path"),
+            lit(path.headOption.map(p => storageHandler.stat(p).fileSizeInBytes).getOrElse(0L))
+              .as("file_size"),
+            lit(
+              path.headOption
+                .map(p => Timestamp.from(storageHandler.stat(p).modificationInstant))
+                .orNull
+            ).as("file_modification_time")
+          )
+        )
+      } else {
+        acceptedDF
+      }
+    scripts
+      .foldLeft(dfWithMetadata) { case (df, (name, sparkType, script, metadata)) =>
         df.withColumn(
           name,
           expr(script.richFormat(schemaHandler.activeEnvVars(), options))
