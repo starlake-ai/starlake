@@ -230,11 +230,10 @@ menu_select() {
 }
 
 select_starlake_version() {
-    ALL_SNAPSHOT_VERSIONS=$(get_content_from_url https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-core_${SCALA_VERSION}/maven-metadata.xml | awk -F'<|>' '/<version>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$' | sort -rV)
-    ALL_RELEASE_NEW_PATTERN_VERSIONS=$(get_content_from_url https://repo1.maven.org/maven2/ai/starlake/starlake-core_${SCALA_VERSION}/maven-metadata.xml | awk -F'<|>' '/<version>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
-    ALL_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_NEW_PATTERN_VERSIONS")
+    ALL_RELEASE_VERSIONS=$(get_content_from_url https://repo1.maven.org/maven2/ai/starlake/starlake-core_${SCALA_VERSION}/maven-metadata.xml | awk -F'<|>' '/<version>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
 
-    SNAPSHOT_VERSION=$(echo "$ALL_SNAPSHOT_VERSIONS" | head -n 1)
+    LATEST_RELEASE=$(echo "$ALL_RELEASE_VERSIONS" | head -n 1)
+    SNAPSHOT_VERSION=$(echo "$LATEST_RELEASE" | awk -F. '{printf "%s.%s.%s-SNAPSHOT", $1, $2, $3+1}')
     LATEST_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_VERSIONS" | head -n 5)
 
     VERSIONS=("$SNAPSHOT_VERSION" $LATEST_RELEASE_VERSIONS)

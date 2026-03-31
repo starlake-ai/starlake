@@ -240,17 +240,14 @@ goto :eof
     echo Fetching available versions...
 
     set "temp_meta=%TEMP%\sl_metadata_%RANDOM%.xml"
-    call :get_binary_from_url "https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-core_%SCALA_VERSION%/maven-metadata.xml" "%temp_meta%"
-    if exist "%temp_meta%" (
-         for /f "usebackq tokens=*" %%v in (`powershell -Command "[xml]$xml = Get-Content '%temp_meta%'; $xml.metadata.versioning.versions.version | Where-Object { $_ -match 'SNAPSHOT' } | Sort-Object -Descending | Select-Object -First 1"`) do set "SNAPSHOT_VERSION=%%v"
-         del "%temp_meta%"
-    )
-
-    set "temp_meta=%TEMP%\sl_metadata_%RANDOM%.xml"
     call :get_binary_from_url "https://repo1.maven.org/maven2/ai/starlake/starlake-core_%SCALA_VERSION%/maven-metadata.xml" "%temp_meta%"
     if exist "%temp_meta%" (
-         for /f "usebackq tokens=*" %%v in (`powershell -Command "[xml]$xml = Get-Content '%temp_meta%'; $xml.metadata.versioning.versions.version | Where-Object { $_ -match '^\d+\.\d+\.\d+$' } | Sort-Object -Descending | Select-Object -First 5"`) do (
-             set "LATEST_RELEASE_VERSIONS=!LATEST_RELEASE_VERSIONS! %%v"
+         for /f "usebackq tokens=*" %%v in (`powershell -Command "[xml]$xml = Get-Content '%temp_meta%'; $versions = $xml.metadata.versioning.versions.version | Where-Object { $_ -match '^\d+\.\d+\.\d+$' } | Sort-Object { [version]$_ } -Descending; $latest = $versions[0]; $parts = $latest.Split('.'); $snapshot = $parts[0] + '.' + $parts[1] + '.' + ([int]$parts[2] + 1) + '-SNAPSHOT'; Write-Output $snapshot; $versions | Select-Object -First 5"`) do (
+             if not defined SNAPSHOT_VERSION (
+                 set "SNAPSHOT_VERSION=%%v"
+             ) else (
+                 set "LATEST_RELEASE_VERSIONS=!LATEST_RELEASE_VERSIONS! %%v"
+             )
          )
          del "%temp_meta%"
     )
