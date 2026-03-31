@@ -104,6 +104,7 @@ trait IngestionJob extends SparkJob {
     // If an executor fails, the truncated lineage means data cannot be recomputed in memory,
     // but the ingestion job will fail and can be safely retried since the source file persists.
     val cachedDataset = dataset.localCheckpoint()
+    logger.info("Locally checkpointed")
     val validationResult = rowValidator.validate(
       session,
       mergedMetadata.resolveFormat(),
