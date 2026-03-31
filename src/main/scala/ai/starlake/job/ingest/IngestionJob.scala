@@ -97,34 +97,6 @@ trait IngestionJob extends SparkJob {
     *   : Spark Dataset
     */
   protected def ingest(dataset: DataFrame): (Dataset[SimpleRejectedRecord], Dataset[Row]) = {
-    // Materialize the input dataset with localCheckpoint so the source file is read exactly once.
-    // A lazy persist() is not enough: Spark's optimizer creates separate physical plans for
-    // the rejected/accepted/count branches that bypass the cache and re-read from disk.
-    // localCheckpoint() forces a single read and truncates lineage, preventing any re-scan.
-    // Before checkpointing, we reconstruct Spark's _metadata struct as a real column so that
-    // user scripts referencing _metadata.file_name, file_path, etc. still work after lineage
-    // is truncated. We derive the values from sl_input_file_name (already materialized by
-    // loadDataSet) and the source file info available at the driver.
-    val withMetadata =
-      if (dataset.columns.contains(CometColumns.cometInputFileNameColumn)) {
-        val inputFileCol = col(CometColumns.cometInputFileNameColumn)
-        dataset.withColumn(
-          "_metadata",
-          struct(
-            element_at(split(inputFileCol, "/"), -1).as("file_name"),
-            inputFileCol.as("file_path"),
-            lit(path.headOption.map(p => storageHandler.stat(p).fileSizeInBytes).getOrElse(0L))
-              .as("file_size"),
-            lit(
-              path.headOption
-                .map(p => Timestamp.from(storageHandler.stat(p).modificationInstant))
-                .orNull
-            ).as("file_modification_time")
-          )
-        )
-      } else {
-        dataset
-      }
     val cachedDataset = withMetadata.localCheckpoint()
     val validationResult = rowValidator.validate(
       session,
