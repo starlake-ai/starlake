@@ -1,6 +1,17 @@
 
 # Release notes
 
+# 1.5.13:
+__Improvement__:
+- **IngestionJob refactoring**: Decomposed the monolithic IngestionJob trait into focused single-responsibility traits: IngestionAudit (audit logging), IngestionExpectations (expectations and metrics), IngestionAcl (Hive/JDBC ACL management), SparkIngestionPipeline (Spark DataFrame pipeline methods).
+- **IngestionCounters.aggregate**: Extracted counter aggregation logic into a companion object method for reuse.
+- **Ingestion performance**: Use localCheckpoint to ensure source files are read only once during ingestion, truncating lineage for better performance.
+- **Data-driven isNativeCandidate**: Replaced repetitive match arms with Map lookup.
+- **Code cleanup**: Removed unused imports in Settings.scala.
+
+__Bug fix__:
+- **Upgrade command**: Derive snapshot version from Maven Central latest release instead of querying stale Sonatype snapshots repository, matching setup.sh logic (starlake.sh and starlake.cmd).
+
 # 1.5.12:
 __Improvement__:
 - **Standalone site generation**: The `site` command now generates a self-contained responsive HTML website instead of Docusaurus MDX. Features sidebar navigation, tabbed views, and modern CSS.
