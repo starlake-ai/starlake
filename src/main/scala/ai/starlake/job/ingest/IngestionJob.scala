@@ -101,20 +101,30 @@ trait IngestionJob extends SparkJob {
     // A lazy persist() is not enough: Spark's optimizer creates separate physical plans for
     // the rejected/accepted/count branches that bypass the cache and re-read from disk.
     // localCheckpoint() forces a single read and truncates lineage, preventing any re-scan.
-    // Before checkpointing, we materialize Spark's virtual _metadata struct into a real column
-    // so that user scripts referencing _metadata.file_name, file_path, etc. still work.
+    // Before checkpointing, we reconstruct Spark's _metadata struct as a real column so that
+    // user scripts referencing _metadata.file_name, file_path, etc. still work after lineage
+    // is truncated. We derive the values from sl_input_file_name (already materialized by
+    // loadDataSet) and the source file info available at the driver.
     val withMetadata =
-      Try(
+      if (dataset.columns.contains(CometColumns.cometInputFileNameColumn)) {
+        val inputFileCol = col(CometColumns.cometInputFileNameColumn)
         dataset.withColumn(
           "_metadata",
           struct(
-            col("_metadata.file_name").as("file_name"),
-            col("_metadata.file_path").as("file_path"),
-            col("_metadata.file_size").as("file_size"),
-            col("_metadata.file_modification_time").as("file_modification_time")
+            element_at(split(inputFileCol, "/"), -1).as("file_name"),
+            inputFileCol.as("file_path"),
+            lit(path.headOption.map(p => storageHandler.stat(p).fileSizeInBytes).getOrElse(0L))
+              .as("file_size"),
+            lit(
+              path.headOption
+                .map(p => Timestamp.from(storageHandler.stat(p).modificationInstant))
+                .orNull
+            ).as("file_modification_time")
           )
         )
-      ).getOrElse(dataset)
+      } else {
+        dataset
+      }
     val cachedDataset = withMetadata.localCheckpoint()
     val validationResult = rowValidator.validate(
       session,
