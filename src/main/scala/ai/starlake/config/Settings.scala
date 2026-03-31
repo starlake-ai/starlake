@@ -26,7 +26,6 @@ import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.validator.GenericRowValidator
 import ai.starlake.schema.handlers.*
 import ai.starlake.schema.model.*
-import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.serve.CaffeineSettingsManager
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
@@ -43,7 +42,6 @@ import org.apache.hadoop.fs.Path
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.jdbc.JdbcDialect
 import org.apache.spark.storage.StorageLevel
 import pureconfig.*
 import pureconfig.ConvertHelpers.*
@@ -52,10 +50,8 @@ import pureconfig.generic.auto.*
 
 import java.io.ObjectStreamException
 import java.net.URI
-import java.nio.charset.{Charset, StandardCharsets}
 import java.sql.DriverManager
 import java.util.{Locale, Properties, TimeZone, UUID}
-import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
