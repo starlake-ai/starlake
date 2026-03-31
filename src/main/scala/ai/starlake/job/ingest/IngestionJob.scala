@@ -933,7 +933,7 @@ trait IngestionJob extends SparkJob {
     // sl_input_file_name and source file info. _metadata is a Spark virtual column
     // that is lost after localCheckpoint or column projections.
     val needsMetadata = scripts.exists { case (_, _, script, _) =>
-      script.exists(_.contains("_metadata"))
+      script.contains("_metadata")
     }
     val dfWithMetadata =
       if (needsMetadata && acceptedDF.columns.contains(CometColumns.cometInputFileNameColumn)) {
