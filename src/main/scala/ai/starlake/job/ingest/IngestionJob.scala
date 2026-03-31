@@ -97,14 +97,13 @@ trait IngestionJob extends SparkJob {
     *   : Spark Dataset
     */
   protected def ingest(dataset: DataFrame): (Dataset[SimpleRejectedRecord], Dataset[Row]) = {
-    // Eagerly persist the input dataset so that the source file is read exactly once.
-    // A lazy persist() alone is not enough: Spark's optimizer can create physical plans for the
-    // rejected/accepted/count branches that bypass the cache and re-read from disk.
-    // We force materialization here so the cache is populated before any downstream action.
+    // Persist and materialize the input dataset so that the source file is read exactly once.
+    // Without eager materialization, Spark's optimizer can create separate physical plans
+    // for the rejected/accepted/count branches that bypass the cache and re-read from disk.
     // Note: localCheckpoint() would also prevent re-reads but it truncates lineage,
     // which breaks access to Spark's _metadata virtual column used by scripted attributes.
     val cachedDataset = dataset.persist(settings.appConfig.cacheStorageLevel)
-    cachedDataset.foreachPartition(_ => ())
+    cachedDataset.count()
     val validationResult = rowValidator.validate(
       session,
       mergedMetadata.resolveFormat(),
