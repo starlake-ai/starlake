@@ -36,6 +36,26 @@ case class IngestionCounters(
   }
 }
 
+object IngestionCounters {
+  def aggregate(
+    counters: List[IngestionCounters],
+    applicationId: String
+  ): Option[IngestionCounters] =
+    counters match {
+      case Nil => None
+      case _ =>
+        Some(counters.reduce { (a, b) =>
+          IngestionCounters(
+            inputCount = a.inputCount + b.inputCount,
+            acceptedCount = a.acceptedCount + b.acceptedCount,
+            rejectedCount = a.rejectedCount + b.rejectedCount,
+            paths = a.paths ++ b.paths,
+            jobid = applicationId + "," + b.jobid
+          )
+        })
+    }
+}
+
 trait JobResult {
   def sqlSchema(): List[(String, String)] = ???
   def asList(): List[List[(String, Any)]] = Nil
