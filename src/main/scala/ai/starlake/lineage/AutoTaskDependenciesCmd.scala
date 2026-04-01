@@ -17,6 +17,17 @@ object AutoTaskDependenciesCmd extends Cmd[AutoTaskDependenciesConfig] {
 
   val command = "lineage"
 
+  override def pageDescription: String =
+    "Generate task dependency graphs as DOT, SVG, PNG or JSON to visualize data lineage across your Starlake project."
+  override def pageKeywords: Seq[String] =
+    Seq(
+      "starlake lineage",
+      "data lineage",
+      "dependency graph",
+      "task dependencies",
+      "DAG visualization"
+    )
+
   val parser: OParser[Unit, AutoTaskDependenciesConfig] = {
     val builder = OParser.builder[AutoTaskDependenciesConfig]
     import builder._

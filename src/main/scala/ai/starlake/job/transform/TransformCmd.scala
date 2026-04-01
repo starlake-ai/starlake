@@ -16,6 +16,11 @@ trait TransformCmd extends Cmd[TransformConfig] {
 
   def command = "transform"
 
+  override def pageDescription: String =
+    "Execute SQL-based transformation tasks with dry-run, recursive dependency resolution, and interactive output formats."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake transform", "SQL transformation", "data pipeline", "ELT", "BigQuery")
+
   val parser: OParser[Unit, TransformConfig] = {
     val builder = OParser.builder[TransformConfig]
     OParser.sequence(

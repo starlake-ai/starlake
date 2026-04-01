@@ -16,6 +16,11 @@ object BootstrapCmd extends Cmd[BootstrapConfig] {
 
   override def command: String = "bootstrap"
 
+  override def pageDescription: String =
+    "Create a new Starlake project from scratch or from a template such as quickstart or userguide with a single command."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake bootstrap", "project setup", "quickstart", "project template")
+
   val parser: OParser[Unit, BootstrapConfig] = {
     val builder = OParser.builder[BootstrapConfig]
     OParser.sequence(

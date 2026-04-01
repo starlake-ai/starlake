@@ -13,6 +13,12 @@ import scala.util.Try
   */
 object ExtractBigQuerySchemaCmd extends TablesExtractCmd {
   override def command: String = "extract-bq-schema"
+
+  override def pageDescription: String =
+    "Extract BigQuery table schemas and dataset metadata with options to filter tables, set connections, and persist results."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake extract-bq-schema", "BigQuery schema", "schema extraction", "metadata")
+
   def fromExtractSchemaConfig(
     config: ExtractSchemaConfig,
     jdbcSchema: JDBCSchema

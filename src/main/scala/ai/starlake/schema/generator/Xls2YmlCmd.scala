@@ -20,6 +20,17 @@ trait Xls2YmlCmd extends Cmd[Xls2YmlConfig] with LazyLogging {
 
   def command = "xls2yml"
 
+  override def pageDescription: String =
+    "Convert Excel files describing domains, schemas and attributes into Starlake YAML configuration files."
+  override def pageKeywords: Seq[String] =
+    Seq(
+      "starlake xls2yml",
+      "Excel to YAML",
+      "schema generation",
+      "data modeling",
+      "domain definition"
+    )
+
   val parser: OParser[Unit, Xls2YmlConfig] = {
     val builder = OParser.builder[Xls2YmlConfig]
     OParser.sequence(

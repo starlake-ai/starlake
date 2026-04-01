@@ -8,6 +8,12 @@ import org.apache.hadoop.fs.Path
 import scala.util.Try
 
 object Yml2XlsIamPolicyTagsCmd extends Yml2XlsCmd {
+
+  override def pageDescription: String =
+    "Export IAM policy tags from YAML definitions to Excel spreadsheets."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake yml2xls-iam-policy-tags", "IAM policy tags", "Excel export", "access control")
+
   override def run(config: Yml2XlsConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = Try {

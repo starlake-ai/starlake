@@ -16,6 +16,11 @@ import scala.util.{Success, Try}
 object ProjectCompareCmd extends Cmd[ProjectCompareConfig] {
   val command = "compare"
 
+  override def pageDescription: String =
+    "Compare two versions of a Starlake project using file paths, git commits, or tags and generate a diff report with templates."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake compare", "project comparison", "diff report", "version comparison")
+
   val parser: OParser[Unit, ProjectCompareConfig] = {
     val builder = OParser.builder[ProjectCompareConfig]
     OParser.sequence(

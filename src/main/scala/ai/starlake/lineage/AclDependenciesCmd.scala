@@ -17,6 +17,17 @@ object AclDependenciesCmd extends Cmd[AclDependenciesConfig] {
 
   val command = "acl-dependencies"
 
+  override def pageDescription: String =
+    "Generate GraphViz dot, SVG, PNG or JSON files visualizing ACL dependencies from Domain and Schema YAML definitions."
+  override def pageKeywords: Seq[String] =
+    Seq(
+      "starlake acl-dependencies",
+      "ACL dependencies",
+      "GraphViz",
+      "access control",
+      "data governance"
+    )
+
   val parser: OParser[Unit, AclDependenciesConfig] = {
     val builder = OParser.builder[AclDependenciesConfig]
     OParser.sequence(

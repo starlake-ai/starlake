@@ -15,6 +15,11 @@ object BigQueryTableInfoCmd extends TablesExtractCmd {
 
   override def command: String = "bq-info"
 
+  override def pageDescription: String =
+    "Retrieve metadata and information about BigQuery tables and datasets, with options to persist results or filter by table."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake bq-info", "BigQuery", "table metadata", "dataset info")
+
   override def run(config: TablesExtractConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {

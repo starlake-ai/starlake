@@ -20,6 +20,11 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] with LazyLogging {
 
   val command = "infer-schema"
 
+  override def pageDescription: String =
+    "Automatically infer and generate YAML schema definitions from input datasets in CSV, JSON, XML, or Parquet format."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake infer-schema", "schema inference", "YAML generation", "data discovery")
+
   val parser: OParser[Unit, InferSchemaConfig] = {
     val builder = OParser.builder[InferSchemaConfig]
     OParser.sequence(
