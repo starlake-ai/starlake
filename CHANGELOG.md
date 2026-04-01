@@ -9,6 +9,7 @@ __Improvement__:
 - **Data-driven isNativeCandidate**: Replaced repetitive match arms with Map lookup.
 - **Code cleanup**: Removed unused imports in Settings.scala.
 - **In-place ingestion**: New `--inPlace` flag on the `load` command to ingest files directly from their current location without moving or deleting them.
+- **Bidirectional Kafka-BigQuery**: The `kafkaload` command now supports BigQuery as both a source and sink format. Use `--write-format bigquery` to offload Kafka topics to BigQuery tables (batch and streaming), or `--format bigquery` to load BigQuery tables/queries into Kafka topics. Streaming writes use `foreachBatch` for Spark 3.5+ compatibility.
 
 __Bug fix__:
 - **Upgrade command**: Derive snapshot version from Maven Central latest release instead of querying stale Sonatype snapshots repository, matching setup.sh logic (starlake.sh and starlake.cmd).

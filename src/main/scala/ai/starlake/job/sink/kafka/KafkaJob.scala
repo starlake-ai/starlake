@@ -100,8 +100,38 @@ class KafkaJob(
       .toMap
   }
 
+  private def validateBigQueryConfig(): Unit = {
+    if (kafkaJobConfig.writeFormat == "bigquery") {
+      require(
+        writeOptions.contains("table"),
+        "BigQuery sink requires 'table' in write-options (e.g., project:dataset.table)"
+      )
+      require(
+        writeOptions.contains("temporaryGcsBucket"),
+        "BigQuery sink requires 'temporaryGcsBucket' in write-options"
+      )
+    }
+    if (kafkaJobConfig.format == "bigquery") {
+      require(
+        kafkaJobConfig.path.isDefined || options.contains("query"),
+        "BigQuery source requires either --path (table reference) or --options query=... (SQL query)"
+      )
+      require(
+        !kafkaJobConfig.streaming,
+        "BigQuery cannot be used as a streaming source. Use batch mode."
+      )
+      if (options.contains("query")) {
+        require(
+          options.contains("temporaryGcsBucket"),
+          "BigQuery query source requires 'temporaryGcsBucket' in options for query materialization"
+        )
+      }
+    }
+  }
+
   def pipeline(): Try[SparkJobResult] = {
     Try {
+      validateBigQueryConfig()
       topicConfig match {
         case Some(topicConfig) =>
           if (kafkaJobConfig.streaming) {
@@ -140,15 +170,31 @@ class KafkaJob(
             writeStreaming(transformedDF)
             SparkJobResult(None, None)
           } else {
-            assert(kafkaJobConfig.path.isDefined, "Load path is required")
-            val df = session.read
-              .format(kafkaJobConfig.format)
-              .load(
-                finalLoadPath
-                  .getOrElse(throw new Exception("Load path should be set in config"))
-                  .split(',')
-                  .toIndexedSeq: _*
-              )
+            val df = if (kafkaJobConfig.format == "bigquery" && options.contains("query")) {
+              session.read
+                .format("bigquery")
+                .options(options)
+                .load()
+            } else {
+              assert(kafkaJobConfig.path.isDefined, "Load path is required")
+              // Pass options to all formats for consistency with the streaming path (line 168)
+              val reader = session.read
+                .format(kafkaJobConfig.format)
+                .options(options)
+              if (kafkaJobConfig.format == "bigquery") {
+                reader.load(
+                  finalLoadPath
+                    .getOrElse(throw new Exception("Load path should be set in config"))
+                )
+              } else {
+                reader.load(
+                  finalLoadPath
+                    .getOrElse(throw new Exception("Load path should be set in config"))
+                    .split(',')
+                    .toIndexedSeq: _*
+                )
+              }
+            }
             val transformedDF: DataFrame = transform(df)
             (kafkaJobConfig.writeFormat, writeTopicConfig) match {
               case ("kafka", Some(writeTopicConfig)) =>
@@ -195,26 +241,28 @@ class KafkaJob(
 
     logger.info(s"Kafka saved messages to offload -> ${finalWritePath}")
 
-    (kafkaJobConfig.coalesce, finalWritePath) match {
-      case (Some(1), Some(path)) =>
-        val targetPath = new Path(path)
-        val singleFile = settings
-          .storageHandler()
-          .list(
-            targetPath,
-            recursive = false
-          )
-          .map(_.path)
-          .filter(_.getName.startsWith("part-"))
-          .head
-        val tmpPath = new Path(targetPath.toString + ".tmp")
-        if (settings.storageHandler().move(singleFile, tmpPath)) {
-          settings.storageHandler().delete(targetPath)
-          settings.storageHandler().move(tmpPath, targetPath)
-        }
-      case (None, _) =>
-      case (_, _) =>
-        throw new Exception("Only coalesce(1) supported. Anything else is ignored")
+    if (kafkaJobConfig.writeFormat != "bigquery") {
+      (kafkaJobConfig.coalesce, finalWritePath) match {
+        case (Some(1), Some(path)) =>
+          val targetPath = new Path(path)
+          val singleFile = settings
+            .storageHandler()
+            .list(
+              targetPath,
+              recursive = false
+            )
+            .map(_.path)
+            .filter(_.getName.startsWith("part-"))
+            .head
+          val tmpPath = new Path(targetPath.toString + ".tmp")
+          if (settings.storageHandler().move(singleFile, tmpPath)) {
+            settings.storageHandler().delete(targetPath)
+            settings.storageHandler().move(tmpPath, targetPath)
+          }
+        case (None, _) =>
+        case (_, _) =>
+          throw new Exception("Only coalesce(1) supported. Anything else is ignored")
+      }
     }
     df
   }
@@ -225,6 +273,55 @@ class KafkaJob(
   }
 
   private def writeStreaming(df: DataFrame) = {
+
+    // BigQuery streaming uses foreachBatch to route through the batch write API,
+    // avoiding the BigQueryStreamingSink which is incompatible with Spark 3.5+
+    // (NoSuchMethodError on RowEncoder.apply)
+    if (kafkaJobConfig.writeFormat == "bigquery") {
+      writeStreamingViaBatchSink(df)
+    } else {
+      writeStreamingDirect(df)
+    }
+  }
+
+  private def writeStreamingViaBatchSink(df: DataFrame) = {
+    val trigger = resolveStreamingTrigger()
+
+    val writer = df.writeStream
+      .foreachBatch { (batchDF: DataFrame, _: Long) =>
+        batchDF.write
+          .mode(kafkaJobConfig.writeMode)
+          .format("bigquery")
+          .options(writeOptions)
+          .save()
+      }
+
+    val triggerWriter = trigger match {
+      case Some(t) => writer.trigger(t)
+      case None    => writer
+    }
+
+    val finalWriter = kafkaJobConfig.streamingWritePartitionBy match {
+      case Nil  => triggerWriter
+      case list => triggerWriter.partitionBy(list: _*)
+    }
+
+    val checkpointLocation = writeOptions.getOrElse(
+      "checkpointLocation",
+      finalWritePath.getOrElse(
+        throw new Exception(
+          "BigQuery streaming requires 'checkpointLocation' in write-options or --write-path"
+        )
+      )
+    )
+
+    finalWriter
+      .option("checkpointLocation", checkpointLocation)
+      .start()
+      .awaitTermination()
+  }
+
+  private def writeStreamingDirect(df: DataFrame) = {
 
     val writer = {
       (kafkaJobConfig.writeFormat, writeTopicConfig) match {
@@ -248,12 +345,7 @@ class KafkaJob(
       }
     }
 
-    val trigger = kafkaJobConfig.streamingTrigger.map(_.toLowerCase).map {
-      case "once"           => Trigger.AvailableNow()
-      case "processingtime" => Trigger.ProcessingTime(kafkaJobConfig.streamingTriggerOption)
-      case "continuous"     => Trigger.Continuous(kafkaJobConfig.streamingTriggerOption)
-      case "availablenow"   => Trigger.AvailableNow()
-    }
+    val trigger = resolveStreamingTrigger()
 
     val triggerWriter = trigger match {
       case Some(trigger) => writer.trigger(trigger)
@@ -279,6 +371,15 @@ class KafkaJob(
 
     streamingQuery
       .awaitTermination()
+  }
+
+  private def resolveStreamingTrigger(): Option[Trigger] = {
+    kafkaJobConfig.streamingTrigger.map(_.toLowerCase).map {
+      case "once"           => Trigger.AvailableNow()
+      case "processingtime" => Trigger.ProcessingTime(kafkaJobConfig.streamingTriggerOption)
+      case "continuous"     => Trigger.Continuous(kafkaJobConfig.streamingTriggerOption)
+      case "availablenow"   => Trigger.AvailableNow()
+    }
   }
 
   private val transformInstance: Option[DataFrameTransform] = {
