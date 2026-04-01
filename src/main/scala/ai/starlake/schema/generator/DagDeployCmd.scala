@@ -25,7 +25,9 @@ object DagDeployCmd extends Cmd[DagDeployConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Deploy generated DAG files and their library dependencies to the orchestrator's DAG directory. Run this after `dag-generate` to publish workflow definitions to Airflow or another scheduler. See [Orchestration Guide](/guides/orchestrate/tutorial)."""
+      ),
       builder
         .opt[String]("inputDir")
         .action((x, c) => c.copy(inputDir = Some(x)))

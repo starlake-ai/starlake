@@ -25,7 +25,9 @@ object ConsoleCmd extends Cmd[ConsoleConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Start an interactive Starlake console for exploring metadata and running commands from a local web-based interface. Use this to browse domains, tables, and task definitions in your project."""
+      ),
       builder
         .opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")

@@ -27,7 +27,9 @@ trait SummarizeCmd extends Cmd[SummarizeConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Display a summary of table schemas including column names, types, and descriptions."""
+      ),
       builder
         .opt[String]("domain")
         .action((x, c) => c.copy(domain = x))

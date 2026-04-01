@@ -29,7 +29,9 @@ object IamPoliciesCmd extends Cmd[IamPoliciesConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Apply IAM (Identity and Access Management) policies defined in Starlake YAML configuration to the target warehouse."""
+      ),
       builder
         .opt[String]("accessToken")
         .action((x, c) => c.copy(accessToken = Some(x)))

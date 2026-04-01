@@ -30,7 +30,9 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] with LazyLogging {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Infer a Starlake table schema from a sample data file (CSV, JSON, etc.) and generate the corresponding YAML configuration. See [Load Tutorial](/guides/load/tutorial)."""
+      ),
       builder
         .opt[String]("domain")
         .action((x, c) => c.copy(domainName = x))

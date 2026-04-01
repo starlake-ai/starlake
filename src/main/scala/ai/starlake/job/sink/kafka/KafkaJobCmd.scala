@@ -34,6 +34,8 @@ object KafkaJobCmd extends Cmd[KafkaJobConfig] {
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
       builder.note("""
+             |Load data to or offload data from Apache Kafka topics. Supports both producing and consuming messages.
+             |
              |Two modes are available : The batch mode and the streaming mode.
              |
              |### Batch mode

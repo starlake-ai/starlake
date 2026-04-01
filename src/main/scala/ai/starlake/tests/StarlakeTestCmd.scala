@@ -26,7 +26,9 @@ trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Run unit tests for load and transform tasks using sample data and expected results. See [Unit Tests Guide](/guides/unit-tests/concepts)."""
+      ),
       builder
         .opt[Unit]("load")
         .action((_, c) => c.copy(load = true))

@@ -27,6 +27,8 @@ object ExtractScriptCmd extends Cmd[ExtractScriptConfig] {
       builder.head("starlake", command, "[options]"),
       builder.note(
         """
+          |Generate extraction shell scripts from a Mustache template for batch database extraction workflows. Use this to produce tool-specific export scripts (e.g., sqlplus for Oracle, pgsql for PostgreSQL) based on your domain schema definitions.
+          |
           |For domain extraction, the schemas should at least, specify :
           |- a table name (schemas.name)
           |- a file pattern (schemas.pattern) which is used as the export file base name

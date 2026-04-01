@@ -111,6 +111,8 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
       builder.note("""
+             |Load Parquet, CSV, or JSON files directly into a JDBC-connected database table. Supports APPEND and OVERWRITE write strategies with configurable connection options.
+             |
              |Load parquet file into JDBC Table.
              |""".stripMargin),
       builder

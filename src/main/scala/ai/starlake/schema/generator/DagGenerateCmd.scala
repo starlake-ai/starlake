@@ -25,7 +25,9 @@ object DagGenerateCmd extends Cmd[DagGenerateConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Generate Airflow or Dagster DAG files from Starlake task and domain definitions. The command analyzes SQL dependencies to produce correctly ordered workflow graphs, with optional tag filtering. See [Orchestration Guide](/guides/orchestrate/tutorial)."""
+      ),
       builder
         .opt[String]("outputDir")
         .action((x, c) => c.copy(outputDir = Some(x)))

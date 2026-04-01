@@ -30,6 +30,8 @@ object Parquet2CSVCmd extends Cmd[Parquet2CSVConfig] {
       builder.head("starlake", command, "[options]"),
       builder.note(
         """
+          |Convert Parquet files to CSV format for inspection or downstream processing.
+          |
           |Convert parquet files to CSV.
           |The folder hierarchy should be in the form /input_folder/domain/schema/part*.parquet
           |Once converted the csv files are put in the folder /output_folder/domain/schema.csv file

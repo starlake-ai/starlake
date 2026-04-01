@@ -104,7 +104,6 @@ object Main extends LazyLogging {
     TableDependenciesCmd,
     AclDependenciesCmd,
     AutoTaskDependenciesCmd,
-    ExtractCmd,
     ExtractSchemaCmd,
     ExtractDataCmd,
     ExtractScriptCmd,

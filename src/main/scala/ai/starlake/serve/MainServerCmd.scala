@@ -25,7 +25,9 @@ object MainServerCmd extends Cmd[MainServerConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Start the Starlake HTTP server for running commands via REST API."""
+      ),
       builder
         .opt[String]("host")
         .action((x, c) => c.copy(host = Some(x)))

@@ -36,7 +36,9 @@ trait Xls2YmlCmd extends Cmd[Xls2YmlConfig] with LazyLogging {
     OParser.sequence(
       builder.programName(s"starlake $command"),
       builder.head("starlake", command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Generate Starlake YAML configuration files from Excel spreadsheets."""
+      ),
       builder
         .opt[Seq[String]]("files")
         .action { (x, c) =>

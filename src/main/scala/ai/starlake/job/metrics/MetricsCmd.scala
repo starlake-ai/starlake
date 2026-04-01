@@ -26,7 +26,9 @@ object MetricsCmd extends Cmd[MetricsConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Compute data quality metrics (continuous, discrete, and frequency metrics) on loaded tables. See [Metrics Guide](/guides/load/metrics)."""
+      ),
       builder
         .opt[String]("domain")
         .action((x, c) => c.copy(domain = x))
