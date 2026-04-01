@@ -344,8 +344,9 @@ class IngestionWorkflow(
   @nowarn
   def load(config: LoadConfig): Try[SparkJobResult] = {
     val loadResults =
-      if (config.test) {
-        logger.info("Test mode enabled")
+      if (config.test || config.inPlace) {
+        if (config.test) logger.info("Test mode enabled")
+        if (config.inPlace) logger.info("In-place mode enabled, files will not be moved")
         val domain = schemaHandler.getDomain(config.domains.head)
         val jobResult =
           domain match {
@@ -377,7 +378,7 @@ class IngestionWorkflow(
                     paths,
                     config.options,
                     config.accessToken,
-                    config.test,
+                    config.test || config.inPlace,
                     config.scheduledDate
                   )
                 case None =>
