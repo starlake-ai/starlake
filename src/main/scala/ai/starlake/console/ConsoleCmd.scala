@@ -15,6 +15,11 @@ import scala.util.Try
 object ConsoleCmd extends Cmd[ConsoleConfig] {
   override def command: String = "console"
 
+  override def pageDescription: String =
+    "Launch the Starlake interactive console for exploring and managing your data project from a local web-based interface."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake console", "interactive console", "web interface", "data exploration")
+
   val parser: OParser[Unit, ConsoleConfig] = {
     val builder = OParser.builder[ConsoleConfig]
     OParser.sequence(

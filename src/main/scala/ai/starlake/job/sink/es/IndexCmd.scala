@@ -6,4 +6,9 @@ package ai.starlake.job.sink.es
   */
 object IndexCmd extends ESLoadCmd {
   override def command: String = "index"
+
+  override def pageDescription: String =
+    "Alias for esload. Load datasets into Elasticsearch indices."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake index", "Elasticsearch", "index loading")
 }

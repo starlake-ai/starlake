@@ -17,6 +17,11 @@ trait ExtractDataCmd extends Cmd[UserExtractDataConfig] {
 
   val command = "extract-data"
 
+  override def pageDescription: String =
+    "Extract data from any database in parallel with support for partitioning, incremental exports, and configurable parallelism."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake extract-data", "data extraction", "database export", "parallel extraction")
+
   val parser: OParser[Unit, UserExtractDataConfig] = {
     val builder = OParser.builder[UserExtractDataConfig]
     OParser.sequence(

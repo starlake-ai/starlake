@@ -15,6 +15,11 @@ import scala.util.{Success, Try}
 object ExtractScriptCmd extends Cmd[ExtractScriptConfig] {
   val command = "extract-script"
 
+  override def pageDescription: String =
+    "Generate database extraction scripts from domain schemas using Mustache templates for tools like sqlplus or pgsql export."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake extract-script", "extraction scripts", "SQL generation", "database export")
+
   val parser: OParser[Unit, ExtractScriptConfig] = {
     val builder = OParser.builder[ExtractScriptConfig]
     OParser.sequence(

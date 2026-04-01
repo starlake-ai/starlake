@@ -15,6 +15,11 @@ import scala.util.Try
 object DagGenerateCmd extends Cmd[DagGenerateConfig] {
   val command = "dag-generate"
 
+  override def pageDescription: String =
+    "Generate DAG files for tasks and domains with optional tag filtering and role definitions for workflow orchestration tools."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake dag-generate", "DAG generation", "Airflow", "workflow orchestration")
+
   val parser: OParser[Unit, DagGenerateConfig] = {
     val builder = OParser.builder[DagGenerateConfig]
     OParser.sequence(

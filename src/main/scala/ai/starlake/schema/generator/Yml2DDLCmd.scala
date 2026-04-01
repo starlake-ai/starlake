@@ -16,6 +16,17 @@ object Yml2DDLCmd extends Cmd[Yml2DDLConfig] {
 
   val command = "yml2ddl"
 
+  override def pageDescription: String =
+    "Generate DDL statements from Starlake YAML schemas for your target data warehouse, with optional JDBC apply support."
+  override def pageKeywords: Seq[String] =
+    Seq(
+      "starlake yml2ddl",
+      "DDL generation",
+      "schema to SQL",
+      "data warehouse",
+      "database migration"
+    )
+
   val parser: OParser[Unit, Yml2DDLConfig] = {
     val builder = OParser.builder[Yml2DDLConfig]
     OParser.sequence(

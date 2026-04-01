@@ -17,6 +17,11 @@ object ColLineageCmd extends Cmd[ColLineageConfig] {
 
   val command = "col-lineage"
 
+  override def pageDescription: String =
+    "Build and export column-level data lineage for a specific task as JSON, helping trace data flow across transformations."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake col-lineage", "column lineage", "data lineage", "data tracing")
+
   val parser: OParser[Unit, ColLineageConfig] = {
     val builder = OParser.builder[ColLineageConfig]
     import builder._

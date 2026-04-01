@@ -19,6 +19,11 @@ object IamPoliciesCmd extends Cmd[IamPoliciesConfig] {
 
   val command = "iam-policies"
 
+  override def pageDescription: String =
+    "Generate and apply IAM policies for your Starlake project resources, managing access control with authentication tokens."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake iam-policies", "IAM policies", "access control", "security")
+
   val parser: OParser[Unit, IamPoliciesConfig] = {
     val builder = OParser.builder[IamPoliciesConfig]
     OParser.sequence(

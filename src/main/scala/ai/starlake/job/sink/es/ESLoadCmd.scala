@@ -17,6 +17,11 @@ trait ESLoadCmd extends Cmd[ESLoadConfig] {
 
   def command = "esload"
 
+  override def pageDescription: String =
+    "Load datasets in parquet, JSON, or JSON-array format into Elasticsearch indices with custom mappings and Spark configuration."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake esload", "Elasticsearch", "index loading", "search engine")
+
   val parser: OParser[Unit, ESLoadConfig] = {
     val builder = OParser.builder[ESLoadConfig]
     OParser.sequence(

@@ -16,6 +16,11 @@ object ExtractSchemaCmd extends Cmd[ExtractSchemaConfig] {
 
   val command = "extract-schema"
 
+  override def pageDescription: String =
+    "Extract database table schemas and output them as YAML definition files with optional snake_case naming and parallelism control."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake extract-schema", "schema extraction", "database schema", "YAML generation")
+
   val parser: OParser[Unit, ExtractSchemaConfig] = {
     val builder = OParser.builder[ExtractSchemaConfig]
     OParser.sequence(

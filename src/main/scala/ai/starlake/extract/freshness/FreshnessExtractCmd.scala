@@ -14,6 +14,11 @@ import scala.util.{Failure, Success, Try}
 object FreshnessExtractCmd extends TablesExtractCmd {
   override def command: String = "freshness"
 
+  override def pageDescription: String =
+    "Check data freshness across tables and datasets with configurable connections, write modes, and optional result persistence."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake freshness", "data freshness", "table monitoring", "data quality")
+
   override def run(config: TablesExtractConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {

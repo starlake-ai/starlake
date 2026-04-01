@@ -17,6 +17,11 @@ trait SummarizeCmd extends Cmd[SummarizeConfig] {
 
   def command = "summarize"
 
+  override def pageDescription: String =
+    "Generate a statistical summary for a specific domain and table, providing key data profiling insights at a glance."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake summarize", "data summary", "data profiling", "table statistics")
+
   val parser: OParser[Unit, SummarizeConfig] = {
     val builder = OParser.builder[SummarizeConfig]
     OParser.sequence(

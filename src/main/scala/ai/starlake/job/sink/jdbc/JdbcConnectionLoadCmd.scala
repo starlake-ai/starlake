@@ -20,6 +20,11 @@ object JdbcConnectionLoadCmd extends Cmd[JdbcConnectionLoadConfig] {
 
   val command = "cnxload"
 
+  override def pageDescription: String =
+    "Load a parquet source file into a JDBC table with configurable connection options and write strategies like APPEND or OVERWRITE."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake cnxload", "JDBC load", "database import", "connection load")
+
   def checkTablePresent(
     jdbcOptions: Settings.ConnectionInfo,
     jdbcEngine: Settings.JdbcEngine,

@@ -17,6 +17,17 @@ object TableDependenciesCmd extends Cmd[TableDependenciesConfig] {
 
   val command = "table-dependencies"
 
+  override def pageDescription: String =
+    "Generate GraphViz dependency diagrams from domain and schema YAML files, with SVG, PNG, and JSON output options."
+  override def pageKeywords: Seq[String] =
+    Seq(
+      "starlake table-dependencies",
+      "schema dependencies",
+      "GraphViz",
+      "entity relationship",
+      "data modeling"
+    )
+
   val parser: OParser[Unit, TableDependenciesConfig] = {
     val builder = OParser.builder[TableDependenciesConfig]
     OParser.sequence(

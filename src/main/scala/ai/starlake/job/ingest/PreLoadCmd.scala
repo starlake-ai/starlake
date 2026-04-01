@@ -18,6 +18,11 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with LazyLogging {
 
   def command = "preload"
 
+  override def pageDescription: String =
+    "Pre-load domains and tables using a configurable strategy before the main ingestion step, with global ack file support."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake preload", "data pre-loading", "ingestion preparation", "ETL pipeline")
+
   val parser: OParser[Unit, PreLoadConfig] = {
     val builder = OParser.builder[PreLoadConfig]
     OParser.sequence(

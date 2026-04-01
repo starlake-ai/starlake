@@ -15,6 +15,11 @@ import scala.util.Try
 object DagDeployCmd extends Cmd[DagDeployConfig] {
   val command = "dag-deploy"
 
+  override def pageDescription: String =
+    "Deploy previously generated DAG files and library dependencies to a target directory for orchestration tools like Airflow."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake dag-deploy", "DAG deployment", "Airflow", "workflow orchestration")
+
   val parser: OParser[Unit, DagDeployConfig] = {
     val builder = OParser.builder[DagDeployConfig]
     OParser.sequence(

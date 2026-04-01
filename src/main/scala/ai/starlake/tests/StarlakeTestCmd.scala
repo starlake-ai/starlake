@@ -16,6 +16,11 @@ trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
 
   def command = "test"
 
+  override def pageDescription: String =
+    "Run unit tests for load and transform tasks on specific domains and tables, with optional HTML report generation."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake test", "data testing", "unit tests", "data validation", "test report")
+
   val parser: OParser[Unit, StarlakeTestConfig] = {
     val builder = OParser.builder[StarlakeTestConfig]
     OParser.sequence(
