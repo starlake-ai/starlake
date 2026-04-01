@@ -28,7 +28,11 @@ object ColLineageCmd extends Cmd[ColLineageConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      note("Build lineage"),
+      note(
+        """Generate column-level lineage showing which source columns feed into each target column across transformations. Use this command to trace data flow and understand the provenance of computed fields.
+          |
+          |Build lineage""".stripMargin
+      ),
       builder
         .opt[String]("output")
         .action((x, c) => c.copy(outputFile = Some(File(x))))

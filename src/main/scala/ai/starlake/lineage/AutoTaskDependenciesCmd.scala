@@ -34,7 +34,11 @@ object AutoTaskDependenciesCmd extends Cmd[AutoTaskDependenciesConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      note("Generate Task dependencies graph"),
+      note(
+        """Generate a task dependency graph showing how transformation tasks relate to each other.
+          |
+          |Generate Task dependencies graph""".stripMargin
+      ),
       opt[String]("output")
         .action((x, c) => c.copy(outputFile = Some(File(x))))
         .optional()

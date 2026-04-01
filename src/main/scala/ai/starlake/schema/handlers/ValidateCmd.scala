@@ -26,7 +26,9 @@ object ValidateCmd extends Cmd[ValidateConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Validate the Starlake project configuration files and optionally test database connections."""
+      ),
       builder
         .opt[Unit]("reload")
         .action((_, c) => c.copy(reload = true))

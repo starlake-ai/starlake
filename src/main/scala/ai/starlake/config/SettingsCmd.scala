@@ -26,7 +26,9 @@ trait SettingsCmd extends Cmd[SettingsConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Print the resolved Starlake settings or test a database connection."""
+      ),
       builder
         .opt[String]("test-connection")
         .action((x, c) => c.copy(testConnection = Some(x)))

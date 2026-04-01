@@ -27,6 +27,8 @@ object StageCmd extends Cmd[StageConfig] {
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
       builder.note("""
+             |Move files from the landing directory to the pending directory, applying optional file-level transformations.
+             |
              |Move the files from the landing area to the pending area.
              |
              |Files are loaded one domain at a time.

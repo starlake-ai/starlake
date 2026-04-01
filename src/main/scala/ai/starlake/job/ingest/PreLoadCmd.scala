@@ -28,7 +28,9 @@ trait PreLoadCmd extends Cmd[PreLoadConfig] with LazyLogging {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Check for new files in the landing area and prepare them for loading."""
+      ),
       builder
         .opt[String]("domain")
         .action((x, c) => c.copy(domain = x))

@@ -20,7 +20,9 @@ trait CheckValidityCmd extends Cmd[CheckValidityCommand] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Validate the Starlake project configuration files."""
+      ),
       builder
         .opt[Boolean]("tables")
         .action((x, c) => c.copy(tables = x))

@@ -27,7 +27,9 @@ object IngestCmd extends Cmd[IngestConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Generic data ingestion command that loads a single file into a table using an existing schema definition."""
+      ),
       builder
         .arg[String]("domain")
         .optional()

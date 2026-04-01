@@ -32,7 +32,9 @@ object Yml2DDLCmd extends Cmd[Yml2DDLConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Generate SQL DDL statements (CREATE TABLE, etc.) from Starlake YAML table definitions."""
+      ),
       builder
         .opt[String]("datawarehouse")
         .action((x, c) => c.copy(datawarehouse = x))

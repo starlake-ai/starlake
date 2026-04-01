@@ -27,7 +27,9 @@ trait ESLoadCmd extends Cmd[ESLoadConfig] {
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Load data into an Elasticsearch index from Parquet, JSON, or JSON-array files. Supports custom mappings, document IDs, and timestamp-based index suffixes via Spark-Elasticsearch configuration."""
+      ),
       builder
         .opt[String]("timestamp")
         .action((x, c) => c.copy(timestamp = Some(x)))
