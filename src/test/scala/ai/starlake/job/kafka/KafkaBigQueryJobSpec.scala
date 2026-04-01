@@ -66,7 +66,8 @@ class KafkaBigQueryJobSpec extends TestHelper {
 
     // Create table with schema
     val schema = com.google.cloud.bigquery.Schema.of(
-      com.google.cloud.bigquery.Field.of("key", com.google.cloud.bigquery.StandardSQLTypeName.STRING),
+      com.google.cloud.bigquery.Field
+        .of("key", com.google.cloud.bigquery.StandardSQLTypeName.STRING),
       com.google.cloud.bigquery.Field
         .of("value", com.google.cloud.bigquery.StandardSQLTypeName.STRING)
     )
@@ -81,7 +82,8 @@ class KafkaBigQueryJobSpec extends TestHelper {
         .map(i => s"SELECT '${tableName}_key_$i' AS key, '${UUID.randomUUID()}_$i' AS value")
         .mkString(" UNION ALL ")
       val sql = s"INSERT INTO `$bqProject.$bqDataset.$tableName` (key, value) $rows"
-      val queryConfig = com.google.cloud.bigquery.QueryJobConfiguration.newBuilder(sql)
+      val queryConfig = com.google.cloud.bigquery.QueryJobConfiguration
+        .newBuilder(sql)
         .setUseLegacySql(false)
         .build()
       bigquery.query(queryConfig)
@@ -95,7 +97,8 @@ class KafkaBigQueryJobSpec extends TestHelper {
         .build()
         .getService
     val sql = s"SELECT COUNT(*) AS cnt FROM `${bqTableDot(suffix)}`"
-    val queryConfig = com.google.cloud.bigquery.QueryJobConfiguration.newBuilder(sql)
+    val queryConfig = com.google.cloud.bigquery.QueryJobConfiguration
+      .newBuilder(sql)
       .setUseLegacySql(false)
       .build()
     val result = bigquery.query(queryConfig)
