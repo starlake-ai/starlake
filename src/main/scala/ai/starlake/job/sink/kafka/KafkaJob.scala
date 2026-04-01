@@ -177,6 +177,7 @@ class KafkaJob(
                 .load()
             } else {
               assert(kafkaJobConfig.path.isDefined, "Load path is required")
+              // Pass options to all formats for consistency with the streaming path (line 168)
               val reader = session.read
                 .format(kafkaJobConfig.format)
                 .options(options)
