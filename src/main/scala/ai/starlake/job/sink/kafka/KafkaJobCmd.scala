@@ -43,6 +43,27 @@ object KafkaJobCmd extends Cmd[KafkaJobConfig] {
              |
              |In this mode, te program keep running and you the comet_offsets topic is not used. The (off)loader will use a consumer group id
              |you specify in the access options of the topic configuration you are dealing with.
+             |
+             |### BigQuery support
+             |
+             |BigQuery can be used as both a source and a sink format.
+             |
+             |Kafka to BigQuery (batch):
+             |  starlake kafkaload --config my_topic --write-format bigquery --write-mode Append \
+             |    --write-options table=project:dataset.table,temporaryGcsBucket=my-bucket
+             |
+             |Kafka to BigQuery (streaming):
+             |  starlake kafkaload --config my_topic --stream --write-format bigquery \
+             |    --write-options table=project:dataset.table,temporaryGcsBucket=my-bucket
+             |
+             |BigQuery table to Kafka:
+             |  starlake kafkaload --format bigquery --path "project:dataset.table" \
+             |    --options temporaryGcsBucket=my-bucket --write-config my_output_topic
+             |
+             |BigQuery query to Kafka:
+             |  starlake kafkaload --format bigquery \
+             |    --options query="SELECT * FROM dataset.table WHERE col > 'value'",temporaryGcsBucket=my-bucket \
+             |    --write-config my_output_topic
              |""".stripMargin),
       builder
         .opt[String]("config")
@@ -57,7 +78,7 @@ object KafkaJobCmd extends Cmd[KafkaJobConfig] {
       builder
         .opt[String]("format")
         .action((x, c) => c.copy(format = x))
-        .text("Read/Write format eq : parquet, json, csv ... Default to parquet.")
+        .text("Read/Write format eq : parquet, json, csv, bigquery ... Default to parquet.")
         .optional(),
       builder
         .opt[String]("path")
@@ -99,7 +120,7 @@ object KafkaJobCmd extends Cmd[KafkaJobConfig] {
         .opt[String]("write-format")
         .action((x, c) => c.copy(writeFormat = x))
         .text(
-          "Streaming format eq. kafka, console ..."
+          "Streaming format eq. kafka, console, bigquery ..."
         )
         .optional(),
       builder
