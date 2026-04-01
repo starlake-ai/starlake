@@ -37,6 +37,8 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
 
   lazy val client: AdminClient = AdminClient.create(serverOptionsProperties)
 
+  private val kafkaTimeoutSeconds = 30L
+
   cometOffsetsMode match {
     case Mode.STREAM =>
       createTopicIfNotPresent(
@@ -55,8 +57,6 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   }
 
   def close(): Unit = client.close()
-
-  private val kafkaTimeoutSeconds = 30L
 
   def deleteTopic(topicName: String): Unit = {
     val found =
