@@ -77,6 +77,11 @@ trait LoadCmd extends Cmd[LoadConfig] {
         .optional()
         .action((x, c) => c.copy(scheduledDate = Some(x.replace('T', ' ').replaceAll("'", ""))))
         .text("Scheduled date for the job, in format yyyy-MM-dd'T'HH:mm:ss.SSSZ"),
+      builder
+        .opt[Unit]("inPlace")
+        .optional()
+        .action((_, c) => c.copy(inPlace = true))
+        .text("Ingest files from their current location without moving them. Requires --files"),
       reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }

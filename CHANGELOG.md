@@ -8,6 +8,7 @@ __Improvement__:
 - **Ingestion performance**: Use localCheckpoint to ensure source files are read only once during ingestion, truncating lineage for better performance.
 - **Data-driven isNativeCandidate**: Replaced repetitive match arms with Map lookup.
 - **Code cleanup**: Removed unused imports in Settings.scala.
+- **In-place ingestion**: New `--inPlace` flag on the `load` command to ingest files directly from their current location without moving or deleting them.
 
 __Bug fix__:
 - **Upgrade command**: Derive snapshot version from Maven Central latest release instead of querying stale Sonatype snapshots repository, matching setup.sh logic (starlake.sh and starlake.cmd).

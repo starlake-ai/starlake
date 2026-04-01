@@ -12,5 +12,6 @@ case class LoadConfig(
   variant: Option[Boolean] = None,
   primaryKey: List[String] = List.empty,
   scheduledDate: Option[String],
-  reportFormat: Option[String] = None
+  reportFormat: Option[String] = None,
+  inPlace: Boolean = false
 ) extends ReportFormatConfig
