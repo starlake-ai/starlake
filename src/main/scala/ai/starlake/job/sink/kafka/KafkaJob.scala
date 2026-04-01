@@ -274,6 +274,55 @@ class KafkaJob(
 
   private def writeStreaming(df: DataFrame) = {
 
+    // BigQuery streaming uses foreachBatch to route through the batch write API,
+    // avoiding the BigQueryStreamingSink which is incompatible with Spark 3.5+
+    // (NoSuchMethodError on RowEncoder.apply)
+    if (kafkaJobConfig.writeFormat == "bigquery") {
+      writeStreamingViaBatchSink(df)
+    } else {
+      writeStreamingDirect(df)
+    }
+  }
+
+  private def writeStreamingViaBatchSink(df: DataFrame) = {
+    val trigger = resolveStreamingTrigger()
+
+    val writer = df.writeStream
+      .foreachBatch { (batchDF: DataFrame, _: Long) =>
+        batchDF.write
+          .mode(kafkaJobConfig.writeMode)
+          .format("bigquery")
+          .options(writeOptions)
+          .save()
+      }
+
+    val triggerWriter = trigger match {
+      case Some(t) => writer.trigger(t)
+      case None    => writer
+    }
+
+    val finalWriter = kafkaJobConfig.streamingWritePartitionBy match {
+      case Nil  => triggerWriter
+      case list => triggerWriter.partitionBy(list: _*)
+    }
+
+    val checkpointLocation = writeOptions.getOrElse(
+      "checkpointLocation",
+      finalWritePath.getOrElse(
+        throw new Exception(
+          "BigQuery streaming requires 'checkpointLocation' in write-options or --write-path"
+        )
+      )
+    )
+
+    finalWriter
+      .option("checkpointLocation", checkpointLocation)
+      .start()
+      .awaitTermination()
+  }
+
+  private def writeStreamingDirect(df: DataFrame) = {
+
     val writer = {
       (kafkaJobConfig.writeFormat, writeTopicConfig) match {
         case ("kafka", Some(writeTopicConfig)) =>
@@ -296,12 +345,7 @@ class KafkaJob(
       }
     }
 
-    val trigger = kafkaJobConfig.streamingTrigger.map(_.toLowerCase).map {
-      case "once"           => Trigger.AvailableNow()
-      case "processingtime" => Trigger.ProcessingTime(kafkaJobConfig.streamingTriggerOption)
-      case "continuous"     => Trigger.Continuous(kafkaJobConfig.streamingTriggerOption)
-      case "availablenow"   => Trigger.AvailableNow()
-    }
+    val trigger = resolveStreamingTrigger()
 
     val triggerWriter = trigger match {
       case Some(trigger) => writer.trigger(trigger)
@@ -327,6 +371,15 @@ class KafkaJob(
 
     streamingQuery
       .awaitTermination()
+  }
+
+  private def resolveStreamingTrigger(): Option[Trigger] = {
+    kafkaJobConfig.streamingTrigger.map(_.toLowerCase).map {
+      case "once"           => Trigger.AvailableNow()
+      case "processingtime" => Trigger.ProcessingTime(kafkaJobConfig.streamingTriggerOption)
+      case "continuous"     => Trigger.Continuous(kafkaJobConfig.streamingTriggerOption)
+      case "availablenow"   => Trigger.AvailableNow()
+    }
   }
 
   private val transformInstance: Option[DataFrameTransform] = {
