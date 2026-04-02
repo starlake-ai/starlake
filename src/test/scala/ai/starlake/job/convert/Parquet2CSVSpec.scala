@@ -99,6 +99,7 @@ class Parquet2CSVSpec extends TestHelper {
         """
           |Usage: starlake parquet2csv [options]
           |
+          |Convert Parquet files to CSV format for inspection or downstream processing.
           |
           |Convert parquet files to CSV.
           |The folder hierarchy should be in the form /input_folder/domain/schema/part*.parquet

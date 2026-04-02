@@ -10,6 +10,9 @@ class ConnectionLoadJobSpec extends TestHelper {
       val expected =
         """
           |Usage: starlake cnxload [options]
+          |
+          |Load Parquet, CSV, or JSON files directly into a JDBC-connected database table. Supports APPEND and OVERWRITE write strategies with configurable connection options.
+          |
           |Load parquet file into JDBC Table.
           |  --source_file <value>    Full Path to source file
           |  --output_table <value>   JDBC Output Table

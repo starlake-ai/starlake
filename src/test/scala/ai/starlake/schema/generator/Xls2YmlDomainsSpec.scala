@@ -134,6 +134,7 @@ class Xls2YmlDomainsSpec extends TestHelper {
       val expected =
         """
           |Usage: starlake xls2yml [options]
+          |Generate Starlake YAML configuration files from Excel spreadsheets.
           |
           |  --files <value>       List of Excel files describing domains & schemas or jobs
           |  --iamPolicyTagsFile <value>
