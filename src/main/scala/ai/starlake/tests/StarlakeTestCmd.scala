@@ -16,12 +16,19 @@ trait StarlakeTestCmd extends Cmd[StarlakeTestConfig] {
 
   def command = "test"
 
+  override def pageDescription: String =
+    "Run unit tests for load and transform tasks on specific domains and tables, with optional HTML report generation."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake test", "data testing", "unit tests", "data validation", "test report")
+
   val parser: OParser[Unit, StarlakeTestConfig] = {
     val builder = OParser.builder[StarlakeTestConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Run unit tests for load and transform tasks using sample data and expected results. See [Unit Tests Guide](/guides/unit-tests/concepts)."""
+      ),
       builder
         .opt[Unit]("load")
         .action((_, c) => c.copy(load = true))

@@ -16,12 +16,26 @@ object KafkaJobCmd extends Cmd[KafkaJobConfig] {
 
   val command = "kafkaload"
 
+  override def pageDescription: String =
+    "Load and offload data between Kafka topics and BigQuery, files, or other sinks in batch or streaming mode."
+  override def pageKeywords: Seq[String] =
+    Seq(
+      "starlake kafkaload",
+      "kafka ingestion",
+      "spark streaming",
+      "kafka batch offload",
+      "BigQuery",
+      "data pipeline"
+    )
+
   val parser: OParser[Unit, KafkaJobConfig] = {
     val builder = OParser.builder[KafkaJobConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
       builder.note("""
+             |Load data to or offload data from Apache Kafka topics. Supports both producing and consuming messages.
+             |
              |Two modes are available : The batch mode and the streaming mode.
              |
              |### Batch mode

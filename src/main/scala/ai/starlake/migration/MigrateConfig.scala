@@ -18,11 +18,7 @@ object MigrateConfig extends CliConfig[MigrateConfig] {
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
       note(
-        """
-          |Migrate current project to the latest version available.
-          |Print warning for any changes that requires user's attention.
-          |Once project is migrated, check the difference and makes sure that everything is working as expected.
-          |""".stripMargin
+        """Migrate the Starlake project configuration files to the latest version format."""
       ),
       opt[String]("reportFormat")
         .action((x, c) => c.copy(reportFormat = Some(x)))

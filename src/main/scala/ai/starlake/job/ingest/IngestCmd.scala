@@ -17,12 +17,19 @@ object IngestCmd extends Cmd[IngestConfig] {
 
   val command = "ingest"
 
+  override def pageDescription: String =
+    "Ingest data files into a target domain and schema, with support for multiple paths, scheduling, and custom substitutions."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake ingest", "data ingestion", "file loading", "ETL")
+
   val parser: OParser[Unit, IngestConfig] = {
     val builder = OParser.builder[IngestConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Generic data ingestion command that loads a single file into a table using an existing schema definition."""
+      ),
       builder
         .arg[String]("domain")
         .optional()

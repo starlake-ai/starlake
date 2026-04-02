@@ -16,12 +16,19 @@ trait LoadCmd extends Cmd[LoadConfig] {
 
   def command = "load"
 
+  override def pageDescription: String =
+    "Ingest raw files into your data warehouse by watching specified domains and tables with schema validation and options."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake load", "data ingestion", "file loading", "schema validation", "ETL")
+
   val parser: OParser[Unit, LoadConfig] = {
     val builder = OParser.builder[LoadConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Load data files from the pending directory into the data warehouse using schema definitions. See [Load Tutorial](/guides/load/tutorial)."""
+      ),
       builder
         .opt[Seq[String]]("domains")
         .action((x, c) => c.copy(domains = x))

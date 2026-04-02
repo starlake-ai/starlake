@@ -18,12 +18,19 @@ trait AutoLoadCmd extends Cmd[AutoLoadConfig] with LazyLogging {
 
   def command = "autoload"
 
+  override def pageDescription: String =
+    "Automatically watch and load incoming data files into specified domains and tables with optional scheduling and substitutions."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake autoload", "auto load", "data ingestion", "file watching", "ETL")
+
   val parser: OParser[Unit, AutoLoadConfig] = {
     val builder = OParser.builder[AutoLoadConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Automatically infer schemas from files in the incoming directory and load them into the data warehouse in a single step. This combines the `infer-schema` and `load` commands, making it ideal for quick ingestion of new data sources. See [Autoload Guide](/guides/load/autoload)."""
+      ),
       builder
         .opt[Seq[String]]("domains")
         .action((x, c) => c.copy(domains = x))

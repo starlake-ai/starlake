@@ -12,6 +12,11 @@ import scala.util.{Failure, Success, Try}
 object GizmoCmd extends Cmd[GizmoConfig] with StrictLogging {
   override def command: String = "gizmosql"
 
+  override def pageDescription: String =
+    "Run SQL queries on any database using JDBC with Spark, supporting session parameters and variable substitutions."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake gizmosql", "SQL runner", "JDBC query", "database query")
+
   val parser: OParser[Unit, GizmoConfig] = {
     val builder = OParser.builder[GizmoConfig]
     OParser.sequence(

@@ -17,13 +17,22 @@ object ColLineageCmd extends Cmd[ColLineageConfig] {
 
   val command = "col-lineage"
 
+  override def pageDescription: String =
+    "Build and export column-level data lineage for a specific task as JSON, helping trace data flow across transformations."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake col-lineage", "column lineage", "data lineage", "data tracing")
+
   val parser: OParser[Unit, ColLineageConfig] = {
     val builder = OParser.builder[ColLineageConfig]
     import builder._
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      note("Build lineage"),
+      note(
+        """Generate column-level lineage showing which source columns feed into each target column across transformations. Use this command to trace data flow and understand the provenance of computed fields.
+          |
+          |Build lineage""".stripMargin
+      ),
       builder
         .opt[String]("output")
         .action((x, c) => c.copy(outputFile = Some(File(x))))

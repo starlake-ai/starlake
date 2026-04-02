@@ -17,6 +17,11 @@ object SiteCmd extends Cmd[SiteConfig] {
 
   val command = "site"
 
+  override def pageDescription: String =
+    "Generate a documentation site from your Starlake project in JSON or Docusaurus MDX format with customizable templates."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake site", "documentation generation", "docusaurus", "data catalog", "project docs")
+
   val parser: OParser[Unit, SiteConfig] = {
     val builder = OParser.builder[SiteConfig]
     OParser.sequence(
@@ -24,6 +29,8 @@ object SiteCmd extends Cmd[SiteConfig] {
       builder.head(shell, command, "[options]"),
       builder.note(
         """
+          |Generate a documentation portal from your Starlake project metadata (schemas, tasks, lineage). See [Site Builder Guide](/guides/documentation/starlake-site-builder).
+          |
           |Generate site
           |""".stripMargin
       ),
