@@ -9,6 +9,7 @@ class IngestJobSpec extends TestHelper {
       val expected =
         """
           |Usage: starlake ingest [options] [domain] [schema] [paths] [options]
+          |Generic data ingestion command that loads a single file into a table using an existing schema definition.
           |
           |  domain  Domain name
           |  schema  Schema name
