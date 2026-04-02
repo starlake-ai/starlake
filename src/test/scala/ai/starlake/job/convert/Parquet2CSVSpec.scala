@@ -137,6 +137,8 @@ class Parquet2CSVSpec extends TestHelper {
         """---
           |sidebar_position: 10
           |title: parquet2csv
+          |description: "Convert Parquet files to CSV format with configurable partitions, write modes, and Spark options like delimiter and header."
+          |keywords: [starlake parquet2csv, parquet to csv, file conversion, data export, spark]
           |---
           |
           |
@@ -145,6 +147,8 @@ class Parquet2CSVSpec extends TestHelper {
           |**starlake parquet2csv [options]**
           |
           |## Description
+          |
+          |Convert Parquet files to CSV format for inspection or downstream processing.
           |
           |Convert parquet files to CSV.
           |The folder hierarchy should be in the form /input_folder/domain/schema/part*.parquet
