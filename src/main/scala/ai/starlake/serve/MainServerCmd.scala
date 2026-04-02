@@ -15,12 +15,19 @@ import scala.util.Try
 object MainServerCmd extends Cmd[MainServerConfig] {
   override def command: String = "serve"
 
+  override def pageDescription: String =
+    "Start a local Starlake HTTP server on a configurable host and port to serve API requests for your data project."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake serve", "local server", "HTTP API", "development server")
+
   val parser: OParser[Unit, MainServerConfig] = {
     val builder = OParser.builder[MainServerConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Start the Starlake HTTP server for running commands via REST API."""
+      ),
       builder
         .opt[String]("host")
         .action((x, c) => c.copy(host = Some(x)))

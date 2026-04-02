@@ -17,12 +17,27 @@ object AclDependenciesCmd extends Cmd[AclDependenciesConfig] {
 
   val command = "acl-dependencies"
 
+  override def pageDescription: String =
+    "Generate GraphViz dot, SVG, PNG or JSON files visualizing ACL dependencies from Domain and Schema YAML definitions."
+  override def pageKeywords: Seq[String] =
+    Seq(
+      "starlake acl-dependencies",
+      "ACL dependencies",
+      "GraphViz",
+      "access control",
+      "data governance"
+    )
+
   val parser: OParser[Unit, AclDependenciesConfig] = {
     val builder = OParser.builder[AclDependenciesConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note("Generate GraphViz files from Domain / Schema YAML files"),
+      builder.note(
+        """Generate an ACL (Access Control List) dependency graph showing which roles and permissions apply across tables and domains. Use this command to visualize access control relationships as GraphViz dot, SVG, PNG, or JSON files.
+          |
+          |Generate GraphViz files from Domain / Schema YAML files""".stripMargin
+      ),
       builder
         .opt[String]("output")
         .action((x, c) => c.copy(outputFile = Some(File(x))))

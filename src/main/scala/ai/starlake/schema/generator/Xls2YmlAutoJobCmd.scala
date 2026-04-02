@@ -14,6 +14,17 @@ object Xls2YmlAutoJobCmd extends Xls2YmlCmd {
 
   override def command: String = "xls2ymljob"
 
+  override def pageDescription: String =
+    "Convert Excel files describing transform job definitions into Starlake YAML task configuration files."
+  override def pageKeywords: Seq[String] =
+    Seq(
+      "starlake xls2ymljob",
+      "Excel to YAML",
+      "job generation",
+      "task configuration",
+      "transform definition"
+    )
+
   override def run(config: Xls2YmlConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
   ): Try[JobResult] = {

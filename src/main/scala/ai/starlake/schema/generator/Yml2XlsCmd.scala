@@ -16,12 +16,25 @@ trait Yml2XlsCmd extends Cmd[Yml2XlsConfig] {
 
   override def command: String = "yml2xls"
 
+  override def pageDescription: String =
+    "Export Starlake YAML domain definitions and IAM policy tags to Excel spreadsheets for review and collaboration."
+  override def pageKeywords: Seq[String] =
+    Seq(
+      "starlake yml2xls",
+      "YAML to Excel",
+      "schema export",
+      "data documentation",
+      "IAM policy tags"
+    )
+
   val parser: OParser[Unit, Yml2XlsConfig] = {
     val builder = OParser.builder[Yml2XlsConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, "$command", "[options]"),
-      builder.note(""),
+      builder.note(
+        """Export Starlake YAML domain and table definitions to an Excel spreadsheet."""
+      ),
       builder
         .opt[Seq[String]]("domain")
         .action((x, c) => c.copy(domains = x))

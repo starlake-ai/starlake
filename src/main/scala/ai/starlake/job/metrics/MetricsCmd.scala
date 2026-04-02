@@ -16,12 +16,19 @@ object MetricsCmd extends Cmd[MetricsConfig] {
 
   val command = "metrics"
 
+  override def pageDescription: String =
+    "Compute and publish data quality metrics for a given domain and schema, with optional Google Cloud authentication."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake metrics", "data quality", "schema metrics", "data profiling")
+
   val parser: OParser[Unit, MetricsConfig] = {
     val builder = OParser.builder[MetricsConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Compute data quality metrics (continuous, discrete, and frequency metrics) on loaded tables. See [Metrics Guide](/guides/load/metrics)."""
+      ),
       builder
         .opt[String]("domain")
         .action((x, c) => c.copy(domain = x))

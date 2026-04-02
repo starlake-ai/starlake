@@ -16,12 +16,19 @@ import scala.util.{Success, Try}
 object ProjectCompareCmd extends Cmd[ProjectCompareConfig] {
   val command = "compare"
 
+  override def pageDescription: String =
+    "Compare two versions of a Starlake project using file paths, git commits, or tags and generate a diff report with templates."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake compare", "project comparison", "diff report", "version comparison")
+
   val parser: OParser[Unit, ProjectCompareConfig] = {
     val builder = OParser.builder[ProjectCompareConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Compare two versions of a Starlake project to identify configuration differences. You can compare by file path, git commit, or git tag, and render the diff report using a custom template."""
+      ),
       builder
         .opt[String]("path1")
         .action { (x, c) => c.copy(path1 = x) }

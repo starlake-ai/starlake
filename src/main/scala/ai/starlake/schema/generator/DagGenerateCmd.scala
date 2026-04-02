@@ -15,12 +15,19 @@ import scala.util.Try
 object DagGenerateCmd extends Cmd[DagGenerateConfig] {
   val command = "dag-generate"
 
+  override def pageDescription: String =
+    "Generate DAG files for tasks and domains with optional tag filtering and role definitions for workflow orchestration tools."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake dag-generate", "DAG generation", "Airflow", "workflow orchestration")
+
   val parser: OParser[Unit, DagGenerateConfig] = {
     val builder = OParser.builder[DagGenerateConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Generate Airflow or Dagster DAG files from Starlake task and domain definitions. The command analyzes SQL dependencies to produce correctly ordered workflow graphs, with optional tag filtering. See [Orchestration Guide](/guides/orchestrate/tutorial)."""
+      ),
       builder
         .opt[String]("outputDir")
         .action((x, c) => c.copy(outputDir = Some(x)))

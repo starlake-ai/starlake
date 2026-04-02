@@ -16,12 +16,19 @@ object StageCmd extends Cmd[StageConfig] {
 
   val command = "stage"
 
+  override def pageDescription: String =
+    "Move and uncompress files from the landing area to the pending area, handling ack files and domain-based directories."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake stage", "file staging", "data landing zone", "file import", "ETL")
+
   val parser: OParser[Unit, StageConfig] = {
     val builder = OParser.builder[StageConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
       builder.note("""
+             |Move files from the landing directory to the pending directory, applying optional file-level transformations.
+             |
              |Move the files from the landing area to the pending area.
              |
              |Files are loaded one domain at a time.

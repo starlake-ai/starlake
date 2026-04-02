@@ -15,12 +15,19 @@ import scala.util.Try
 object ConsoleCmd extends Cmd[ConsoleConfig] {
   override def command: String = "console"
 
+  override def pageDescription: String =
+    "Launch the Starlake interactive console for exploring and managing your data project from a local web-based interface."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake console", "interactive console", "web interface", "data exploration")
+
   val parser: OParser[Unit, ConsoleConfig] = {
     val builder = OParser.builder[ConsoleConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Start an interactive Starlake console for exploring metadata and running commands from a local web-based interface. Use this to browse domains, tables, and task definitions in your project."""
+      ),
       builder
         .opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")

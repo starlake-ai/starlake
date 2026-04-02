@@ -15,6 +15,11 @@ import scala.util.{Success, Try}
 object ExtractScriptCmd extends Cmd[ExtractScriptConfig] {
   val command = "extract-script"
 
+  override def pageDescription: String =
+    "Generate database extraction scripts from domain schemas using Mustache templates for tools like sqlplus or pgsql export."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake extract-script", "extraction scripts", "SQL generation", "database export")
+
   val parser: OParser[Unit, ExtractScriptConfig] = {
     val builder = OParser.builder[ExtractScriptConfig]
     OParser.sequence(
@@ -22,6 +27,8 @@ object ExtractScriptCmd extends Cmd[ExtractScriptConfig] {
       builder.head("starlake", command, "[options]"),
       builder.note(
         """
+          |Generate extraction shell scripts from a Mustache template for batch database extraction workflows. Use this to produce tool-specific export scripts (e.g., sqlplus for Oracle, pgsql for PostgreSQL) based on your domain schema definitions.
+          |
           |For domain extraction, the schemas should at least, specify :
           |- a table name (schemas.name)
           |- a file pattern (schemas.pattern) which is used as the export file base name

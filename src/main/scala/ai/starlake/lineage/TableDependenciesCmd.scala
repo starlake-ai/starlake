@@ -17,12 +17,27 @@ object TableDependenciesCmd extends Cmd[TableDependenciesConfig] {
 
   val command = "table-dependencies"
 
+  override def pageDescription: String =
+    "Generate GraphViz dependency diagrams from domain and schema YAML files, with SVG, PNG, and JSON output options."
+  override def pageKeywords: Seq[String] =
+    Seq(
+      "starlake table-dependencies",
+      "schema dependencies",
+      "GraphViz",
+      "entity relationship",
+      "data modeling"
+    )
+
   val parser: OParser[Unit, TableDependenciesConfig] = {
     val builder = OParser.builder[TableDependenciesConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note("Generate GraphViz files from Domain / Schema YAML files"),
+      builder.note(
+        """Generate a table dependency graph showing foreign key and lineage relationships between tables.
+          |
+          |Generate GraphViz files from Domain / Schema YAML files""".stripMargin
+      ),
       builder
         .opt[String]("output")
         .action((x, c) => c.copy(outputFile = Some(File(x))))

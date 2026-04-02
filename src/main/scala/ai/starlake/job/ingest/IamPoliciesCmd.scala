@@ -19,12 +19,19 @@ object IamPoliciesCmd extends Cmd[IamPoliciesConfig] {
 
   val command = "iam-policies"
 
+  override def pageDescription: String =
+    "Generate and apply IAM policies for your Starlake project resources, managing access control with authentication tokens."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake iam-policies", "IAM policies", "access control", "security")
+
   val parser: OParser[Unit, IamPoliciesConfig] = {
     val builder = OParser.builder[IamPoliciesConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Apply IAM (Identity and Access Management) policies defined in Starlake YAML configuration to the target warehouse."""
+      ),
       builder
         .opt[String]("accessToken")
         .action((x, c) => c.copy(accessToken = Some(x)))

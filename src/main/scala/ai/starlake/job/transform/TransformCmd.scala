@@ -16,12 +16,19 @@ trait TransformCmd extends Cmd[TransformConfig] {
 
   def command = "transform"
 
+  override def pageDescription: String =
+    "Execute SQL-based transformation tasks with dry-run, recursive dependency resolution, and interactive output formats."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake transform", "SQL transformation", "data pipeline", "ELT", "BigQuery")
+
   val parser: OParser[Unit, TransformConfig] = {
     val builder = OParser.builder[TransformConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Execute a SQL or Python transformation task. Starlake resolves dependencies, compiles queries with variable substitutions, and writes results to the target table. Use `--recursive` for upstream dependencies. See [Transform Guide](/guides/transform/tutorial)."""
+      ),
       builder
         .opt[String]("action")
         .action((x, c) => c.copy(action = TransformAction.fromString(x)))

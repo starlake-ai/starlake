@@ -10,6 +10,8 @@ import scala.jdk.CollectionConverters._
 trait CommandConfig {
   def command: String
   def markdown(pageIndex: Int)(implicit settings: Settings): String
+  def pageDescription: String = ""
+  def pageKeywords: Seq[String] = Seq.empty
 }
 
 trait CliConfig[T] extends CommandConfig {
@@ -85,14 +87,35 @@ trait CliConfig[T] extends CommandConfig {
       )
     }
 
+    // Derive frontmatter description from pageDescription or first sentence of note
+    val frontDescription = if (pageDescription.nonEmpty) {
+      pageDescription
+    } else {
+      val stripped = rawDescription.replaceAll("\\s+", " ").trim
+      val firstSentenceEnd = stripped.indexOf(". ")
+      if (firstSentenceEnd > 0) stripped.substring(0, firstSentenceEnd + 1)
+      else if (stripped.endsWith(".")) stripped
+      else if (stripped.nonEmpty) stripped.split('\n').head.trim
+      else s"starlake $programName command"
+    }
+
+    // Derive frontmatter keywords from pageKeywords or command name
+    val frontKeywords = if (pageKeywords.nonEmpty) {
+      pageKeywords
+    } else {
+      Seq(s"starlake $programName")
+    }
+
     val templateMap =
       Map(
-        "programName" -> programName,
-        "synopsis"    -> synopsis,
-        "description" -> description,
-        "options"     -> options.map(opt => option(opt).toMap().asJava).toArray,
-        "index"       -> (pageIndex * 10).toString,
-        "extra"       -> extra
+        "programName"      -> programName,
+        "synopsis"         -> synopsis,
+        "description"      -> description,
+        "frontDescription" -> frontDescription,
+        "frontKeywords"    -> frontKeywords.mkString(", "),
+        "options"          -> options.map(opt => option(opt).toMap().asJava).toArray,
+        "index"            -> (pageIndex * 10).toString,
+        "extra"            -> extra
       )
 
     // TODO keep the lines below until we depreciate Scala 2.11

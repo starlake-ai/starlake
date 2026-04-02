@@ -15,12 +15,19 @@ import scala.util.Try
 object DagDeployCmd extends Cmd[DagDeployConfig] {
   val command = "dag-deploy"
 
+  override def pageDescription: String =
+    "Deploy previously generated DAG files and library dependencies to a target directory for orchestration tools like Airflow."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake dag-deploy", "DAG deployment", "Airflow", "workflow orchestration")
+
   val parser: OParser[Unit, DagDeployConfig] = {
     val builder = OParser.builder[DagDeployConfig]
     OParser.sequence(
       builder.programName(s"$shell $command"),
       builder.head(shell, command, "[options]"),
-      builder.note(""),
+      builder.note(
+        """Deploy generated DAG files and their library dependencies to the orchestrator's DAG directory. Run this after `dag-generate` to publish workflow definitions to Airflow or another scheduler. See [Orchestration Guide](/guides/orchestrate/tutorial)."""
+      ),
       builder
         .opt[String]("inputDir")
         .action((x, c) => c.copy(inputDir = Some(x)))

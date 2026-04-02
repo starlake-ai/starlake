@@ -6,4 +6,9 @@ package ai.starlake.job.transform
   */
 object JobCmd extends TransformCmd {
   override def command: String = "job"
+
+  override def pageDescription: String =
+    "Execute a named Spark or BigQuery job with configurable options, parameters, and interactive output formats."
+  override def pageKeywords: Seq[String] =
+    Seq("starlake job", "job execution", "Spark job", "BigQuery job")
 }
