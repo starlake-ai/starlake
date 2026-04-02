@@ -710,6 +710,7 @@ class ExtractSpec extends TestHelper {
       s"""
         |Usage: starlake extract-data [options]
         |
+        |Extract data from a JDBC database into CSV or Parquet files. Supports incremental extraction, parallel partitioning, and selective table filtering for efficient large-scale data exports. See [Extract Tutorial](/guides/extract/tutorial).
         |
         |Extract data from any database defined in mapping file.
         |
@@ -762,6 +763,7 @@ class ExtractSpec extends TestHelper {
     val expected =
       """
         |Usage: starlake extract-schema [options]
+        |Extract table schemas from a JDBC database and generate Starlake YAML configuration files. Use this to reverse-engineer existing database tables into domain definitions with optional snake_case naming. See [Extract Tutorial](/guides/extract/tutorial).
         |  --config <value>        Database tables & connection info
         |  --all                    Should we extract all schemas and tables to external folder ?
         |  --tables <value>         Database tables info
