@@ -53,75 +53,82 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                 tempTable
               }
 
-            val unionTempTables =
-              tempTables
-                .map(s"SELECT * FROM ${domain.finalName}." + _)
-                .mkString("(", " UNION ALL ", ")")
-            val sqlWithTransformedFields =
-              starlakeSchema.buildSecondStepSqlSelectOnLoad(unionTempTables)
-            val targetTableFullName = s"${domain.finalName}.${starlakeSchema.finalName}"
+            try {
+              val unionTempTables =
+                tempTables
+                  .map(s"SELECT * FROM ${domain.finalName}." + _)
+                  .mkString("(", " UNION ALL ", ")")
+              val sqlWithTransformedFields =
+                starlakeSchema.buildSecondStepSqlSelectOnLoad(unionTempTables)
+              val targetTableFullName = s"${domain.finalName}.${starlakeSchema.finalName}"
 
-            val taskDesc = AutoTaskInfo(
-              name = starlakeSchema.finalName,
-              sql = Some(sqlWithTransformedFields),
-              database = schemaHandler.getDatabase(domain),
-              domain = domain.finalName,
-              table = starlakeSchema.finalName,
-              presql = starlakeSchema.presql,
-              postsql = starlakeSchema.postsql,
-              sink = mergedMetadata.sink,
-              rls = starlakeSchema.rls,
-              expectations = starlakeSchema.expectations,
-              acl = starlakeSchema.acl,
-              comment = starlakeSchema.comment,
-              tags = starlakeSchema.tags,
-              writeStrategy = mergedMetadata.writeStrategy,
-              parseSQL = Some(true),
-              connectionRef = Option(mergedMetadata.getSinkConnectionRef())
-            )
+              val taskDesc = AutoTaskInfo(
+                name = starlakeSchema.finalName,
+                sql = Some(sqlWithTransformedFields),
+                database = schemaHandler.getDatabase(domain),
+                domain = domain.finalName,
+                table = starlakeSchema.finalName,
+                presql = starlakeSchema.presql,
+                postsql = starlakeSchema.postsql,
+                sink = mergedMetadata.sink,
+                rls = starlakeSchema.rls,
+                expectations = starlakeSchema.expectations,
+                acl = starlakeSchema.acl,
+                comment = starlakeSchema.comment,
+                tags = starlakeSchema.tags,
+                writeStrategy = mergedMetadata.writeStrategy,
+                parseSQL = Some(true),
+                connectionRef = Option(mergedMetadata.getSinkConnectionRef())
+              )
 
-            val context = TransformContext(
-              appId = Option(ingestionJob.applicationId()),
-              taskDesc = taskDesc,
-              commandParameters = Map.empty,
-              interactive = None,
-              truncate = false,
-              test = false,
-              logExecution = true,
-              accessToken = ingestionJob.accessToken,
-              resultPageSize = 200,
-              resultPageNumber = 1,
-              dryRun = false,
-              scheduledDate = scheduledDate,
-              syncSchema = false
-            )(settings, storageHandler, schemaHandler)
-            val job = TransformContext.createJdbcTask(context, Some(conn))
+              val context = TransformContext(
+                appId = Option(ingestionJob.applicationId()),
+                taskDesc = taskDesc,
+                commandParameters = Map.empty,
+                interactive = None,
+                truncate = false,
+                test = false,
+                logExecution = true,
+                accessToken = ingestionJob.accessToken,
+                resultPageSize = 200,
+                resultPageNumber = 1,
+                dryRun = false,
+                scheduledDate = scheduledDate,
+                syncSchema = false
+              )(settings, storageHandler, schemaHandler)
+              val job = TransformContext.createJdbcTask(context, Some(conn))
 
-            job.updateJdbcTableSchema(
-              starlakeSchema.sparkSchemaWithoutIgnore(
-                schemaHandler,
-                withFinalName = true
-              ),
-              targetTableFullName,
-              TableSync.ALL,
-              true
-            )
+              job.updateJdbcTableSchema(
+                starlakeSchema.sparkSchemaWithoutIgnore(
+                  schemaHandler,
+                  withFinalName = true
+                ),
+                targetTableFullName,
+                TableSync.ALL,
+                true
+              )
 
-            val runResult = job.runJDBC(df = None, sqlConnection = Some(conn))
+              val runResult = job.runJDBC(df = None, sqlConnection = Some(conn))
 
-            // TODO archive if set
-            tempTables.foreach { tempTable =>
-              JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
-            }
-
-            runResult match {
-              case Success(_) =>
-                logger.info(s"Table $targetTableFullName created successfully")
-              case Failure(exception) =>
-                logger.error(
-                  s"Error creating table $targetTableFullName: ${exception.getMessage}"
-                )
-                throw exception
+              runResult match {
+                case Success(_) =>
+                  logger.info(s"Table $targetTableFullName created successfully")
+                case Failure(exception) =>
+                  logger.error(
+                    s"Error creating table $targetTableFullName: ${exception.getMessage}"
+                  )
+                  throw exception
+              }
+            } finally {
+              tempTables.foreach { tempTable =>
+                Try {
+                  JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
+                }.recover { case e =>
+                  logger.warn(
+                    s"Failed to drop temporary table ${domain.finalName}.$tempTable: ${e.getMessage}"
+                  )
+                }
+              }
             }
           } else {
             singleStepLoad(

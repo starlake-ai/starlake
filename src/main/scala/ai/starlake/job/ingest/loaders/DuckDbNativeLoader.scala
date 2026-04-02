@@ -108,64 +108,73 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             tempTable
           }
 
-        val unionTempTables = tempTables
-          .map(s"SELECT * FROM ${domain.finalName}." + _)
-          .mkString("(", " UNION ALL ", ")")
-        val targetFullTableName = s"${domain.finalName}.${schema.finalName}"
-        val sqlWithTransformedFields = schema.buildSecondStepSqlSelectOnLoad(unionTempTables)
+        try {
+          val unionTempTables = tempTables
+            .map(s"SELECT * FROM ${domain.finalName}." + _)
+            .mkString("(", " UNION ALL ", ")")
+          val targetFullTableName = s"${domain.finalName}.${schema.finalName}"
+          val sqlWithTransformedFields = schema.buildSecondStepSqlSelectOnLoad(unionTempTables)
 
-        val taskDesc = AutoTaskInfo(
-          name = schema.finalName,
-          sql = Some(sqlWithTransformedFields),
-          database = schemaHandler.getDatabase(domain),
-          domain = domain.finalName,
-          table = schema.finalName,
-          presql = schema.presql,
-          postsql = schema.postsql,
-          sink = mergedMetadata.sink,
-          rls = schema.rls,
-          expectations = schema.expectations,
-          acl = schema.acl,
-          comment = schema.comment,
-          tags = schema.tags,
-          writeStrategy = mergedMetadata.writeStrategy,
-          parseSQL = Some(true),
-          connectionRef = Option(mergedMetadata.getSinkConnectionRef())
-        )
+          val taskDesc = AutoTaskInfo(
+            name = schema.finalName,
+            sql = Some(sqlWithTransformedFields),
+            database = schemaHandler.getDatabase(domain),
+            domain = domain.finalName,
+            table = schema.finalName,
+            presql = schema.presql,
+            postsql = schema.postsql,
+            sink = mergedMetadata.sink,
+            rls = schema.rls,
+            expectations = schema.expectations,
+            acl = schema.acl,
+            comment = schema.comment,
+            tags = schema.tags,
+            writeStrategy = mergedMetadata.writeStrategy,
+            parseSQL = Some(true),
+            connectionRef = Option(mergedMetadata.getSinkConnectionRef())
+          )
 
-        val context = TransformContext(
-          appId = Option(ingestionJob.applicationId()),
-          taskDesc = taskDesc,
-          commandParameters = Map.empty,
-          interactive = None,
-          truncate = false,
-          test = false,
-          logExecution = true,
-          accessToken = ingestionJob.accessToken,
-          resultPageSize = 200,
-          resultPageNumber = 1,
-          dryRun = false,
-          scheduledDate = scheduledDate,
-          syncSchema = false
-        )(settings, storageHandler, schemaHandler)
-        val job = TransformContext.createJdbcTask(context, None)
-        val incomingSchema = schema.sparkSchemaWithoutIgnore(
-          schemaHandler,
-          withFinalName = true
-        )
-        job.updateJdbcTableSchema(
-          incomingSchema = incomingSchema,
-          tableName = targetFullTableName,
-          syncStrategy = TableSync.ALL,
-          createIfAbsent = true
-        )
-        job.run()
-
-        // TODO archive if set
-        tempTables.foreach { tempTable =>
-          JdbcDbUtils.withJDBCConnection(this.schemaHandler.dataBranch(), sinkConnection.options) {
-            conn =>
-              JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
+          val context = TransformContext(
+            appId = Option(ingestionJob.applicationId()),
+            taskDesc = taskDesc,
+            commandParameters = Map.empty,
+            interactive = None,
+            truncate = false,
+            test = false,
+            logExecution = true,
+            accessToken = ingestionJob.accessToken,
+            resultPageSize = 200,
+            resultPageNumber = 1,
+            dryRun = false,
+            scheduledDate = scheduledDate,
+            syncSchema = false
+          )(settings, storageHandler, schemaHandler)
+          val job = TransformContext.createJdbcTask(context, None)
+          val incomingSchema = schema.sparkSchemaWithoutIgnore(
+            schemaHandler,
+            withFinalName = true
+          )
+          job.updateJdbcTableSchema(
+            incomingSchema = incomingSchema,
+            tableName = targetFullTableName,
+            syncStrategy = TableSync.ALL,
+            createIfAbsent = true
+          )
+          job.run()
+        } finally {
+          tempTables.foreach { tempTable =>
+            Try {
+              JdbcDbUtils.withJDBCConnection(
+                this.schemaHandler.dataBranch(),
+                sinkConnection.options
+              ) { conn =>
+                JdbcDbUtils.dropTable(conn, s"${domain.finalName}.$tempTable")
+              }
+            }.recover { case e =>
+              logger.warn(
+                s"Failed to drop temporary table ${domain.finalName}.$tempTable: ${e.getMessage}"
+              )
+            }
           }
         }
       } else {
