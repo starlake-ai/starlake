@@ -13,6 +13,7 @@ __Improvement__:
 
 __Bug fix__:
 - **Upgrade command**: Derive snapshot version from Maven Central latest release instead of querying stale Sonatype snapshots repository, matching setup.sh logic (starlake.sh and starlake.cmd).
+- **Temp table cleanup in native loaders**: Temporary `zztmp_` tables used during two-step native loads (DuckDB, Snowflake, BigQuery) are now cleaned up in a `finally` block, ensuring they are dropped even when the second step fails.
 
 # 1.5.12:
 __Improvement__:

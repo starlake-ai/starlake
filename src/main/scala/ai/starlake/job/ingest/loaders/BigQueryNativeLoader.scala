@@ -152,22 +152,23 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
             tryListSequence(loadResults)
           )
 
-        tempTableIds.zip(tableInfos).foreach { case (id, info) =>
-          val database = Option(id.getProject()).getOrElse("")
-          val schema = Option(id.getDataset()).getOrElse("")
-          val table = Option(id.getTable()).getOrElse("")
-          archiveTableTask(database, schema, table, info).foreach(_.run())
-        }
-        Try(ParUtils.runInParallel(tempTableIds, Some(settings.appConfig.maxParTask)) { tableId =>
-          BigQueryJobBase.recoverBigqueryException(settings.appConfig.onExceptionRetries) {
-            new BigQueryNativeJob(targetConfig, "").dropTable(tableId)
+        try {
+          tempTableIds.zip(tableInfos).foreach { case (id, info) =>
+            val database = Option(id.getProject()).getOrElse("")
+            val schema = Option(id.getDataset()).getOrElse("")
+            val table = Option(id.getTable()).getOrElse("")
+            archiveTableTask(database, schema, table, info).foreach(_.run())
           }
-        })
-          .flatMap(_ => output)
-          .recoverWith { case exception =>
+        } finally {
+          Try(ParUtils.runInParallel(tempTableIds, Some(settings.appConfig.maxParTask)) { tableId =>
+            BigQueryJobBase.recoverBigqueryException(settings.appConfig.onExceptionRetries) {
+              new BigQueryNativeJob(targetConfig, "").dropTable(tableId)
+            }
+          }).recover { case exception =>
             Utils.logException(logger, exception)
-            output
-          } // ignore exception but log it
+          }
+        }
+        output
       } else {
         // Single step ingestion
         val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
