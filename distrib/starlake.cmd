@@ -3,6 +3,7 @@ setlocal enabledelayedexpansion
 
 set "SCRIPT_DIR=%~dp0"
 set "SL_SCRIPT_DIR=%SCRIPT_DIR%"
+if not defined SL_API_STARLAKE_CORE_PATH set "SL_API_STARLAKE_CORE_PATH=%SCRIPT_DIR%starlake.cmd"
 set "API_BIN_DIR=%SCRIPT_DIR%\bin\api\bin"
 
 if not defined SL_ROOT (
