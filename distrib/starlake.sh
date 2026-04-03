@@ -5,6 +5,7 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
 
 export SL_SCRIPT_DIR="$SCRIPT_DIR"
+export SL_API_STARLAKE_CORE_PATH="${SL_API_STARLAKE_CORE_PATH:-$SCRIPT_DIR/starlake}"
 
 API_BIN_DIR="$SCRIPT_DIR/bin/api/bin"
 
