@@ -2,9 +2,11 @@ package ai.starlake.lineage
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{AccessControlEntry, RowLevelSecurity}
+import ai.starlake.utils.YamlSerde
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
+
+import scala.jdk.CollectionConverters._
 
 class AclExport(schemaHandler: SchemaHandler)(implicit settings: Settings) extends LazyLogging {
 
@@ -15,14 +17,7 @@ class AclExport(schemaHandler: SchemaHandler)(implicit settings: Settings) exten
     logger.info(s"ACL export written to ${config.outputPath}")
   }
 
-  private case class GrantEntry(
-    target: String,
-    principals: Set[String],
-    acl: List[AccessControlEntry],
-    rls: List[RowLevelSecurity]
-  )
-
-  private def collectGrants(): List[GrantEntry] = {
+  private def collectGrants(): List[Map[String, Any]] = {
     val domains = schemaHandler.domains()
     val tasks = schemaHandler.tasks()
 
@@ -32,8 +27,29 @@ class AclExport(schemaHandler: SchemaHandler)(implicit settings: Settings) exten
         .filter(t => t.acl.nonEmpty || t.rls.nonEmpty)
         .map { table =>
           val target = s"$dbPrefix${domain.finalName}.${table.finalName}"
-          val principals = table.acl.flatMap(_.grants).toSet
-          GrantEntry(target, principals, table.acl, table.rls)
+          val principals = table.acl.flatMap(_.grants).toList.sorted
+          val entry = scala.collection.mutable.LinkedHashMap[String, Any](
+            "target" -> target
+          )
+          if (principals.nonEmpty) {
+            entry("principals") = principals.asJava
+          }
+          if (table.rls.nonEmpty) {
+            entry("rls") = table.rls.map { rls =>
+              val rlsMap = scala.collection.mutable.LinkedHashMap[String, Any](
+                "name"      -> rls.name,
+                "predicate" -> rls.predicate
+              )
+              if (rls.grants.nonEmpty) {
+                rlsMap("grants") = rls.grants.toList.sorted.asJava
+              }
+              if (rls.description.nonEmpty) {
+                rlsMap("description") = rls.description
+              }
+              rlsMap.asJava
+            }.asJava
+          }
+          entry.toMap
         }
     }
 
@@ -42,53 +58,37 @@ class AclExport(schemaHandler: SchemaHandler)(implicit settings: Settings) exten
       .map { task =>
         val dbPrefix = task.database.map(_ + ".").getOrElse("")
         val target = s"$dbPrefix${task.domain}.${task.table}"
-        val principals = task.acl.flatMap(_.grants).toSet
-        GrantEntry(target, principals, task.acl, task.rls)
+        val principals = task.acl.flatMap(_.grants).toList.sorted
+        val entry = scala.collection.mutable.LinkedHashMap[String, Any](
+          "target" -> target
+        )
+        if (principals.nonEmpty) {
+          entry("principals") = principals.asJava
+        }
+        if (task.rls.nonEmpty) {
+          entry("rls") = task.rls.map { rls =>
+            val rlsMap = scala.collection.mutable.LinkedHashMap[String, Any](
+              "name"      -> rls.name,
+              "predicate" -> rls.predicate
+            )
+            if (rls.grants.nonEmpty) {
+              rlsMap("grants") = rls.grants.toList.sorted.asJava
+            }
+            if (rls.description.nonEmpty) {
+              rlsMap("description") = rls.description
+            }
+            rlsMap.asJava
+          }.asJava
+        }
+        entry.toMap
       }
 
     domainGrants ++ taskGrants
   }
 
   private def buildYaml(): String = {
-    val sb = new StringBuilder
     val grants = collectGrants()
-
-    sb.append("grants:\n")
-
-    grants.foreach { grant =>
-      sb.append(s"  - target: ${grant.target}\n")
-
-      if (grant.principals.nonEmpty) {
-        sb.append("    principals:\n")
-        grant.principals.toList.sorted.foreach { principal =>
-          sb.append(s"      - $principal\n")
-        }
-      }
-
-      if (grant.rls.nonEmpty) {
-        sb.append("    rls:\n")
-        grant.rls.foreach { rls =>
-          sb.append(s"      - name: ${rls.name}\n")
-          sb.append(s"        predicate: \"${rls.predicate}\"\n")
-          if (rls.grants.nonEmpty) {
-            sb.append("        grants:\n")
-            rls.grants.toList.sorted.foreach { g =>
-              sb.append(s"          - $g\n")
-            }
-          }
-          if (rls.description.nonEmpty) {
-            sb.append(s"        description: \"${rls.description}\"\n")
-          }
-        }
-      }
-
-      sb.append("\n")
-    }
-
-    if (grants.isEmpty) {
-      sb.append("  []\n")
-    }
-
-    sb.toString()
+    val root = Map("grants" -> grants.map(_.asJava).asJava)
+    YamlSerde.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(root.asJava)
   }
 }
