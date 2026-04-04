@@ -18,6 +18,7 @@ import ai.starlake.job.tools.SummarizeCmd
 import ai.starlake.job.gizmo.GizmoCmd
 import ai.starlake.job.transform.{JobCmd, TransformCmd}
 import ai.starlake.lineage.{
+  AclCmd,
   AclDependenciesCmd,
   AutoTaskDependenciesCmd,
   ColLineageCmd,
@@ -103,6 +104,7 @@ object Main extends LazyLogging {
     Xls2YmlAutoJobCmd,
     TableDependenciesCmd,
     AclDependenciesCmd,
+    AclCmd,
     AutoTaskDependenciesCmd,
     ExtractSchemaCmd,
     ExtractDataCmd,
