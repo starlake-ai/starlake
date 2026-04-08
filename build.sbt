@@ -82,7 +82,8 @@ dependencyOverrides := Seq(
   "org.scala-lang"                    % "scala-reflect"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-compiler"            % scalaVersion.value,
   "com.google.guava"                  %  "guava"                    % "31.1-jre", // required by jinjava 2.7.3
-  "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jacksonForSpark3
+  "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jacksonForSpark3,
+  "com.manticore-projects.jsqlformatter" % "jsqlparser"             % Versions.jSqlParser // avoid MethodTooLargeException during assembly shading
 )
 
 name := "starlake-core"
