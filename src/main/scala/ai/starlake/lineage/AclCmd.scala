@@ -13,7 +13,7 @@ object AclCmd extends Cmd[AclConfig] {
   val command = "acl"
 
   override def pageDescription: String =
-    "Export all ACL and Row Level Security entries to a markdown file. Supports local and cloud filesystem paths."
+    "Export all ACL and Row Level Security entries to a Starlake Data Stack YAML file. Supports local and cloud filesystem paths."
   override def pageKeywords: Seq[String] =
     Seq("starlake acl", "ACL export", "row level security", "access control", "RLS")
 
