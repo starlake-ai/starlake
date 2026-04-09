@@ -29,7 +29,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.spark.sql.types.*
 
 import java.util.regex.Pattern
-import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
