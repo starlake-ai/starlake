@@ -49,7 +49,7 @@ object Project {
         domain,
         p2Domains
           .find(_.name.toLowerCase() == domain.name.toLowerCase())
-          .getOrElse(throw new Exception("Should not happen"))
+          .getOrElse(throw new IllegalStateException("Should not happen"))
       )
     }
 
@@ -75,7 +75,7 @@ object Project {
         job,
         p2Jobs
           .find(_.name.toLowerCase() == job.name.toLowerCase())
-          .getOrElse(throw new Exception("Should not happen"))
+          .getOrElse(throw new IllegalStateException("Should not happen"))
       )
     }
 

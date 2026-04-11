@@ -44,7 +44,7 @@ object AnyRefDiff {
     val common2 = Named.diff(set2, added).toList.sortBy(_.name)
 
     val common = common1.zip(common2).map { case (v1, v2) =>
-      assert(v1.name == v2.name)
+      require(v1.name == v2.name)
       (v1.name, v1, v2)
     }
     val updated = common.flatMap { case (k, v1, v2) =>
