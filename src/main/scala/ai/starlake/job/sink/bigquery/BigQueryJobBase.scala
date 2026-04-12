@@ -785,7 +785,7 @@ trait BigQueryJobBase extends LazyLogging {
   private def newTableDefinition(
     tableInfo: model.TableInfo,
     dataFrame: scala.Option[DataFrame]
-  ): TableDefinition = {
+  )(implicit settings: Settings): TableDefinition = {
     val maybeTimePartitioning = tableInfo.maybePartition
       .map(partitionInfo =>
         timePartitioning(
@@ -823,7 +823,7 @@ trait BigQueryJobBase extends LazyLogging {
     withClusteringDefinition.build()
   }
 
-  private def getTableConstraints(): TableConstraints = {
+  private def getTableConstraints()(implicit settings: Settings): TableConstraints = {
     val tableConstraints = cliConfig.starlakeSchema match {
       case Some(starlakeSchema) =>
         val pkTableConstraints = if (starlakeSchema.primaryKey.nonEmpty) {
@@ -838,16 +838,6 @@ trait BigQueryJobBase extends LazyLogging {
         }
         val foreignKeys = fkComponents.flatMap { case (attr, domain, table, referencedColumn) =>
           if (datasetId.getDataset.equalsIgnoreCase(domain)) {
-            logger.info(
-              s"Adding foreign key constraint on ${datasetId.getDataset}.${tableId.getTable}.${attr
-                  .getFinalName()} referencing $domain.$table.$referencedColumn"
-            )
-            val columnReference =
-              ColumnReference.newBuilder
-                .setReferencingColumn(attr.getFinalName())
-                .setReferencedColumn(referencedColumn)
-                .build
-
             val tableIdPk =
               TableId.of(
                 cliConfig.outputDatabase.getOrElse(
@@ -857,16 +847,34 @@ trait BigQueryJobBase extends LazyLogging {
                 domain,
                 table
               )
-            val tableName =
-              tableIdPk.getDataset.toUpperCase() + "_" + tableIdPk.getTable.toUpperCase()
-            val fk = ForeignKey.newBuilder
-              .setName(
-                s"FK_${datasetId.getDataset.toUpperCase()}_${tableId.getTable().toUpperCase()}_${attr.getFinalName().toUpperCase()}"
+            val referencedTable =
+              bigquery(accessToken = cliConfig.accessToken).getTable(tableIdPk)
+            if (referencedTable == null || !referencedTable.exists()) {
+              logger.warn(
+                s"Foreign key constraint on ${datasetId.getDataset}.${tableId.getTable}.${attr.getFinalName()} " +
+                s"referencing $domain.$table.$referencedColumn not added because the referenced table does not exist"
               )
-              .setColumnReferences(List(columnReference).asJava)
-              .setReferencedTable(tableIdPk)
-              .build
-            Some(fk)
+              None
+            } else {
+              logger.info(
+                s"Adding foreign key constraint on ${datasetId.getDataset}.${tableId.getTable}.${attr
+                    .getFinalName()} referencing $domain.$table.$referencedColumn"
+              )
+              val columnReference =
+                ColumnReference.newBuilder
+                  .setReferencingColumn(attr.getFinalName())
+                  .setReferencedColumn(referencedColumn)
+                  .build
+
+              val fk = ForeignKey.newBuilder
+                .setName(
+                  s"FK_${datasetId.getDataset.toUpperCase()}_${tableId.getTable().toUpperCase()}_${attr.getFinalName().toUpperCase()}"
+                )
+                .setColumnReferences(List(columnReference).asJava)
+                .setReferencedTable(tableIdPk)
+                .build
+              Some(fk)
+            }
           } else {
             logger.warn(s"""Foreign key constraint
                  |${datasetId.getDataset}.${tableId.getTable}.${attr.getFinalName()}
