@@ -109,12 +109,12 @@ goto :handle_command
     set "target=%~2"
     if defined PROXY (
         if defined SL_INSECURE (
-            curl --insecure --proxy "%PROXY%" -s -o "%target%" "%url%"
+            curl --insecure --proxy "%PROXY%" --progress-bar -o "%target%" "%url%"
         ) else (
-            curl --proxy "%PROXY%" -s -o "%target%" "%url%"
+            curl --proxy "%PROXY%" --progress-bar -o "%target%" "%url%"
         )
     ) else (
-        curl -s -o "%target%" "%url%"
+        curl --progress-bar -o "%target%" "%url%"
     )
     if errorlevel 1 (
         echo Error: Failed to retrieve data from %url%.
