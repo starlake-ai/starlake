@@ -171,11 +171,22 @@
                     {% endif %}
 
                     {% if tableDiff.metadata %}
-                    <div><strong>Metadata changes:</strong>
+                    <table>
+                        <thead><tr><th>Status</th><th>Section</th><th>Field</th><th>Before</th><th>After</th></tr></thead>
+                        <tbody>
                         {% for m in tableDiff.metadata.updated %}
-                        <span class="change-detail">{{ m.name }}: {% for c in m.changes %}<span class="before">{{ c.before }}</span> &rarr; <span class="after">{{ c.after }}</span>{% endfor %}</span>
+                        {% for c in m.changes %}
+                        <tr>
+                            <td><span class="badge badge-updated">Updated</span></td>
+                            <td>{{ m.name }}</td>
+                            <td><strong>{{ c.key }}</strong></td>
+                            <td class="change-detail"><span class="before">{{ c.before }}</span></td>
+                            <td class="change-detail"><span class="after">{{ c.after }}</span></td>
+                        </tr>
                         {% endfor %}
-                    </div>
+                        {% endfor %}
+                        </tbody>
+                    </table>
                     {% endif %}
                 </div>
                 {% endfor %}
