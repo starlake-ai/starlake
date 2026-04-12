@@ -12,7 +12,7 @@ object AnyRefDiff {
     val fields = cls
       .getDeclaredFields()
       .filter(field => !Modifier.isTransient(field.getModifiers))
-      .filter(_.getDeclaredAnnotations.isEmpty)
+      .filter(field => !field.isAnnotationPresent(classOf[JsonIgnore]))
     val fieldNames = fields.map(_.getName)
     cls.getDeclaredMethods.flatMap { method =>
       if (
@@ -221,7 +221,7 @@ case class ProjectDiff(
   transform: JobsDiff
 ) {
   @JsonIgnore
-  def isEmpty(): Boolean = load.isEmpty()
+  def isEmpty(): Boolean = load.isEmpty() && transform.isEmpty()
 
   def getProject1(): String = project1
   def getProject2(): String = project2
@@ -250,7 +250,7 @@ case class TableDiff(
   @JsonIgnore
   def isEmpty(): Boolean =
     attributes.isEmpty &&
-    attributes.isEmpty &&
+    expectations.isEmpty &&
     pattern.isEmpty &&
     metadata.isEmpty &&
     comment.isEmpty &&
