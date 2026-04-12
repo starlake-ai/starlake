@@ -20,8 +20,8 @@ object Project {
         settings.appConfig.copy(metadata = new Path(project2Path, "metadata").toString)
       )
 
-    val schemaHandler1 = settings1.schemaHandler()
-    val schemaHandler2 = settings2.schemaHandler()
+    val schemaHandler1 = settings1.schemaHandler(reload = true)
+    val schemaHandler2 = settings2.schemaHandler(reload = true)
 
     ProjectDiff(
       project1Path.toString,

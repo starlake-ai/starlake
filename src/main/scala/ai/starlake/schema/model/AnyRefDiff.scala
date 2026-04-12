@@ -7,6 +7,17 @@ import java.util
 import scala.jdk.CollectionConverters._
 
 object AnyRefDiff {
+  private def isComplexType(value: AnyRef): Boolean = value match {
+    case null                             => false
+    case _: String                        => false
+    case _: java.lang.Number              => false
+    case _: java.lang.Boolean             => false
+    case _: java.lang.Enum[_]             => false
+    case _: java.util.regex.Pattern       => false
+    case p: Product if p.productArity > 0 => true
+    case _                                => false
+  }
+
   def extractFieldValues(obj: AnyRef): List[NamedValue] = {
     val cls = obj.getClass
     val fields = cls
@@ -48,12 +59,16 @@ object AnyRefDiff {
       (v1.name, v1, v2)
     }
     val updated = common.flatMap { case (k, v1, v2) =>
-      // diffAny(k, v1, v2).updated
       if (v1.isInstanceOf[NamedValue]) {
-        if (v1 != v2)
-          List((Some(fieldName), v1, v2))
-        else
+        val nv1 = v1.asInstanceOf[NamedValue]
+        val nv2 = v2.asInstanceOf[NamedValue]
+        if (v1 == v2) {
           Nil
+        } else if (isComplexType(nv1.value) && isComplexType(nv2.value)) {
+          diffAnyRef(nv1.name, nv1.value, nv2.value).updated
+        } else {
+          List((Some(fieldName), v1, v2))
+        }
       } else {
         val res = diffAnyRef(k, v1, v2)
         res.updated
