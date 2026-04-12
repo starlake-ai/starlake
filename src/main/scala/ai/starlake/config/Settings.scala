@@ -1111,7 +1111,7 @@ object Settings extends LazyLogging {
           case JSQLTranspiler.Dialect.DUCK_DB if isDuckLake =>
             v.copy(options = v.options.updated("url", s"jdbc:duckdb:"))
           case JSQLTranspiler.Dialect.DUCK_DB =>
-            val urlParts = v.jdbcUrl.split(":")
+            val urlParts = v.jdbcUrl.split(":", 3)
             require(
               urlParts.length == 3,
               "DuckDB JDBC URL should be in the form jdbc:duckdb:dbname"
