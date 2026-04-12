@@ -76,7 +76,7 @@
             </div>
         </div>
 
-        {% if diff.load.added is not empty %}
+        {% if diff.load.added | length > 0 %}
         <div class="section">
             <h3><span class="badge badge-added">Added Domains</span></h3>
             <div class="tag-list">
@@ -85,7 +85,7 @@
         </div>
         {% endif %}
 
-        {% if diff.load.deleted is not empty %}
+        {% if diff.load.deleted | length > 0 %}
         <div class="section">
             <h3><span class="badge badge-deleted">Deleted Domains</span></h3>
             <div class="tag-list">
@@ -137,7 +137,7 @@
                     {{ domainDiff.name }}.{{ tableDiff.name }}
                 </h3>
                 <div class="collapsible-content">
-                    {% if tableDiff.attributes is not null %}
+                    {% if tableDiff.attributes %}
                     <table>
                         <thead><tr><th>Status</th><th>Attribute</th><th>Details</th></tr></thead>
                         <tbody>
@@ -170,7 +170,7 @@
                     </table>
                     {% endif %}
 
-                    {% if tableDiff.metadata is not null %}
+                    {% if tableDiff.metadata %}
                     <div><strong>Metadata changes:</strong>
                         {% for m in tableDiff.metadata.updated %}
                         <span class="change-detail">{{ m.name }}: {% for c in m.changes %}<span class="before">{{ c.before }}</span> &rarr; <span class="after">{{ c.after }}</span>{% endfor %}</span>
@@ -181,13 +181,13 @@
                 {% endfor %}
 
                 <!-- Domain-level property changes -->
-                {% if domainDiff.metadata is not null %}
+                {% if domainDiff.metadata %}
                 <div><strong>Domain metadata changed</strong></div>
                 {% endif %}
-                {% if domainDiff.comment is not null %}
+                {% if domainDiff.comment %}
                 <div><strong>Domain comment changed</strong></div>
                 {% endif %}
-                {% if domainDiff.tags is not null %}
+                {% if domainDiff.tags %}
                 <div><strong>Domain tags changed</strong></div>
                 {% endif %}
             </div>
@@ -201,7 +201,7 @@
         <!-- ==================== TRANSFORM CHANGES ==================== -->
         <h2>Transform Changes (Jobs)</h2>
 
-        {% if diff.transform.added is not empty or diff.transform.deleted is not empty or diff.transform.updated is not empty %}
+        {% if diff.transform.added | length > 0 or diff.transform.deleted | length > 0 or diff.transform.updated | length > 0 %}
 
         <div class="summary">
             <div class="summary-card card-added">
@@ -218,7 +218,7 @@
             </div>
         </div>
 
-        {% if diff.transform.added is not empty %}
+        {% if diff.transform.added | length > 0 %}
         <div class="section">
             <h3><span class="badge badge-added">Added Jobs</span></h3>
             <div class="tag-list">
@@ -227,7 +227,7 @@
         </div>
         {% endif %}
 
-        {% if diff.transform.deleted is not empty %}
+        {% if diff.transform.deleted | length > 0 %}
         <div class="section">
             <h3><span class="badge badge-deleted">Deleted Jobs</span></h3>
             <div class="tag-list">
