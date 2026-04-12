@@ -1096,12 +1096,18 @@ object Settings extends LazyLogging {
     */
   def secureDuckDbPath(settings: Settings): Settings = {
     def removeSchemeFromFilename(filename: String): String = {
-      if (filename.contains("file://"))
-        filename.substring(7)
-      else if (filename.contains("file:"))
-        filename.substring(5)
+      val stripped =
+        if (filename.contains("file://"))
+          filename.substring(7)
+        else if (filename.contains("file:"))
+          filename.substring(5)
+        else
+          filename
+      // On Windows, Hadoop paths may have a leading / before drive letter (e.g. /C:/...)
+      if (stripped.length > 2 && stripped.charAt(0) == '/' && stripped.charAt(2) == ':')
+        stripped.substring(1)
       else
-        filename
+        stripped
     }
     val updatedConnections = settings.appConfig.connections
       .map { case (k, v) =>
