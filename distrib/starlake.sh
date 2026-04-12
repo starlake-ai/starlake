@@ -147,9 +147,9 @@ get_binary_from_url() {
     local target_file=$2
     if [ -n "$PROXY" ] && [ -n "$SL_INSECURE" ]; then
         echo "Downloading $url to $target_file using proxy $PROXY"
-        local response=$(curl --insecure --proxy "$PROXY" -s -w "%{http_code}" -o "$target_file" "$url")
+        local response=$(curl --insecure --proxy "$PROXY" --progress-bar -w "%{http_code}" -o "$target_file" "$url")
     else
-        local response=$(curl -s -w "%{http_code}" -o "$target_file" "$url")
+        local response=$(curl --progress-bar -w "%{http_code}" -o "$target_file" "$url")
     fi
     local status_code=${response: -3}
 
