@@ -14,6 +14,11 @@ object AnyRefDiff {
     case _: java.lang.Boolean             => false
     case _: java.lang.Enum[_]             => false
     case _: java.util.regex.Pattern       => false
+    case _: scala.collection.Iterable[_]  => false
+    case _: Option[_]                     => false
+    case _: scala.Tuple1[_]               => false
+    case _: scala.Tuple2[_, _]            => false
+    case _: scala.Tuple3[_, _, _]         => false
     case p: Product if p.productArity > 0 => true
     case _                                => false
   }
@@ -65,7 +70,14 @@ object AnyRefDiff {
         if (v1 == v2) {
           Nil
         } else if (isComplexType(nv1.value) && isComplexType(nv2.value)) {
-          diffAnyRef(nv1.name, nv1.value, nv2.value).updated
+          val nested = diffAnyRef(nv1.name, nv1.value, nv2.value)
+          nested.updated.map { case (parentOpt, v1, v2) =>
+            val qualifiedName = parentOpt match {
+              case Some(parent) => Some(s"${nv1.name}.$parent")
+              case None         => Some(nv1.name)
+            }
+            (qualifiedName, v1, v2)
+          }
         } else {
           List((Some(fieldName), v1, v2))
         }
