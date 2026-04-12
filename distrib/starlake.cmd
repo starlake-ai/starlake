@@ -218,6 +218,7 @@ goto :eof
     if /i "%1" == "reinstall" goto :install_command
     if /i "%1" == "serve" goto :serve_command
     if /i "%1" == "upgrade" goto :upgrade_command
+    if /i "%1" == "_do_upgrade" goto :do_upgrade_command
     goto :default_command
 
 :version_command
@@ -267,6 +268,18 @@ goto :eof
     goto :eof
 
 :upgrade_command
+    REM Self-update: download latest starlake.cmd and re-launch
+    echo Updating starlake script...
+    call :get_binary_from_url "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd" "%SCRIPT_DIR%starlake.cmd.tmp"
+    REM Ensure CRLF line endings
+    powershell -Command "$c = [IO.File]::ReadAllText('%SCRIPT_DIR%starlake.cmd.tmp'); $c = $c -replace \"`r`n\",\"`n\" -replace \"`n\",\"`r`n\"; [IO.File]::WriteAllText('%SCRIPT_DIR%starlake.cmd.tmp', $c)"
+    copy /y "%SCRIPT_DIR%starlake.cmd.tmp" "%SCRIPT_DIR%starlake.cmd" >nul
+    del "%SCRIPT_DIR%starlake.cmd.tmp" 2>nul
+    REM Re-launch with updated script
+    "%SCRIPT_DIR%starlake.cmd" _do_upgrade
+    goto :eof
+
+:do_upgrade_command
     call :select_starlake_version
     if defined NEW_SL_VERSION (
         if exist "%SCRIPT_DIR%versions.cmd" (

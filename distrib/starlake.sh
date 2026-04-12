@@ -388,6 +388,14 @@ case "$1" in
     echo If any errors happen during installation. Please try to install again or open an issue.
     ;;
   upgrade)
+    # Self-update: download latest starlake.sh and re-launch
+    echo "Updating starlake script..."
+    get_binary_from_url "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh" "$SCRIPT_DIR/starlake.sh.tmp"
+    chmod +x "$SCRIPT_DIR/starlake.sh.tmp"
+    mv "$SCRIPT_DIR/starlake.sh.tmp" "$SCRIPT_DIR/starlake.sh"
+    exec "$SCRIPT_DIR/starlake.sh" _do_upgrade
+    ;;
+  _do_upgrade)
     select_starlake_version
     if [ -n "$NEW_SL_VERSION" ]; then
         if [ -f "$SCRIPT_DIR/versions.sh" ]; then
