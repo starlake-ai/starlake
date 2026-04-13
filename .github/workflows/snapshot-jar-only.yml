@@ -40,7 +40,7 @@ jobs:
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           SBT_OPTS: "-Xss8M -Xmx16g -XX:+UseG1GC"
         run: sbt update clean compile publish
-      - name: trigger-starlake-api-jar
+      - name: trigger-starlake-api
         if: ${{ success() }}
         uses: actions/github-script@v6
         with:
@@ -50,15 +50,4 @@ jobs:
             owner: 'starlake-ai',
             repo: 'starlake-api',
             workflow_id: 'snapshot-jar-only.yml',
-            ref: 'main'})
-      - name: trigger-starlake-api-docker
-        if: ${{ success() }}
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.STARLAKE_API_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-            owner: 'starlake-ai',
-            repo: 'starlake-api',
-            workflow_id: 'docker-hub-amd-arm.yml',
             ref: 'main'})
