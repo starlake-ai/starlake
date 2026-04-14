@@ -7,6 +7,7 @@ __Improvement__:
 - **CI**: Trigger `snapshot-docker-no-tests` workflow automatically after `snapshot-jar-only` succeeds.
 
 __Bug fix__:
+- **PySpark to BigQuery sink**: Fix `SparkAutoTask.buildDataFrameToSink()` to support PySpark tasks sinking to non-FS targets (BigQuery, JDBC). Previously PySpark tasks only worked with filesystem sinks.
 - **DuckDB on Windows**: Fix JDBC URL parsing and path normalization for Windows paths.
 
 # 1.5.14:

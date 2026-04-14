@@ -267,6 +267,13 @@ class SparkAutoTask(
   }
 
   private def buildDataFrameToSink(): Option[DataFrame] = {
+    // PySpark tasks handle their own data loading and register result as SL_THIS
+    taskDesc.python match {
+      case Some(pythonFile) =>
+        return runPySpark(pythonFile)
+      case None => // continue with SQL-based DataFrame building
+    }
+
     val runConnectionType = taskDesc.getRunConnectionType()
     val runEngine: Engine = taskDesc.getRunEngine()
 
