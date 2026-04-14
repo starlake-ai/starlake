@@ -6,6 +6,8 @@ __Improvement__:
 - **Upgrade self-update**: The `starlake upgrade` command now downloads the latest starlake script from GitHub before proceeding, ensuring the upgrade logic itself is always up to date.
 - **CI**: Trigger `snapshot-docker-no-tests` workflow automatically after `snapshot-jar-only` succeeds.
 - **Bootstrap DuckDB extensions**: Install configured DuckDB extensions in `datasets/duckdb.db` during project bootstrap.
+- **Site ReactFlow toggle attributes**: Add show/hide attributes button on lineage and relation diagrams. When hidden, edges fall back to table-level connections.
+- **Site transform relations attributes**: Populate columns in transform relation diagrams from load table schemas and task attribute definitions.
 
 __Bug fix__:
 - **PySpark to BigQuery sink**: Fix `SparkAutoTask.buildDataFrameToSink()` to support PySpark tasks sinking to non-FS targets (BigQuery, JDBC). Previously PySpark tasks only worked with filesystem sinks.
