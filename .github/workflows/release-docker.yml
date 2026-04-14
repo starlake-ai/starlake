@@ -25,8 +25,8 @@ jobs:
       - name: Fetch latest release version from Maven Central
         id: maven
         run: |
-          LATEST_VERSION=$(curl -s 'https://search.maven.org/solrsearch/select?q=g:ai.starlake+AND+a:starlake-core_2.13&rows=1&wt=json' \
-            | jq -r '.response.docs[0].latestVersion')
+          LATEST_VERSION=$(curl -s 'https://repo1.maven.org/maven2/ai/starlake/starlake-core_2.13/maven-metadata.xml' \
+            | grep '<release>' | sed -E 's/.*<release>(.*)<\/release>.*/\1/')
           if [ -z "$LATEST_VERSION" ] || [ "$LATEST_VERSION" = "null" ]; then
             echo "Failed to fetch latest version from Maven Central"
             exit 1
@@ -126,8 +126,8 @@ jobs:
       - name: Fetch latest release version from Maven Central
         id: maven
         run: |
-          LATEST_VERSION=$(curl -s 'https://search.maven.org/solrsearch/select?q=g:ai.starlake+AND+a:starlake-core_2.13&rows=1&wt=json' \
-            | jq -r '.response.docs[0].latestVersion')
+          LATEST_VERSION=$(curl -s 'https://repo1.maven.org/maven2/ai/starlake/starlake-core_2.13/maven-metadata.xml' \
+            | grep '<release>' | sed -E 's/.*<release>(.*)<\/release>.*/\1/')
           echo "SL_VERSION=${LATEST_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Env
