@@ -81,5 +81,6 @@ application:
     datasource:
       bigquery:
         materializationDataset: "BQ_TEST_DS"
+        location: "europe-west1"
 
   connectionRef: "{{ myConnectionRef }}"
