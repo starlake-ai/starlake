@@ -309,11 +309,36 @@ abstract class AutoTask(
             this.test
           )
 
+        val extractedColumnNames =
+          SQLUtils.extractColumnNames(sqlWithParametersTranspiledIfInTest)
+        val resolvedColumnNames =
+          if (extractedColumnNames == List("*")) {
+            // SELECT * doesn't give us column names; resolve by executing the SQL with LIMIT 0
+            scala.util
+              .Try {
+                JdbcDbUtils.withJDBCConnection(
+                  this.schemaHandler.dataBranch(),
+                  sinkConnection.options
+                ) { conn =>
+                  val stmt = conn.prepareStatement(
+                    s"SELECT * FROM ($sqlWithParametersTranspiledIfInTest) SL_RESOLVE_COLS LIMIT 0"
+                  )
+                  val metaData = stmt.executeQuery().getMetaData
+                  val cols =
+                    (1 to metaData.getColumnCount).map(metaData.getColumnName).toList
+                  stmt.close()
+                  cols
+                }
+              }
+              .getOrElse(extractedColumnNames)
+          } else {
+            extractedColumnNames
+          }
         val tableComponents = TransformStrategiesBuilder.TableComponents(
           taskDesc.database.getOrElse(""), // Convert it to "" for jinjava to work
           taskDesc.domain,
           taskDesc.table,
-          SQLUtils.extractColumnNames(sqlWithParametersTranspiledIfInTest)
+          resolvedColumnNames
         )
 
         val jdbcRunEngine = runConnection
