@@ -62,7 +62,9 @@ class DuckDbMergeStrategySpec extends TestHelper {
 
     private def readTable(): Seq[(String, String, Int)] = {
       withDuckDbConnection { conn =>
-        val rs = conn.createStatement().executeQuery("SELECT id, name, amount FROM mydb.mytable ORDER BY id")
+        val rs = conn
+          .createStatement()
+          .executeQuery("SELECT id, name, amount FROM mydb.mytable ORDER BY id")
         val buf = scala.collection.mutable.ListBuffer[(String, String, Int)]()
         while (rs.next()) {
           buf += ((rs.getString("id"), rs.getString("name"), rs.getInt("amount")))
@@ -111,9 +113,9 @@ class DuckDbMergeStrategySpec extends TestHelper {
       val results = readTable()
       results should have size 4
       results should contain(("1", "Alice_Updated", 150)) // upserted
-      results should contain(("2", "Bob", 200))           // unchanged
-      results should contain(("3", "Charlie", 300))       // unchanged
-      results should contain(("4", "Diana", 400))         // inserted
+      results should contain(("2", "Bob", 200)) // unchanged
+      results should contain(("3", "Charlie", 300)) // unchanged
+      results should contain(("4", "Diana", 400)) // inserted
     }
 
     "OVERWRITE on DuckDB via parquet intermediate" should "replace all data" in {
@@ -132,9 +134,11 @@ class DuckDbMergeStrategySpec extends TestHelper {
         table = "mytable",
         sink = Some(JdbcSink(connectionRef = Some("test-duckdb")).toAllSinks()),
         python = None,
-        writeStrategy = Some(WriteStrategy(
-          `type` = Some(WriteStrategyType.OVERWRITE)
-        ))
+        writeStrategy = Some(
+          WriteStrategy(
+            `type` = Some(WriteStrategyType.OVERWRITE)
+          )
+        )
       )
 
       val businessTaskDef = mapper
@@ -171,9 +175,11 @@ class DuckDbMergeStrategySpec extends TestHelper {
         table = "mytable",
         sink = Some(JdbcSink(connectionRef = Some("test-duckdb")).toAllSinks()),
         python = None,
-        writeStrategy = Some(WriteStrategy(
-          `type` = Some(WriteStrategyType.APPEND)
-        ))
+        writeStrategy = Some(
+          WriteStrategy(
+            `type` = Some(WriteStrategyType.APPEND)
+          )
+        )
       )
 
       val businessTaskDef = mapper
@@ -190,9 +196,9 @@ class DuckDbMergeStrategySpec extends TestHelper {
 
       val results = readTable()
       results should have size 5 // 3 original + 2 appended
-      results should contain(("1", "Alice", 100))     // original
+      results should contain(("1", "Alice", 100)) // original
       results should contain(("1", "Alice_Dup", 999)) // appended duplicate
-      results should contain(("4", "Diana", 400))     // appended new
+      results should contain(("4", "Diana", 400)) // appended new
     }
 
   }
