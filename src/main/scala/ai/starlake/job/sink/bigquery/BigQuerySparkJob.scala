@@ -285,7 +285,12 @@ class BigQuerySparkJob(
     if (hasViewsEnabled) {
       prepareConf()
       Try {
-        session.read.format("bigquery").load(sql)
+        val reader = session.read.format("bigquery")
+        val readerWithLocation = connectionOptions.get("location") match {
+          case Some(location) => reader.option("location", location)
+          case None           => reader
+        }
+        readerWithLocation.load(sql)
       }
     } else {
       throw new Exception(
