@@ -31,7 +31,7 @@ object Versions {
   val kafkaClients = "7.7.5-ce"
   val testContainers = "0.44.0"
   val gcpCloudLogging = "3.23.10"
-  val gcpDataCatalog = "1.79.0"
+  val gcpDataCatalog = "1.97.0"
   val jinja = "2.7.4" // forces dependency override on guava
   val snowflakeJDBC = "3.28.0"
   val snowflakeSpark: String = "3.1.8"
