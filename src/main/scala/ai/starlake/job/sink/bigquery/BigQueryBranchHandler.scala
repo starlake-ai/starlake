@@ -3,13 +3,7 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.config.Settings
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLReplacer
-import com.google.cloud.bigquery.{
-  BigQuery,
-  DatasetId,
-  DatasetInfo,
-  QueryJobConfiguration,
-  TableId
-}
+import com.google.cloud.bigquery.{BigQuery, DatasetId, DatasetInfo, QueryJobConfiguration, TableId}
 import com.typesafe.scalalogging.LazyLogging
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 
@@ -242,8 +236,8 @@ object BigQueryBranchHandler extends LazyLogging {
     }
   }
 
-  /** Generate a unique table name, appending _1, _2 etc. on collision. Same logic as
-    * starlakeJDBC's StarlakeSession.
+  /** Generate a unique table name, appending _1, _2 etc. on collision. Same logic as starlakeJDBC's
+    * StarlakeSession.
     */
   private def uniqueTableName(baseName: String, existingNames: Set[String]): String = {
     if (!existingNames.contains(baseName)) {
