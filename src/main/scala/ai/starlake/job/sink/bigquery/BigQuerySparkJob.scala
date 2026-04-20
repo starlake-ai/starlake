@@ -82,8 +82,10 @@ class BigQuerySparkJob(
     }
 
     // Location — must be set on the session so the Spark BQ connector uses it for all operations
+    // (dataset lookups, query jobs, materialization). The connector reads from multiple config keys.
     connectionOptions.get("location").foreach { location =>
       session.conf.set("location", location)
+      session.conf.set("spark.datasource.bigquery.location", location)
     }
 
     // Authentication
