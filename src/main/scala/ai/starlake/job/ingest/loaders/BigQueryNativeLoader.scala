@@ -36,6 +36,9 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
     )
     schemaHandler.dataBranch(sinkConnection.options) match {
       case Some(branchName) =>
+        logger.info(
+          s"Branch '$branchName' active: redirecting load target from ${domain.finalName}.${effectiveSchema.finalName} to $branchName.${effectiveSchema.finalName}"
+        )
         val projectId = Option(originalTableId.getProject).getOrElse(
           BigQueryJobBase.projectId(
             sinkConnection.options.get("projectId"),

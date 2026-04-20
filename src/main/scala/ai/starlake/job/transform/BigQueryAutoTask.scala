@@ -121,7 +121,12 @@ class BigQueryAutoTask(
           .getOrElse(
             BigQueryJobBase.projectId(sinkOptions.get("projectId"), taskDesc.getDatabase())
           )
-        TableId.of(projectId, branchName, originalTargetTableId.getTable)
+        val branchTableId = TableId.of(projectId, branchName, originalTargetTableId.getTable)
+        logger.info(
+          s"Branch '$branchName' active: redirecting target from ${BigQueryJobBase
+              .getBqTableForNative(originalTargetTableId)} to ${BigQueryJobBase.getBqTableForNative(branchTableId)}"
+        )
+        branchTableId
       case None => originalTargetTableId
     }
 
@@ -483,6 +488,9 @@ class BigQueryAutoTask(
                       preSql.mkString(";\n") + mainSql() + ";\n" + postSql.mkString(";\n")
                     val finalSql = prepareBranchContext(taskDesc.getSql()) match {
                       case Some(ctx) =>
+                        logger.info(
+                          s"Branch: rewriting native SQL with ${ctx.tableMappings.size} table mappings"
+                        )
                         BigQueryBranchHandler.rewriteSql(allSql, ctx.tableMappings)
                       case None => allSql
                     }
@@ -626,20 +634,24 @@ class BigQueryAutoTask(
   }
 
   private def saveDF(source: DataFrame, shard: Option[String]): Try[JobResult] = {
+    val sparkTargetTableId = BigQueryJobBase.extractProjectDatasetAndTable(
+      this.taskDesc.getDatabase(),
+      targetTableId.getDataset,
+      targetTableId.getTable + shard
+        .map("_" + StringUtils.replaceNonAlphanumericWithUnderscore(_))
+        .getOrElse(""),
+      sinkOptions.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
+    )
+    dataBranch.foreach { branchName =>
+      logger.info(
+        s"Branch '$branchName' active: Spark writing to ${BigQueryJobBase.getBqTableForNative(sparkTargetTableId)}"
+      )
+    }
     val bqLoadConfig =
       BigQueryLoadConfig(
         connectionRef = Some(sinkConnectionRef),
         source = Right(source),
-        outputTableId = Some(
-          BigQueryJobBase.extractProjectDatasetAndTable(
-            this.taskDesc.getDatabase(),
-            targetTableId.getDataset,
-            targetTableId.getTable + shard
-              .map("_" + StringUtils.replaceNonAlphanumericWithUnderscore(_))
-              .getOrElse(""),
-            sinkOptions.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
-          )
-        ),
+        outputTableId = Some(sparkTargetTableId),
         sourceFormat = settings.appConfig.defaultWriteFormat,
         createDisposition = createDisposition,
         writeDisposition = writeDisposition,
