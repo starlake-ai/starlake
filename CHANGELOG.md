@@ -3,6 +3,11 @@
 
 # 1.5.15-SNAPSHOT:
 __Improvement__:
+- **BigQuery data branching**: New `SL_DATA_BRANCH` support for BigQuery native API. When set (via env var or connection options), writes are redirected to a branch dataset using BigQuery zero-copy `CLONE`, mirroring starlakeJDBC's branching mechanism. Works for both Spark and native execution paths on transforms and loads.
+- **BigQuery JDBC branching**: Extend starlakeJDBC driver wrapping to BigQuery JDBC connections (alongside existing Snowflake support).
+- **Upgrade DuckDB**: Update DuckDB to 1.5.2.0.
+- **Upgrade starlakeJDBC**: Update starlakeJDBC to 0.7.
+- **CI PySpark support**: Install Python 3.12 and PySpark 3.5.8 in CI workflows for PySpark-based tests.
 - **Upgrade self-update**: The `starlake upgrade` command now downloads the latest starlake script from GitHub before proceeding, ensuring the upgrade logic itself is always up to date.
 - **CI**: Trigger `snapshot-docker-no-tests` workflow automatically after `snapshot-jar-only` succeeds.
 - **Bootstrap DuckDB extensions**: Install configured DuckDB extensions in `datasets/duckdb.db` during project bootstrap.
@@ -10,6 +15,11 @@ __Improvement__:
 - **Site transform relations attributes**: Populate columns in transform relation diagrams from load table schemas and task attribute definitions.
 
 __Bug fix__:
+- **Spark BigQuery location**: Pass all connection options (including `location`) to the Spark BigQuery reader, ensuring queries run in the correct region instead of defaulting to US.
+- **Spark BigQuery materializationDataset**: Fix `application.sl.yml` to respect `SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET` env var via Jinja, preventing region mismatch when the hardcoded dataset is in a different location.
+- **Spark BigQuery validation**: Fail early with a clear error if `materializationDataset` is not configured before running a BigQuery SQL query via Spark.
+- **DuckDB JDBC sink**: Use parquet intermediate format for all DuckDB write paths.
+- **DuckDB secret_directory**: Fix setting order to prevent Secret Manager error.
 - **PySpark to BigQuery sink**: Fix `SparkAutoTask.buildDataFrameToSink()` to support PySpark tasks sinking to non-FS targets (BigQuery, JDBC). Previously PySpark tasks only worked with filesystem sinks.
 - **DuckDB on Windows**: Fix JDBC URL parsing and path normalization for Windows paths.
 
