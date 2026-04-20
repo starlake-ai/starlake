@@ -4,6 +4,7 @@ import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.extract.ParUtils
 import ai.starlake.job.ingest.{BqLoadInfo, IngestionJob}
 import ai.starlake.job.sink.bigquery.{
+  BigQueryBranchHandler,
   BigQueryJobBase,
   BigQueryJobResult,
   BigQueryLoadConfig,
@@ -26,13 +27,43 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
 ) extends NativeLoader(ingestionJob, accessToken)
     with LazyLogging {
 
-  lazy val targetTableId: TableId =
-    BigQueryJobBase.extractProjectDatasetAndTable(
+  lazy val targetTableId: TableId = {
+    val originalTableId = BigQueryJobBase.extractProjectDatasetAndTable(
       schemaHandler.getDatabase(domain),
       domain.finalName,
       effectiveSchema.finalName,
       sinkConnection.options.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
     )
+    schemaHandler.dataBranch(sinkConnection.options) match {
+      case Some(branchName) =>
+        val projectId = Option(originalTableId.getProject).getOrElse(
+          BigQueryJobBase.projectId(
+            sinkConnection.options.get("projectId"),
+            settings.appConfig.getDefaultDatabase()
+          )
+        )
+        val bqService = BigQueryJobBase.bigquery(
+          connectionRef = Some(mergedMetadata.getSinkConnectionRef()),
+          accessToken = accessToken,
+          outputDatabase = schemaHandler.getDatabase(domain)
+        )
+        val location = sinkConnection.options.getOrElse(
+          "location",
+          throw new Exception("location is required for BigQuery branching")
+        )
+        BigQueryBranchHandler
+          .prepareBranch(
+            branchName,
+            bqService,
+            originalTableId,
+            "", // No source SQL for loads
+            location,
+            sinkConnection.options
+          )
+          .branchTargetTableId
+      case None => originalTableId
+    }
+  }
 
   def run(): Try[List[IngestionCounters]] = {
     Try {

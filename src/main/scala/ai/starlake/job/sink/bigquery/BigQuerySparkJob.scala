@@ -81,6 +81,11 @@ class BigQuerySparkJob(
       session.conf.set("temporaryGcsBucket", bucketName)
     }
 
+    // Location — must be set on the session so the Spark BQ connector uses it for all operations
+    connectionOptions.get("location").foreach { location =>
+      session.conf.set("location", location)
+    }
+
     // Authentication
     logger.info(s"Using ${connectionOptions("authType")} Credentials from GCS")
     cliConfig.accessToken match {
