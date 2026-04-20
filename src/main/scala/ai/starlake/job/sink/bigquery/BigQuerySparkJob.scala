@@ -292,12 +292,7 @@ class BigQuerySparkJob(
     if (hasViewsEnabled) {
       prepareConf()
       Try {
-        val reader = session.read.format("bigquery")
-        val readerWithLocation = connectionOptions.get("location") match {
-          case Some(location) => reader.option("location", location)
-          case None           => reader
-        }
-        readerWithLocation.load(sql)
+        session.read.format("bigquery").options(connectorOptions).load(sql)
       }
     } else {
       throw new Exception(
