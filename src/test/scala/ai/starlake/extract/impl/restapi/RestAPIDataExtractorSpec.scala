@@ -32,7 +32,9 @@ class RestAPIDataExtractorSpec extends TestHelper with BeforeAndAfterAll {
           val params = query
             .split("&")
             .filter(_.contains("="))
-            .map { p => val parts = p.split("=", 2); parts(0) -> parts(1) }
+            .map { p =>
+              val parts = p.split("=", 2); parts(0) -> parts(1)
+            }
             .toMap
 
           val offset = params.getOrElse("offset", "0").toInt

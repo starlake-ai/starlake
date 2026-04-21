@@ -10,8 +10,8 @@ import com.typesafe.scalalogging.LazyLogging
 import java.util.regex.Pattern
 import scala.jdk.CollectionConverters._
 
-/** Extracts Starlake schemas from REST API endpoints by fetching a sample page
-  * and inferring the schema from the JSON response structure.
+/** Extracts Starlake schemas from REST API endpoints by fetching a sample page and inferring the
+  * schema from the JSON response structure.
   */
 class RestAPISchemaExtractor(
   config: RestAPIExtractSchema
@@ -215,11 +215,14 @@ class RestAPISchemaExtractor(
   /** Replace {parent.fieldName} placeholders in the path with values from the parent record */
   private def resolveParentPlaceholders(path: String, parentRecord: JsonNode): String = {
     val pattern = """\{parent\.([^}]+)\}""".r
-    pattern.replaceAllIn(path, m => {
-      val field = m.group(1)
-      val value = parentRecord.get(field)
-      if (value == null || value.isNull) field
-      else java.net.URLEncoder.encode(value.asText(), "UTF-8")
-    })
+    pattern.replaceAllIn(
+      path,
+      m => {
+        val field = m.group(1)
+        val value = parentRecord.get(field)
+        if (value == null || value.isNull) field
+        else java.net.URLEncoder.encode(value.asText(), "UTF-8")
+      }
+    )
   }
 }

@@ -25,9 +25,9 @@ case class RestAPIDataExtractConfig(
   incremental: Boolean = false
 )
 
-/** Extracts data from REST API endpoints and writes to CSV files.
-  * Data is written to {outputDir}/{domain}/{tableName}-{timestamp}.csv
-  * and can then be picked up by the standard Starlake ingestion pipeline.
+/** Extracts data from REST API endpoints and writes to CSV files. Data is written to
+  * {outputDir}/{domain}/{tableName}-{timestamp}.csv and can then be picked up by the standard
+  * Starlake ingestion pipeline.
   */
 class RestAPIDataExtractor(implicit settings: Settings) extends LazyLogging {
 
@@ -141,9 +141,9 @@ class RestAPIDataExtractor(implicit settings: Settings) extends LazyLogging {
                 if (fieldNode != null && !fieldNode.isNull) {
                   val value = fieldNode.asText()
                   maxIncrementalValue = maxIncrementalValue match {
-                    case None                          => Some(value)
-                    case Some(prev) if value > prev    => Some(value)
-                    case existing                      => existing
+                    case None                       => Some(value)
+                    case Some(prev) if value > prev => Some(value)
+                    case existing                   => existing
                   }
                 }
               }
@@ -180,7 +180,9 @@ class RestAPIDataExtractor(implicit settings: Settings) extends LazyLogging {
         }
       }
 
-      logger.info(s"Extracted $totalRecords records from ${endpointWithIncrParams.path} into $outputFile")
+      logger.info(
+        s"Extracted $totalRecords records from ${endpointWithIncrParams.path} into $outputFile"
+      )
       totalRecords
     } finally {
       if (csvWriter != null) csvWriter.close()
@@ -194,16 +196,19 @@ class RestAPIDataExtractor(implicit settings: Settings) extends LazyLogging {
       case None => path
       case Some(parent) =>
         val pattern = """\{parent\.([^}]+)\}""".r
-        pattern.replaceAllIn(path, m => {
-          val field = m.group(1)
-          val value = parent.get(field)
-          if (value == null || value.isNull) {
-            throw new RestAPIException(
-              s"Parent record does not have field '$field' for path placeholder"
-            )
+        pattern.replaceAllIn(
+          path,
+          m => {
+            val field = m.group(1)
+            val value = parent.get(field)
+            if (value == null || value.isNull) {
+              throw new RestAPIException(
+                s"Parent record does not have field '$field' for path placeholder"
+              )
+            }
+            java.net.URLEncoder.encode(value.asText(), "UTF-8")
           }
-          java.net.URLEncoder.encode(value.asText(), "UTF-8")
-        })
+        )
     }
   }
 

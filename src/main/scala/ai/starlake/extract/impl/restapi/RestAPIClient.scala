@@ -16,8 +16,8 @@ case class RestAPIResponse(
   headers: Map[String, String]
 )
 
-/** HTTP client for REST API extraction.
-  * Handles authentication, rate limiting, retries, and JSON parsing.
+/** HTTP client for REST API extraction. Handles authentication, rate limiting, retries, and JSON
+  * parsing.
   */
 class RestAPIClient(
   config: RestAPIExtractSchema
@@ -34,8 +34,8 @@ class RestAPIClient(
 
   @volatile private var lastRequestTime: Long = 0L
 
-  /** Execute a GET or POST request to the given URL with query parameters and headers.
-    * Includes retry logic for transient failures.
+  /** Execute a GET or POST request to the given URL with query parameters and headers. Includes
+    * retry logic for transient failures.
     */
   def execute(
     path: String,
@@ -54,7 +54,11 @@ class RestAPIClient(
     while (attempt <= maxRetries) {
       try {
         val response = doRequest(fullUrl, method, extraHeaders, requestBody)
-        if (response.statusCode == 401 && config.auth.exists(_.isInstanceOf[OAuth2ClientCredentials]) && !oauth2TokenRefreshed) {
+        if (
+          response.statusCode == 401 && config.auth.exists(
+            _.isInstanceOf[OAuth2ClientCredentials]
+          ) && !oauth2TokenRefreshed
+        ) {
           // Token may have expired mid-session — invalidate and retry once
           logger.info(s"HTTP 401 for $fullUrl, refreshing OAuth2 token and retrying")
           oauth2Token = None
@@ -270,7 +274,9 @@ class RestAPIClient(
       case BasicAuth(username, password) =>
         val credentials =
           Base64.getEncoder.encodeToString(
-            s"${resolveEnvVar(username)}:${resolveEnvVar(password)}".getBytes(StandardCharsets.UTF_8)
+            s"${resolveEnvVar(username)}:${resolveEnvVar(password)}".getBytes(
+              StandardCharsets.UTF_8
+            )
           )
         conn.setRequestProperty("Authorization", s"Basic $credentials")
 
@@ -300,9 +306,7 @@ class RestAPIClient(
         s"client_id=${URLEncoder.encode(resolveEnvVar(oauth.clientId), "UTF-8")}",
         s"client_secret=${URLEncoder.encode(resolveEnvVar(oauth.clientSecret), "UTF-8")}"
       )
-      oauth.scope.foreach(s =>
-        params += s"scope=${URLEncoder.encode(resolveEnvVar(s), "UTF-8")}"
-      )
+      oauth.scope.foreach(s => params += s"scope=${URLEncoder.encode(resolveEnvVar(s), "UTF-8")}")
 
       val writer = new OutputStreamWriter(conn.getOutputStream, StandardCharsets.UTF_8)
       try {
@@ -369,14 +373,18 @@ class RestAPIClient(
     */
   private[restapi] def resolveEnvVar(value: String): String = {
     val pattern = """\{\{([^}]+)\}\}""".r
-    pattern.replaceAllIn(value, m => {
-      val envVar = m.group(1).trim
-      sys.env.getOrElse(
-        envVar,
-        throw new RestAPIException(s"Environment variable '$envVar' not set")
-      )
-    })
+    pattern.replaceAllIn(
+      value,
+      m => {
+        val envVar = m.group(1).trim
+        sys.env.getOrElse(
+          envVar,
+          throw new RestAPIException(s"Environment variable '$envVar' not set")
+        )
+      }
+    )
   }
 }
 
-class RestAPIException(message: String, cause: Throwable = null) extends RuntimeException(message, cause)
+class RestAPIException(message: String, cause: Throwable = null)
+    extends RuntimeException(message, cause)

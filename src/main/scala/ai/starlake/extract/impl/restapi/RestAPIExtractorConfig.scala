@@ -1,9 +1,19 @@
 package ai.starlake.extract.impl.restapi
 
-import com.fasterxml.jackson.annotation.{JsonCreator, JsonIgnoreProperties, JsonSubTypes, JsonTypeInfo}
+import com.fasterxml.jackson.annotation.{
+  JsonCreator,
+  JsonIgnoreProperties,
+  JsonSubTypes,
+  JsonTypeInfo
+}
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
-import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonSerializer, SerializerProvider}
+import com.fasterxml.jackson.databind.{
+  DeserializationContext,
+  JsonDeserializer,
+  JsonSerializer,
+  SerializerProvider
+}
 
 import java.util.regex.Pattern
 
@@ -19,7 +29,10 @@ import java.util.regex.Pattern
     new JsonSubTypes.Type(value = classOf[BearerAuth], name = "bearer"),
     new JsonSubTypes.Type(value = classOf[ApiKeyAuth], name = "api_key"),
     new JsonSubTypes.Type(value = classOf[BasicAuth], name = "basic"),
-    new JsonSubTypes.Type(value = classOf[OAuth2ClientCredentials], name = "oauth2_client_credentials")
+    new JsonSubTypes.Type(
+      value = classOf[OAuth2ClientCredentials],
+      name = "oauth2_client_credentials"
+    )
   )
 )
 @JsonIgnoreProperties(ignoreUnknown = true)
