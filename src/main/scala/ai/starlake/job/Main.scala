@@ -5,6 +5,7 @@ import ai.starlake.config.{DatasetArea, Settings, SettingsCmd}
 import ai.starlake.console.ConsoleCmd
 import ai.starlake.extract.*
 import ai.starlake.extract.freshness.FreshnessExtractCmd
+import ai.starlake.extract.impl.restapi.{ExtractRestAPIDataCmd, ExtractRestAPISchemaCmd}
 import ai.starlake.job.bootstrap.BootstrapCmd
 import ai.starlake.job.convert.Parquet2CSVCmd
 import ai.starlake.job.infer.InferSchemaCmd
@@ -112,6 +113,8 @@ object Main extends LazyLogging {
     BigQueryTableInfoCmd,
     ExtractBigQuerySchemaCmd,
     FreshnessExtractCmd,
+    ExtractRestAPISchemaCmd,
+    ExtractRestAPIDataCmd,
     ProjectCompareCmd,
     MainServerCmd,
     DagGenerateCmd,
