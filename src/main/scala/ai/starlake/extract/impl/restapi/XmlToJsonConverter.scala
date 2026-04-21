@@ -8,8 +8,8 @@ import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 import javax.xml.parsers.DocumentBuilderFactory
 
-/** Converts XML strings to Jackson JsonNode using standard JDK XML parsing.
-  * This avoids adding a jackson-dataformat-xml dependency.
+/** Converts XML strings to Jackson JsonNode using standard JDK XML parsing. This avoids adding a
+  * jackson-dataformat-xml dependency.
   *
   * Conversion rules:
   *   - XML elements become JSON object fields

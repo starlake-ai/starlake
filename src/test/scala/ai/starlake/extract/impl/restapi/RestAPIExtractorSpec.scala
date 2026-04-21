@@ -90,7 +90,8 @@ class RestAPIExtractorSpec
 
           val startIdx = cursor
           val page = allProducts.slice(startIdx, startIdx + limit)
-          val nextCursor = if (startIdx + limit < allProducts.size) (startIdx + limit).toString else null
+          val nextCursor =
+            if (startIdx + limit < allProducts.size) (startIdx + limit).toString else null
 
           val response = Map(
             "data" -> page,
@@ -396,13 +397,13 @@ class RestAPIExtractorSpec
 
     // First endpoint inherits defaults
     resolved(0).pagination shouldBe Some(OffsetPagination("limit", "offset", 50))
-    resolved(0).headers should contain("X-Global"  -> "true")
+    resolved(0).headers should contain("X-Global" -> "true")
     resolved(0).headers should contain("X-Default" -> "yes")
 
     // Second endpoint keeps its own pagination but merges headers
     resolved(1).pagination shouldBe Some(CursorPagination("cursor", "$.next", 10))
-    resolved(1).headers should contain("X-Custom"  -> "override")
-    resolved(1).headers should contain("X-Global"  -> "true")
+    resolved(1).headers should contain("X-Custom" -> "override")
+    resolved(1).headers should contain("X-Global" -> "true")
     resolved(1).headers should contain("X-Default" -> "yes")
   }
 

@@ -2,18 +2,22 @@ package ai.starlake.extract.impl.restapi
 
 import com.fasterxml.jackson.databind.JsonNode
 
-/** Handles pagination logic for REST API responses.
-  * Each implementation knows how to extract the next page request parameters
-  * from the current response.
+/** Handles pagination logic for REST API responses. Each implementation knows how to extract the
+  * next page request parameters from the current response.
   */
 trait PaginationHandler {
 
   /** Determine the query parameters for the next page based on the current response.
-    * @param fullResponseBody the full JSON response body (before responsePath extraction)
-    * @param dataNode the extracted data array/node (after responsePath extraction)
-    * @param responseHeaders the HTTP response headers from the current page
-    * @param currentPageIndex the 0-based index of the current page
-    * @return Some(params) if there is a next page, None if pagination is complete
+    * @param fullResponseBody
+    *   the full JSON response body (before responsePath extraction)
+    * @param dataNode
+    *   the extracted data array/node (after responsePath extraction)
+    * @param responseHeaders
+    *   the HTTP response headers from the current page
+    * @param currentPageIndex
+    *   the 0-based index of the current page
+    * @return
+    *   Some(params) if there is a next page, None if pagination is complete
     */
   def nextPageParams(
     fullResponseBody: JsonNode,
@@ -133,7 +137,7 @@ class LinkHeaderPaginationHandler(config: LinkHeaderPagination) extends Paginati
           .map { param =>
             val parts = param.split("=", 2)
             java.net.URLDecoder.decode(parts(0), "UTF-8") ->
-              java.net.URLDecoder.decode(parts(1), "UTF-8")
+            java.net.URLDecoder.decode(parts(1), "UTF-8")
           }
           .toMap
       }
@@ -172,8 +176,7 @@ class PageNumberPaginationHandler(config: PageNumberPagination) extends Paginati
 /** Utility for navigating JSON using simple dot-notation or JSONPath-like expressions */
 object JsonPathUtil {
 
-  /** Extract a string value from a JsonNode using a simple path expression.
-    * Supports:
+  /** Extract a string value from a JsonNode using a simple path expression. Supports:
     *   - dot notation: "meta.next_cursor"
     *   - JSONPath-style: "$.meta.next_cursor"
     */
@@ -191,8 +194,8 @@ object JsonPathUtil {
     else Some(current.toString)
   }
 
-  /** Extract all records from a response body at the given path.
-    * If responsePath is None, assumes the response body itself is the data array.
+  /** Extract all records from a response body at the given path. If responsePath is None, assumes
+    * the response body itself is the data array.
     */
   def extractDataArray(responseBody: JsonNode, responsePath: Option[String]): JsonNode = {
     responsePath match {
