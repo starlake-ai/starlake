@@ -4,17 +4,35 @@ import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.LazyLogging
 
-import java.io.{BufferedReader, InputStreamReader, OutputStreamWriter}
-import java.net.{HttpURLConnection, URL, URLEncoder}
+import java.io.{BufferedReader, FileInputStream, InputStreamReader, OutputStreamWriter}
+import java.net.{HttpURLConnection, InetSocketAddress, Proxy, URL, URLEncoder}
 import java.nio.charset.StandardCharsets
+import java.security.KeyStore
 import java.util.Base64
+import javax.net.ssl.{
+  HttpsURLConnection,
+  KeyManagerFactory,
+  SSLContext,
+  TrustManagerFactory,
+  X509TrustManager
+}
 
 /** HTTP response wrapper */
 case class RestAPIResponse(
   statusCode: Int,
   body: JsonNode,
   headers: Map[String, String]
-)
+) {
+
+  /** Whether this response indicates no changes (HTTP 304) */
+  def notModified: Boolean = statusCode == 304
+
+  /** ETag value from response, if present */
+  def etag: Option[String] = headers.get("etag")
+
+  /** Last-Modified value from response, if present */
+  def lastModified: Option[String] = headers.get("last-modified")
+}
 
 /** HTTP client for REST API extraction. Handles authentication, rate limiting, retries, and JSON
   * parsing.
@@ -32,6 +50,13 @@ class RestAPIClient(
   private val rateLimitDelayMs: Long =
     config.rateLimit.map(rl => 1000L / rl.requestsPerSecond).getOrElse(0L)
 
+  private val retryConfig: RetryConfig = config.retry.getOrElse(RetryConfig())
+  private val timeoutConfig: TimeoutConfig = config.timeout.getOrElse(TimeoutConfig())
+  private val proxy: Option[Proxy] = config.proxy.map { p =>
+    new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p.host, p.port))
+  }
+  private val sslContext: Option[SSLContext] = config.tls.flatMap(buildSSLContext)
+
   @volatile private var lastRequestTime: Long = 0L
 
   /** Execute a GET or POST request to the given URL with query parameters and headers. Includes
@@ -43,15 +68,16 @@ class RestAPIClient(
     queryParams: Map[String, String] = Map.empty,
     extraHeaders: Map[String, String] = Map.empty,
     requestBody: Option[String] = None,
-    maxRetries: Int = 3
+    maxRetries: Int = -1
   ): RestAPIResponse = {
+    val effectiveMaxRetries = if (maxRetries >= 0) maxRetries else retryConfig.maxRetries
     throttle()
     val fullUrl = buildUrl(path, queryParams)
     var lastException: Exception = null
     var attempt = 0
     var oauth2TokenRefreshed = false
 
-    while (attempt <= maxRetries) {
+    while (attempt <= effectiveMaxRetries) {
       try {
         val response = doRequest(fullUrl, method, extraHeaders, requestBody)
         if (
@@ -66,16 +92,19 @@ class RestAPIClient(
           oauth2TokenRefreshed = true
           // Don't increment attempt — this is a token refresh, not a retry
         } else if (response.statusCode == 429 || response.statusCode >= 500) {
-          if (attempt < maxRetries) {
-            val backoffMs = math.min(1000L * math.pow(2, attempt).toLong, 30000L)
+          if (attempt < effectiveMaxRetries) {
+            val backoffMs = math.min(
+              retryConfig.initialBackoffMs * math.pow(2, attempt).toLong,
+              retryConfig.maxBackoffMs
+            )
             logger.warn(
-              s"HTTP ${response.statusCode} for $fullUrl, retrying in ${backoffMs}ms (attempt ${attempt + 1}/$maxRetries)"
+              s"HTTP ${response.statusCode} for $fullUrl, retrying in ${backoffMs}ms (attempt ${attempt + 1}/$effectiveMaxRetries)"
             )
             Thread.sleep(backoffMs)
             attempt += 1
           } else {
             throw new RestAPIException(
-              s"HTTP ${response.statusCode} after $maxRetries retries for $fullUrl"
+              s"HTTP ${response.statusCode} after $effectiveMaxRetries retries for $fullUrl"
             )
           }
         } else if (response.statusCode >= 400) {
@@ -89,21 +118,24 @@ class RestAPIClient(
         case e: RestAPIException => throw e
         case e: Exception =>
           lastException = e
-          if (attempt < maxRetries) {
-            val backoffMs = math.min(1000L * math.pow(2, attempt).toLong, 30000L)
+          if (attempt < effectiveMaxRetries) {
+            val backoffMs = math.min(
+              retryConfig.initialBackoffMs * math.pow(2, attempt).toLong,
+              retryConfig.maxBackoffMs
+            )
             logger.warn(s"Request to $fullUrl failed: ${e.getMessage}, retrying in ${backoffMs}ms")
             Thread.sleep(backoffMs)
             attempt += 1
           } else {
             throw new RestAPIException(
-              s"Request to $fullUrl failed after $maxRetries retries: ${e.getMessage}",
+              s"Request to $fullUrl failed after $effectiveMaxRetries retries: ${e.getMessage}",
               lastException
             )
           }
       }
     }
     throw new RestAPIException(
-      s"Request to $fullUrl failed after $maxRetries retries",
+      s"Request to $fullUrl failed after $effectiveMaxRetries retries",
       lastException
     )
   }
@@ -144,6 +176,23 @@ class RestAPIClient(
               endpoint.headers,
               endpoint.requestBody
             )
+
+            // Handle 304 Not Modified — no data to process
+            if (response.notModified) {
+              nextResult = None
+              done = true
+              return
+            }
+
+            // Check for error-in-200 responses via errorPath
+            endpoint.errorPath.foreach { ep =>
+              JsonPathUtil.extract(response.body, ep).foreach { errorMsg =>
+                throw new RestAPIException(
+                  s"API returned error in response body for ${endpoint.path}: $errorMsg"
+                )
+              }
+            }
+
             val dataNode = JsonPathUtil.extractDataArray(response.body, endpoint.responsePath)
 
             // Check if we got any data
@@ -214,15 +263,33 @@ class RestAPIClient(
     requestBody: Option[String]
   ): RestAPIResponse = {
     val url = new URL(fullUrl)
-    val conn = url.openConnection().asInstanceOf[HttpURLConnection]
+    val conn = proxy match {
+      case Some(p) => url.openConnection(p).asInstanceOf[HttpURLConnection]
+      case None    => url.openConnection().asInstanceOf[HttpURLConnection]
+    }
+    // Apply custom TLS/SSL configuration
+    (conn, sslContext) match {
+      case (httpsConn: HttpsURLConnection, Some(ctx)) =>
+        httpsConn.setSSLSocketFactory(ctx.getSocketFactory)
+      case _ =>
+    }
     try {
+      // Apply proxy authentication if configured
+      config.proxy.foreach { p =>
+        for (user <- p.username; pass <- p.password) {
+          val credentials = Base64.getEncoder.encodeToString(
+            s"${resolveEnvVar(user)}:${resolveEnvVar(pass)}".getBytes(StandardCharsets.UTF_8)
+          )
+          conn.setRequestProperty("Proxy-Authorization", s"Basic $credentials")
+        }
+      }
       conn.setRequestMethod(method match {
         case RestGet  => "GET"
         case RestPost => "POST"
       })
       conn.setRequestProperty("Accept", "application/json")
-      conn.setConnectTimeout(30000)
-      conn.setReadTimeout(60000)
+      conn.setConnectTimeout(timeoutConfig.connectTimeoutMs)
+      conn.setReadTimeout(timeoutConfig.readTimeoutMs)
 
       // Apply global headers
       config.headers.foreach { case (k, v) => conn.setRequestProperty(k, v) }
@@ -246,6 +313,12 @@ class RestAPIClient(
 
       val responseCode = conn.getResponseCode
       val responseHeaders = extractResponseHeaders(conn)
+
+      // Handle 304 Not Modified — no body to parse
+      if (responseCode == 304) {
+        return RestAPIResponse(304, mapper.createObjectNode(), responseHeaders)
+      }
+
       val stream =
         if (responseCode >= 200 && responseCode < 300) conn.getInputStream
         else conn.getErrorStream
@@ -383,6 +456,60 @@ class RestAPIClient(
         )
       }
     )
+  }
+
+  private def buildSSLContext(tlsConfig: TlsConfig): Option[SSLContext] = {
+    if (tlsConfig.insecure) {
+      // Trust all certificates (for development only)
+      val trustAll = Array[javax.net.ssl.TrustManager](new X509TrustManager {
+        override def checkClientTrusted(
+          chain: Array[java.security.cert.X509Certificate],
+          authType: String
+        ): Unit = ()
+        override def checkServerTrusted(
+          chain: Array[java.security.cert.X509Certificate],
+          authType: String
+        ): Unit = ()
+        override def getAcceptedIssuers: Array[java.security.cert.X509Certificate] = Array.empty
+      })
+      val ctx = SSLContext.getInstance("TLS")
+      ctx.init(null, trustAll, new java.security.SecureRandom())
+      Some(ctx)
+    } else if (tlsConfig.trustStorePath.isDefined || tlsConfig.keyStorePath.isDefined) {
+      val ctx = SSLContext.getInstance("TLS")
+
+      val tmf = tlsConfig.trustStorePath.map { path =>
+        val ts = KeyStore.getInstance(KeyStore.getDefaultType)
+        val fis = new FileInputStream(resolveEnvVar(path))
+        try {
+          ts.load(fis, tlsConfig.trustStorePassword.map(resolveEnvVar).map(_.toCharArray).orNull)
+        } finally fis.close()
+        val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm)
+        tmf.init(ts)
+        tmf
+      }
+
+      val kmf = tlsConfig.keyStorePath.map { path =>
+        val ks = KeyStore.getInstance(KeyStore.getDefaultType)
+        val fis = new FileInputStream(resolveEnvVar(path))
+        val password = tlsConfig.keyStorePassword.map(resolveEnvVar).map(_.toCharArray).orNull
+        try {
+          ks.load(fis, password)
+        } finally fis.close()
+        val kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm)
+        kmf.init(ks, password)
+        kmf
+      }
+
+      ctx.init(
+        kmf.map(_.getKeyManagers).orNull,
+        tmf.map(_.getTrustManagers).orNull,
+        new java.security.SecureRandom()
+      )
+      Some(ctx)
+    } else {
+      None
+    }
   }
 }
 

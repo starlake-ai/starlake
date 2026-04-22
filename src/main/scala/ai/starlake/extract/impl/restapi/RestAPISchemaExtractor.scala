@@ -27,12 +27,54 @@ class RestAPISchemaExtractor(
 
     endpointsByDomain.map { case (domainName, domainEndpoints) =>
       val tables = domainEndpoints.flatMap { endpoint =>
-        extractSchemasForEndpointTree(client, endpoint)
+        val schemas = extractSchemasForEndpointTree(client, endpoint)
+        // Schema evolution detection: compare with previously extracted schemas
+        schemas.foreach(detectSchemaEvolution(domainName, _))
+        schemas
       }
       DomainInfo(
         name = domainName,
         tables = tables
       )
+    }
+  }
+
+  /** Log warnings when inferred schema differs from existing YAML definitions */
+  private def detectSchemaEvolution(domainName: String, table: SchemaInfo)(implicit
+    settings: Settings
+  ): Unit = {
+    try {
+      val storageHandler = settings.storageHandler()
+      val loadDir = ai.starlake.config.DatasetArea.load
+      val tablePath =
+        new org.apache.hadoop.fs.Path(
+          new org.apache.hadoop.fs.Path(loadDir, domainName),
+          s"${table.name}.sl.yml"
+        )
+      if (storageHandler.exists(tablePath)) {
+        val content = storageHandler.read(tablePath)
+        val existingTables = ai.starlake.utils.YamlSerde
+          .deserializeYamlTables(content, tablePath.toString)
+          .map(_.table)
+        existingTables.find(_.name == table.name).foreach { existing =>
+          val existingFields = existing.attributes.map(_.name).toSet
+          val newFields = table.attributes.map(_.name).toSet
+          val added = newFields -- existingFields
+          val removed = existingFields -- newFields
+          if (added.nonEmpty)
+            logger.warn(
+              s"Schema evolution: ${domainName}.${table.name} has ${added.size} new field(s): ${added
+                  .mkString(", ")}"
+            )
+          if (removed.nonEmpty)
+            logger.warn(
+              s"Schema evolution: ${domainName}.${table.name} has ${removed.size} removed field(s): ${removed
+                  .mkString(", ")}"
+            )
+        }
+      }
+    } catch {
+      case _: Exception => // Silently skip evolution detection on error
     }
   }
 

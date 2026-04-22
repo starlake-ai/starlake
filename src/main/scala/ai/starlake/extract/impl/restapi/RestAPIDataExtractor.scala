@@ -16,13 +16,27 @@ import java.time.format.DateTimeFormatter
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
+/** Output format for REST API extraction */
+sealed trait RestAPIOutputFormat
+case object CsvOutput extends RestAPIOutputFormat
+case object JsonLinesOutput extends RestAPIOutputFormat
+
+object RestAPIOutputFormat {
+  def fromString(s: String): RestAPIOutputFormat = s.toLowerCase match {
+    case "jsonl" | "jsonlines" | "json_lines" => JsonLinesOutput
+    case _                                    => CsvOutput
+  }
+}
+
 /** Configuration for REST API data extraction */
 case class RestAPIDataExtractConfig(
   extractConfig: RestAPIExtractSchema,
   baseOutputDir: Path,
   limit: Int = 0,
   parallelism: Option[Int] = None,
-  incremental: Boolean = false
+  incremental: Boolean = false,
+  outputFormat: RestAPIOutputFormat = CsvOutput,
+  resume: Boolean = false
 )
 
 /** Extracts data from REST API endpoints and writes to CSV files. Data is written to
@@ -72,9 +86,23 @@ class RestAPIDataExtractor(implicit settings: Settings) extends LazyLogging {
           .getOrElse(Map.empty)
       } else Map.empty
 
-    val endpointWithIncrParams = if (incrementalParams.nonEmpty) {
-      resolvedEndpoint.copy(queryParams = resolvedEndpoint.queryParams ++ incrementalParams)
-    } else resolvedEndpoint
+    // Conditional requests: read ETag/Last-Modified from state and add as headers
+    val previousState = if (config.incremental) {
+      readState(config.baseOutputDir, resolvedEndpoint.domain, tableName)
+    } else Map.empty[String, String]
+
+    val conditionalHeaders = scala.collection.mutable.Map[String, String]()
+    previousState.get("etag").foreach(conditionalHeaders += "If-None-Match" -> _)
+    previousState.get("lastModified").foreach(conditionalHeaders += "If-Modified-Since" -> _)
+
+    val endpointWithIncrParams = {
+      val ep = if (incrementalParams.nonEmpty) {
+        resolvedEndpoint.copy(queryParams = resolvedEndpoint.queryParams ++ incrementalParams)
+      } else resolvedEndpoint
+      if (conditionalHeaders.nonEmpty) {
+        ep.copy(headers = ep.headers ++ conditionalHeaders)
+      } else ep
+    }
 
     logger.info(s"Extracting data from ${endpointWithIncrParams.path} as $tableName")
 
@@ -83,13 +111,19 @@ class RestAPIDataExtractor(implicit settings: Settings) extends LazyLogging {
       storageHandler.mkdirs(domainDir)
     }
 
+    val fileExtension = config.outputFormat match {
+      case CsvOutput       => "csv"
+      case JsonLinesOutput => "jsonl"
+    }
     val outputFile =
-      new Path(domainDir, s"$tableName-$extractionDateTime.csv")
+      new Path(domainDir, s"$tableName-$extractionDateTime.$fileExtension")
 
     var totalRecords = 0L
     var headerWritten = false
     var csvWriter: CsvWriter = null
     var outputWriter: OutputStreamWriter = null
+    var firstResponseEtag: Option[String] = None
+    var firstResponseLastModified: Option[String] = None
     // Buffer parent records if children need processing (avoids re-fetching)
     val parentRecordBuffer =
       if (endpoint.children.nonEmpty) scala.collection.mutable.ListBuffer[JsonNode]()
@@ -97,59 +131,89 @@ class RestAPIDataExtractor(implicit settings: Settings) extends LazyLogging {
     // Track max incremental field value
     var maxIncrementalValue: Option[String] = None
     val incrementalField = endpoint.incrementalField
+    var pageCount = 0
+
+    // Resume: skip pages already extracted in a previous run
+    val pagesToSkip = if (config.resume) {
+      previousState.get("pagesExtracted").map(_.toInt).getOrElse(0)
+    } else 0
 
     try {
       val pages = client.fetchAllPages(endpointWithIncrParams)
 
-      for ((dataNode, _) <- pages) {
-        val records = if (dataNode.isArray) {
-          dataNode.elements().asScala.toList
-        } else {
-          List(dataNode)
-        }
+      if (pagesToSkip > 0) {
+        logger.info(s"Resuming $tableName: skipping $pagesToSkip already-extracted pages")
+      }
 
-        if (records.nonEmpty) {
-          // Lazily initialize writer on first data
+      for ((dataNode, pageHeaders) <- pages) {
+        pageCount += 1
+        if (pageCount <= pagesToSkip) {
+          // Skip already-extracted pages on resume
+        } else {
+          // Capture ETag/Last-Modified from first page for conditional requests
           if (!headerWritten) {
-            val headers = flattenFieldNames(records.head, "")
-            outputWriter = new OutputStreamWriter(
-              storageHandler.output(outputFile),
-              StandardCharsets.UTF_8
-            )
-            val writerSettings = new CsvWriterSettings()
-            val format = new CsvFormat()
-            format.setDelimiter(',')
-            writerSettings.setFormat(format)
-            writerSettings.setHeaderWritingEnabled(true)
-            writerSettings.setHeaders(headers: _*)
-            writerSettings.setQuoteAllFields(true)
-            csvWriter = new CsvWriter(outputWriter, writerSettings)
-            csvWriter.writeHeaders()
-            headerWritten = true
+            firstResponseEtag = pageHeaders.get("etag")
+            firstResponseLastModified = pageHeaders.get("last-modified")
+          }
+          val records = if (dataNode.isArray) {
+            dataNode.elements().asScala.toList
+          } else {
+            List(dataNode)
           }
 
-          for (record <- records) {
-            if (config.limit <= 0 || totalRecords < config.limit) {
-              val row = flattenValues(record, "")
-              csvWriter.writeRow(row: _*)
-              totalRecords += 1
-              // Buffer for children processing
-              if (parentRecordBuffer != null) parentRecordBuffer += record
-              // Track incremental field max value
-              incrementalField.foreach { field =>
-                val fieldNode = record.get(field)
-                if (fieldNode != null && !fieldNode.isNull) {
-                  val value = fieldNode.asText()
-                  maxIncrementalValue = maxIncrementalValue match {
-                    case None                       => Some(value)
-                    case Some(prev) if value > prev => Some(value)
-                    case existing                   => existing
+          if (records.nonEmpty) {
+            // Lazily initialize writer on first data
+            if (!headerWritten) {
+              outputWriter = new OutputStreamWriter(
+                storageHandler.output(outputFile),
+                StandardCharsets.UTF_8
+              )
+              config.outputFormat match {
+                case CsvOutput =>
+                  val headers = flattenFieldNames(records.head, "")
+                  val writerSettings = new CsvWriterSettings()
+                  val format = new CsvFormat()
+                  format.setDelimiter(',')
+                  writerSettings.setFormat(format)
+                  writerSettings.setHeaderWritingEnabled(true)
+                  writerSettings.setHeaders(headers: _*)
+                  writerSettings.setQuoteAllFields(true)
+                  csvWriter = new CsvWriter(outputWriter, writerSettings)
+                  csvWriter.writeHeaders()
+                case JsonLinesOutput => // outputWriter is enough
+              }
+              headerWritten = true
+            }
+
+            for (record <- records) {
+              if (config.limit <= 0 || totalRecords < config.limit) {
+                config.outputFormat match {
+                  case CsvOutput =>
+                    val row = flattenValues(record, "")
+                    csvWriter.writeRow(row: _*)
+                  case JsonLinesOutput =>
+                    outputWriter.write(record.toString)
+                    outputWriter.write('\n')
+                }
+                totalRecords += 1
+                // Buffer for children processing
+                if (parentRecordBuffer != null) parentRecordBuffer += record
+                // Track incremental field max value
+                incrementalField.foreach { field =>
+                  val fieldNode = record.get(field)
+                  if (fieldNode != null && !fieldNode.isNull) {
+                    val value = fieldNode.asText()
+                    maxIncrementalValue = maxIncrementalValue match {
+                      case None                       => Some(value)
+                      case Some(prev) if value > prev => Some(value)
+                      case existing                   => existing
+                    }
                   }
                 }
               }
             }
           }
-        }
+        } // close else (skip on resume)
       }
 
       // Process children endpoints using buffered parent records
@@ -168,16 +232,18 @@ class RestAPIDataExtractor(implicit settings: Settings) extends LazyLogging {
         }
       }
 
-      // Persist incremental state
-      if (config.incremental) {
-        maxIncrementalValue.foreach { value =>
-          writeIncrementalState(
-            config.baseOutputDir,
-            endpointWithIncrParams.domain,
-            tableName,
-            value
-          )
-        }
+      // Persist state (incremental value, ETag, pages extracted for resume)
+      if (config.incremental || config.resume) {
+        val lastValue = maxIncrementalValue.getOrElse("")
+        writeIncrementalState(
+          config.baseOutputDir,
+          endpointWithIncrParams.domain,
+          tableName,
+          lastValue,
+          firstResponseEtag,
+          firstResponseLastModified,
+          Some(pageCount)
+        )
       }
 
       logger.info(
@@ -249,39 +315,71 @@ class RestAPIDataExtractor(implicit settings: Settings) extends LazyLogging {
   private def stateFilePath(baseOutputDir: Path, domain: String, tableName: String): Path =
     new Path(new Path(baseOutputDir, s".state/$domain"), s"$tableName.json")
 
-  private def readIncrementalState(
+  private def readState(
     baseOutputDir: Path,
     domain: String,
     tableName: String
-  )(implicit storageHandler: StorageHandler): Option[String] = {
+  )(implicit storageHandler: StorageHandler): Map[String, String] = {
     val path = stateFilePath(baseOutputDir, domain, tableName)
     if (storageHandler.exists(path)) {
       try {
         val content = storageHandler.read(path)
         val node = stateMapper.readTree(content)
-        Option(node.get("lastValue")).map(_.asText())
+        val fields = scala.collection.mutable.Map[String, String]()
+        val it = node.fieldNames()
+        while (it.hasNext) {
+          val key = it.next()
+          val value = node.get(key)
+          if (value != null && !value.isNull) fields += (key -> value.asText())
+        }
+        fields.toMap
       } catch {
         case e: Exception =>
-          logger.warn(s"Failed to read incremental state from $path: ${e.getMessage}")
-          None
+          logger.warn(s"Failed to read state from $path: ${e.getMessage}")
+          Map.empty
       }
-    } else None
+    } else Map.empty
   }
 
-  private def writeIncrementalState(
+  private def readIncrementalState(
+    baseOutputDir: Path,
+    domain: String,
+    tableName: String
+  )(implicit storageHandler: StorageHandler): Option[String] =
+    readState(baseOutputDir, domain, tableName).get("lastValue")
+
+  private def writeState(
     baseOutputDir: Path,
     domain: String,
     tableName: String,
-    lastValue: String
+    state: Map[String, String]
   )(implicit storageHandler: StorageHandler): Unit = {
     val path = stateFilePath(baseOutputDir, domain, tableName)
     val stateDir = path.getParent
     if (!storageHandler.exists(stateDir)) {
       storageHandler.mkdirs(stateDir)
     }
-    val state = Map("lastValue" -> lastValue, "extractedAt" -> extractionDateTime)
     val content = stateMapper.writeValueAsString(state)
     storageHandler.write(content, path)
-    logger.info(s"Saved incremental state: $tableName lastValue=$lastValue")
+  }
+
+  private def writeIncrementalState(
+    baseOutputDir: Path,
+    domain: String,
+    tableName: String,
+    lastValue: String,
+    etag: Option[String] = None,
+    lastModified: Option[String] = None,
+    pagesExtracted: Option[Int] = None
+  )(implicit storageHandler: StorageHandler): Unit = {
+    val state = scala.collection.mutable.Map(
+      "lastValue"   -> lastValue,
+      "extractedAt" -> extractionDateTime
+    )
+    etag.foreach(state += "etag" -> _)
+    lastModified.foreach(state += "lastModified" -> _)
+    pagesExtracted.foreach(p => state += "pagesExtracted" -> p.toString)
+    writeState(baseOutputDir, domain, tableName, state.toMap)
+    logger.info(s"Saved state: $tableName lastValue=$lastValue pages=$pagesExtracted")
   }
 }
