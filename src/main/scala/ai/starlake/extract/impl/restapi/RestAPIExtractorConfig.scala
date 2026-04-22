@@ -173,7 +173,8 @@ case class RestAPIEndpoint(
   responsePath: Option[String] = None,
   incrementalField: Option[String] = None,
   children: List[RestAPIEndpoint] = Nil,
-  excludeFields: List[Pattern] = Nil
+  excludeFields: List[Pattern] = Nil,
+  errorPath: Option[String] = None
 ) {
   @JsonCreator
   private def this() = this(path = "")
@@ -198,6 +199,44 @@ case class RateLimitConfig(
   private def this() = this(10)
 }
 
+case class RetryConfig(
+  maxRetries: Int = 3,
+  initialBackoffMs: Long = 1000,
+  maxBackoffMs: Long = 30000
+) {
+  @JsonCreator
+  private def this() = this(3, 1000, 30000)
+}
+
+case class TimeoutConfig(
+  connectTimeoutMs: Int = 30000,
+  readTimeoutMs: Int = 60000
+) {
+  @JsonCreator
+  private def this() = this(30000, 60000)
+}
+
+case class ProxyConfig(
+  host: String,
+  port: Int,
+  username: Option[String] = None,
+  password: Option[String] = None
+) {
+  @JsonCreator
+  private def this() = this("", 0)
+}
+
+case class TlsConfig(
+  trustStorePath: Option[String] = None,
+  trustStorePassword: Option[String] = None,
+  keyStorePath: Option[String] = None,
+  keyStorePassword: Option[String] = None,
+  insecure: Boolean = false
+) {
+  @JsonCreator
+  private def this() = this(None, None, None, None, false)
+}
+
 case class RestAPIDefaults(
   pagination: Option[PaginationStrategy] = None,
   headers: Map[String, String] = Map.empty,
@@ -212,6 +251,10 @@ case class RestAPIExtractSchema(
   auth: Option[RestAPIAuth] = None,
   headers: Map[String, String] = Map.empty,
   rateLimit: Option[RateLimitConfig] = None,
+  retry: Option[RetryConfig] = None,
+  timeout: Option[TimeoutConfig] = None,
+  proxy: Option[ProxyConfig] = None,
+  tls: Option[TlsConfig] = None,
   defaults: Option[RestAPIDefaults] = None,
   endpoints: List[RestAPIEndpoint] = Nil
 ) {

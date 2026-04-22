@@ -18,6 +18,8 @@ case class UserExtractRestAPIDataConfig(
   limit: Int = 0,
   parallelism: Option[Int] = None,
   incremental: Boolean = false,
+  resume: Boolean = false,
+  outputFormat: String = "csv",
   reportFormat: Option[String] = None
 ) extends ReportFormatConfig
 
@@ -84,6 +86,18 @@ object ExtractRestAPIDataCmd extends Cmd[UserExtractRestAPIDataConfig] with Extr
         .text(
           "Only extract new data since last extraction. Uses incrementalField from endpoint config."
         ),
+      builder
+        .opt[Unit]("resume")
+        .action((_, c) => c.copy(resume = true))
+        .optional()
+        .text(
+          "Resume extraction from where a previous run failed, skipping already-extracted pages."
+        ),
+      builder
+        .opt[String]("outputFormat")
+        .action((x, c) => c.copy(outputFormat = x))
+        .optional()
+        .text("Output format: csv (default) or jsonl (JSON Lines, preserves nested structures)"),
       reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )
   }
@@ -110,7 +124,9 @@ object ExtractRestAPIDataCmd extends Cmd[UserExtractRestAPIDataConfig] with Extr
           baseOutputDir = outputDir,
           limit = config.limit,
           parallelism = config.parallelism,
-          incremental = config.incremental
+          incremental = config.incremental,
+          resume = config.resume,
+          outputFormat = RestAPIOutputFormat.fromString(config.outputFormat)
         )
         new RestAPIDataExtractor().run(dataExtractConfig).map(_ => JobResult.empty)
       case None =>
