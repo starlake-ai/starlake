@@ -3,6 +3,26 @@
 
 # 1.5.15-SNAPSHOT:
 __Improvement__:
+- **REST API extraction**: New generic REST API extractor for SaaS/API data ingestion. Two new CLI commands: `extract-rest-schema` (infer table schemas from API responses) and `extract-rest-data` (fetch data to CSV or JSON Lines files). Features:
+  - **Authentication**: Bearer token, API key, HTTP Basic, OAuth2 client credentials with automatic token refresh.
+  - **Pagination**: Offset, cursor, Link header (RFC 5988), and page number strategies.
+  - **Rate limiting**: Configurable requests-per-second throttling.
+  - **Retry**: Configurable max retries with exponential backoff on 429/5xx/connection failures.
+  - **Timeouts**: Configurable connect and read timeouts.
+  - **Proxy**: HTTP proxy support with optional authentication.
+  - **TLS/mTLS**: Custom CA certificates, client certificates, and insecure mode for development.
+  - **Incremental extraction**: Track last extracted value via `incrementalField`, state persisted between runs.
+  - **Resume on failure**: `--resume` flag skips already-extracted pages and continues from where extraction failed.
+  - **Parent-child endpoints**: `{parent.fieldName}` path placeholders for dependent sub-resources.
+  - **JSON Lines output**: `--outputFormat jsonl` preserves nested JSON structure without flattening.
+  - **Response validation**: `errorPath` detects error indicators in HTTP 200 responses.
+  - **XML support**: Automatic XML-to-JSON conversion for APIs returning `application/xml`.
+  - **Schema evolution detection**: Warns when API response structure changes between extractions.
+  - **Conditional requests**: ETag/If-Modified-Since support to skip unchanged data.
+  - New `REST` connection type (aliases: `HTTP`, `API`).
+  - JSON schema validation for `restAPI` extract configurations.
+  - Sample extraction configs for 7 SaaS APIs: Slack, Jira, Twitter/X, Salesforce, HubSpot, Stripe, and GitHub (`samples/api/`).
+- **Preload sentinel path**: The `preload` command now supports `--notReadySentinel <path>` to write a zero-byte marker file when no files match the expected pattern. Orchestrators can check for the sentinel to distinguish "not ready, retry later" (sentinel present, exit 0) from actual failures (no sentinel, non-zero exit). Supports local filesystem, GCS, S3, and HDFS paths.
 - **BigQuery data branching**: New `SL_DATA_BRANCH` support for BigQuery native API. When set (via env var or connection options), writes are redirected to a branch dataset using BigQuery zero-copy `CLONE`, mirroring starlakeJDBC's branching mechanism. Works for both Spark and native execution paths on transforms and loads.
 - **BigQuery JDBC branching**: Extend starlakeJDBC driver wrapping to BigQuery JDBC connections (alongside existing Snowflake support).
 - **Upgrade DuckDB**: Update DuckDB to 1.5.2.0.
