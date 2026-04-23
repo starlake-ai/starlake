@@ -21,6 +21,7 @@ __Improvement__:
   - **Conditional requests**: ETag/If-Modified-Since support to skip unchanged data.
   - New `REST` connection type (aliases: `HTTP`, `API`).
   - JSON schema validation for `restAPI` extract configurations.
+  - Sample extraction configs for 7 SaaS APIs: Slack, Jira, Twitter/X, Salesforce, HubSpot, Stripe, and GitHub (`samples/api/`).
 - **Preload sentinel path**: The `preload` command now supports `--notReadySentinel <path>` to write a zero-byte marker file when no files match the expected pattern. Orchestrators can check for the sentinel to distinguish "not ready, retry later" (sentinel present, exit 0) from actual failures (no sentinel, non-zero exit). Supports local filesystem, GCS, S3, and HDFS paths.
 - **BigQuery data branching**: New `SL_DATA_BRANCH` support for BigQuery native API. When set (via env var or connection options), writes are redirected to a branch dataset using BigQuery zero-copy `CLONE`, mirroring starlakeJDBC's branching mechanism. Works for both Spark and native execution paths on transforms and loads.
 - **BigQuery JDBC branching**: Extend starlakeJDBC driver wrapping to BigQuery JDBC connections (alongside existing Snowflake support).
