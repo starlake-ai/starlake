@@ -1,8 +1,8 @@
 package ai.starlake.extract.impl.restapi
 
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
-import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
-import org.w3c.dom.{Document, Element, Node, NodeList}
+import org.w3c.dom.{Document, Element, Node}
 
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
