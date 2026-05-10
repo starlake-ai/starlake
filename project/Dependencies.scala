@@ -254,7 +254,7 @@ object Dependencies {
   )
 
   val scala213LibsOnly = Seq(
-    "ai.starlake" %% "spark-redshift" % "6.5.0" % Test
+    "ai.starlake" %% "spark-redshift" % "6.5.1" % Test
   )
 
   val scalaCompat = Seq(
