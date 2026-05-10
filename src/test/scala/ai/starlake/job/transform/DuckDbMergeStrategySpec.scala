@@ -7,7 +7,6 @@ import ai.starlake.schema.model._
 import ai.starlake.workflow.IngestionWorkflow
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.SaveMode
 
 class DuckDbMergeStrategySpec extends TestHelper {
 
