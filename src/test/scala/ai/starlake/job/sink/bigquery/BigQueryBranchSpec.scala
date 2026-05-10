@@ -7,7 +7,7 @@ import ai.starlake.job.transform.TransformConfig
 import ai.starlake.schema.model._
 import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.bigquery.{BigQueryOptions, DatasetId, TableId}
-import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
 
