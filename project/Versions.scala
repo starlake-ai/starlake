@@ -1,6 +1,6 @@
 object Versions {
   val spark3 = "3.5.8"
-  val deltaSpark3d0 = "3.3.2"
+  val deltaSpark3d0 = "4.2.0"
   val scalatest = "3.2.19"
   val scalacheckForScalatest = "3.2.18.0"
   val sparkXML2d0 = "0.13.0"
