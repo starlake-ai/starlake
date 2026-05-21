@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 1.5.16-SNAPSHOT:
+__Bug fix__:
+- **Domain lookup with shared physical schema**: Fix nine sites that picked the first logical domain matching a `finalName` and scoped table search inside it, silently dropping tables owned by sibling logical domains renamed to the same physical schema. Affected paths: `AutoTask.attDdl` (missing DDL mappings in temp tables), `SchemaHandler.findTableNames`, `AutoTaskDependencies.enrichItemWithColumns`, three sites in `TaskViewDependency` (schedule, parent-table resolution, writeStrategy/freshness), `ExtractBigQuerySchema` (incomplete exclusion list), and `FreshnessJob` (skipped freshness probes). In `AclDependencies`, `.toMap` on a key keyed by `finalName` collapsed duplicates — replaced with `groupBy` merge so RLS/ACL data from all matching domains is preserved.
+
 # 1.5.15-SNAPSHOT:
 __Improvement__:
 - **REST API extraction**: New generic REST API extractor for SaaS/API data ingestion. Two new CLI commands: `extract-rest-schema` (infer table schemas from API responses) and `extract-rest-data` (fetch data to CSV or JSON Lines files). Features:
