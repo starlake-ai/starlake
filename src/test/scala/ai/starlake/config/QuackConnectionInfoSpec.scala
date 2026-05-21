@@ -14,14 +14,14 @@ class QuackConnectionInfoSpec extends TestHelper {
 
     "isQuackClient" should "be true for preActions with 'quack: attach" in {
       conn(
-        "url" -> "jdbc:duckdb:",
+        "url"        -> "jdbc:duckdb:",
         "preActions" -> "INSTALL quack; LOAD quack; ATTACH 'quack:host:9494' AS remote;"
       ).isQuackClient() shouldBe true
     }
 
     it should "be false when preActions only has 'ducklake:quack: (server-attached DuckLake bypass)" in {
       conn(
-        "url" -> "jdbc:duckdb:",
+        "url"        -> "jdbc:duckdb:",
         "preActions" -> "ATTACH 'ducklake:quack:host' AS lake;"
       ).isQuackClient() shouldBe false
     }
@@ -32,8 +32,8 @@ class QuackConnectionInfoSpec extends TestHelper {
 
     "isQuackServer" should "be true when quackServerToken option is set" in {
       conn(
-        "url"               -> "jdbc:duckdb:",
-        "quackServerToken"  -> "secret"
+        "url"              -> "jdbc:duckdb:",
+        "quackServerToken" -> "secret"
       ).isQuackServer() shouldBe true
     }
 
@@ -58,7 +58,9 @@ class QuackConnectionInfoSpec extends TestHelper {
     }
 
     "quackServerToken" should "return Some when set" in {
-      conn("url" -> "jdbc:duckdb:", "quackServerToken" -> "tok").quackServerToken() shouldBe Some("tok")
+      conn("url" -> "jdbc:duckdb:", "quackServerToken" -> "tok").quackServerToken() shouldBe Some(
+        "tok"
+      )
     }
 
     it should "return None when absent" in {
