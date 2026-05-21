@@ -21,7 +21,7 @@ class QuackServerIntegrationSpec extends TestHelper with BeforeAndAfterAll {
     "QuackServer" should "serve and accept a client query" in {
       assume(enabled, "Set SL_QUACK_E2E=1 to run this test")
 
-      val port  = freePort()
+      val port = freePort()
       val token = "test-token"
       val conn = ConnectionInfo(
         `type` = ConnectionType.JDBC,
@@ -44,8 +44,9 @@ class QuackServerIntegrationSpec extends TestHelper with BeforeAndAfterAll {
       ok shouldBe true
 
       // Open a second DuckDB JDBC, attach as Quack client, run SELECT 1
-      val clientConn = java.sql.DriverManager.getConnection("jdbc:duckdb:", new java.util.Properties())
-      val stmt       = clientConn.createStatement()
+      val clientConn =
+        java.sql.DriverManager.getConnection("jdbc:duckdb:", new java.util.Properties())
+      val stmt = clientConn.createStatement()
       stmt.execute("INSTALL quack;")
       stmt.execute("LOAD quack;")
       stmt.execute(s"CREATE SECRET (TYPE quack, TOKEN '$token');")
@@ -53,6 +54,7 @@ class QuackServerIntegrationSpec extends TestHelper with BeforeAndAfterAll {
       val rs = stmt.executeQuery("SELECT 1 AS x")
       rs.next() shouldBe true
       rs.getInt("x") shouldBe 1
+      rs.close()
       stmt.close()
       clientConn.close()
 
@@ -70,7 +72,6 @@ private object QuackCmd_TestAccess {
       val socket = new java.net.Socket()
       try {
         socket.connect(new java.net.InetSocketAddress(host, port), 250)
-        socket.close()
         return true
       } catch {
         case _: Throwable => Thread.sleep(intervalMs)
