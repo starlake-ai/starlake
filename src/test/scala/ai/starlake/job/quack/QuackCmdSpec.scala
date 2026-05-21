@@ -41,7 +41,8 @@ class QuackCmdSpec extends TestHelper {
       val dir = QuackState.stateDir(settings)
       if (dir.exists) dir.list.toList.foreach(_.delete(swallowIOExceptions = true))
 
-      val result = QuackCmd.run(QuackConfig(action = "list"), schemaHandler = settings.schemaHandler())
+      val result =
+        QuackCmd.run(QuackConfig(action = "list"), schemaHandler = settings.schemaHandler())
       result.isSuccess shouldBe true
       result.get.asInstanceOf[QuackJobResult].rows shouldBe Nil
     }
