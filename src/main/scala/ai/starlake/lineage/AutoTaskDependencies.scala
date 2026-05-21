@@ -204,8 +204,9 @@ class AutoTaskDependencies(
     // Try load tables first, then transform tasks
     val columns = schemaHandler
       .domains()
-      .find(_.finalName.equalsIgnoreCase(domainName))
+      .filter(_.finalName.equalsIgnoreCase(domainName))
       .flatMap(_.tables.find(_.finalName.equalsIgnoreCase(tableName)))
+      .headOption
       .map { schema =>
         schema.attributes.map { attr =>
           Column(

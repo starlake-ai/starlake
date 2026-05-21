@@ -171,8 +171,9 @@ abstract class AutoTask(
   def attDdl(): Map[String, Map[String, String]] =
     schemaHandler
       .domains()
-      .find(_.finalName == taskDesc.domain)
+      .filter(_.finalName == taskDesc.domain)
       .flatMap(_.tables.find(_.finalName == taskDesc.table))
+      .headOption
       .map(schema => schemaHandler.getDdlMapping(schema.attributes))
       .getOrElse(Map.empty)
 

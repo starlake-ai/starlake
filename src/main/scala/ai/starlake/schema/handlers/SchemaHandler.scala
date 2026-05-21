@@ -794,9 +794,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       domainName match {
         case Some(domainName) => {
           domains()
-            .find(_.finalName.toLowerCase() == domainName.toLowerCase())
-            .map { d => d.tables.map(d.finalName + "." + _.finalName) }
-            .getOrElse(Nil)
+            .filter(_.finalName.toLowerCase() == domainName.toLowerCase())
+            .flatMap { d => d.tables.map(d.finalName + "." + _.finalName) }
         }
         case None =>
           domains().flatMap(d => d.tables.map(d.finalName + "." + _.finalName))
