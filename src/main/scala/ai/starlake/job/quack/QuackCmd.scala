@@ -105,12 +105,16 @@ object QuackCmd extends Cmd[QuackConfig] with StrictLogging {
       val startedAt = System.currentTimeMillis()
       QuackState.logsDir.createDirectoryIfNotExists(createParents = true)
       val logFile = QuackState.logFile(name)
-      if (logFile.exists) logFile.renameTo(s"${name}.log.$startedAt")
+      if (logFile.exists) {
+        scala.util.Try(logFile.renameTo(s"${name}.log.$startedAt")).failed.foreach { e =>
+          logger.warn(s"Failed to rotate prior Quack log $logFile: ${e.getMessage}")
+        }
+      }
 
       val javaCmd =
         java.lang.ProcessHandle.current().info().command().toScala.getOrElse("java")
       val classpath = System.getProperty("java.class.path")
-      val childCmd  = new java.util.ArrayList[String]()
+      val childCmd = new java.util.ArrayList[String]()
       childCmd.add(javaCmd)
       childCmd.add("-cp"); childCmd.add(classpath)
       childCmd.add("ai.starlake.job.Main")
@@ -124,7 +128,7 @@ object QuackCmd extends Cmd[QuackConfig] with StrictLogging {
       pb.redirectOutput(Redirect.to(logFile.toJava))
       pb.redirectError(Redirect.to(logFile.toJava))
       val child = pb.start()
-      val pid   = child.pid()
+      val pid = child.pid()
 
       if (!waitForBind(bind, port, 10000L, 100L)) {
         child.destroyForcibly()
@@ -137,11 +141,11 @@ object QuackCmd extends Cmd[QuackConfig] with StrictLogging {
 
       val state = QuackState(
         connection = name,
-        pid        = pid,
-        bind       = bind,
-        port       = port,
-        logFile    = logFile.pathAsString,
-        startedAt  = startedAt
+        pid = pid,
+        bind = bind,
+        port = port,
+        logFile = logFile.pathAsString,
+        startedAt = startedAt
       )
       QuackState.write(state)
       Success(
@@ -257,8 +261,8 @@ object QuackCmd extends Cmd[QuackConfig] with StrictLogging {
         s"Connection $name must be a DuckDB connection (got ${conn.getJdbcEngineName()}) to host a Quack server"
       )
     }
-    val bind  = config.bind.getOrElse(conn.quackBind())
-    val port  = config.port.getOrElse(conn.quackPort())
+    val bind = config.bind.getOrElse(conn.quackBind())
+    val port = config.port.getOrElse(conn.quackPort())
     val token = config.token.orElse(conn.quackServerToken()).getOrElse {
       throw new StarlakeConfigException(
         "quackServerToken is required (set in connection options or pass --token)"
