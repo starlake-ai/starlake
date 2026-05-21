@@ -35,12 +35,7 @@ object GizmoCmd extends Cmd[GizmoConfig] with StrictLogging {
         .opt[String]("connection")
         .action((x, c) => c.copy(connectionName = Some(x)))
         .optional()
-        .text("Connection name (required for start)"),
-      builder
-        .opt[String]("process-name")
-        .action((x, c) => c.copy(processName = Some(x)))
-        .optional()
-        .text("Process name (required for stop)"),
+        .text("Connection name (required for start and stop)"),
       builder
         .opt[Int]("port")
         .action((x, c) => c.copy(port = Some(x)))
@@ -167,9 +162,9 @@ object GizmoCmd extends Cmd[GizmoConfig] with StrictLogging {
     config: GizmoConfig,
     client: GizmoProcessClient
   ): Try[JobResult] = {
-    val processName = config.processName.getOrElse {
+    val processName = config.connectionName.getOrElse {
       return Failure(
-        new IllegalArgumentException("--process-name is required for the stop action")
+        new IllegalArgumentException("--connection is required for the stop action")
       )
     }
     client.stopProcess(StopProcessRequest(processName)) match {
