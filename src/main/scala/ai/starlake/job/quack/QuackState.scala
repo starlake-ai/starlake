@@ -30,7 +30,24 @@ object QuackState {
     mapper.readValue(json, classOf[QuackState])
 
   def stateDir(implicit settings: Settings): BFile =
-    BFile(new java.net.URI(settings.appConfig.root).getPath) / ".quack"
+    localStateRoot(settings.appConfig.root) / ".quack"
+
+  private[quack] def localStateRoot(root: String): BFile = {
+    // SL_ROOT may be: a bare path, file:/// URI, or a cloud URI (gs:/s3:/abfss:/wasbs:/...).
+    // Quack state must live on the local filesystem regardless, because the daemon process runs locally.
+    val uri = scala.util.Try(new java.net.URI(root)).toOption
+    val scheme = uri.map(u => Option(u.getScheme).map(_.toLowerCase).getOrElse("")).getOrElse("")
+    scheme match {
+      case "" | "file" =>
+        val path = uri.flatMap(u => Option(u.getPath)).filter(_.nonEmpty).getOrElse(root)
+        BFile(path)
+      case _ =>
+        // Cloud-rooted project: park state under the user's home, namespaced by a hash of root
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        val hash = md.digest(root.getBytes).take(8).map("%02x".format(_)).mkString
+        BFile(System.getProperty("user.home")) / ".starlake" / "quack" / hash
+    }
+  }
 
   def logsDir(implicit settings: Settings): BFile =
     stateDir / "logs"
