@@ -154,3 +154,58 @@ The client never opens a Parquet file and never sees a storage credential.
 - **DuckDB ODBC driver:** bundled engine 1.5.2 or newer.
 - **Extensions:** `ducklake` + `quack` on the server; `quack` only on the
   client.
+
+---
+
+## Using `starlake quack` from Starlake
+
+Starlake ships a CLI that hosts a Quack server in the JVM (no Docker, no external orchestrator) and recognizes Quack client connections on the read side.
+
+### Client connection (consumer)
+
+```yaml
+connections:
+  warehouse-quack:
+    type: JDBC
+    options:
+      url: "jdbc:duckdb:"
+      driver: "org.duckdb.DuckDBDriver"
+      preActions: |
+        INSTALL quack; LOAD quack;
+        CREATE SECRET (TYPE quack, TOKEN '{{quackToken}}');
+        ATTACH 'quack:warehouse-host:9494' AS remote;
+      quote: "\""
+```
+
+### Server connection (producer, hosts DuckLake + token)
+
+```yaml
+connections:
+  warehouse-server:
+    type: JDBC
+    options:
+      url: "jdbc:duckdb:"
+      driver: "org.duckdb.DuckDBDriver"
+      preActions: |
+        INSTALL ducklake; LOAD ducklake; INSTALL quack; LOAD quack;
+        CREATE SECRET (TYPE s3, KEY_ID '{{s3Key}}', SECRET '{{s3Secret}}', REGION 'eu-west-1');
+        ATTACH 'ducklake:my_catalog.ducklake' AS lake (DATA_PATH 's3://my-bucket/data/');
+      quackServerToken: "{{quackToken}}"
+      quackBind: "127.0.0.1"   # optional, default 127.0.0.1
+      quackPort: "9494"         # optional, default 9494
+      quote: "\""
+```
+
+### CLI
+
+```bash
+starlake quack serve    --connection warehouse-server                   # foreground
+starlake quack start    --connection warehouse-server                   # detached daemon
+starlake quack stop     --connection warehouse-server
+starlake quack list
+starlake quack stop-all
+```
+
+Flags `--bind`, `--port`, `--token` override the corresponding connection options. State for detached servers lives under `$SL_ROOT/.quack/`.
+
+> **Security:** the default `quackBind` is `127.0.0.1`. Bind to `0.0.0.0` only behind a reverse proxy terminating TLS (see the production-considerations table above).
