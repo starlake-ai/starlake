@@ -89,6 +89,79 @@ The DuckLake catalog can be a local DuckDB file (`my_catalog.ducklake` above),
 because only this one server attaches it. A networked catalog such as
 PostgreSQL is only needed if you later run multiple Quack servers.
 
+### Alternative: PostgreSQL catalog
+
+Swap the local `.ducklake` file for a Postgres connection string when you need
+a shared catalog (e.g. multiple Quack servers fronting the same lake):
+
+```sql
+INSTALL ducklake; INSTALL postgres; INSTALL quack;
+LOAD ducklake;    LOAD postgres;    LOAD quack;
+
+-- catalog credentials stay on the server alongside the S3 secret
+CREATE SECRET pg_catalog (
+    TYPE postgres,
+    HOST 'pg-host',
+    PORT 5432,
+    DATABASE 'ducklake_catalog',
+    USER 'lake',
+    PASSWORD '...'
+);
+CREATE SECRET s3_lake (
+    TYPE s3,
+    KEY_ID '...',
+    SECRET '...',
+    REGION '...'
+);
+
+ATTACH 'ducklake:postgres:dbname=ducklake_catalog' AS lake
+    (DATA_PATH 's3://my-bucket/data/');
+
+CALL quack_serve('quack:0.0.0.0', token => 'super_secret');
+```
+
+Clients are unchanged — they still attach as `quack:server-host:9494` and never
+learn the catalog backend.
+
+> **On secret names:** ATTACH never references `pg_catalog` or `s3_lake`.
+> DuckDB resolves secrets by *scope* (matching `TYPE` + URL/host) — the names
+> are management labels for `DROP SECRET` and `duckdb_secrets()`. Add an
+> explicit `SCOPE` clause only when two secrets of the same type would
+> otherwise both match.
+
+#### Disambiguating with `SCOPE`
+
+If the server fronts more than one DuckLake — say the catalog metadata lives
+in one bucket and the data files in another — define one S3 secret per bucket
+prefix:
+
+```sql
+CREATE SECRET s3_catalog (
+    TYPE s3,
+    SCOPE 's3://catalog-bucket',
+    KEY_ID 'AKIA...CAT',
+    SECRET '...',
+    REGION 'eu-west-1'
+);
+
+CREATE SECRET s3_lake (
+    TYPE s3,
+    SCOPE 's3://data-bucket',
+    KEY_ID 'AKIA...DAT',
+    SECRET '...',
+    REGION 'eu-west-1'
+);
+
+ATTACH 'ducklake:postgres:dbname=ducklake_catalog' AS lake
+    (DATA_PATH 's3://data-bucket/lake/');
+```
+
+Reads from `s3://catalog-bucket/...` resolve via `s3_catalog`; reads/writes
+under `s3://data-bucket/...` resolve via `s3_lake`. The longest matching
+`SCOPE` prefix wins, so an unscoped secret of the same type acts as a
+catch-all default. Postgres secrets resolve the same way against the
+`HOST`/`PORT`/`DATABASE` triple of the connection.
+
 ---
 
 ## Client setup (through ODBC)
