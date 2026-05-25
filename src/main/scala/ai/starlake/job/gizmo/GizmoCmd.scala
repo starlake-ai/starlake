@@ -139,13 +139,12 @@ object GizmoCmd extends Cmd[GizmoConfig] with StrictLogging {
     val request = StartProcessRequest(processName, connectionName, finalPort, envVars)
     client.startProcess(request) match {
       case Right(response) =>
-        logger.info(s"Started process ${response.processName} on port ${response.port}")
+        logger.info(s"Started process for connection ${response.connectionName} on port ${response.port}")
         Success(
           GizmoJobResult(
-            List("processName", "connectionName", "port", "message"),
+            List("connectionName", "port", "message"),
             List(
               List(
-                response.processName,
                 response.connectionName,
                 response.port.toString,
                 response.message
@@ -169,10 +168,10 @@ object GizmoCmd extends Cmd[GizmoConfig] with StrictLogging {
     }
     client.stopProcess(StopProcessRequest(processName)) match {
       case Right(response) =>
-        logger.info(s"Stopped process ${response.processName}: ${response.message}")
+        logger.info(s"Stopped process for connection ${response.processName}: ${response.message}")
         Success(
           GizmoJobResult(
-            List("processName", "message"),
+            List("connectionName", "message"),
             List(List(response.processName, response.message))
           )
         )
@@ -191,7 +190,7 @@ object GizmoCmd extends Cmd[GizmoConfig] with StrictLogging {
         }
         Success(
           GizmoJobResult(
-            List("processName", "port", "pid", "status"),
+            List("connectionName", "port", "pid", "status"),
             rows
           )
         )
@@ -208,7 +207,7 @@ object GizmoCmd extends Cmd[GizmoConfig] with StrictLogging {
         logger.info(s"Stopped all processes: ${response.message}")
         Success(
           GizmoJobResult(
-            List("processName", "message"),
+            List("connectionName", "message"),
             List(List(response.processName, response.message))
           )
         )
