@@ -38,10 +38,16 @@ object JdbcDbUtils extends LazyLogging {
     "user",
     "password",
     "preActions",
+    "postActions",
     "DATA_PATH",
     "SL_DATA_PATH",
     "storageType",
-    "quoteIdentifiers"
+    "quoteIdentifiers",
+    "quote",
+    "separator",
+    "quackServerToken",
+    "quackBind",
+    "quackPort"
   )
   def removeNonDuckDbProperties(
     options: Map[String, String]
