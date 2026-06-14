@@ -34,3 +34,14 @@ Numbered superscripts (¹, ², …) refer to footnotes at the bottom of the page
 | DuckDB (local dev) | ✅ | ✅ | ❌ | ❌ |
 | Spark (self-managed) | ✅ | ⚠️⁸ | ❌ | ⚠️⁹ |
 | Delta Lake / Iceberg | ✅ | ⚠️¹⁰ | ❌ | ⚠️ |
+
+## 3. Quality & governance
+
+| Capability | Starlake | dbt | Fivetran/Airbyte | Matillion |
+|---|---|---|---|---|
+| Declarative expectations / tests | ✅ | ✅ | ❌ | ⚠️ |
+| Table-level lineage | ✅ | ✅ | ⚠️ | ⚠️ |
+| Column-level lineage | ✅ | ⚠️¹¹ | ❌ | ⚠️ |
+| Row-level security (RLS) | ✅ | ❌ | ❌ | ⚠️ |
+| Column-level security (CLS) | ✅ | ❌ | ❌ | ⚠️ |
+| IAM / policy tags | ✅ | ❌ | ❌ | ⚠️ |
