@@ -56,3 +56,22 @@ Numbered superscripts (¹, ², …) refer to footnotes at the bottom of the page
 | Local dev (no warehouse needed) | ✅ | ✅¹⁵ | ❌ | ❌ |
 | CI-friendly (text-based, diffable) | ✅ | ✅ | ❌ | ⚠️ |
 | GUI editor | ⚠️¹⁶ | ⚠️ | ✅ | ✅ |
+
+## Footnotes
+
+1. Airbyte supports file connectors; Fivetran has limited file ingestion.
+2. Schema-drift detection only; not a declarative contract.
+3. GUI-driven schema definition rather than as-code.
+4. Via incremental models and snapshots (dbt-utils / dbt snapshots for SCD2).
+5. Python transforms supported via Spark jobs; not a general Python ETL runtime.
+6. Python models supported on a subset of warehouses (BigQuery, Snowflake, Databricks).
+7. dbt Cloud has built-in scheduling; dbt Core requires an external orchestrator.
+8. Via dbt-spark adapter.
+9. Talend has Spark execution; Matillion / Informatica do not natively.
+10. Via warehouse-side or adapter-side support; varies per adapter.
+11. dbt Cloud Explorer offers column lineage; Core requires extra tooling.
+12. dbt Core is OSS (Apache 2.0); dbt Cloud is proprietary SaaS.
+13. Airbyte OSS is open source; Fivetran is proprietary.
+14. dbt uses YAML for config and Jinja-templated SQL for models.
+15. Via the dbt-duckdb adapter.
+16. Starlake provides an Excel-driven config workflow and a VSCode plugin, but no full visual drag-and-drop editor.
