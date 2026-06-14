@@ -25,3 +25,12 @@ Numbered superscripts (¹, ², …) refer to footnotes at the bottom of the page
 | SQL transforms | ✅ | ✅ | ❌ | ✅ |
 | Python transforms | ⚠️⁵ | ⚠️⁶ | ❌ | ✅ |
 | Orchestration / DAG generation | ✅ | ⚠️⁷ | ❌ | ✅ |
+
+## 2. Engines & warehouses
+
+| Engine | Starlake | dbt | Fivetran/Airbyte | Matillion/Talend |
+|---|---|---|---|---|
+| BigQuery / Snowflake / Redshift / Databricks / Postgres | ✅ | ✅ | ✅ | ✅ |
+| DuckDB (local dev) | ✅ | ✅ | ❌ | ❌ |
+| Spark (self-managed) | ✅ | ⚠️⁸ | ❌ | ⚠️⁹ |
+| Delta Lake / Iceberg | ✅ | ⚠️¹⁰ | ❌ | ⚠️ |
