@@ -45,3 +45,14 @@ Numbered superscripts (¹, ², …) refer to footnotes at the bottom of the page
 | Row-level security (RLS) | ✅ | ❌ | ❌ | ⚠️ |
 | Column-level security (CLS) | ✅ | ❌ | ❌ | ⚠️ |
 | IAM / policy tags | ✅ | ❌ | ❌ | ⚠️ |
+
+## 4. Developer experience
+
+| Trait | Starlake | dbt | Fivetran/Airbyte | Matillion |
+|---|---|---|---|---|
+| Open source | ✅ | ✅¹² | ✅¹³ | ❌ |
+| Self-hosted option | ✅ | ✅ | ⚠️ | ⚠️ |
+| Declarative YAML config | ✅ | ⚠️¹⁴ | ❌ | ❌ |
+| Local dev (no warehouse needed) | ✅ | ✅¹⁵ | ❌ | ❌ |
+| CI-friendly (text-based, diffable) | ✅ | ✅ | ❌ | ⚠️ |
+| GUI editor | ⚠️¹⁶ | ⚠️ | ✅ | ✅ |
