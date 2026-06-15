@@ -119,9 +119,23 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                     )
 
                 val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
+                // For POSITION format the first step loads each line as a single VARCHAR
+                // column named `value`; the second step slices it via SUBSTR.
+                val isPosition = mergedMetadata.resolveFormat() == Format.POSITION
+                val toBQSchema: SchemaInfo => bigquery.Schema =
+                  if (isPosition)
+                    _ =>
+                      bigquery.Schema.of(
+                        Field
+                          .newBuilder("value", StandardSQLTypeName.STRING)
+                          .setMode(Field.Mode.NULLABLE)
+                          .build()
+                      )
+                  else
+                    _.bigquerySchemaWithIgnoreAndScript(schemaHandler, withFinalName = false)
                 val firstStepTableInfo = firstStepBigqueryJob.getTableInfo(
                   firstStepTempTable,
-                  _.bigquerySchemaWithIgnoreAndScript(schemaHandler, withFinalName = false)
+                  toBQSchema
                 )
 
                 val enrichedTableInfo = firstStepTableInfo.copy(
