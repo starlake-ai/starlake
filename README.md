@@ -38,7 +38,7 @@ Inspired by Terraform and Ansible, Starlake brings declarative programming to da
 
 **macOS / Linux:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.sh | bash
+bash <(curl -sL https://starlake.ai/setup.sh)
 ```
 
 **Windows (PowerShell):**
