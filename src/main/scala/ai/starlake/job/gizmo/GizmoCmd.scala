@@ -139,7 +139,9 @@ object GizmoCmd extends Cmd[GizmoConfig] with StrictLogging {
     val request = StartProcessRequest(processName, connectionName, finalPort, envVars)
     client.startProcess(request) match {
       case Right(response) =>
-        logger.info(s"Started process for connection ${response.connectionName} on port ${response.port}")
+        logger.info(
+          s"Started process for connection ${response.connectionName} on port ${response.port}"
+        )
         Success(
           GizmoJobResult(
             List("connectionName", "port", "message"),
