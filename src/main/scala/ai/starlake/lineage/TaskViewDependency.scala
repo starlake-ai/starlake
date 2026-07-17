@@ -309,8 +309,9 @@ object TaskViewDependency extends LazyLogging {
           UNKNOWN_TYPE,
           "",
           writeStrategy,
-          None,
-          cron,
+          dataset_triggering_strategy = None,
+          sink = Some(tableName),
+          cron = cron,
           freshness = tableFreshness.orElse(domainFreshness).getOrElse(0L)
         )
       }
