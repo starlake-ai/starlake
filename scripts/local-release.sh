@@ -25,14 +25,16 @@ set -euo pipefail
 #   ./scripts/local-release.sh --steps 6        # only the GitHub release
 #   ./scripts/local-release.sh --dry-run        # preview
 #   RELEASE_VERSION=1.6.0 NEXT_VERSION=1.6.1-SNAPSHOT ./scripts/local-release.sh
+#   RELEASE_VERSION=1.6.0 ./scripts/local-release.sh --steps 6   # resume a specific release after version.sbt moved on
 #
 # Steps:
 #   1 - Preflight (gh auth, clean trees, version alignment)  [always runs]
 #   2 - Set release version + commit (both repos)
 #   3 - Tag v{v} (both repos)
 #   4 - Build core assembly + publishLocal, build api zip
-#   5 - Push commits and tags (both repos)
-#   6 - Create the GitHub release with sha256 assets
+#   5 - Push commits (both repos) and the api tag; the starlake tag is
+#       created remotely when step 6 publishes the release
+#   6 - Create the GitHub release (draft), upload sha256 assets, publish
 #   7 - Bump to next SNAPSHOT + commit + push (both repos)
 #   8 - Housekeeping: propagate versions, setup.jar, full assembly
 # ============================================================================
@@ -181,16 +183,20 @@ fi
 
 # ============================================================================
 # Step 5: Push commits and tags (unconditional no-ops when up to date)
-# The starlake tag push triggers the Docker release workflow.
+# The starlake tag is NOT pushed here: pushing it now would trigger the
+# tag-triggered Docker workflow (.github/workflows/release.yml) before the
+# release assets exist, and its build would 404 downloading them. The
+# starlake tag instead reaches GitHub when the release is published at the
+# end of step 6, after the assets are uploaded, so the Docker workflow finds
+# them. The api repo's tag has no such workflow, so it is pushed as usual.
 # ============================================================================
 if should_run 5; then
   echo "============================================"
   echo "Step 5: Push commits and tags"
   echo "============================================"
-  for repo in "$REPO_DIR" "$API_DIR"; do
-    run git -C "$repo" push origin HEAD
-    run git -C "$repo" push origin "$TAG"
-  done
+  run git -C "$REPO_DIR" push origin HEAD
+  run git -C "$API_DIR" push origin HEAD
+  run git -C "$API_DIR" push origin "$TAG"
 fi
 
 # ============================================================================
@@ -198,6 +204,12 @@ fi
 # The .sha256 companion assets are the integrity source for starlake.sh,
 # starlake.cmd and Setup.java. Content is the standard "hash  basename" line
 # so `shasum -c` works next to the download.
+#
+# The release is created as a draft targeting the tagged commit: a draft
+# release has no remote tag and so does not trigger the tag-triggered Docker
+# workflow. Only after both assets are uploaded is the release published,
+# which creates the starlake tag on GitHub and triggers that workflow, by
+# which time the assets it downloads are already in place.
 # ============================================================================
 if should_run 6; then
   echo "============================================"
@@ -212,8 +224,9 @@ if should_run 6; then
     mkdir -p "$STAGE_DIR"
 
     if ! release_exists "$TAG"; then
-      echo "  creating GitHub release $TAG"
-      gh release create "$TAG" --repo "$GH_REPO" --title "$TAG" --generate-notes
+      echo "  creating draft GitHub release $TAG"
+      gh release create "$TAG" --repo "$GH_REPO" --title "$TAG" --generate-notes --draft \
+        --target "$(git -C "$REPO_DIR" rev-parse "$TAG^{commit}")"
     else
       echo "  release $TAG already exists."
     fi
@@ -246,6 +259,11 @@ if should_run 6; then
     ensure_asset "$CORE_JAR_NAME" "$CORE_JAR"
     ensure_asset "$API_ZIP_NAME" "$API_ZIP_BUILT"
     rm -rf "$STAGE_DIR"
+
+    if [[ "$(gh release view "$TAG" --repo "$GH_REPO" --json isDraft --jq .isDraft)" == "true" ]]; then
+      echo "  publishing release $TAG (creates the remote tag and triggers the Docker workflow)"
+      gh release edit "$TAG" --repo "$GH_REPO" --draft=false
+    fi
   fi
 fi
 
@@ -276,7 +294,13 @@ if should_run 8; then
   echo "Step 8: Housekeeping"
   echo "============================================"
 
-  # --- 8a. Propagate NEXT_VERSION to non-SBT config files ---
+  # The version to propagate is whatever version.sbt now holds when it is
+  # already a -SNAPSHOT (correct even on a resumed run after the step 7
+  # bump); fall back to NEXT_VERSION otherwise.
+  PROPAGATE_VERSION="$(read_version "$REPO_DIR/version.sbt")"
+  [[ "$PROPAGATE_VERSION" == *-SNAPSHOT ]] || PROPAGATE_VERSION="$NEXT_VERSION"
+
+  # --- 8a. Propagate PROPAGATE_VERSION to non-SBT config files ---
   SL_VERSION_FILES=(
     "$STARLAKE_HOME/versions.sh"
     "$API_DIR/.versions"
@@ -295,7 +319,7 @@ if should_run 8; then
       if [[ "$DRY_RUN" == true ]]; then
         echo "  [DRY-RUN] Would update SL_VERSION lines in: $file"
       else
-        sed -i '' "/SL_VERSION/s/$VER_RE/$NEXT_VERSION/g" "$file"
+        sed -i '' "/SL_VERSION/s/$VER_RE/$PROPAGATE_VERSION/g" "$file"
         echo "  Updated: $file"
       fi
     else
@@ -308,7 +332,7 @@ if should_run 8; then
       if [[ "$DRY_RUN" == true ]]; then
         echo "  [DRY-RUN] Would update version references in: $file"
       else
-        sed -i '' "s/$VER_RE/$NEXT_VERSION/g" "$file"
+        sed -i '' "s/$VER_RE/$PROPAGATE_VERSION/g" "$file"
         echo "  Updated: $file"
       fi
     else
@@ -317,7 +341,7 @@ if should_run 8; then
   done
 
   if [[ "$DRY_RUN" == false && -f "$PROFILE" ]] && grep -q "LOCAL_STARLAKE_VERSION" "$PROFILE"; then
-    sed -i '' "s/LOCAL_STARLAKE_VERSION=.*/LOCAL_STARLAKE_VERSION=$NEXT_VERSION/" "$PROFILE"
+    sed -i '' "s/LOCAL_STARLAKE_VERSION=.*/LOCAL_STARLAKE_VERSION=$PROPAGATE_VERSION/" "$PROFILE"
     echo "  Updated LOCAL_STARLAKE_VERSION in $PROFILE"
   fi
 
@@ -330,7 +354,7 @@ if should_run 8; then
     sbt packageSetup
     if [[ -f "$REPO_DIR/distrib/setup.jar" ]]; then
       git add distrib/setup.jar
-      git commit -m "Update setup.jar for $NEXT_VERSION" || echo "  setup.jar unchanged, nothing to commit."
+      git commit -m "Update setup.jar for $PROPAGATE_VERSION" || echo "  setup.jar unchanged, nothing to commit."
       git push origin HEAD
     fi
   fi
@@ -358,5 +382,5 @@ echo "  now on:  $(read_version "$REPO_DIR/version.sbt")"
 echo ""
 echo "Remaining manual steps:"
 echo "  - Commit & push non-SBT file changes in starlake-api and starlake-ui2"
-echo "  - Docker images build automatically from the pushed tag"
+echo "  - Docker images build automatically once the release is published (creates the tag)"
 echo "============================================"
