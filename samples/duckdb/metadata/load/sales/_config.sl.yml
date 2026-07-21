@@ -1,0 +1,11 @@
+---
+version: 1
+load:
+  name: "sales"
+  metadata:
+    format: "DSV"
+    withHeader: true
+    separator: ","
+    directory: "{{root_path}}/incoming/sales"
+    writeStrategy:
+      type: "APPEND"
