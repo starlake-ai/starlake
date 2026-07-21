@@ -6,51 +6,7 @@ on:
     tags:
       - "v*.*.*"
 jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Env
-        run: |
-          echo "SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }}" >>  $GITHUB_ENV
-          echo "SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}" >>  $GITHUB_ENV
-          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >>  $GITHUB_ENV
-          echo "TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }}" >>  $GITHUB_ENV
-          
-      - name: Install graphviz
-        run: sudo apt-get install -y graphviz
-      - name: Set up Zulu 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin' # See 'Supported distributions' for available options
-          java-version: '17'
-      - uses: actions/checkout@v4
-        if: ${{ !github.event.repository.fork }}
-      - name: Setup sbt launcher
-        uses: sbt/setup-sbt@v1
-      - id: 'auth'
-        uses: 'google-github-actions/auth@v1'
-        with:
-          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
-          cleanup_credentials: false
-#      - name: Use gcloud CLI
-#        run: gcloud info
-#      - name: Run tests & Coverage Report
-#        run: SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS TEMPORARY_GCS_BUCKET=starlake-app SL_REMOTE_TEST=true sbt coverage test coverageReport
-      - name: Release Spark 2/3
-        run: echo SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}  SL_REMOTE_TEST=true RELEASE_SONATYPE=true sbt 'release with-defaults'
-      - name: trigger-starlake-api
-        if: ${{ success() }}
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.STARLAKE_API_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-            owner: 'starlake-ai',
-            repo: 'starlake-api',
-            workflow_id: 'docker-hub-amd-arm.yml',
-            ref: 'main'})
   docker-hub:
-    needs: release
     name: Release Docker Image
     runs-on: ubuntu-latest
     permissions:
@@ -167,4 +123,15 @@ jobs:
       #     subject-digest: ${{ steps.push.outputs.digest }}
       #     push-to-registry: true
       #     github-token: ${{ env.GITHUB_TOKEN }}
-              
+
+      - name: trigger-starlake-api
+        if: ${{ success() }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.STARLAKE_API_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+            owner: 'starlake-ai',
+            repo: 'starlake-api',
+            workflow_id: 'docker-hub-amd-arm.yml',
+            ref: 'main'})
