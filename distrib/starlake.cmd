@@ -109,18 +109,32 @@ goto :handle_command
     set "target=%~2"
     if defined PROXY (
         if defined SL_INSECURE (
-            curl --insecure --proxy "%PROXY%" --progress-bar -o "%target%" "%url%"
+            curl -L --insecure --proxy "%PROXY%" --progress-bar -o "%target%" "%url%"
         ) else (
-            curl --proxy "%PROXY%" --progress-bar -o "%target%" "%url%"
+            curl -L --proxy "%PROXY%" --progress-bar -o "%target%" "%url%"
         )
     ) else (
-        curl --progress-bar -o "%target%" "%url%"
+        curl -L --progress-bar -o "%target%" "%url%"
     )
     if errorlevel 1 (
         echo Error: Failed to retrieve data from %url%.
         exit /b 1
     )
     exit /b 0
+
+:verify_sha256
+    set "vs_file=%~1"
+    set "vs_url=%~2"
+    call :get_binary_from_url "%vs_url%" "%vs_file%.sha256"
+    if errorlevel 1 exit /b 1
+    powershell -Command "$expected = (Get-Content '%vs_file%.sha256' -Raw).Trim().Split(' ')[0].ToLower(); $actual = (Get-FileHash -Algorithm SHA256 '%vs_file%').Hash.ToLower(); if ($actual -ne $expected) { exit 1 }"
+    if errorlevel 1 (
+        echo Error: checksum verification failed for %vs_file%
+        exit /b 1
+    )
+    echo Checksum OK for %vs_file%
+    del "%vs_file%.sha256" 2>nul
+    goto :eof
 
 :launch_setup
     set "setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar"
@@ -241,26 +255,27 @@ goto :eof
 :select_starlake_version
     echo Fetching available versions...
 
-    set "temp_meta=%TEMP%\sl_metadata_%RANDOM%.xml"
-    call :get_binary_from_url "https://repo1.maven.org/maven2/ai/starlake/starlake-core_%SCALA_VERSION%/maven-metadata.xml" "%temp_meta%"
+    set "temp_meta=%TEMP%\sl_releases_%RANDOM%.json"
+    call :get_binary_from_url "https://api.github.com/repos/starlake-ai/starlake/releases?per_page=15" "%temp_meta%"
     if exist "%temp_meta%" (
-         for /f "usebackq tokens=*" %%v in (`powershell -Command "[xml]$xml = Get-Content '%temp_meta%'; $versions = $xml.metadata.versioning.versions.version | Where-Object { $_ -match '^\d+\.\d+\.\d+$' } | Sort-Object { [version]$_ } -Descending; $latest = $versions[0]; $parts = $latest.Split('.'); $snapshot = $parts[0] + '.' + $parts[1] + '.' + ([int]$parts[2] + 1) + '-SNAPSHOT'; Write-Output $snapshot; $versions | Select-Object -First 5"`) do (
-             if not defined SNAPSHOT_VERSION (
-                 set "SNAPSHOT_VERSION=%%v"
-             ) else (
-                 set "LATEST_RELEASE_VERSIONS=!LATEST_RELEASE_VERSIONS! %%v"
-             )
+         for /f "usebackq tokens=*" %%v in (`powershell -Command "$releases = Get-Content '%temp_meta%' -Raw | ConvertFrom-Json; $releases | ForEach-Object { $_.tag_name } | Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } | ForEach-Object { $_.TrimStart('v') } | Sort-Object { [version]$_ } -Descending | Select-Object -First 5"`) do (
+             set "LATEST_RELEASE_VERSIONS=!LATEST_RELEASE_VERSIONS! %%v"
+             if not defined DEFAULT_VERSION set "DEFAULT_VERSION=%%v"
          )
          del "%temp_meta%"
     )
 
-    set "VERSIONS=%SNAPSHOT_VERSION% %LATEST_RELEASE_VERSIONS%"
+    if not defined DEFAULT_VERSION (
+        echo Error: no releases found at https://github.com/starlake-ai/starlake/releases
+        exit /b 1
+    )
+
+    set "VERSIONS=%LATEST_RELEASE_VERSIONS%"
 
     :ask_version
     echo Last 5 available versions:
     for %%v in (%VERSIONS%) do echo %%v
 
-    set "DEFAULT_VERSION=%SNAPSHOT_VERSION%"
     set /p "NEW_SL_VERSION=Which version do you want to install? [%DEFAULT_VERSION%]: "
     if not defined NEW_SL_VERSION set "NEW_SL_VERSION=%DEFAULT_VERSION%"
 
@@ -289,12 +304,7 @@ goto :eof
         set "SL_VERSION=%NEW_SL_VERSION%"
         echo Upgrading Starlake to %NEW_SL_VERSION%...
 
-        echo %NEW_SL_VERSION% | findstr /C:"SNAPSHOT" >nul
-        if not errorlevel 1 (
-             set "BASE_URL=https://central.sonatype.com/repository/maven-snapshots/ai/starlake"
-        ) else (
-             set "BASE_URL=https://repo1.maven.org/maven2/ai/starlake"
-        )
+        set "BASE_URL=https://github.com/starlake-ai/starlake/releases/download/v%NEW_SL_VERSION%"
 
         set "SL_LIB_DIR=%STARLAKE_EXTRA_LIB_FOLDER%"
         set "BIN_DIR=%SCRIPT_DIR%bin"
@@ -304,10 +314,10 @@ goto :eof
         if not exist "!SL_LIB_DIR!" mkdir "!SL_LIB_DIR!"
 
         set "CORE_ASSEMBLY_NAME=starlake-core_%SCALA_VERSION%-%NEW_SL_VERSION%-assembly.jar"
-        set "CORE_ASSEMBLY_URL=!BASE_URL!/starlake-core_%SCALA_VERSION%/%NEW_SL_VERSION%/!CORE_ASSEMBLY_NAME!"
+        set "CORE_ASSEMBLY_URL=!BASE_URL!/!CORE_ASSEMBLY_NAME!"
 
         set "API_ZIP_NAME=starlake-api_%SCALA_VERSION%-%NEW_SL_VERSION%.zip"
-        set "API_ZIP_URL=!BASE_URL!/starlake-api_%SCALA_VERSION%/%NEW_SL_VERSION%/!API_ZIP_NAME!"
+        set "API_ZIP_URL=!BASE_URL!/!API_ZIP_NAME!"
 
         REM Delete old starlake core assembly
         del /q "!SL_LIB_DIR!\starlake-core_*-assembly.jar" 2>nul
@@ -315,12 +325,16 @@ goto :eof
         REM Download new core assembly
         echo Downloading !CORE_ASSEMBLY_NAME! to !SL_LIB_DIR!...
         call :get_binary_from_url "!CORE_ASSEMBLY_URL!" "!SL_LIB_DIR!\!CORE_ASSEMBLY_NAME!"
+        call :verify_sha256 "!SL_LIB_DIR!\!CORE_ASSEMBLY_NAME!" "!CORE_ASSEMBLY_URL!.sha256"
+        if errorlevel 1 exit /b 1
 
         REM Delete old api directory and reinstall from zip
         if exist "!API_DIR!" rmdir /s /q "!API_DIR!"
 
         echo Downloading !API_ZIP_NAME! to !BIN_DIR!...
         call :get_binary_from_url "!API_ZIP_URL!" "!BIN_DIR!\!API_ZIP_NAME!"
+        call :verify_sha256 "!BIN_DIR!\!API_ZIP_NAME!" "!API_ZIP_URL!.sha256"
+        if errorlevel 1 exit /b 1
 
         echo Extracting !API_ZIP_NAME!...
         powershell -Command "Expand-Archive -Path '!BIN_DIR!\!API_ZIP_NAME!' -DestinationPath '!BIN_DIR!' -Force"
