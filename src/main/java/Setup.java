@@ -237,39 +237,42 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     private static final String SCALA_VERSION = getEnv("SCALA_VERSION").orElse("2.13");
 
-    // STARLAKE — SL_VERSION is the single source of truth; SL_API_VERSION defaults to it
-    // If SL_VERSION env var is not set, fetch the latest release from Maven Central
-    private static final String SL_VERSION = getEnv("SL_VERSION").orElse(getLatestMavenRelease());
+    // STARLAKE. SL_VERSION is the single source of truth; SL_API_VERSION defaults to it.
+    // If SL_VERSION env var is not set, fetch the latest release from GitHub.
+    private static final String SL_VERSION = getEnv("SL_VERSION").orElse(getLatestGithubRelease());
     private static final String SL_API_VERSION = getEnv("SL_API_VERSION").orElse(SL_VERSION);
 
     /**
-     * Fetch the latest released version of starlake-core from Maven Central metadata.
-     * Falls back to the compile-time version if the fetch fails.
+     * Fetch the latest released version of starlake from the GitHub Releases API.
+     * Falls back to the SL_VERSION environment variable if the fetch fails.
      */
-    private static String getLatestMavenRelease() {
+    private static String getLatestGithubRelease() {
         try {
-            String metadataUrl = "https://repo1.maven.org/maven2/ai/starlake/starlake-core_"
-                    + SCALA_VERSION + "/maven-metadata.xml";
+            String releaseUrl = "https://api.github.com/repos/starlake-ai/starlake/releases/latest";
             java.net.HttpURLConnection conn = (java.net.HttpURLConnection)
-                    new java.net.URL(metadataUrl).openConnection();
+                    new java.net.URL(releaseUrl).openConnection();
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(5000);
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+                StringBuilder body = new StringBuilder();
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    // Parse: <release>1.5.7</release>
-                    line = line.trim();
-                    if (line.startsWith("<release>") && line.endsWith("</release>")) {
-                        String version = line.substring("<release>".length(), line.length() - "</release>".length());
-                        System.out.println("Latest starlake release on Maven Central: " + version);
-                        return version;
-                    }
+                    body.append(line);
+                }
+                // Parse: "tag_name": "v1.5.16"
+                java.util.regex.Matcher matcher = java.util.regex.Pattern
+                        .compile("\"tag_name\"\\s*:\\s*\"v([^\"]+)\"")
+                        .matcher(body.toString());
+                if (matcher.find()) {
+                    String version = matcher.group(1);
+                    System.out.println("Latest starlake release on GitHub: " + version);
+                    return version;
                 }
             } finally {
                 conn.disconnect();
             }
         } catch (Exception e) {
-            System.err.println("Could not fetch latest version from Maven Central: " + e.getMessage());
+            System.err.println("Could not fetch the latest version from GitHub releases: " + e.getMessage());
             System.err.println("Please set the SL_VERSION environment variable manually.");
         }
         return null;
@@ -332,9 +335,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // API — use snapshots repo for SNAPSHOT versions, Maven Central for releases
-    private static final ResourceDependency SL_API_SNAPSHOT_ZIP = new ResourceDependency("starlake-api", "https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-api" + "_" + SCALA_VERSION + "/" + SL_API_VERSION + "/starlake-api"+ "_" + SCALA_VERSION + "-" + SL_API_VERSION + ".zip");
-    private static final ResourceDependency SL_API_RELEASE_ZIP = new ResourceDependency("starlake-api", "https://repo1.maven.org/maven2/ai/starlake/starlake-api" + "_" + SCALA_VERSION + "/" + SL_API_VERSION + "/starlake-api" + "_" + SCALA_VERSION + "-" + SL_API_VERSION + ".zip");
+    // Starlake distribution artifacts are hosted on GitHub Releases
+    private static final String SL_RELEASE_BASE_URL = "https://github.com/starlake-ai/starlake/releases/download";
+    private static final ResourceDependency SL_API_RELEASE_ZIP = new ResourceDependency("starlake-api", SL_RELEASE_BASE_URL + "/v" + SL_API_VERSION + "/starlake-api_" + SCALA_VERSION + "-" + SL_API_VERSION + ".zip");
 
     // SPARK
     private static final ResourceDependency SPARK_JAR = new ResourceDependency("dist/spark", "https://www.apache.org/dyn/closer.lua/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION  + "-scala2.13.tgz?action=download");
@@ -365,8 +368,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency REDSHIFT_JDBC_JAR = new ResourceDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
     private static final ResourceDependency SPARK_REDSHIFT_JAR = new ResourceDependency("spark-redshift", "https://repo1.maven.org/maven2/ai/starlake/spark-redshift_" + SCALA_VERSION + "/" + SPARK_REDSHIFT_VERSION + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION + ".jar");
 
-    private static final ResourceDependency STARLAKE_SNAPSHOT_JAR = new ResourceDependency("starlake-core", "https://central.sonatype.com/repository/maven-snapshots/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core"+ "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
-    private static final ResourceDependency STARLAKE_RELEASE_JAR = new ResourceDependency("starlake-core", "https://repo1.maven.org/maven2/ai/starlake/starlake-core" + "_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core" + "_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
+    private static final ResourceDependency STARLAKE_RELEASE_JAR = new ResourceDependency("starlake-core", SL_RELEASE_BASE_URL + "/v" + SL_VERSION + "/starlake-core_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
     private static final ResourceDependency CONFLUENT_KAFKA_SCHEMA_REGISTRY_CLIENT = new ResourceDependency("kafka-schema-registry-client", "https://packages.confluent.io/maven/io/confluent/kafka-schema-registry-client/" + CONFLUENT_VERSION + "/kafka-schema-registry-client-" + CONFLUENT_VERSION + ".jar");
     private static final ResourceDependency CONFLUENT_KAFKA_AVRO_SERIALIZER = new ResourceDependency("kafka-avro-serializer", "https://packages.confluent.io/maven/io/confluent/kafka-avro-serializer/" + CONFLUENT_VERSION + "/kafka-avro-serializer-" + CONFLUENT_VERSION + ".jar");
 
@@ -906,11 +908,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
             File slDir = new File(binDir, "sl");
             deleteRecursively(slDir);
-            if (SL_VERSION.endsWith("SNAPSHOT")) {
-                downloadAndDisplayProgress(new ResourceDependency[]{STARLAKE_SNAPSHOT_JAR}, slDir, false);
-            } else {
-                downloadAndDisplayProgress(new ResourceDependency[]{STARLAKE_RELEASE_JAR}, slDir, false);
-            }
+            downloadAndDisplayProgress(new ResourceDependency[]{STARLAKE_RELEASE_JAR}, slDir, false);
 
             if (ENABLE_API) {
                 downloadApi(targetDir);
@@ -1001,7 +999,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
         deleteRecursively(apiDir);
 
 
-        ResourceDependency apiZip = SL_API_VERSION.endsWith("SNAPSHOT") ? SL_API_SNAPSHOT_ZIP : SL_API_RELEASE_ZIP;
+        ResourceDependency apiZip = SL_API_RELEASE_ZIP;
         downloadAndDisplayProgress(new ResourceDependency[]{apiZip}, binDir, false);
         apiZip.getUrlNames().stream().map(zipName -> new File(binDir, zipName)).filter(File::exists).forEach(zipFile -> {
             try {
