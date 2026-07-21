@@ -497,7 +497,7 @@ case "$1" in
 
         # Update python libs
         PYTHON_LIBS_BASE_URL="https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/python-libs"
-        PYTHON_LIBS_DIR="$SL_PYTHON_LIBS_DIR"
+        PYTHON_LIBS_DIR="${SL_PYTHON_LIBS_DIR:-$SCRIPT_DIR/bin/deps/python-libs}"
         echo "Updating python libs in $PYTHON_LIBS_DIR..."
         rm -rf "$PYTHON_LIBS_DIR"
         mkdir -p "$PYTHON_LIBS_DIR"
