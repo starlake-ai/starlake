@@ -250,7 +250,7 @@ object StarlakeTestData {
     }
   }
 
-  def compareResultsOld(
+  def compareWithExpectedData(
     testFolder: Directory,
     targetDomain: String,
     targetTable: String,
@@ -493,7 +493,7 @@ object StarlakeTestData {
         })
         .getOrElse(new File(originalSettings.appConfig.root, "test-reports"))
     val testsFolder = new Directory(new File(rootFolder, "transform"))
-    run(dataAndTests, runner, testsFolder)
+    run(dataAndTests, runner, testsFolder, load = false)
   }
 
   def runLoads(
@@ -602,7 +602,7 @@ object StarlakeTestData {
         })
         .getOrElse(new File(originalSettings.appConfig.root, "test-reports"))
     val testsFolder = new Directory(new File(rootFolder, "load"))
-    run(dataAndTests, runner, testsFolder)
+    run(dataAndTests, runner, testsFolder, load = true)
   }
 
   def run(
@@ -620,7 +620,8 @@ object StarlakeTestData {
       List[(String, String)] // Domain and Table names
     ),
     runner: (StarlakeTest, String, Settings) => Unit,
-    testsFolder: Directory
+    testsFolder: Directory,
+    load: Boolean
   )(implicit originalSettings: Settings): (List[StarlakeTestResult], StarlakeTestCoverage) = {
     Class.forName("org.duckdb.DuckDBDriver")
     testsFolder.deleteRecursively()
@@ -661,7 +662,9 @@ object StarlakeTestData {
             // also concurrent access is not supported in embedded test mode
             val start = System.currentTimeMillis()
             val result =
-              if (test.incomingFiles.isEmpty) {
+              if (load && test.incomingFiles.isEmpty) {
+                // Load test without incoming files: the target table is preloaded from the mock
+                // data, there is nothing to ingest. Transform tests always run the transform.
                 Success(())
               } else {
                 Try(runner(test, testName, settings))
@@ -703,15 +706,27 @@ object StarlakeTestData {
                 val compareResult = Utils.withResources(
                   DriverManager.getConnection(s"jdbc:duckdb:$dbFilename")
                 ) { conn =>
-                  compareResults(
-                    testFolder,
-                    test.domain,
-                    test.table,
-                    test.getTaskName(),
-                    tableExpectations,
-                    conn,
-                    end - start
-                  )(settings)
+                  val expectedDataResults =
+                    compareWithExpectedData(
+                      testFolder,
+                      test.domain,
+                      test.table,
+                      test.getTaskName(),
+                      test.expectations,
+                      conn,
+                      end - start
+                    )
+                  val expectationResults =
+                    compareResults(
+                      testFolder,
+                      test.domain,
+                      test.table,
+                      test.getTaskName(),
+                      tableExpectations,
+                      conn,
+                      end - start
+                    )(settings)
+                  expectedDataResults ++ expectationResults
                 }
                 if (compareResult.forall(_.success)) {
                   println(s"Test $domainName.$tableName.$testName succeeded")

@@ -1,0 +1,1 @@
+id, name, last_update, sl_end_ts is null as active

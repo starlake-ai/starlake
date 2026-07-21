@@ -1,0 +1,8 @@
+version: 1
+task:
+  name: customer_history
+  writeStrategy:
+    type: SCD2
+    key: [id]
+    timestamp: last_update
+    on: TARGET

@@ -1,0 +1,9 @@
+version: 1
+table:
+  name: orders
+  pattern: "orders.*"
+  attributes:
+    - name: customer_id
+      type: int
+    - name: amount
+      type: int

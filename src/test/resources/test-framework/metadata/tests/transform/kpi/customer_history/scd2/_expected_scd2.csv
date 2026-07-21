@@ -1,0 +1,6 @@
+id,name,last_update,active
+1,Al,2017-01-01 00:00:00,false
+1,Alice,2018-01-01 00:00:00,false
+1,Alicia,2019-01-01 00:00:00,true
+2,Bob,2018-01-01 00:00:00,true
+3,Carol,2019-01-01 00:00:00,true

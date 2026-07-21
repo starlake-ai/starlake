@@ -1,0 +1,6 @@
+id,name,last_update,active
+1,Food,1980-01-01 09:56:02,true
+2,Clothes,1980-01-01 09:56:02,false
+2,Clothes,1990-01-01 09:56:02,true
+3,Bikes,1980-01-01 09:56:02,false
+3,Bikes2,1981-01-01 09:56:02,true
