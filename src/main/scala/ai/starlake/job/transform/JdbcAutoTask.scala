@@ -203,6 +203,12 @@ class JdbcAutoTask(
     }
 
     val res = Try {
+      if (
+        test && df.isEmpty && interactive.isEmpty &&
+        taskDesc.presql.nonEmpty && taskDesc.parseSQL.getOrElse(true)
+      ) {
+        createEmptyTargetForTestPresql(sqlConnection)
+      }
       val (alters, mainSql) =
         if (df.isEmpty) {
           buildAllSQLQueries(None)
@@ -374,6 +380,41 @@ class JdbcAutoTask(
           logAuditFailure(start, end, e, test)
     }
     res
+  }
+
+  /** In test mode the target table is created by the main SQL statement, but presql statements such
+    * as "DELETE FROM <target> ..." legitimately reference it (idempotency / partition-refresh
+    * patterns). Pre-create the target empty from the main SELECT so presql can run against it. On
+    * any failure (e.g. a SELECT referencing its own target) fall back to the previous behavior.
+    */
+  private def createEmptyTargetForTestPresql(sqlConnection: Option[java.sql.Connection]): Unit = {
+    Try {
+      if (!tableExists) {
+        val select = buildSelectStatement()
+        JdbcDbUtils.withJDBCConnection(
+          this.schemaHandler.dataBranch(),
+          sinkOptions,
+          sqlConnection
+        ) { conn =>
+          runSqls(conn, testInitSqls, "TestInit")
+          JdbcDbUtils.createSchema(conn, fullDomainName)
+          runSqls(
+            conn,
+            List(
+              s"CREATE TABLE IF NOT EXISTS $fullTableName AS SELECT * FROM ($select) AS SL_TEST_SELECT WHERE 1 = 0"
+            ),
+            "CreateTargetForPresql"
+          )
+          addSCD2Columns(conn, sinkConnection.getJdbcEngineName())
+        }
+      }
+    } match {
+      case Success(_) =>
+      case Failure(e) =>
+        logger.warn(
+          s"Test mode: could not pre-create target table $fullTableName before presql: ${e.getMessage}"
+        )
+    }
   }
 
   override protected def expectationAssertionHandler: ExpectationAssertionHandler =

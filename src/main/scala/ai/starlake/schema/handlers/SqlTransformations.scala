@@ -35,6 +35,36 @@ object SqlTransformations extends LazyLogging {
     }
   }
 
+  /** Transpile the given SQL statement from the connection dialect to the target engine dialect
+    * when in test mode or when the connection declares a transpile dialect. Unlike
+    * [[transpileAndSubstituteSelectStatement]], no ref substitution is applied, so it is safe to
+    * use on any statement (DML in presql/postsql, expectation queries ...).
+    */
+  def transpileIfNeeded(
+    sql: String,
+    connection: ConnectionInfo,
+    allVars: Map[String, String] = Map.empty,
+    test: Boolean
+  )(implicit settings: Settings): String = {
+    if (test || connection._transpileDialect.isDefined) {
+      val timestamps =
+        if (test) {
+          List(
+            "SL_CURRENT_TIMESTAMP",
+            "SL_CURRENT_DATE",
+            "SL_CURRENT_TIME"
+          ).flatMap { e =>
+            val value = allVars.get(e).orElse(Option(System.getenv().get(e)))
+            value.map { v => e -> v }
+          }.toMap
+        } else
+          Map.empty[String, String]
+
+      SQLUtils.transpile(sql, connection, timestamps)(settings)
+    } else
+      sql
+  }
+
   def transpileAndSubstituteSelectStatement(
     sql: String,
     connection: ConnectionInfo,
@@ -67,26 +97,7 @@ object SqlTransformations extends LazyLogging {
             sql
         }
 
-      val sqlWithParametersTranspiledIfInTest =
-        if (test || connection._transpileDialect.isDefined) {
-          val envVars = allVars
-          val timestamps =
-            if (test) {
-              List(
-                "SL_CURRENT_TIMESTAMP",
-                "SL_CURRENT_DATE",
-                "SL_CURRENT_TIME"
-              ).flatMap { e =>
-                val value = envVars.get(e).orElse(Option(System.getenv().get(e)))
-                value.map { v => e -> v }
-              }.toMap
-            } else
-              Map.empty[String, String]
-
-          SQLUtils.transpile(sqlWithParameters, connection, timestamps)(settings)
-        } else
-          sqlWithParameters
-      sqlWithParametersTranspiledIfInTest
+      transpileIfNeeded(sqlWithParameters, connection, allVars, test)
     }
   }
 }

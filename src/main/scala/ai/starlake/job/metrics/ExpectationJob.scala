@@ -119,7 +119,8 @@ class ExpectationJob(
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
   sqlRunner: ExpectationAssertionHandler,
-  interactive: Boolean
+  interactive: Boolean,
+  transpileSql: String => String = identity
 )(implicit val settings: Settings)
     extends SparkJob {
 
@@ -169,11 +170,12 @@ class ExpectationJob(
           expectationWithMacroDefinitions,
           schemaHandler.activeEnvVars()
         )
-      val sqlWithSlThis =
+      val sqlWithSlThis = transpileSql(
         if (sql.contains("sl_this")) {
           sql.replaceAll("(?i)sl_this", fullTableName)
         } else
           sql
+      )
       logger.info(
         s"Applying expectation: ${expectation.expect} with request $sqlWithSlThis"
       )
@@ -332,7 +334,8 @@ object ExpectationJob {
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler,
     sqlRunner: ExpectationAssertionHandler,
-    interactive: Boolean
+    interactive: Boolean,
+    transpileSql: String => String = identity
   )(implicit settings: Settings): ExpectationJob = {
     new ExpectationJob(
       appId,
@@ -343,7 +346,8 @@ object ExpectationJob {
       storageHandler,
       schemaHandler,
       sqlRunner,
-      interactive
+      interactive,
+      transpileSql
     )
   }
   def buildSQLStatements()(implicit settings: Settings): Option[TaskSQLStatements] = {

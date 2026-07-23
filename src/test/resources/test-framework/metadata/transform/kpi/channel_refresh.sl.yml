@@ -1,0 +1,9 @@
+version: 1
+task:
+  name: channel_refresh
+  writeStrategy:
+    type: APPEND
+  presql:
+    - "DELETE FROM kpi.channel_refresh WHERE order_date = PARSE_DATE('%Y-%m-%d', '2026-01-01')"
+  expectations:
+    - expect: "no_null_customer()"

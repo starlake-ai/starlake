@@ -59,6 +59,18 @@ class StarlakeTestsFrameworkSpec extends IntegrationTestBase {
     results.filter(!_.success) shouldBe empty
   }
 
+  it should "run presql against a target that does not exist yet" in {
+    val results = runTransformTest("kpi", "channel_refresh", "no_target")
+    results should not be empty
+    results.filter(!_.success) shouldBe empty
+  }
+
+  it should "transpile presql and expectations to DuckDB and apply presql to a preloaded target" in {
+    val results = runTransformTest("kpi", "channel_refresh", "preloaded_target")
+    results should not be empty
+    results.filter(!_.success) shouldBe empty
+  }
+
   "a load unit test" should "load the incoming file and succeed when _expected matches" in {
     val results = runLoadTest("sales", "orders", "test_ok")
     results should not be empty

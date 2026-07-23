@@ -2,6 +2,7 @@ package ai.starlake.job.ingest
 
 import ai.starlake.job.metrics._
 import ai.starlake.job.sink.bigquery._
+import ai.starlake.schema.handlers.SqlTransformations
 import ai.starlake.schema.model.{BigQuerySink, JdbcSink}
 import ai.starlake.utils.{JobResult, SparkJobResult}
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -44,7 +45,14 @@ trait IngestionExpectations { self: IngestionJob =>
         storageHandler,
         schemaHandler,
         handler,
-        false
+        false,
+        transpileSql = sql =>
+          SqlTransformations.transpileIfNeeded(
+            sql,
+            mergedMetadata.getSinkConnection(),
+            schemaHandler.activeEnvVars(),
+            this.test
+          )
       ).run()
     } else {
       Success(SparkJobResult(None, None))

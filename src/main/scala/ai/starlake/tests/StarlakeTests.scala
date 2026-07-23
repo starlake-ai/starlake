@@ -4,7 +4,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.job.Main
 import ai.starlake.job.metrics.{ExpectationJob, SQLConnectionExpectationAssertionHandler}
-import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.handlers.{SchemaHandler, SqlTransformations}
 import ai.starlake.schema.model.ConnectionType.JDBC
 import ai.starlake.schema.model.{DDLLeaf, EnvDesc, ExpectationItem}
 import ai.starlake.utils.Utils
@@ -366,6 +366,7 @@ object StarlakeTestData {
     conn: java.sql.Connection,
     duration: Long
   )(implicit settings: Settings): Array[StarlakeTestResult] = {
+    val connectionInfo = settings.appConfig.connections.get(settings.appConfig.connectionRef)
     val reports =
       new ExpectationJob(
         Option("tests"),
@@ -376,7 +377,18 @@ object StarlakeTestData {
         settings.storageHandler(),
         settings.schemaHandler(),
         new SQLConnectionExpectationAssertionHandler(conn),
-        false
+        false,
+        transpileSql = sql =>
+          connectionInfo
+            .map(connection =>
+              SqlTransformations.transpileIfNeeded(
+                sql,
+                connection,
+                settings.schemaHandler().activeEnvVars(),
+                test = true
+              )
+            )
+            .getOrElse(sql)
       ).runExpectations()
     reports.map { report =>
       StarlakeTestResult(

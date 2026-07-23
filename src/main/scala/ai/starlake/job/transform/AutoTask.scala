@@ -32,7 +32,7 @@ import ai.starlake.job.metrics.{
 }
 import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.job.strategies.TransformStrategiesBuilder
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.schema.handlers.{SchemaHandler, SqlTransformations, StorageHandler}
 import ai.starlake.schema.model.*
 import ai.starlake.sql.SQLUtils
 import ai.starlake.transpiler.JSQLTranspiler
@@ -108,7 +108,8 @@ abstract class AutoTask(
       storageHandler,
       schemaHandler,
       expectationAssertionHandler,
-      interactive = true
+      interactive = true,
+      transpileSql = transpileSql
     ).runExpectations()
   }
 
@@ -130,7 +131,8 @@ abstract class AutoTask(
       storageHandler,
       schemaHandler,
       expectationAssertionHandler,
-      interactive = false
+      interactive = false,
+      transpileSql = transpileSql
     ).run()
   }
 
@@ -210,15 +212,27 @@ abstract class AutoTask(
 
   protected lazy val allVars =
     schemaHandler.activeEnvVars() ++ commandParameters // ++ Map("merge" -> tableExists)
-  lazy val preSql: List[String] = {
-    val testMacros =
-      if (this.test) {
-        List("LOAD SPATIAL", "LOAD JSON") ++ JSQLTranspiler.getMacroArray.toList
-      } else
-        Nil
-    testMacros ++ parseJinja(taskDesc.presql, allVars).filter(_.trim.nonEmpty)
-  }
-  lazy val postSql = parseJinja(taskDesc.postsql, allVars).filter(_.trim.nonEmpty)
+
+  /** DuckDB extensions and macros required to run transpiled SQL in test mode. These are already
+    * written for DuckDB and must never be transpiled. They are idempotent (LOAD / CREATE OR REPLACE
+    * FUNCTION) and may safely be executed more than once.
+    */
+  protected lazy val testInitSqls: List[String] =
+    if (this.test) {
+      List("LOAD SPATIAL", "LOAD JSON") ++ JSQLTranspiler.getMacroArray.toList
+    } else
+      Nil
+
+  /** Transpile presql/postsql/expectation statements the same way the main SELECT is: only in test
+    * mode or when the connection declares a transpile dialect.
+    */
+  protected def transpileSql(sql: String): String =
+    SqlTransformations.transpileIfNeeded(sql, taskDesc.getRunConnection(), allVars, this.test)
+
+  lazy val preSql: List[String] =
+    testInitSqls ++ parseJinja(taskDesc.presql, allVars).filter(_.trim.nonEmpty).map(transpileSql)
+  lazy val postSql =
+    parseJinja(taskDesc.postsql, allVars).filter(_.trim.nonEmpty).map(transpileSql)
 
   lazy val jdbcSinkEngineName = this.sinkConnection.getJdbcEngineName()
   lazy val jdbcSinkEngine = settings.appConfig.jdbcEngines(jdbcSinkEngineName.toString)
@@ -230,6 +244,24 @@ abstract class AutoTask(
   }
 
   private val taskSQL = SQLUtils.stripComments(taskDesc.getSql())
+
+  /** Builds the task's main SELECT statement with macros instantiated, refs substituted and
+    * transpiled to the target dialect when needed (test mode / transpile dialect).
+    */
+  protected def buildSelectStatement(): String = {
+    val inputSQL =
+      SQLUtils.instantiateMacrosInSql(
+        taskSQL,
+        schemaHandler.allMacros,
+        allVars
+      )
+    schemaHandler.transpileAndSubstituteSelectStatement(
+      inputSQL,
+      taskDesc.getRunConnection(),
+      allVars,
+      this.test
+    )
+  }
 
   /** Builds all SQL queries and returns them as a single merged string.
     *
