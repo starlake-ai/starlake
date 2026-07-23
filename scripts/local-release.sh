@@ -45,7 +45,6 @@ cd "$REPO_DIR"
 
 API_DIR="${SL_API_DIR:-$HOME/git/starlake-api}"
 UI_DIR="${SL_UI_DIR:-$HOME/git/starlake-ui2}"
-STARLAKE_HOME="${STARLAKE_HOME:-$HOME/starlake}"
 PROFILE="$HOME/.bash_profile"
 
 DRY_RUN=false
@@ -302,7 +301,6 @@ if should_run 8; then
 
   # --- 8a. Propagate PROPAGATE_VERSION to non-SBT config files ---
   SL_VERSION_FILES=(
-    "$STARLAKE_HOME/versions.sh"
     "$API_DIR/.versions"
     "$API_DIR/versions.sh"
     "$UI_DIR/.versions"
