@@ -1,0 +1,12 @@
+CREATE SCHEMA IF NOT EXISTS sales;
+CREATE TABLE IF NOT EXISTS sales.categories (
+  id VARCHAR,
+  name VARCHAR,
+  last_update TIMESTAMP,
+  sl_start_ts TIMESTAMP,
+  sl_end_ts TIMESTAMP
+);
+INSERT INTO sales.categories VALUES
+  ('1', 'Food',    TIMESTAMP '1980-01-01 09:56:02', TIMESTAMP '2018-01-01 00:00:00', NULL),
+  ('2', 'Clothes', TIMESTAMP '1980-01-01 09:56:02', TIMESTAMP '2018-01-01 00:00:00', NULL),
+  ('3', 'Bikes',   TIMESTAMP '1980-01-01 09:56:02', TIMESTAMP '2018-01-01 00:00:00', NULL);

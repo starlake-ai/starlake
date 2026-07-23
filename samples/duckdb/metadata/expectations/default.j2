@@ -1,13 +1,14 @@
+{# An expectation succeeds when its query returns 0 #}
 {% macro is_col_value_not_unique(col, table='sl_this') %}
-    SELECT COALESCE(max(cnt), 0)
-    FROM (SELECT {{ col }}, count(*) as cnt FROM {{ table }} GROUP BY {{ col }}) AS COL_COUNT
+    SELECT count(*)
+    FROM (SELECT {{ col }}, count(*) as cnt FROM {{ table }} GROUP BY {{ col }} HAVING count(*) > 1) AS COL_COUNT
 {% endmacro %}
 
 {% macro is_row_count_to_be_between(min_value, max_value, table_name = 'SL_THIS') -%}
     select
     case
-    when count(*) between {{min_value}} and {{max_value}} then 1
-    else 0
+    when count(*) between {{min_value}} and {{max_value}} then 0
+    else 1
     end
     from {{table_name}}
 {%- endmacro %}

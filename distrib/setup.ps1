@@ -22,29 +22,25 @@ function get_installation_directory {
 function get_version_to_install {
     param([string]$RequestedVersion = "")
 
-    $SCALA_VERSION = "2.13"
-
     $RELEASE_VERSIONS = @()
     try {
-        $xml = [xml](Invoke-WebRequest -Uri "https://repo1.maven.org/maven2/ai/starlake/starlake-core_$SCALA_VERSION/maven-metadata.xml" -UseBasicParsing).Content
-        $RELEASE_VERSIONS = @($xml.metadata.versioning.versions.version |
-            Where-Object { $_ -match '^\d+\.\d+\.\d+$' } |
+        $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/starlake-ai/starlake/releases?per_page=15" -UseBasicParsing
+        $RELEASE_VERSIONS = @($releases |
+            ForEach-Object { $_.tag_name } |
+            Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } |
+            ForEach-Object { $_.TrimStart('v') } |
             Sort-Object -Descending { [version]$_ } |
             Select-Object -First 5)
     } catch {}
 
-    # Derive snapshot version by incrementing patch of latest release
-    $SNAPSHOT_VERSION = $null
-    if ($RELEASE_VERSIONS.Count -gt 0) {
-        $v = [version]$RELEASE_VERSIONS[0]
-        $SNAPSHOT_VERSION = "$($v.Major).$($v.Minor).$($v.Build + 1)-SNAPSHOT"
+    if ($RELEASE_VERSIONS.Count -eq 0) {
+        Write-Host "Error: no releases found at https://github.com/starlake-ai/starlake/releases"
+        exit 1
     }
 
-    $VERSIONS = @()
-    if ($SNAPSHOT_VERSION) { $VERSIONS += $SNAPSHOT_VERSION }
-    $VERSIONS += $RELEASE_VERSIONS
+    $VERSIONS = $RELEASE_VERSIONS
 
-    $DEFAULT_VERSION = if ($VERSIONS.Count -gt 0) { $VERSIONS[0] } else { $null }
+    $DEFAULT_VERSION = $VERSIONS[0]
 
     $VERSION = $RequestedVersion
     while ($VERSION -notin $VERSIONS) {
@@ -68,11 +64,7 @@ function install_starlake {
         [string]$VERSION
     )
     Write-Host "installing $VERSION"
-    if ($VERSION -like "*SNAPSHOT*") {
-        $url = "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd"
-    } else {
-        $url = "https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/starlake.cmd"
-    }
+    $url = "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd"
 
     Write-Host "Downloading $url to $INSTALL_DIR"
     try {

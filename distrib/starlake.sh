@@ -147,14 +147,17 @@ get_binary_from_url() {
     local target_file=$2
     if [ -n "$PROXY" ] && [ -n "$SL_INSECURE" ]; then
         echo "Downloading $url to $target_file using proxy $PROXY"
-        local response=$(curl --insecure --proxy "$PROXY" --progress-bar -w "%{http_code}" -o "$target_file" "$url")
+        local response=$(curl -L --insecure --proxy "$PROXY" --progress-bar -w "%{http_code}" -o "$target_file" "$url")
     else
-        local response=$(curl --progress-bar -w "%{http_code}" -o "$target_file" "$url")
+        local response=$(curl -L --progress-bar -w "%{http_code}" -o "$target_file" "$url")
     fi
     local status_code=${response: -3}
 
     if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then
         echo "Error: Failed to retrieve data from $url. HTTP status code: $status_code"
+        if [[ "$status_code" == "403" ]]; then
+            echo "Hint: the GitHub API rate limit may be exceeded (60 requests/hour per IP). Retry later." >&2
+        fi
         exit 1
     fi
 }
@@ -162,14 +165,17 @@ get_binary_from_url() {
 get_content_from_url() {
     local url=$1
     if [ -n "$PROXY" ] && [ -n "$SL_INSECURE" ]; then
-        local response=$(curl --insecure --proxy "$PROXY" -s -w "%{http_code}" "$url")
+        local response=$(curl -L --insecure --proxy "$PROXY" -s -w "%{http_code}" "$url")
     else
-        local response=$(curl -s -w "%{http_code}" "$url")
+        local response=$(curl -L -s -w "%{http_code}" "$url")
     fi
     local status_code=${response: -3}
 
     if [[ ! $status_code =~ ^(2|3)[0-9][0-9]$ ]]; then
         echo "Error: Failed to retrieve data from $url. HTTP status code: $status_code" >&2
+        if [[ "$status_code" == "403" ]]; then
+            echo "Hint: the GitHub API rate limit may be exceeded (60 requests/hour per IP). Retry later." >&2
+        fi
         exit 1
     fi
 
@@ -231,17 +237,40 @@ menu_select() {
 }
 
 select_starlake_version() {
-    ALL_RELEASE_VERSIONS=$(get_content_from_url https://repo1.maven.org/maven2/ai/starlake/starlake-core_${SCALA_VERSION}/maven-metadata.xml | awk -F'<|>' '/<version>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
+    RELEASES_JSON=$(get_content_from_url "https://api.github.com/repos/starlake-ai/starlake/releases?per_page=15")
+    ALL_RELEASE_VERSIONS=$(echo "$RELEASES_JSON" \
+      | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"v[0-9][^"]*"' \
+      | sed -E 's/.*"v([^"]+)".*/\1/' \
+      | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+      | sort -rV)
 
-    LATEST_RELEASE=$(echo "$ALL_RELEASE_VERSIONS" | head -n 1)
-    SNAPSHOT_VERSION=$(echo "$LATEST_RELEASE" | awk -F. '{printf "%s.%s.%s-SNAPSHOT", $1, $2, $3+1}')
+    if [ -z "$ALL_RELEASE_VERSIONS" ]; then
+        echo "Error: no releases found at https://github.com/starlake-ai/starlake/releases" >&2
+        exit 1
+    fi
+
     LATEST_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_VERSIONS" | head -n 5)
-
-    VERSIONS=("$SNAPSHOT_VERSION" $LATEST_RELEASE_VERSIONS)
+    VERSIONS=($LATEST_RELEASE_VERSIONS)
 
     menu_select "Select the version to install (use arrow keys):" "${VERSIONS[@]}"
     NEW_SL_VERSION="$SELECTED_OPTION"
     echo "Selected version: $NEW_SL_VERSION"
+}
+
+verify_sha256() {
+    local file=$1
+    local sha_url=$2
+    if ! command -v shasum >/dev/null 2>&1; then
+        echo "Warning: shasum not found, skipping checksum verification for $(basename "$file")"
+        return 0
+    fi
+    get_binary_from_url "$sha_url" "$file.sha256"
+    if ( cd "$(dirname "$file")" && shasum -a 256 -c "$(basename "$file").sha256" ); then
+        rm -f "$file.sha256"
+    else
+        echo "Error: checksum verification failed for $file"
+        exit 1
+    fi
 }
 
 launch_setup() {
@@ -407,11 +436,7 @@ case "$1" in
 
         echo "Upgrading Starlake to $NEW_SL_VERSION..."
 
-        if [[ "$NEW_SL_VERSION" == *"SNAPSHOT"* ]]; then
-             BASE_URL="https://central.sonatype.com/repository/maven-snapshots/ai/starlake"
-        else
-             BASE_URL="https://repo1.maven.org/maven2/ai/starlake"
-        fi
+        BASE_URL="https://github.com/starlake-ai/starlake/releases/download/v${NEW_SL_VERSION}"
 
         SL_LIB_DIR="$STARLAKE_EXTRA_LIB_FOLDER"
         BIN_DIR="$SCRIPT_DIR/bin"
@@ -421,10 +446,10 @@ case "$1" in
         mkdir -p "$SL_LIB_DIR"
 
         CORE_ASSEMBLY_NAME="starlake-core_${SCALA_VERSION}-${NEW_SL_VERSION}-assembly.jar"
-        CORE_ASSEMBLY_URL="$BASE_URL/starlake-core_${SCALA_VERSION}/${NEW_SL_VERSION}/${CORE_ASSEMBLY_NAME}"
+        CORE_ASSEMBLY_URL="$BASE_URL/${CORE_ASSEMBLY_NAME}"
 
         API_ZIP_NAME="starlake-api_${SCALA_VERSION}-${NEW_SL_VERSION}.zip"
-        API_ZIP_URL="$BASE_URL/starlake-api_${SCALA_VERSION}/${NEW_SL_VERSION}/${API_ZIP_NAME}"
+        API_ZIP_URL="$BASE_URL/${API_ZIP_NAME}"
 
         # Delete old starlake core assembly
         rm -f "$SL_LIB_DIR"/starlake-core_*-assembly.jar
@@ -432,12 +457,14 @@ case "$1" in
         # Download new core assembly
         echo "Downloading $CORE_ASSEMBLY_NAME to $SL_LIB_DIR..."
         get_binary_from_url "$CORE_ASSEMBLY_URL" "$SL_LIB_DIR/$CORE_ASSEMBLY_NAME"
+        verify_sha256 "$SL_LIB_DIR/$CORE_ASSEMBLY_NAME" "$CORE_ASSEMBLY_URL.sha256"
 
         # Delete old api directory and reinstall from zip
         rm -rf "$API_DIR"
 
         echo "Downloading $API_ZIP_NAME to $BIN_DIR..."
         get_binary_from_url "$API_ZIP_URL" "$BIN_DIR/$API_ZIP_NAME"
+        verify_sha256 "$BIN_DIR/$API_ZIP_NAME" "$API_ZIP_URL.sha256"
 
         echo "Extracting $API_ZIP_NAME..."
         unzip -q "$BIN_DIR/$API_ZIP_NAME" -d "$BIN_DIR"
@@ -470,7 +497,7 @@ case "$1" in
 
         # Update python libs
         PYTHON_LIBS_BASE_URL="https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/python-libs"
-        PYTHON_LIBS_DIR="$SL_PYTHON_LIBS_DIR"
+        PYTHON_LIBS_DIR="${SL_PYTHON_LIBS_DIR:-$SCRIPT_DIR/bin/deps/python-libs}"
         echo "Updating python libs in $PYTHON_LIBS_DIR..."
         rm -rf "$PYTHON_LIBS_DIR"
         mkdir -p "$PYTHON_LIBS_DIR"

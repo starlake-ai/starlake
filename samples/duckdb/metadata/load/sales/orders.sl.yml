@@ -1,0 +1,19 @@
+version: 1
+table:
+  name: "orders"
+  pattern: "orders-.*.csv"
+  primaryKey:
+    - order_id
+  attributes:
+    - name: "order_id"
+      type: "int"
+      required: true
+    - name: "customer_id"
+      type: "string"
+      required: true
+    - name: "amount"
+      type: "decimal"
+    - name: "seller_id"
+      type: "string"
+    - name: "ts"
+      type: "iso_date_time"

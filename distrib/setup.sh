@@ -45,9 +45,9 @@ get_from_url() {
     local url=$1
     if [ -n "$PROXY" ] && [ -n "$SL_INSECURE" ]; then
         echo "Downloading data from $url using proxy $PROXY"
-        local response=$(curl --insecure --proxy "$PROXY" -s -w "%{http_code}" "$url")
+        local response=$(curl -L --insecure --proxy "$PROXY" -s -w "%{http_code}" "$url")
     else
-        local response=$(curl -s -w "%{http_code}" "$url")
+        local response=$(curl -L -s -w "%{http_code}" "$url")
     fi
     local status_code=${response: -3}
 
@@ -125,14 +125,20 @@ get_version_to_install() {
         return
     fi
 
-    ALL_RELEASE_VERSIONS=$(get_from_url https://repo1.maven.org/maven2/ai/starlake/starlake-core_2.13/maven-metadata.xml | awk -F'<|>' '/<version>/{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV)
+    ALL_RELEASE_VERSIONS=$(get_from_url "https://api.github.com/repos/starlake-ai/starlake/releases?per_page=15" \
+      | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"v[0-9][^"]*"' \
+      | sed -E 's/.*"v([^"]+)".*/\1/' \
+      | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+      | sort -rV)
 
-    LATEST_RELEASE=$(echo "$ALL_RELEASE_VERSIONS" | head -n 1)
-    # Derive snapshot version by incrementing patch of latest release
-    SNAPSHOT_VERSION=$(echo "$LATEST_RELEASE" | awk -F. '{printf "%s.%s.%s-SNAPSHOT", $1, $2, $3+1}')
+    if [[ -z "$ALL_RELEASE_VERSIONS" ]]; then
+        echo "Error: no releases found at https://github.com/starlake-ai/starlake/releases" >&2
+        exit 1
+    fi
+
     LATEST_RELEASE_VERSIONS=$(echo "$ALL_RELEASE_VERSIONS" | head -n 5)
 
-    VERSIONS=("$SNAPSHOT_VERSION" $LATEST_RELEASE_VERSIONS)
+    VERSIONS=($LATEST_RELEASE_VERSIONS)
 
     menu_select "Which version do you want to install? (use arrow keys):" "${VERSIONS[@]}"
     VERSION="$SELECTED_OPTION"
@@ -141,13 +147,7 @@ get_version_to_install() {
 
 install_starlake() {
     echo "installing $VERSION"
-    if [[ $VERSION == *"SNAPSHOT"* ]]; then
-        local url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
-    else
-#        local url=https://raw.githubusercontent.com/starlake-ai/starlake/v$VERSION/distrib/starlake.sh
-        local url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
-
-    fi
+    local url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
     get_from_url $url > "$INSTALL_DIR/starlake"
     chmod +x "$INSTALL_DIR/starlake"
 }
