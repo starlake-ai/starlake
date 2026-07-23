@@ -368,6 +368,16 @@ packageSetup := {
   )
 }
 
+val syncPythonLibs = Def.taskKey[Unit](
+  "Download the orchestration python wheels pinned in Versions.scala into distrib/python-libs and regenerate versions.txt"
+)
+syncPythonLibs := PythonLibs.sync(baseDirectory.value / "distrib" / "python-libs", streams.value.log)
+
+val checkPythonLibs = Def.taskKey[Unit](
+  "Fail when distrib/python-libs is out of sync with the template versions pinned in Versions.scala"
+)
+checkPythonLibs := PythonLibs.check(baseDirectory.value / "distrib" / "python-libs", streams.value.log)
+
 Compile / mainClass := Some("ai.starlake.job.Main")
 
 // Compile / packageBin := ((Compile / packageBin).dependsOn(packageSetup)).value
