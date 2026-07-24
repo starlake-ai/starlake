@@ -1,0 +1,37 @@
+name: python-libs-check
+# Fails when distrib/python-libs (wheels + versions.txt downloaded by
+# Setup.java and starlake.sh) drifts from the template versions pinned
+# in project/Versions.scala. Fix with: sbt syncPythonLibs
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - 'project/Versions.scala'
+      - 'project/PythonLibs.scala'
+      - 'distrib/python-libs/**'
+      - 'build.sbt'
+      - '.github/workflows/python-libs-check.yml'
+  pull_request:
+    paths:
+      - 'project/Versions.scala'
+      - 'project/PythonLibs.scala'
+      - 'distrib/python-libs/**'
+      - 'build.sbt'
+      - '.github/workflows/python-libs-check.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Zulu 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - name: Setup sbt launcher
+        uses: sbt/setup-sbt@v1
+      - name: Check python libs are in sync with Versions.scala
+        run: sbt checkPythonLibs
