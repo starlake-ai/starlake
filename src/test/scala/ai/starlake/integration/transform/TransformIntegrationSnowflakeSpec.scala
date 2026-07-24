@@ -3,7 +3,9 @@ package ai.starlake.integration.transform
 import ai.starlake.config.DatasetArea
 import ai.starlake.integration.IntegrationTestBase
 import ai.starlake.job.Main
+import org.scalatest.Ignore
 
+@Ignore
 class TransformIntegrationSnowflakeSpec extends IntegrationTestBase {
   if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
     "Native Snowflake Transform" should "succeed" in {

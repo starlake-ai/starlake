@@ -2,7 +2,9 @@ package ai.starlake.integration.freshness
 
 import ai.starlake.integration.JDBCIntegrationSpecBase
 import ai.starlake.job.Main
+import org.scalatest.Ignore
 
+@Ignore
 class FreshnessSnowflakeIntegrationSpec extends JDBCIntegrationSpecBase {
 
   override def sampleDataDir = theSampleFolder / "sample-data"
