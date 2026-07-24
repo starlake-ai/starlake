@@ -48,6 +48,6 @@ object Versions {
   val jSqlFormatter = "5.3.9"
   val airflowTemplates = "0.6.11"
   val dagsterTemplates = "0.5.8"
-  val orchestrationTemplates = "0.5.4"
+  val orchestrationTemplates = "0.5.5"
   val snowflakeTemplates = "0.4.1"
 }
