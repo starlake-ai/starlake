@@ -358,11 +358,13 @@ if should_run 8; then
   fi
 
   # --- 8c. Optional full assembly ---
+  # tmpsbt.sh copies jars named after LOCAL_STARLAKE_VERSION; the calling
+  # shell still holds the pre-release value, so pass the bumped one.
   if [[ -x "$REPO_DIR/tmpsbt.sh" ]]; then
     if [[ "$DRY_RUN" == true ]]; then
-      echo "  [DRY-RUN] Would run: tmpsbt.sh"
+      echo "  [DRY-RUN] Would run: LOCAL_STARLAKE_VERSION=$PROPAGATE_VERSION tmpsbt.sh"
     else
-      "$REPO_DIR/tmpsbt.sh"
+      LOCAL_STARLAKE_VERSION="$PROPAGATE_VERSION" "$REPO_DIR/tmpsbt.sh"
     fi
   else
     echo "  tmpsbt.sh not found or not executable, skipping full assembly."
