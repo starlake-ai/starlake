@@ -242,7 +242,12 @@ object SQLUtils extends LazyLogging {
 
   def transpilerDialect(conn: ConnectionInfo): JSQLTranspiler.Dialect =
     conn._transpileDialect match {
-      case Some(dialect) => JSQLTranspiler.Dialect.valueOf(dialect)
+      case Some(dialect) =>
+        Try(JSQLTranspiler.Dialect.valueOf(dialect)).getOrElse(
+          throw new IllegalArgumentException(
+            s"Invalid _transpileDialect '$dialect'. Valid values are ${JSQLTranspiler.Dialect.values().map(_.name()).mkString(", ")}"
+          )
+        )
       case None =>
         if (conn.isSpark())
           JSQLTranspiler.Dialect.DATABRICKS

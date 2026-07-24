@@ -464,6 +464,19 @@
         "options": {
           "$ref": "#/definitions/MapString",
           "description": "Connection options"
+        },
+        "_transpileDialect": {
+          "type": ["string", "null"],
+          "enum": [
+            null,
+            "ANY",
+            "AMAZON_REDSHIFT",
+            "DATABRICKS",
+            "DUCK_DB",
+            "GOOGLE_BIG_QUERY",
+            "SNOWFLAKE"
+          ],
+          "description": "Source SQL dialect of the transform statements executed over this connection. When set, SELECT statements are transpiled from this dialect to the connection engine dialect at run time (e.g. run BigQuery-dialect SQL locally on DuckDB). ANY stands for generic SQL"
         }
       },
       "required": [
