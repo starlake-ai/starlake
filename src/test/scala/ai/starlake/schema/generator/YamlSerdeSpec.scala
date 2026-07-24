@@ -1144,12 +1144,18 @@ object YamlConfigGenerators {
           m + ("url" -> "jdbc:mysql://myhost")
         else m
       )
+      transpileDialect <- Gen.option(
+        Gen.oneOf(
+          ai.starlake.transpiler.JSQLTranspiler.Dialect.values().toIndexedSeq.map(_.name())
+        )
+      )
     } yield ConnectionInfo(
       `type` = ConnectionType.fromString(connectionType),
       sparkFormat = sparkFormat,
       quote = quote,
       separator = separator,
-      options = options
+      options = options,
+      _transpileDialect = transpileDialect
     )
   }
 
