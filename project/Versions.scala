@@ -46,8 +46,8 @@ object Versions {
   val jSqlTranspiler = "1.8"
   val starlakejdbc = "0.7"
   val jSqlFormatter = "5.3.9"
-  val airflowTemplates = "0.5.3"
-  val dagsterTemplates = "0.4.3.2"
-  val orchestrationTemplates = "0.4.3.1"
-  val snowflakeTemplates = "0.3.4.1"
+  val airflowTemplates = "0.6.10"
+  val dagsterTemplates = "0.5.8"
+  val orchestrationTemplates = "0.5.3"
+  val snowflakeTemplates = "0.4.1"
 }
