@@ -200,5 +200,64 @@ class DuckDbMergeStrategySpec extends TestHelper {
       results should contain(("4", "Diana", 400)) // appended new
     }
 
+    "APPEND with presql referencing a missing target on DuckDB" should "pre-create the target so presql succeeds" in {
+      val pathPresqlBusiness =
+        new Path(starlakeMetadataPath + "/transform/mydb/presqltable.sl.yml")
+      val pathPresqlSqlBusiness =
+        new Path(starlakeMetadataPath + "/transform/mydb/presqltable.sql")
+
+      withDuckDbConnection { conn =>
+        conn.createStatement().execute("DROP TABLE IF EXISTS mydb.presqltable")
+      }
+
+      val businessTask = AutoTaskInfo(
+        name = "",
+        sql = Some(
+          """SELECT * FROM (VALUES
+            |  ('1', 'Alice', 100),
+            |  ('2', 'Bob', 200)
+            |) AS t(id, name, amount)""".stripMargin
+        ),
+        database = None,
+        domain = "mydb",
+        table = "presqltable",
+        presql = List("DELETE FROM mydb.presqltable WHERE id = '1'"),
+        sink = Some(JdbcSink(connectionRef = Some("test-duckdb")).toAllSinks()),
+        python = None,
+        writeStrategy = Some(
+          WriteStrategy(
+            `type` = Some(WriteStrategyType.APPEND)
+          )
+        )
+      )
+
+      val businessTaskDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(businessTask)
+
+      storageHandler.write(businessTaskDef, pathPresqlBusiness)
+      storageHandler.write(businessTask.getSql(), pathPresqlSqlBusiness)
+
+      val schemaHandler = settings.schemaHandler()
+      val workflow = new IngestionWorkflow(storageHandler, schemaHandler)
+      val result = workflow.autoJob(TransformConfig(name = "mydb.presqltable"))
+      result.isSuccess shouldBe true
+
+      val results = withDuckDbConnection { conn =>
+        val rs = conn
+          .createStatement()
+          .executeQuery("SELECT id, name, amount FROM mydb.presqltable ORDER BY id")
+        val buf = scala.collection.mutable.ListBuffer[(String, String, Int)]()
+        while (rs.next()) {
+          buf += ((rs.getString("id"), rs.getString("name"), rs.getInt("amount")))
+        }
+        buf.toList
+      }
+      results should have size 2
+      results should contain(("1", "Alice", 100))
+      results should contain(("2", "Bob", 200))
+    }
+
   }
 }

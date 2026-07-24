@@ -204,10 +204,10 @@ class JdbcAutoTask(
 
     val res = Try {
       if (
-        test && df.isEmpty && interactive.isEmpty &&
+        df.isEmpty && interactive.isEmpty &&
         taskDesc.presql.nonEmpty && taskDesc.parseSQL.getOrElse(true)
       ) {
-        createEmptyTargetForTestPresql(sqlConnection)
+        createEmptyTargetForPresql(sqlConnection)
       }
       val (alters, mainSql) =
         if (df.isEmpty) {
@@ -382,12 +382,12 @@ class JdbcAutoTask(
     res
   }
 
-  /** In test mode the target table is created by the main SQL statement, but presql statements such
-    * as "DELETE FROM <target> ..." legitimately reference it (idempotency / partition-refresh
+  /** On a first run the target table is created by the main SQL statement, but presql statements
+    * such as "DELETE FROM <target> ..." legitimately reference it (idempotency / partition-refresh
     * patterns). Pre-create the target empty from the main SELECT so presql can run against it. On
     * any failure (e.g. a SELECT referencing its own target) fall back to the previous behavior.
     */
-  private def createEmptyTargetForTestPresql(sqlConnection: Option[java.sql.Connection]): Unit = {
+  private def createEmptyTargetForPresql(sqlConnection: Option[java.sql.Connection]): Unit = {
     Try {
       if (!tableExists) {
         val select = buildSelectStatement()
@@ -401,7 +401,7 @@ class JdbcAutoTask(
           runSqls(
             conn,
             List(
-              s"CREATE TABLE IF NOT EXISTS $fullTableName AS SELECT * FROM ($select) AS SL_TEST_SELECT WHERE 1 = 0"
+              s"CREATE TABLE IF NOT EXISTS $fullTableName AS SELECT * FROM ($select) AS SL_PRESQL_SELECT WHERE 1 = 0"
             ),
             "CreateTargetForPresql"
           )
@@ -412,7 +412,7 @@ class JdbcAutoTask(
       case Success(_) =>
       case Failure(e) =>
         logger.warn(
-          s"Test mode: could not pre-create target table $fullTableName before presql: ${e.getMessage}"
+          s"Could not pre-create target table $fullTableName before presql: ${e.getMessage}"
         )
     }
   }
