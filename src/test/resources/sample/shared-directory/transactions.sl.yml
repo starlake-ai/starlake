@@ -1,0 +1,12 @@
+---
+version: 1
+table:
+  name: "transactions"
+  pattern: "transactions-.*"
+  attributes:
+    - name: "id"
+      type: "string"
+      required: true
+    - name: "amount"
+      type: "string"
+      required: false

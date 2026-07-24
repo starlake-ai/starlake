@@ -1,0 +1,11 @@
+---
+version: 1
+load:
+  name: "SHARED1"
+  metadata:
+    directory: "__SL_TEST_ROOT__/incoming/shared"
+    format: "DSV"
+    withHeader: true
+    separator: ";"
+    writeStrategy:
+      type: "APPEND"

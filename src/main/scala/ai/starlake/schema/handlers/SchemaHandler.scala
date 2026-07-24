@@ -1033,20 +1033,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       case Left(errors) =>
         errors
     }
-    val directoryErrors = Utils.duplicates(
-      "Domain directory",
-      nonEmptyDomains.flatMap(_.resolveDirectoryOpt()),
-      s"%s is defined %d times. A directory can only appear once in a domain definition file."
-    ) match {
-      case Right(_) =>
-        if (!raw) {
-          this._domains = Some(nonEmptyDomains)
-          DatasetArea.initDomains(storage, nonEmptyDomains.map(_.name))
-
-        }
-        Nil
-      case Left(errors) =>
-        errors
+    val directoryErrors = checkDomainDirectories(nonEmptyDomains)
+    if (nameErrors.isEmpty && directoryErrors.isEmpty && !raw) {
+      this._domains = Some(nonEmptyDomains)
+      DatasetArea.initDomains(storage, nonEmptyDomains.map(_.name))
     }
 
     invalidDomainsFiles.foreach {
@@ -1059,6 +1049,56 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     this._domainErrors = nameErrors ++ directoryErrors
     this._domainErrors.foreach(err => logger.error(err.toString()))
     (this._domainErrors, nonEmptyDomains)
+  }
+
+  /** Several domains may share the same landing directory (managed file-receiver pattern: an
+    * upstream system drops the files of many functional domains into a single directory) provided
+    * routing a file to a table stays deterministic. Determinism is checked textually: a table
+    * filename pattern declared verbatim by more than one table of the sharing domains is rejected.
+    * Patterns that differ as strings but still match the same filenames (e.g. "clients-.*" vs ".*")
+    * cannot be detected here; keeping the shared patterns effectively disjoint remains the user's
+    * responsibility, hence the warning logged on the accept path.
+    */
+  private def checkDomainDirectories(
+    domains: List[DomainInfo]
+  ): List[ValidationMessage] = {
+    val sharedDirectories =
+      domains
+        .flatMap(domain => domain.resolveDirectoryOpt().map(_ -> domain))
+        .groupMap { case (directory, _) => directory } { case (_, domain) => domain }
+        .filter { case (_, sharingDomains) => sharingDomains.size > 1 }
+        .toList
+        .sortBy { case (directory, _) => directory }
+    sharedDirectories.flatMap { case (directory, sharingDomains) =>
+      val declaringDomainsByPattern =
+        sharingDomains
+          .flatMap(domain => domain.tables.map(table => table.pattern.pattern() -> domain.name))
+          .groupMap { case (pattern, _) => pattern } { case (_, domainName) => domainName }
+      val duplicatedPatterns =
+        declaringDomainsByPattern
+          .filter { case (_, declaringDomains) => declaringDomains.size > 1 }
+          .toList
+          .sortBy { case (pattern, _) => pattern }
+      if (duplicatedPatterns.isEmpty) {
+        logger.warn(
+          s"Domain directory $directory is shared by domains ${sharingDomains.map(_.name).sorted.mkString(", ")}. " +
+          s"No table filename pattern is declared twice across them, but make sure their patterns are effectively disjoint: " +
+          s"a file matching tables of several domains would make its routing non-deterministic."
+        )
+        Nil
+      } else {
+        duplicatedPatterns.map { case (pattern, declaringDomains) =>
+          ValidationMessage(
+            Error,
+            "Domain directory",
+            s"$directory is shared by domains ${sharingDomains.map(_.name).sorted.mkString(", ")} and the table pattern '$pattern' " +
+            s"is declared by ${declaringDomains.size} tables (in domain(s) ${declaringDomains.distinct.sorted
+                .mkString(", ")}). " +
+            s"Domains may share a directory only when their table filename patterns are disjoint."
+          )
+        }
+      }
+    }
   }
 
   private def loadDomains(
