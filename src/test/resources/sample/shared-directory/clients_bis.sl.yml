@@ -1,0 +1,12 @@
+---
+version: 1
+table:
+  name: "clients_bis"
+  pattern: "clients-.*"
+  attributes:
+    - name: "id"
+      type: "string"
+      required: true
+    - name: "name"
+      type: "string"
+      required: false

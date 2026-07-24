@@ -1,0 +1,12 @@
+---
+version: 1
+table:
+  name: "clients"
+  pattern: "clients-.*"
+  attributes:
+    - name: "id"
+      type: "string"
+      required: true
+    - name: "name"
+      type: "string"
+      required: false
