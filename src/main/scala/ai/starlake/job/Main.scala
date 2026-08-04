@@ -30,6 +30,7 @@ import ai.starlake.migration.MigrateCmd
 import ai.starlake.schema.ProjectCompareCmd
 import ai.starlake.schema.generator.*
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateCmd}
+import ai.starlake.semantic.SemanticExportCmd
 import ai.starlake.serve.MainServerCmd
 import ai.starlake.sql.StarlakeJdbcDialects
 import ai.starlake.tests.StarlakeTestCmd
@@ -129,7 +130,8 @@ object Main extends LazyLogging {
     SummarizeCmd,
     JobCmd,
     GizmoCmd,
-    QuackCmd
+    QuackCmd,
+    SemanticExportCmd
   )
 }
 
