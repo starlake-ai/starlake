@@ -69,7 +69,9 @@ object SemanticExportCmd extends Cmd[SemanticExportConfig] {
       builder
         .opt[String]("output")
         .action((x, c) => c.copy(output = Some(x)))
-        .text("Output directory. Defaults to metadata/semantic/export/ with one subfolder per format")
+        .text(
+          "Output directory. Defaults to metadata/semantic/export/ with one subfolder per format"
+        )
         .optional(),
       reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
     )

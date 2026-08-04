@@ -66,8 +66,8 @@ class SemanticExportJob(config: SemanticExportConfig)(implicit settings: Setting
   }
 }
 
-/** Pure JsonNode-to-JsonNode conversion from the Snowflake-style semantic model format to
-  * Apache Ossie (spec version 0.2.0.dev0).
+/** Pure JsonNode-to-JsonNode conversion from the Snowflake-style semantic model format to Apache
+  * Ossie (spec version 0.2.0.dev0).
   */
 object OssieConverter {
 
@@ -159,8 +159,9 @@ object OssieConverter {
     isTime.foreach(t => f.putObject("dimension").put("is_time", t))
     synonyms(col, f)
 
-    val kept = List("unique", "is_enum", "sample_values", "access_modifier", "cortex_search_service")
-      .filter(col.has)
+    val kept =
+      List("unique", "is_enum", "sample_values", "access_modifier", "cortex_search_service")
+        .filter(col.has)
     if (kept.nonEmpty) {
       val extra = jsonMapper.createObjectNode()
       kept.foreach(k => extra.set[JsonNode](k, col.get(k)))
@@ -226,24 +227,24 @@ object OssieConverter {
     }
   }
 
-  /** Map Snowflake-style datatypes to the Ossie datatype enum. Unknown types map to Opaque;
-    * absent types are omitted.
+  /** Map Snowflake-style datatypes to the Ossie datatype enum. Unknown types map to Opaque; absent
+    * types are omitted.
     */
   private def datatype(raw: String): Option[String] = {
     val t = raw.trim.toUpperCase
     if (t.isEmpty) None
     else
       Some(t match {
-        case "TEXT" | "STRING" | "VARCHAR" | "CHAR"          => "String"
-        case "INT" | "INTEGER" | "BIGINT" | "SMALLINT"       => "Integer"
-        case "NUMBER" | "NUMERIC" | "DECIMAL"                => "Decimal"
-        case "FLOAT" | "DOUBLE" | "REAL"                     => "Float"
-        case "BOOLEAN" | "BOOL"                              => "Boolean"
-        case "DATE"                                          => "Date"
-        case "TIME"                                          => "Time"
+        case "TEXT" | "STRING" | "VARCHAR" | "CHAR"                       => "String"
+        case "INT" | "INTEGER" | "BIGINT" | "SMALLINT"                    => "Integer"
+        case "NUMBER" | "NUMERIC" | "DECIMAL"                             => "Decimal"
+        case "FLOAT" | "DOUBLE" | "REAL"                                  => "Float"
+        case "BOOLEAN" | "BOOL"                                           => "Boolean"
+        case "DATE"                                                       => "Date"
+        case "TIME"                                                       => "Time"
         case "DATETIME" | "TIMESTAMP" | "TIMESTAMP_NTZ" | "TIMESTAMP_LTZ" => "DateTime"
-        case "TIMESTAMP_TZ"                                  => "DateTimeTz"
-        case _                                               => "Opaque"
+        case "TIMESTAMP_TZ"                                               => "DateTimeTz"
+        case _                                                            => "Opaque"
       })
   }
 

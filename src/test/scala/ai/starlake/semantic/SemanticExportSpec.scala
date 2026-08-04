@@ -109,7 +109,7 @@ class SemanticExportSpec extends TestHelper {
       // fields: 2 dimensions + 1 time dimension + 1 fact
       val fields = orders.path("fields").elements().asScala.toList
       fields.map(_.path("name").asText()) shouldBe
-        List("order_id", "order_status", "order_date", "order_total")
+      List("order_id", "order_status", "order_date", "order_total")
       val status = fields(1)
       status.path("datatype").asText() shouldBe "String"
       status.path("dimension").path("is_time").asBoolean() shouldBe false
