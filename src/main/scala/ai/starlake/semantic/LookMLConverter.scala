@@ -35,12 +35,13 @@ object LookMLConverter extends LazyLogging {
 
   /** Model-level metrics are attached to the view owning the aggregate argument (COUNT(DISTINCT
     * customers.customer_id) lands in the customers view); metrics whose owning table cannot be
-    * determined go to the first view.
+    * determined go to the first view, flagged as unowned so they render with the fallback treatment
+    * (see `measure`) instead of being silently mis-scoped as a native measure.
     */
   private def assignModelMetrics(
     model: JsonNode,
     tables: List[JsonNode]
-  ): Map[String, List[JsonNode]] = {
+  ): Map[String, List[(JsonNode, Boolean)]] = {
     val viewNames = tables.map(t => sanitize(t.path("name").asText()))
     val metrics = elems(model, "metrics")
     if (viewNames.isEmpty) {
@@ -48,26 +49,33 @@ object LookMLConverter extends LazyLogging {
         logger.warn("Model-level metrics dropped: the model defines no tables")
       Map.empty
     } else
-      metrics.groupBy { metric =>
-        val owner = for {
-          parsed <- parseAggregate(metric.path("expr").asText())
-          arg    <- parsed.arg
-          table <- arg.trim match {
-            case QualifiedPattern(table, _) => Some(sanitize(table))
-            case _                          => None
-          }
-          if viewNames.contains(table)
-        } yield table
-        owner.getOrElse(viewNames.head)
-      }
+      metrics
+        .map { metric =>
+          val owner = for {
+            parsed <- parseAggregate(metric.path("expr").asText())
+            arg    <- parsed.arg
+            table <- arg.trim match {
+              case QualifiedPattern(table, _) => Some(sanitize(table))
+              case _                          => None
+            }
+            if viewNames.contains(table)
+          } yield table
+          (metric, owner)
+        }
+        .groupBy { case (_, owner) => owner.getOrElse(viewNames.head) }
+        .view
+        .mapValues(_.map { case (metric, owner) => (metric, owner.isDefined) })
+        .toMap
   }
 
-  private def renderView(table: JsonNode, modelMetrics: List[JsonNode]): String = {
+  private def renderView(table: JsonNode, modelMetrics: List[(JsonNode, Boolean)]): String = {
     val viewName = sanitize(table.path("name").asText())
     val pkColumns = elems(table.path("primary_key"), "columns").map(c => sanitize(c.asText()))
     val singlePk = if (pkColumns.size == 1) pkColumns.headOption else None
+    // time_dimensions are excluded: a dimension_group only generates suffixed fields
+    // (order_date_raw, order_date_date, ...), so ${order_date} would be invalid LookML.
     val fieldNames =
-      (elems(table, "dimensions") ++ elems(table, "time_dimensions") ++ elems(table, "facts"))
+      (elems(table, "dimensions") ++ elems(table, "facts"))
         .map(f => sanitize(f.path("name").asText()))
 
     val lines = ArrayBuffer[String]()
@@ -88,9 +96,13 @@ object LookMLConverter extends LazyLogging {
       lines += ""
       lines ++= dimension(f, singlePk, forcedNumber = true)
     }
-    (elems(table, "metrics") ++ modelMetrics).foreach { m =>
+    elems(table, "metrics").foreach { m =>
       lines += ""
-      lines ++= measure(m, viewName, fieldNames)
+      lines ++= measure(m, viewName, fieldNames, owned = true)
+    }
+    modelMetrics.foreach { case (m, owned) =>
+      lines += ""
+      lines ++= measure(m, viewName, fieldNames, owned)
     }
 
     val filters = elems(table, "filters")
@@ -143,11 +155,21 @@ object LookMLConverter extends LazyLogging {
     lines.toSeq
   }
 
-  private def measure(m: JsonNode, viewName: String, fieldNames: List[String]): Seq[String] = {
+  /** `owned` is false only for model-level metrics whose owning table could not be determined (see
+    * `assignModelMetrics`); such metrics always get the fallback treatment below, even when
+    * `parseAggregate` succeeds, since rendering them as a native measure in an arbitrary view would
+    * be silently wrong.
+    */
+  private def measure(
+    m: JsonNode,
+    viewName: String,
+    fieldNames: List[String],
+    owned: Boolean
+  ): Seq[String] = {
     val name = sanitize(m.path("name").asText())
     val expr = m.path("expr").asText()
     val lines = ArrayBuffer[String]()
-    parseAggregate(expr) match {
+    (if (owned) parseAggregate(expr) else None) match {
       case Some(ParsedAggregate(lookmlType, arg)) =>
         lines += s"  measure: $name {"
         lines += s"    type: $lookmlType"

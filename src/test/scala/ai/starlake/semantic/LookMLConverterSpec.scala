@@ -161,6 +161,49 @@ class LookMLConverterSpec extends AnyFlatSpec with Matchers {
     orders should not include "measure: customer_count"
   }
 
+  it should "not substitute ${...} for a metric argument naming a time dimension" in {
+    val yaml =
+      """name: time_metric_model
+        |tables:
+        |  - name: orders
+        |    time_dimensions:
+        |      - name: order_date
+        |        expr: ORDER_DATE
+        |        data_type: DATE
+        |    metrics:
+        |      - name: latest_order_date
+        |        expr: MAX(order_date)
+        |""".stripMargin
+    val files =
+      LookMLConverter.convert("time_metric_model", YamlSerde.mapper.readTree(yaml), "wh").toMap
+    val orders = files("orders.view.lkml")
+    orders should include("measure: latest_order_date {")
+    orders should include("type: max")
+    orders should include("sql: order_date ;;")
+    orders should not include "sql: ${order_date} ;;"
+  }
+
+  it should "fall back to type number for model-level metrics whose owning table cannot be determined" in {
+    val yaml =
+      """name: unowned_metric_model
+        |tables:
+        |  - name: orders
+        |  - name: customers
+        |metrics:
+        |  - name: total_revenue
+        |    expr: SUM(revenue)
+        |""".stripMargin
+    val files =
+      LookMLConverter.convert("unowned_metric_model", YamlSerde.mapper.readTree(yaml), "wh").toMap
+    val orders = files("orders.view.lkml")
+    orders should include(
+      "# starlake: verify this measure, expression could not be mapped to a native LookML type"
+    )
+    orders should include("measure: total_revenue {")
+    orders should include("type: number")
+    orders should include("sql: SUM(revenue) ;;")
+  }
+
   it should "fall back to type number with raw SQL for unmappable metrics" in {
     val yaml =
       """name: fallback_model

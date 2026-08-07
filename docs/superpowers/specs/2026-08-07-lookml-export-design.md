@@ -99,7 +99,10 @@ types:
 Matching is case-insensitive on the aggregate function name and requires the
 whole expression to be a single aggregate call. When the argument is a bare
 column name belonging to the same view, `sql:` uses the substitution operator
-`${column}`; otherwise the argument is emitted verbatim.
+`${column}`; otherwise the argument is emitted verbatim. Time dimensions are
+never `${...}`-substituted: a `dimension_group` only exposes suffixed fields
+(`order_date_raw`, `order_date_date`, ...), so an aggregate argument naming a
+time dimension is always passed through as raw SQL.
 
 **Model-level metrics** attach to the view of the table their aggregate
 argument references (`COUNT(DISTINCT customers.customer_id)` lands in the
