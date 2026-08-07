@@ -219,4 +219,68 @@ class LookMLConverterSpec extends AnyFlatSpec with Matchers {
     view should include("# composite primary key (order_id, line_no) not representable in LookML")
     view should not include "primary_key: yes"
   }
+
+  "renderModel" should "emit connection, include and one explore per left table" in {
+    val model = convertSample()("ecommerce_analytics.model.lkml")
+    model should include("""connection: "analytics_wh"""")
+    model should include("""include: "*.view.lkml"""")
+    model should include("explore: orders {")
+    model should include("join: customers {")
+    model should include("type: left_outer")
+    model should include("relationship: many_to_one")
+    model should include("sql_on: ${orders.customer_id} = ${customers.customer_id} ;;")
+    // customers is joined from orders, no explore of its own
+    model should not include "explore: customers"
+  }
+
+  it should "emit bare explores for tables in no relationship and default join attributes" in {
+    val yaml =
+      """name: multi
+        |tables:
+        |  - name: orders
+        |  - name: customers
+        |  - name: audit_log
+        |relationships:
+        |  - name: orders_to_customers
+        |    left_table: orders
+        |    right_table: customers
+        |    relationship_columns:
+        |      - left_column: customer_id
+        |        right_column: customer_id
+        |""".stripMargin
+    val files =
+      LookMLConverter
+        .convert("multi", YamlSerde.mapper.readTree(yaml), "wh")
+        .toMap
+    val model = files("multi.model.lkml")
+    model should include("explore: audit_log {}")
+    // join_type / relationship_type absent: defaults apply
+    model should include("type: left_outer")
+    model should include("relationship: many_to_one")
+  }
+
+  it should "join composite relationship columns with AND" in {
+    val yaml =
+      """name: composite_rel
+        |tables:
+        |  - name: line_items
+        |  - name: orders
+        |relationships:
+        |  - name: items_to_orders
+        |    left_table: line_items
+        |    right_table: orders
+        |    relationship_columns:
+        |      - left_column: order_id
+        |        right_column: order_id
+        |      - left_column: company_id
+        |        right_column: company_id
+        |""".stripMargin
+    val files = LookMLConverter
+      .convert("composite_rel", YamlSerde.mapper.readTree(yaml), "wh")
+      .toMap
+    val model = files("composite_rel.model.lkml")
+    model should include(
+      "sql_on: ${line_items.order_id} = ${orders.order_id} AND ${line_items.company_id} = ${orders.company_id} ;;"
+    )
+  }
 }

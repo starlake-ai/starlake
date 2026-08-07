@@ -174,11 +174,48 @@ object LookMLConverter extends LazyLogging {
     lines.toSeq
   }
 
-  /** Placeholder completed in Task 3 (explores). */
-  private def renderModel(model: JsonNode, connection: String): String =
-    s"""connection: ${quote(connection)}
-       |include: "*.view.lkml"
-       |""".stripMargin
+  private def renderModel(model: JsonNode, connection: String): String = {
+    val tables = elems(model, "tables").map(t => sanitize(t.path("name").asText()))
+    val relationships = elems(model, "relationships")
+
+    val lines = ArrayBuffer[String]()
+    lines += s"connection: ${quote(connection)}"
+    lines += "include: \"*.view.lkml\""
+
+    val byLeftTable = relationships.groupBy(r => sanitize(r.path("left_table").asText()))
+    relationships.map(r => sanitize(r.path("left_table").asText())).distinct.foreach { left =>
+      lines += ""
+      lines += s"explore: $left {"
+      byLeftTable(left).foreach { rel =>
+        val right = sanitize(rel.path("right_table").asText())
+        val joinType = text(rel, "join_type").getOrElse("left_outer")
+        val relationshipType = text(rel, "relationship_type").getOrElse("many_to_one")
+        val sqlOn = elems(rel, "relationship_columns")
+          .flatMap { rc =>
+            for {
+              l <- text(rc, "left_column")
+              r <- text(rc, "right_column")
+            } yield s"$${$left.${sanitize(l)}} = $${$right.${sanitize(r)}}"
+          }
+          .mkString(" AND ")
+        lines += s"  join: $right {"
+        lines += s"    type: $joinType"
+        lines += s"    relationship: $relationshipType"
+        lines += s"    sql_on: $sqlOn ;;"
+        lines += "  }"
+      }
+      lines += "}"
+    }
+
+    val inRelationship = relationships.flatMap { r =>
+      List(sanitize(r.path("left_table").asText()), sanitize(r.path("right_table").asText()))
+    }.toSet
+    tables.filterNot(inRelationship).foreach { t =>
+      lines += ""
+      lines += s"explore: $t {}"
+    }
+    lines.mkString("\n") + "\n"
+  }
 
   // ── helpers ──────────────────────────────────────────────────────────
 
