@@ -43,7 +43,7 @@ object Versions {
   val derbyVersion =
     "10.15.2.0" // last version compatible with Java 11, see https://db.apache.org/derby/derby_downloads.html
   val jSqlParser = "5.3.242"
-  val jSqlTranspiler = "1.8"
+  val jSqlTranspiler = "1.10"
   val starlakejdbc = "0.7"
   val airflowTemplates = "0.6.14"
   val jSqlFormatter = "5.4.1"
