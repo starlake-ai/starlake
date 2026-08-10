@@ -22,6 +22,65 @@ object TMDLConverter extends LazyLogging {
     sourceColumns: List[String]
   )
 
+  private case class RelEntry(
+    name: String,
+    fromTable: String,
+    fromColumn: String,
+    toTable: String,
+    toColumn: String
+  )
+
+  /** Split relationships into direct single-column entries and composite ones, which get hidden
+    * COMBINEVALUES key columns generated on both tables. Relationships without column pairs are
+    * skipped with a warning. relationship_type values other than many_to_one (the engine default)
+    * are logged and emitted with default cardinality; join_type has no TMDL equivalent.
+    */
+  private def relationshipPlan(
+    relationships: List[JsonNode]
+  ): (List[RelEntry], List[GeneratedKey]) = {
+    val entries = ArrayBuffer[RelEntry]()
+    val keys = ArrayBuffer[GeneratedKey]()
+    relationships.foreach { rel =>
+      val name = rel.path("name").asText()
+      val left = rel.path("left_table").asText()
+      val right = rel.path("right_table").asText()
+      text(rel, "relationship_type").filterNot(_.equalsIgnoreCase("many_to_one")).foreach { t =>
+        logger.warn(
+          s"Relationship '$name': relationship_type '$t' has no direct TMDL mapping, emitting default cardinality"
+        )
+      }
+      val pairs = elems(rel, "relationship_columns").flatMap { rc =>
+        for {
+          l <- text(rc, "left_column")
+          r <- text(rc, "right_column")
+        } yield (l, r)
+      }
+      pairs match {
+        case Nil =>
+          logger.warn(s"Relationship '$name' has no relationship_columns, skipped")
+        case (l, r) :: Nil =>
+          entries += RelEntry(name, left, l, right, r)
+        case many =>
+          val keyName = s"_sl_${name}_key"
+          keys += GeneratedKey(left, keyName, many.map(_._1))
+          keys += GeneratedKey(right, keyName, many.map(_._2))
+          entries += RelEntry(name, left, keyName, right, keyName)
+      }
+    }
+    (entries.toList, keys.toList)
+  }
+
+  private def renderRelationships(entries: List[RelEntry]): String = {
+    val lines = ArrayBuffer[String]()
+    entries.foreach { e =>
+      if (lines.nonEmpty) lines += ""
+      lines += s"relationship ${quoteName(e.name)}"
+      lines += s"\tfromColumn: ${quoteName(e.fromTable)}.${quoteName(e.fromColumn)}"
+      lines += s"\ttoColumn: ${quoteName(e.toTable)}.${quoteName(e.toColumn)}"
+    }
+    lines.mkString("\n") + "\n"
+  }
+
   /** Convert one semantic model. Returns (relativePath, content) pairs. */
   def convert(
     modelName: String,
@@ -31,17 +90,20 @@ object TMDLConverter extends LazyLogging {
     val tables = elems(model, "tables")
     val metricsByTable =
       assignModelMetrics(model, tables.map(_.path("name").asText()), _.toLowerCase)
+    val (relEntries, generatedKeys) = relationshipPlan(elems(model, "relationships"))
     if (model.has("verified_queries"))
       logger.info(s"Model '$modelName': verified_queries have no TMDL equivalent, skipped")
 
     val files = ArrayBuffer[(String, String)]()
     files += "database.tmdl" -> renderDatabase(modelName)
     files += "model.tmdl"    -> renderModelFile(model)
+    if (relEntries.nonEmpty)
+      files += "relationships.tmdl" -> renderRelationships(relEntries)
     tables.foreach { table =>
       val name = table.path("name").asText()
       files += s"tables/$name.tmdl" -> renderTable(
         table,
-        keys = Nil,
+        keys = generatedKeys.filter(_.table.equalsIgnoreCase(name)),
         modelMetrics = metricsByTable.getOrElse(name.toLowerCase, Nil),
         connection = connection
       )
@@ -82,6 +144,14 @@ object TMDLConverter extends LazyLogging {
     elems(table, "dimensions").foreach(c => lines ++= column(c, singlePk, isFact = false))
     elems(table, "time_dimensions").foreach(c => lines ++= column(c, singlePk, isFact = false))
     elems(table, "facts").foreach(c => lines ++= column(c, singlePk, isFact = true))
+    keys.foreach { k =>
+      lines += ""
+      val refs = k.sourceColumns.map(c => s"[${c.replace("]", "]]")}]")
+      lines += s"\tcolumn ${quoteName(k.columnName)} = COMBINEVALUES(${("\"|\"" +: refs).mkString(", ")})"
+      lines += "\t\tdataType: string"
+      lines += "\t\tisHidden"
+      lines += "\t\tsummarizeBy: none"
+    }
     val columnNames =
       (elems(table, "dimensions") ++ elems(table, "time_dimensions") ++ elems(table, "facts"))
         .map(_.path("name").asText())

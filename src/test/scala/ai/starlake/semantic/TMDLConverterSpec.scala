@@ -345,4 +345,120 @@ class TMDLConverterSpec extends AnyFlatSpec with Matchers {
       .apply("tables/Order Items.tmdl")
     table should include("\tmeasure total_qty = SUM('Order Items'[qty])")
   }
+
+  private val relationshipYaml =
+    """name: rels
+      |tables:
+      |  - name: orders
+      |    dimensions:
+      |      - name: customer_id
+      |        data_type: NUMBER
+      |      - name: order_id
+      |        data_type: NUMBER
+      |      - name: company_id
+      |        data_type: NUMBER
+      |  - name: customers
+      |    dimensions:
+      |      - name: customer_id
+      |        data_type: NUMBER
+      |  - name: line_items
+      |    dimensions:
+      |      - name: order_id
+      |        data_type: NUMBER
+      |      - name: company_id
+      |        data_type: NUMBER
+      |relationships:
+      |  - name: orders_to_customers
+      |    left_table: orders
+      |    right_table: customers
+      |    relationship_columns:
+      |      - left_column: customer_id
+      |        right_column: customer_id
+      |    join_type: left_outer
+      |    relationship_type: many_to_one
+      |  - name: items_to_orders
+      |    left_table: line_items
+      |    right_table: orders
+      |    relationship_columns:
+      |      - left_column: order_id
+      |        right_column: order_id
+      |      - left_column: company_id
+      |        right_column: company_id
+      |  - name: broken
+      |    left_table: orders
+      |    right_table: customers
+      |""".stripMargin
+
+  private def relFiles(): Map[String, String] =
+    TMDLConverter.convert("rels", YamlSerde.mapper.readTree(relationshipYaml), None).toMap
+
+  "relationships" should "render single-column relationships" in {
+    val rels = relFiles()("relationships.tmdl")
+    rels should include("relationship orders_to_customers")
+    rels should include("\tfromColumn: orders.customer_id")
+    rels should include("\ttoColumn: customers.customer_id")
+  }
+
+  it should "generate hidden COMBINEVALUES key columns for composite relationships" in {
+    val items = relFiles()("tables/line_items.tmdl")
+    items should include(
+      "\tcolumn _sl_items_to_orders_key = COMBINEVALUES(\"|\", [order_id], [company_id])"
+    )
+    items should include("\t\tisHidden")
+    val orders = relFiles()("tables/orders.tmdl")
+    orders should include(
+      "\tcolumn _sl_items_to_orders_key = COMBINEVALUES(\"|\", [order_id], [company_id])"
+    )
+    val rels = relFiles()("relationships.tmdl")
+    rels should include("relationship items_to_orders")
+    rels should include("\tfromColumn: line_items._sl_items_to_orders_key")
+    rels should include("\ttoColumn: orders._sl_items_to_orders_key")
+  }
+
+  it should "skip relationships without columns and omit the file when none are valid" in {
+    relFiles()("relationships.tmdl") should not include "broken"
+
+    val yaml =
+      """name: norel
+        |tables:
+        |  - name: t
+        |relationships:
+        |  - name: broken
+        |    left_table: t
+        |    right_table: t
+        |""".stripMargin
+    val out = TMDLConverter.convert("norel", YamlSerde.mapper.readTree(yaml), None).toMap
+    out.keySet should not contain "relationships.tmdl"
+  }
+
+  it should "not emit relationships.tmdl when the model has no relationships" in {
+    files().keySet should not contain "relationships.tmdl"
+  }
+
+  it should "quote non-plain table names in relationship references" in {
+    val yaml =
+      """name: q
+        |tables:
+        |  - name: Order Items
+        |    dimensions:
+        |      - name: order_id
+        |        data_type: NUMBER
+        |  - name: orders
+        |    dimensions:
+        |      - name: order_id
+        |        data_type: NUMBER
+        |relationships:
+        |  - name: items_to_orders
+        |    left_table: Order Items
+        |    right_table: orders
+        |    relationship_columns:
+        |      - left_column: order_id
+        |        right_column: order_id
+        |""".stripMargin
+    val rels = TMDLConverter
+      .convert("q", YamlSerde.mapper.readTree(yaml), None)
+      .toMap
+      .apply("relationships.tmdl")
+    rels should include("\tfromColumn: 'Order Items'.order_id")
+  }
 }
