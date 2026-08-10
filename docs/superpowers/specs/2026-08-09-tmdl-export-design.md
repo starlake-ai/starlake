@@ -89,6 +89,10 @@ rather than shared M parameters.
 - In M string literals and TMDL description text, `"` is escaped by doubling
   per M rules; the SQL embedded in `Value.NativeQuery` is escaped the same
   way.
+- In the partition's native query, a field NAME that is not a plain
+  identifier is wrapped in ANSI double quotes (both bare and as the `AS`
+  alias) so the generated `SELECT` stays valid SQL; the `expr` side is left
+  untouched.
 
 ## Table files
 

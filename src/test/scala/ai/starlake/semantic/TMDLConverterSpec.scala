@@ -133,6 +133,9 @@ class TMDLConverterSpec extends AnyFlatSpec with Matchers {
     table should include("table 'Order Items'")
     table should include("\tcolumn 'item id'")
     out("database.tmdl") should include("database 'Mixed Model'")
+    table should include(
+      "Value.NativeQuery(Source, \"SELECT \"\"item id\"\" FROM Order Items\")"
+    )
   }
 
   it should "skip isKey for composite primary keys" in {
@@ -246,6 +249,32 @@ class TMDLConverterSpec extends AnyFlatSpec with Matchers {
     orders should include(
       "\t\t\t\tSource = GoogleBigQuery.Database([BillingProject=\"my-project\"]),"
     )
+  }
+
+  it should "derive the sqlserver source from a semicolon-style JDBC url" in {
+    val withPort = Some(
+      ConnectionInfo(
+        `type` = ConnectionType.JDBC,
+        options = Map("url" -> "jdbc:sqlserver://sqlhost:1433;databaseName=mydb")
+      )
+    )
+    val orders = TMDLConverter
+      .convert("ecommerce_analytics", YamlSerde.mapper.readTree(modelYaml), withPort)
+      .toMap
+      .apply("tables/orders.tmdl")
+    orders should include("\t\t\t\tSource = Sql.Database(\"sqlhost\", \"mydb\"),")
+
+    val noPort = Some(
+      ConnectionInfo(
+        `type` = ConnectionType.JDBC,
+        options = Map("url" -> "jdbc:sqlserver://sqlhost;databaseName=mydb")
+      )
+    )
+    val orders2 = TMDLConverter
+      .convert("ecommerce_analytics", YamlSerde.mapper.readTree(modelYaml), noPort)
+      .toMap
+      .apply("tables/orders.tmdl")
+    orders2 should include("\t\t\t\tSource = Sql.Database(\"sqlhost\", \"mydb\"),")
   }
 
   it should "fall back to a generic TODO source for missing or unmapped connections" in {

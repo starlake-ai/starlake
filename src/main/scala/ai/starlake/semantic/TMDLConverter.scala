@@ -50,10 +50,15 @@ object TMDLConverter extends LazyLogging {
         )
       }
       val pairs = elems(rel, "relationship_columns").flatMap { rc =>
-        for {
+        val pair = for {
           l <- text(rc, "left_column")
           r <- text(rc, "right_column")
         } yield (l, r)
+        if (pair.isEmpty)
+          logger.warn(
+            s"Relationship '$name': relationship_columns entry missing left_column or right_column, dropped"
+          )
+        pair
       }
       pairs match {
         case Nil =>
@@ -254,7 +259,9 @@ object TMDLConverter extends LazyLogging {
   }
 
   /** SELECT <expr> AS <name>, ... FROM <fqn>; a field whose expr equals (or defaults to) its name
-    * is projected bare. SELECT * when the table has no fields.
+    * is projected bare. SELECT * when the table has no fields. A field NAME that is not a plain
+    * identifier is wrapped in ANSI double quotes, both for the bare projection and for the AS
+    * alias; the expr side is user SQL and is left untouched.
     */
   private def nativeQuery(table: JsonNode): String = {
     val fields =
@@ -264,12 +271,19 @@ object TMDLConverter extends LazyLogging {
     else {
       val cols = fields.map { f =>
         val n = f.path("name").asText()
+        val qn = quoteSqlIdentifier(n)
         val e = text(f, "expr").getOrElse(n)
-        if (e == n) n else s"$e AS $n"
+        if (e == n) qn else s"$e AS $qn"
       }
       s"SELECT ${cols.mkString(", ")} FROM $fqn"
     }
   }
+
+  /** ANSI double-quote a SQL identifier when it is not a plain [A-Za-z0-9_]+ name; embedded double
+    * quotes are doubled.
+    */
+  private def quoteSqlIdentifier(name: String): String =
+    if (PlainName.matches(name)) name else "\"" + name.replace("\"", "\"\"") + "\""
 
   /** M string literal: double quotes escape by doubling. */
   private def mString(s: String): String = "\"" + s.replace("\"", "\"\"") + "\""
@@ -282,7 +296,7 @@ object TMDLConverter extends LazyLogging {
     */
   private[semantic] object PbiSource {
 
-    private val UrlPattern = """jdbc:[A-Za-z0-9]+://([^:/?]+)(?::(\d+))?(?:/([^?]+))?.*""".r
+    private val UrlPattern = """jdbc:[A-Za-z0-9]+://([^:/?;]+)(?::(\d+))?(?:/([^?]+))?.*""".r
 
     def resolve(connection: Option[ConnectionInfo], table: JsonNode): MSource =
       connection match {
@@ -334,8 +348,12 @@ object TMDLConverter extends LazyLogging {
                 "Source"
               )
             case "sqlserver" =>
-              val (hostPort, database) = hostPortDb(info)
+              val (hostPort, pathDatabase) = hostPortDb(info)
               val host = hostPort.split(':')(0)
+              val url = info.options.getOrElse("url", "")
+              val database = sqlServerProperty(url, "databaseName")
+                .orElse(sqlServerProperty(url, "database"))
+                .getOrElse(pathDatabase)
               MSource(
                 Seq(s"Source = Sql.Database(${mString(host)}, ${mString(database)}),"),
                 "Source"
@@ -353,11 +371,24 @@ object TMDLConverter extends LazyLogging {
       else {
         val url = info.options.getOrElse("url", "")
         if (url.startsWith("jdbc:")) {
-          val engine = url.split(':')(1).toLowerCase
+          val engine = url.split(':').lift(1).map(_.toLowerCase).getOrElse("unknown")
           if (engine == "mariadb") "mysql" else engine
         } else if (info.options.contains("sfUrl")) "snowflake"
         else "unknown"
       }
+
+    /** Parses a `;`-separated JDBC property (e.g. sqlserver's `databaseName=`) from the URL,
+      * ignoring the leading `jdbc:...//host[:port]` segment.
+      */
+    private def sqlServerProperty(url: String, key: String): Option[String] =
+      url
+        .split(';')
+        .drop(1)
+        .collectFirst {
+          case prop if prop.trim.toLowerCase.startsWith(key.toLowerCase + "=") =>
+            prop.trim.substring(key.length + 1)
+        }
+        .filter(_.nonEmpty)
 
     private def hostOf(info: ConnectionInfo): Option[String] =
       info.options.getOrElse("url", "") match {
