@@ -77,8 +77,8 @@ private[semantic] object SemanticModelOps extends LazyLogging {
         .toMap
   }
 
-  /** description and synonyms combined into a single text: "<desc>. Synonyms: a, b", or either
-    * part alone.
+  /** description and synonyms combined into a single text: "<desc>. Synonyms: a, b", or either part
+    * alone.
     */
   def combinedDescription(node: JsonNode): Option[String] = {
     val desc = text(node, "description")

@@ -82,6 +82,12 @@ object TMDLConverter extends LazyLogging {
     elems(table, "dimensions").foreach(c => lines ++= column(c, singlePk, isFact = false))
     elems(table, "time_dimensions").foreach(c => lines ++= column(c, singlePk, isFact = false))
     elems(table, "facts").foreach(c => lines ++= column(c, singlePk, isFact = true))
+    val columnNames =
+      (elems(table, "dimensions") ++ elems(table, "time_dimensions") ++ elems(table, "facts"))
+        .map(_.path("name").asText())
+    (elems(table, "metrics").map((_, true)) ++ modelMetrics).foreach { case (metric, owned) =>
+      lines ++= measure(metric, name, columnNames, owned)
+    }
     lines ++= partition(table, connection)
     lines.mkString("\n") + "\n"
   }
@@ -100,6 +106,66 @@ object TMDLConverter extends LazyLogging {
     lines += s"\t\tsummarizeBy: ${if (isFact && numeric) "sum" else "none"}"
     lines.toSeq
   }
+
+  /** DAX translation for simple aggregates; anything else (unparseable expression, argument not a
+    * column of this table, or unowned model metric) falls back to BLANK() with the original SQL in
+    * a TODO doc line. Unlike LookML, time dimension columns are real TMDL columns, so they are
+    * valid DAX references.
+    */
+  private def measure(
+    m: JsonNode,
+    tableName: String,
+    columnNames: List[String],
+    owned: Boolean
+  ): Seq[String] = {
+    val name = m.path("name").asText()
+    val expr = m.path("expr").asText()
+
+    val dax: Option[String] = (if (owned) parseAggregate(expr) else None).flatMap { parsed =>
+      parsed.aggregate match {
+        case "count" => Some(s"COUNTROWS(${daxTable(tableName)})")
+        case agg =>
+          parsed.arg.flatMap { raw =>
+            val local = raw.trim match {
+              case QualifiedPattern(table, col) if table.equalsIgnoreCase(tableName) => col
+              case other                                                             => other
+            }
+            columnNames
+              .find(c => IdentifierPattern.matches(local) && c.equalsIgnoreCase(local))
+              .flatMap { columnName =>
+                val ref = daxColumn(tableName, columnName)
+                agg match {
+                  case "sum"            => Some(s"SUM($ref)")
+                  case "average"        => Some(s"AVERAGE($ref)")
+                  case "min"            => Some(s"MIN($ref)")
+                  case "max"            => Some(s"MAX($ref)")
+                  case "count_distinct" => Some(s"DISTINCTCOUNT($ref)")
+                  case _                => None
+                }
+              }
+          }
+      }
+    }
+
+    val lines = ArrayBuffer[String]()
+    lines += ""
+    combinedDescription(m).foreach(d => lines += s"\t/// ${singleLine(d)}")
+    dax match {
+      case Some(d) =>
+        lines += s"\tmeasure ${quoteName(name)} = $d"
+      case None =>
+        lines += s"\t/// TODO Starlake: translate original SQL to DAX: ${singleLine(expr)}"
+        lines += s"\tmeasure ${quoteName(name)} = BLANK()"
+    }
+    lines.toSeq
+  }
+
+  /** DAX table reference: always single-quoted. */
+  private def daxTable(name: String): String = s"'${name.replace("'", "''")}'"
+
+  /** DAX column reference: 'table'[column] with ] escaped as ]]. */
+  private def daxColumn(table: String, column: String): String =
+    s"${daxTable(table)}[${column.replace("]", "]]")}]"
 
   private def partition(table: JsonNode, connection: Option[ConnectionInfo]): Seq[String] = {
     val name = table.path("name").asText()

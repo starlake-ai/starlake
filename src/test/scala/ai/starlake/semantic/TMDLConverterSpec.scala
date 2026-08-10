@@ -284,4 +284,65 @@ class TMDLConverterSpec extends AnyFlatSpec with Matchers {
       .apply("tables/t.tmdl")
     table should include("SELECT TRIM(\"\"COL\"\") AS trimmed FROM t")
   }
+
+  "measures" should "translate simple aggregates to DAX" in {
+    val orders = files()("tables/orders.tmdl")
+    orders should include("\t/// Synonyms: AOV")
+    orders should include("\tmeasure avg_order_value = AVERAGE('orders'[order_total])")
+    orders should include("\tmeasure order_count = COUNTROWS('orders')")
+    orders should include("\tmeasure last_order_date = MAX('orders'[order_date])")
+  }
+
+  it should "attach owned model metrics to their table with DISTINCTCOUNT" in {
+    val customers = files()("tables/customers.tmdl")
+    customers should include("\tmeasure customer_count = DISTINCTCOUNT('customers'[customer_id])")
+    files()("tables/orders.tmdl") should not include "customer_count"
+  }
+
+  it should "fall back to BLANK() with the original SQL for untranslatable metrics" in {
+    val orders = files()("tables/orders.tmdl")
+    orders should include(
+      "\t/// TODO Starlake: translate original SQL to DAX: SUM(a)/NULLIF(SUM(b),0)"
+    )
+    orders should include("\tmeasure total_revenue = BLANK()")
+  }
+
+  it should "fall back when the aggregate argument is not a column of the table" in {
+    val yaml =
+      """name: stray
+        |tables:
+        |  - name: sales
+        |    dimensions:
+        |      - name: amount
+        |        data_type: NUMBER
+        |    metrics:
+        |      - name: stray_sum
+        |        expr: SUM(profit)
+        |""".stripMargin
+    val table = TMDLConverter
+      .convert("stray", YamlSerde.mapper.readTree(yaml), None)
+      .toMap
+      .apply("tables/sales.tmdl")
+    table should include("\t/// TODO Starlake: translate original SQL to DAX: SUM(profit)")
+    table should include("\tmeasure stray_sum = BLANK()")
+  }
+
+  it should "quote table and escape column names in DAX references" in {
+    val yaml =
+      """name: daxq
+        |tables:
+        |  - name: Order Items
+        |    facts:
+        |      - name: qty
+        |        data_type: NUMBER
+        |    metrics:
+        |      - name: total_qty
+        |        expr: SUM(qty)
+        |""".stripMargin
+    val table = TMDLConverter
+      .convert("daxq", YamlSerde.mapper.readTree(yaml), None)
+      .toMap
+      .apply("tables/Order Items.tmdl")
+    table should include("\tmeasure total_qty = SUM('Order Items'[qty])")
+  }
 }
