@@ -17,13 +17,17 @@ object SemanticExportCmd extends Cmd[SemanticExportConfig] {
   val command = "semantic-export"
 
   override def pageDescription: String =
-    "Export semantic models from metadata/semantic to a vendor-neutral interchange format (Apache Ossie)."
+    "Export semantic models from metadata/semantic to Apache Ossie, a LookML project or a Power BI TMDL folder."
   override def pageKeywords: Seq[String] =
     Seq(
       "starlake semantic-export",
       "semantic model",
       "semantic layer",
       "apache ossie",
+      "lookml",
+      "looker",
+      "tmdl",
+      "power bi",
       "open semantic interchange",
       "BI",
       "AI agents"
@@ -36,28 +40,37 @@ object SemanticExportCmd extends Cmd[SemanticExportConfig] {
       builder.head(shell, command, "[options]"),
       builder.note(
         """
-          |Export the semantic models stored in metadata/semantic/ to a vendor-neutral
-          |interchange format. Currently supported format: ossie (Apache Ossie, incubating,
-          |formerly Open Semantic Interchange).
+          |Export the semantic models stored in metadata/semantic/ to another semantic
+          |format. Supported formats: ossie (Apache Ossie, incubating), lookml (a Looker
+          |project: one view file per table plus a model file with explores) and tmdl
+          |(a Power BI TMDL folder: database.tmdl, model.tmdl, relationships.tmdl and
+          |one tables/<table>.tmdl per table).
           |
-          |Fields, primary keys, relationships, and metrics are mapped to their Ossie
-          |equivalents; Starlake-specific attributes with no Ossie counterpart (filters,
-          |sample values, verified query SQL, join types...) are preserved in
-          |custom_extensions blocks under the STARLAKE vendor name so no information is lost.
+          |For ossie, Starlake-specific attributes with no Ossie counterpart are
+          |preserved in custom_extensions blocks under the STARLAKE vendor name.
+          |
+          |For lookml, --connection sets the Looker connection name in the model file.
+          |
+          |For tmdl, --connection names the Starlake connection used to derive each
+          |table's Power Query source; simple aggregate metrics are translated to DAX
+          |and anything else becomes a BLANK() measure carrying the original SQL in a
+          |TODO comment.
           |
           |example: starlake semantic-export
-          |         --format ossie
+          |         --format tmdl
           |         --model ecommerce_analytics
-          |         --output /tmp/ossie-models""".stripMargin
+          |         --connection snowflake_prod
+          |         --output /tmp/tmdl-models""".stripMargin
       ),
       builder
         .opt[String]("format")
         .action((x, c) => c.copy(format = x))
         .validate(x =>
-          if (x == "ossie") builder.success
-          else builder.failure(s"Unsupported format '$x'. Supported formats: ossie")
+          if (Set("ossie", "lookml", "tmdl").contains(x)) builder.success
+          else
+            builder.failure(s"Unsupported format '$x'. Supported formats: ossie, lookml, tmdl")
         )
-        .text("Target interchange format. Only 'ossie' is supported for now (default)")
+        .text("Target format: ossie (default), lookml or tmdl")
         .optional(),
       builder
         .opt[String]("model")
@@ -71,6 +84,13 @@ object SemanticExportCmd extends Cmd[SemanticExportConfig] {
         .action((x, c) => c.copy(output = Some(x)))
         .text(
           "Output directory. Defaults to metadata/semantic/export/ with one subfolder per format"
+        )
+        .optional(),
+      builder
+        .opt[String]("connection")
+        .action((x, c) => c.copy(connection = Some(x)))
+        .text(
+          "lookml: Looker connection name written to the model file; tmdl: Starlake connection used to derive the Power Query source. Defaults to the project's connectionRef"
         )
         .optional(),
       reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
