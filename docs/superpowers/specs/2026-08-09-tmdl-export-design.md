@@ -50,6 +50,9 @@ receives the format-neutral pieces currently inside `LookMLConverter`:
   construction and pattern matching, so only the declaration changes
 - `parseAggregate(expr): Option[ParsedAggregate]`
 - `IdentifierPattern` and `QualifiedPattern` regexes
+- `combinedDescription(node): Option[String]` (LookML's description+synonyms
+  combiner, renamed) and `baseTableFqn(table): String` (LookML's `source`,
+  renamed), both format-neutral
 - `assignModelMetrics(model, tableNames: List[String], normalize: String => String): Map[String, List[(JsonNode, Boolean)]]`
   where keys are normalized table names and the Boolean is the ownership flag
   (false = owning table could not be determined; such metrics map to the first
@@ -133,8 +136,10 @@ columns, generated key columns (composite relationships), measures, partition.
 ## Power Query source derivation
 
 A private resolver inside the converter maps the resolved
-`Option[ConnectionInfo]` to M source lines, keyed on
-`ConnectionInfo.getJdbcEngineName()` (and `isBigQuery`):
+`Option[ConnectionInfo]` to M source lines, keyed on the connection's engine
+name (BigQuery via `isBigQuery`; otherwise the JDBC URL scheme, replicating
+`getJdbcEngineName`'s derivation without constructing an `Engine`, so
+unmapped names degrade to the generic fallback instead of failing):
 
 | Engine | M source |
 |---|---|
