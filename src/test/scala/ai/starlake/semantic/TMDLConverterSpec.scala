@@ -1,5 +1,7 @@
 package ai.starlake.semantic
 
+import ai.starlake.config.ConnectionInfo
+import ai.starlake.schema.model.ConnectionType
 import ai.starlake.utils.YamlSerde
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -147,7 +149,9 @@ class TMDLConverterSpec extends AnyFlatSpec with Matchers {
         |      columns: [order_id, line_no]
         |""".stripMargin
     val table =
-      TMDLConverter.convert("composite", YamlSerde.mapper.readTree(yaml), None).toMap
+      TMDLConverter
+        .convert("composite", YamlSerde.mapper.readTree(yaml), None)
+        .toMap
         .apply("tables/line_items.tmdl")
     table should not include "isKey"
   }
@@ -163,8 +167,121 @@ class TMDLConverterSpec extends AnyFlatSpec with Matchers {
         |      - name: untyped
         |""".stripMargin
     val table =
-      TMDLConverter.convert("unknowns", YamlSerde.mapper.readTree(yaml), None).toMap
+      TMDLConverter
+        .convert("unknowns", YamlSerde.mapper.readTree(yaml), None)
+        .toMap
         .apply("tables/t.tmdl")
     table.split("\n").count(_ == "\t\tdataType: string") shouldBe 2
+  }
+
+  private def pg: Option[ConnectionInfo] = Some(
+    ConnectionInfo(
+      `type` = ConnectionType.JDBC,
+      options = Map("url" -> "jdbc:postgresql://myhost:5432/mydb")
+    )
+  )
+
+  "partitions" should "emit an import-mode native query with expr AS name projections" in {
+    val orders =
+      TMDLConverter
+        .convert("ecommerce_analytics", YamlSerde.mapper.readTree(modelYaml), pg)
+        .toMap
+        .apply("tables/orders.tmdl")
+    orders should include("\tpartition orders = m")
+    orders should include("\t\tmode: import")
+    orders should include("\t\tsource =")
+    orders should include("\t\t\tlet")
+    orders should include("\t\t\t\tSource = PostgreSQL.Database(\"myhost:5432\", \"mydb\"),")
+    orders should include(
+      "\t\t\t\tResult = Value.NativeQuery(Source, \"SELECT ORDER_ID AS order_id, order_status, ORDER_DATE AS order_date, ORDER_TOTAL AS order_total FROM ANALYTICS_DB.ECOMMERCE.ORDERS\")"
+    )
+    orders should include("\t\t\tin")
+    orders should include("\t\t\t\tResult")
+  }
+
+  it should "emit SELECT * when the table has no fields and fall back to the table name" in {
+    val yaml =
+      """name: bare
+        |tables:
+        |  - name: audit_log
+        |""".stripMargin
+    val table = TMDLConverter
+      .convert("bare", YamlSerde.mapper.readTree(yaml), pg)
+      .toMap
+      .apply("tables/audit_log.tmdl")
+    table should include("Value.NativeQuery(Source, \"SELECT * FROM audit_log\")")
+  }
+
+  it should "derive the snowflake source with database navigation" in {
+    val sf = Some(
+      ConnectionInfo(
+        `type` = ConnectionType.JDBC,
+        options = Map(
+          "url"       -> "jdbc:snowflake://acme.snowflakecomputing.com",
+          "warehouse" -> "COMPUTE_WH"
+        )
+      )
+    )
+    val orders =
+      TMDLConverter
+        .convert("ecommerce_analytics", YamlSerde.mapper.readTree(modelYaml), sf)
+        .toMap
+        .apply("tables/orders.tmdl")
+    orders should include(
+      "\t\t\t\tSource = Snowflake.Databases(\"acme.snowflakecomputing.com\", \"COMPUTE_WH\"),"
+    )
+    orders should include("\t\t\t\tDB = Source{[Name=\"ANALYTICS_DB\"]}[Data],")
+    orders should include("Result = Value.NativeQuery(DB, ")
+  }
+
+  it should "derive the bigquery source from the billing project option" in {
+    val bq = Some(
+      ConnectionInfo(`type` = ConnectionType.BQ, options = Map("gcpProjectId" -> "my-project"))
+    )
+    val orders =
+      TMDLConverter
+        .convert("ecommerce_analytics", YamlSerde.mapper.readTree(modelYaml), bq)
+        .toMap
+        .apply("tables/orders.tmdl")
+    orders should include(
+      "\t\t\t\tSource = GoogleBigQuery.Database([BillingProject=\"my-project\"]),"
+    )
+  }
+
+  it should "fall back to a generic TODO source for missing or unmapped connections" in {
+    val none =
+      TMDLConverter
+        .convert("ecommerce_analytics", YamlSerde.mapper.readTree(modelYaml), None)
+        .toMap
+        .apply("tables/orders.tmdl")
+    none should include("\t\t\t\t// TODO Starlake: set the connector for your warehouse")
+    none should include("\t\t\t\tSource = Sql.Database(\"SERVER_TODO\", \"DATABASE_TODO\"),")
+
+    val duck = Some(
+      ConnectionInfo(`type` = ConnectionType.JDBC, options = Map("url" -> "jdbc:duckdb:/tmp/db"))
+    )
+    val d =
+      TMDLConverter
+        .convert("ecommerce_analytics", YamlSerde.mapper.readTree(modelYaml), duck)
+        .toMap
+        .apply("tables/orders.tmdl")
+    d should include("// TODO Starlake: set the connector for your warehouse")
+  }
+
+  it should "double embedded double quotes in the M query string" in {
+    val yaml =
+      """name: esc
+        |tables:
+        |  - name: t
+        |    dimensions:
+        |      - name: trimmed
+        |        expr: TRIM("COL")
+        |        data_type: TEXT
+        |""".stripMargin
+    val table = TMDLConverter
+      .convert("esc", YamlSerde.mapper.readTree(yaml), pg)
+      .toMap
+      .apply("tables/t.tmdl")
+    table should include("SELECT TRIM(\"\"COL\"\") AS trimmed FROM t")
   }
 }

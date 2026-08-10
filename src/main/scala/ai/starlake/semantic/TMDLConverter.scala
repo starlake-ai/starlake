@@ -7,8 +7,8 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.collection.mutable.ArrayBuffer
 
 /** Converts Snowflake-style semantic models to a Power BI TMDL folder: database.tmdl, model.tmdl,
-  * relationships.tmdl and one tables/<table>.tmdl per table. Names are kept verbatim and quoted
-  * per TMDL rules; indentation uses tabs.
+  * relationships.tmdl and one tables/<table>.tmdl per table. Names are kept verbatim and quoted per
+  * TMDL rules; indentation uses tabs.
   */
 object TMDLConverter extends LazyLogging {
 
@@ -36,7 +36,7 @@ object TMDLConverter extends LazyLogging {
 
     val files = ArrayBuffer[(String, String)]()
     files += "database.tmdl" -> renderDatabase(modelName)
-    files += "model.tmdl" -> renderModelFile(model)
+    files += "model.tmdl"    -> renderModelFile(model)
     tables.foreach { table =>
       val name = table.path("name").asText()
       files += s"tables/$name.tmdl" -> renderTable(
@@ -82,6 +82,7 @@ object TMDLConverter extends LazyLogging {
     elems(table, "dimensions").foreach(c => lines ++= column(c, singlePk, isFact = false))
     elems(table, "time_dimensions").foreach(c => lines ++= column(c, singlePk, isFact = false))
     elems(table, "facts").foreach(c => lines ++= column(c, singlePk, isFact = true))
+    lines ++= partition(table, connection)
     lines.mkString("\n") + "\n"
   }
 
@@ -100,6 +101,152 @@ object TMDLConverter extends LazyLogging {
     lines.toSeq
   }
 
+  private def partition(table: JsonNode, connection: Option[ConnectionInfo]): Seq[String] = {
+    val name = table.path("name").asText()
+    val src = PbiSource.resolve(connection, table)
+    val lines = ArrayBuffer[String]()
+    lines += ""
+    lines += s"\tpartition ${quoteName(name)} = m"
+    lines += "\t\tmode: import"
+    lines += "\t\tsource ="
+    lines += "\t\t\tlet"
+    src.lines.foreach(l => lines += s"\t\t\t\t$l")
+    lines += s"\t\t\t\tResult = Value.NativeQuery(${src.queryTarget}, ${mString(nativeQuery(table))})"
+    lines += "\t\t\tin"
+    lines += "\t\t\t\tResult"
+    lines.toSeq
+  }
+
+  /** SELECT <expr> AS <name>, ... FROM <fqn>; a field whose expr equals (or defaults to) its name
+    * is projected bare. SELECT * when the table has no fields.
+    */
+  private def nativeQuery(table: JsonNode): String = {
+    val fields =
+      elems(table, "dimensions") ++ elems(table, "time_dimensions") ++ elems(table, "facts")
+    val fqn = baseTableFqn(table)
+    if (fields.isEmpty) s"SELECT * FROM $fqn"
+    else {
+      val cols = fields.map { f =>
+        val n = f.path("name").asText()
+        val e = text(f, "expr").getOrElse(n)
+        if (e == n) n else s"$e AS $n"
+      }
+      s"SELECT ${cols.mkString(", ")} FROM $fqn"
+    }
+  }
+
+  /** M string literal: double quotes escape by doubling. */
+  private def mString(s: String): String = "\"" + s.replace("\"", "\"\"") + "\""
+
+  private[semantic] case class MSource(lines: Seq[String], queryTarget: String)
+
+  /** Maps a Starlake connection to Power Query (M) source lines. Engine detection replicates
+    * ConnectionInfo.getJdbcEngineName's URL-scheme logic without constructing an Engine, so
+    * unmapped names degrade to the generic fallback instead of failing.
+    */
+  private[semantic] object PbiSource {
+
+    private val UrlPattern = """jdbc:[A-Za-z0-9]+://([^:/?]+)(?::(\d+))?(?:/([^?]+))?.*""".r
+
+    def resolve(connection: Option[ConnectionInfo], table: JsonNode): MSource =
+      connection match {
+        case None => fallback
+        case Some(info) =>
+          engineOf(info) match {
+            case "bigquery" =>
+              val project = info.options
+                .get("gcpProjectId")
+                .orElse(text(table.path("base_table"), "database"))
+                .getOrElse("PROJECT_TODO")
+              MSource(
+                Seq(s"Source = GoogleBigQuery.Database([BillingProject=${mString(project)}]),"),
+                "Source"
+              )
+            case "snowflake" =>
+              val host = hostOf(info).getOrElse("SERVER_TODO")
+              val warehouse = info.options
+                .get("warehouse")
+                .orElse(info.options.get("sfWarehouse"))
+                .getOrElse("WAREHOUSE_TODO")
+              val database =
+                text(table.path("base_table"), "database").getOrElse("DATABASE_TODO")
+              MSource(
+                Seq(
+                  s"Source = Snowflake.Databases(${mString(host)}, ${mString(warehouse)}),",
+                  s"DB = Source{[Name=${mString(database)}]}[Data],"
+                ),
+                "DB"
+              )
+            case "postgresql" =>
+              val (hostPort, database) = hostPortDb(info)
+              MSource(
+                Seq(s"Source = PostgreSQL.Database(${mString(hostPort)}, ${mString(database)}),"),
+                "Source"
+              )
+            case "redshift" =>
+              val (hostPort, database) = hostPortDb(info)
+              MSource(
+                Seq(
+                  s"Source = AmazonRedshift.Database(${mString(hostPort)}, ${mString(database)}),"
+                ),
+                "Source"
+              )
+            case "mysql" =>
+              val (hostPort, database) = hostPortDb(info)
+              MSource(
+                Seq(s"Source = MySQL.Database(${mString(hostPort)}, ${mString(database)}),"),
+                "Source"
+              )
+            case "sqlserver" =>
+              val (hostPort, database) = hostPortDb(info)
+              val host = hostPort.split(':')(0)
+              MSource(
+                Seq(s"Source = Sql.Database(${mString(host)}, ${mString(database)}),"),
+                "Source"
+              )
+            case other =>
+              logger.warn(
+                s"No Power Query connector mapping for engine '$other', emitting generic source"
+              )
+              fallback
+          }
+      }
+
+    private def engineOf(info: ConnectionInfo): String =
+      if (info.isBigQuery()) "bigquery"
+      else {
+        val url = info.options.getOrElse("url", "")
+        if (url.startsWith("jdbc:")) {
+          val engine = url.split(':')(1).toLowerCase
+          if (engine == "mariadb") "mysql" else engine
+        } else if (info.options.contains("sfUrl")) "snowflake"
+        else "unknown"
+      }
+
+    private def hostOf(info: ConnectionInfo): Option[String] =
+      info.options.getOrElse("url", "") match {
+        case UrlPattern(host, _, _) => Some(host)
+        case _                      => info.options.get("sfUrl").filter(_.nonEmpty)
+      }
+
+    private def hostPortDb(info: ConnectionInfo): (String, String) =
+      info.options.getOrElse("url", "") match {
+        case UrlPattern(host, port, db) =>
+          val hostPort = Option(port).map(p => s"$host:$p").getOrElse(host)
+          (hostPort, Option(db).getOrElse("DATABASE_TODO"))
+        case _ => ("SERVER_TODO", "DATABASE_TODO")
+      }
+
+    private val fallback: MSource =
+      MSource(
+        Seq(
+          "// TODO Starlake: set the connector for your warehouse",
+          "Source = Sql.Database(\"SERVER_TODO\", \"DATABASE_TODO\"),"
+        ),
+        "Source"
+      )
+  }
+
   // ── helpers ──────────────────────────────────────────────────────────
 
   /** TMDL names are kept verbatim; quote when not a plain [A-Za-z0-9_]+ identifier. */
@@ -111,11 +258,11 @@ object TMDLConverter extends LazyLogging {
   /** Map semantic data_type to the TMDL dataType enum; unknown or absent types become string. */
   private def tmdlType(raw: Option[String]): String =
     raw.map(_.trim.toUpperCase).getOrElse("") match {
-      case "INT" | "INTEGER" | "BIGINT" | "SMALLINT"      => "int64"
-      case "NUMBER" | "NUMERIC" | "DECIMAL"               => "decimal"
-      case "FLOAT" | "DOUBLE" | "REAL"                    => "double"
-      case "TEXT" | "STRING" | "VARCHAR" | "CHAR"         => "string"
-      case "BOOLEAN" | "BOOL"                             => "boolean"
+      case "INT" | "INTEGER" | "BIGINT" | "SMALLINT" => "int64"
+      case "NUMBER" | "NUMERIC" | "DECIMAL"          => "decimal"
+      case "FLOAT" | "DOUBLE" | "REAL"               => "double"
+      case "TEXT" | "STRING" | "VARCHAR" | "CHAR"    => "string"
+      case "BOOLEAN" | "BOOL"                        => "boolean"
       case "DATE" | "DATETIME" | "TIME" | "TIMESTAMP" | "TIMESTAMP_NTZ" | "TIMESTAMP_LTZ" |
           "TIMESTAMP_TZ" =>
         "dateTime"
