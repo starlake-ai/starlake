@@ -24,4 +24,10 @@ class SemanticExportCmdSpec extends AnyFlatSpec with Matchers {
     )
     SemanticExportCmd.parse(Seq("--format", "tableau")) shouldBe None
   }
+
+  it should "accept the tmdl format" in {
+    SemanticExportCmd.parse(Seq("--format", "tmdl", "--connection", "pg_conn")) shouldBe Some(
+      SemanticExportConfig(format = "tmdl", connection = Some("pg_conn"))
+    )
+  }
 }

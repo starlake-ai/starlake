@@ -11,7 +11,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 /** Exports semantic models stored in metadata/semantic/ to the Apache Ossie (incubating)
-  * interchange format or to a LookML project.
+  * interchange format, a LookML project or a Power BI TMDL folder.
   *
   * Input models follow the Snowflake-style semantic model layout (tables with dimensions /
   * time_dimensions / facts / metrics / filters, relationships, model-level metrics,
@@ -57,16 +57,27 @@ class SemanticExportJob(config: SemanticExportConfig)(implicit settings: Setting
     storage.mkdirs(outputDir)
 
     selected.foreach { case (path, _, name, node) =>
+      def writeAll(files: Seq[(String, String)]): Unit = {
+        val modelDir = new Path(outputDir, name)
+        storage.mkdirs(modelDir)
+        files.foreach { case (relativePath, content) =>
+          val target = new Path(modelDir, relativePath)
+          storage.write(content, target)
+          logger.info(s"Exported semantic model '$name' ($path) to $target")
+        }
+      }
       config.format match {
         case "lookml" =>
           val connection = config.connection.getOrElse(settings.appConfig.connectionRef)
-          val modelDir = new Path(outputDir, name)
-          storage.mkdirs(modelDir)
-          LookMLConverter.convert(name, node, connection).foreach { case (relativePath, content) =>
-            val target = new Path(modelDir, relativePath)
-            storage.write(content, target)
-            logger.info(s"Exported semantic model '$name' ($path) to $target")
-          }
+          writeAll(LookMLConverter.convert(name, node, connection))
+        case "tmdl" =>
+          val connectionName = config.connection.getOrElse(settings.appConfig.connectionRef)
+          val connectionInfo = settings.appConfig.connections.get(connectionName)
+          if (connectionInfo.isEmpty)
+            logger.warn(
+              s"Connection '$connectionName' not found, TMDL partitions will use a generic source"
+            )
+          writeAll(TMDLConverter.convert(name, node, connectionInfo))
         case _ =>
           val ossie = OssieConverter.convert(name, node)
           val target = new Path(outputDir, s"$name.ossie.yaml")

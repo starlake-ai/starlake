@@ -17,7 +17,7 @@ object SemanticExportCmd extends Cmd[SemanticExportConfig] {
   val command = "semantic-export"
 
   override def pageDescription: String =
-    "Export semantic models from metadata/semantic to a vendor-neutral interchange format (Apache Ossie) or a LookML project."
+    "Export semantic models from metadata/semantic to Apache Ossie, a LookML project or a Power BI TMDL folder."
   override def pageKeywords: Seq[String] =
     Seq(
       "starlake semantic-export",
@@ -26,6 +26,8 @@ object SemanticExportCmd extends Cmd[SemanticExportConfig] {
       "apache ossie",
       "lookml",
       "looker",
+      "tmdl",
+      "power bi",
       "open semantic interchange",
       "BI",
       "AI agents"
@@ -39,35 +41,36 @@ object SemanticExportCmd extends Cmd[SemanticExportConfig] {
       builder.note(
         """
           |Export the semantic models stored in metadata/semantic/ to another semantic
-          |format. Supported formats: ossie (Apache Ossie, incubating, formerly Open
-          |Semantic Interchange) and lookml (a Looker project: one view file per table
-          |plus a model file with explores).
+          |format. Supported formats: ossie (Apache Ossie, incubating), lookml (a Looker
+          |project: one view file per table plus a model file with explores) and tmdl
+          |(a Power BI TMDL folder: database.tmdl, model.tmdl, relationships.tmdl and
+          |one tables/<table>.tmdl per table).
           |
-          |For ossie, fields, primary keys, relationships, and metrics are mapped to
-          |their Ossie equivalents; Starlake-specific attributes with no Ossie
-          |counterpart (filters, sample values, verified query SQL, join types...) are
-          |preserved in custom_extensions blocks under the STARLAKE vendor name so no
-          |information is lost.
+          |For ossie, Starlake-specific attributes with no Ossie counterpart are
+          |preserved in custom_extensions blocks under the STARLAKE vendor name.
           |
-          |For lookml, dimensions, time dimensions, facts and metrics become LookML
-          |dimensions, dimension_groups and measures; relationships become explores
-          |with joins. --connection sets the Looker connection name in the model file
-          |(defaults to the project's connectionRef).
+          |For lookml, --connection sets the Looker connection name in the model file.
+          |
+          |For tmdl, --connection names the Starlake connection used to derive each
+          |table's Power Query source; simple aggregate metrics are translated to DAX
+          |and anything else becomes a BLANK() measure carrying the original SQL in a
+          |TODO comment.
           |
           |example: starlake semantic-export
-          |         --format lookml
+          |         --format tmdl
           |         --model ecommerce_analytics
-          |         --connection analytics_wh
-          |         --output /tmp/lookml-models""".stripMargin
+          |         --connection snowflake_prod
+          |         --output /tmp/tmdl-models""".stripMargin
       ),
       builder
         .opt[String]("format")
         .action((x, c) => c.copy(format = x))
         .validate(x =>
-          if (Set("ossie", "lookml").contains(x)) builder.success
-          else builder.failure(s"Unsupported format '$x'. Supported formats: ossie, lookml")
+          if (Set("ossie", "lookml", "tmdl").contains(x)) builder.success
+          else
+            builder.failure(s"Unsupported format '$x'. Supported formats: ossie, lookml, tmdl")
         )
-        .text("Target format: ossie (default) or lookml")
+        .text("Target format: ossie (default), lookml or tmdl")
         .optional(),
       builder
         .opt[String]("model")
@@ -87,7 +90,7 @@ object SemanticExportCmd extends Cmd[SemanticExportConfig] {
         .opt[String]("connection")
         .action((x, c) => c.copy(connection = Some(x)))
         .text(
-          "lookml only: Looker connection name written to the model file. Defaults to the project's connectionRef"
+          "lookml: Looker connection name written to the model file; tmdl: Starlake connection used to derive the Power Query source. Defaults to the project's connectionRef"
         )
         .optional(),
       reportFormatOption(builder)((c, x) => c.copy(reportFormat = x))
