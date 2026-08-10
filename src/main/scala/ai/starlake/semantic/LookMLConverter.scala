@@ -4,26 +4,21 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.collection.mutable.ArrayBuffer
-import scala.jdk.CollectionConverters._
 
 /** Converts Snowflake-style semantic models to a LookML project layout: one view file per table
   * plus one model file holding the connection, includes and explores.
   */
 object LookMLConverter extends LazyLogging {
 
-  private[semantic] case class ParsedAggregate(lookmlType: String, arg: Option[String])
-
-  private val AggregatePattern = """(?is)^(SUM|AVG|MIN|MAX|COUNT)\s*\((.*)\)$""".r
-  private val DistinctPattern = """(?is)^DISTINCT\s+(.+)$""".r
-  private val IdentifierPattern = """^[A-Za-z_][A-Za-z0-9_]*$""".r
-  private val QualifiedPattern = """^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$""".r
+  import SemanticModelOps._
 
   /** Convert one semantic model. Returns (relativePath, content) pairs: the model file first, then
     * one view file per table.
     */
   def convert(modelName: String, model: JsonNode, connection: String): Seq[(String, String)] = {
     val tables = elems(model, "tables")
-    val metricsByView = assignModelMetrics(model, tables)
+    val metricsByView =
+      assignModelMetrics(model, tables.map(_.path("name").asText()), sanitize)
     val views = tables.map { table =>
       val viewName = sanitize(table.path("name").asText())
       s"$viewName.view.lkml" -> renderView(table, metricsByView.getOrElse(viewName, Nil))
@@ -31,41 +26,6 @@ object LookMLConverter extends LazyLogging {
     if (model.has("verified_queries"))
       logger.info(s"Model '$modelName': verified_queries have no LookML equivalent, skipped")
     (s"${sanitize(modelName)}.model.lkml" -> renderModel(model, connection)) +: views
-  }
-
-  /** Model-level metrics are attached to the view owning the aggregate argument (COUNT(DISTINCT
-    * customers.customer_id) lands in the customers view); metrics whose owning table cannot be
-    * determined go to the first view, flagged as unowned so they render with the fallback treatment
-    * (see `measure`) instead of being silently mis-scoped as a native measure.
-    */
-  private def assignModelMetrics(
-    model: JsonNode,
-    tables: List[JsonNode]
-  ): Map[String, List[(JsonNode, Boolean)]] = {
-    val viewNames = tables.map(t => sanitize(t.path("name").asText()))
-    val metrics = elems(model, "metrics")
-    if (viewNames.isEmpty) {
-      if (metrics.nonEmpty)
-        logger.warn("Model-level metrics dropped: the model defines no tables")
-      Map.empty
-    } else
-      metrics
-        .map { metric =>
-          val owner = for {
-            parsed <- parseAggregate(metric.path("expr").asText())
-            arg    <- parsed.arg
-            table <- arg.trim match {
-              case QualifiedPattern(table, _) => Some(sanitize(table))
-              case _                          => None
-            }
-            if viewNames.contains(table)
-          } yield table
-          (metric, owner)
-        }
-        .groupBy { case (_, owner) => owner.getOrElse(viewNames.head) }
-        .view
-        .mapValues(_.map { case (metric, owner) => (metric, owner.isDefined) })
-        .toMap
   }
 
   private def renderView(table: JsonNode, modelMetrics: List[(JsonNode, Boolean)]): String = {
@@ -80,7 +40,7 @@ object LookMLConverter extends LazyLogging {
 
     val lines = ArrayBuffer[String]()
     lines += s"view: $viewName {"
-    lines += s"  sql_table_name: ${source(table)} ;;"
+    lines += s"  sql_table_name: ${baseTableFqn(table)} ;;"
     if (pkColumns.size > 1)
       lines += s"  # composite primary key (${pkColumns.mkString(", ")}) not representable in LookML"
 
@@ -132,7 +92,7 @@ object LookMLConverter extends LazyLogging {
     if (singlePk.contains(name)) lines += "    primary_key: yes"
     lookmlType.foreach(t => lines += s"    type: $t")
     lines += s"    sql: $sql ;;"
-    description(col).foreach(d => lines += s"    description: ${quote(d)}")
+    combinedDescription(col).foreach(d => lines += s"    description: ${quote(d)}")
     val samples = elems(col, "sample_values").map(_.asText())
     if (samples.nonEmpty)
       lines += s"    suggestions: [${samples.map(quote).mkString(", ")}]"
@@ -150,15 +110,15 @@ object LookMLConverter extends LazyLogging {
     if (text(col, "data_type").exists(_.trim.equalsIgnoreCase("DATE")))
       lines += "    datatype: date"
     lines += s"    sql: $sql ;;"
-    description(col).foreach(d => lines += s"    description: ${quote(d)}")
+    combinedDescription(col).foreach(d => lines += s"    description: ${quote(d)}")
     lines += "  }"
     lines.toSeq
   }
 
   /** `owned` is false only for model-level metrics whose owning table could not be determined (see
-    * `assignModelMetrics`); such metrics always get the fallback treatment below, even when
-    * `parseAggregate` succeeds, since rendering them as a native measure in an arbitrary view would
-    * be silently wrong.
+    * SemanticModelOps.assignModelMetrics); such metrics always get the fallback treatment below,
+    * even when `parseAggregate` succeeds, since rendering them as a native measure in an arbitrary
+    * view would be silently wrong.
     */
   private def measure(
     m: JsonNode,
@@ -191,7 +151,7 @@ object LookMLConverter extends LazyLogging {
         lines += "    type: number"
         lines += s"    sql: $expr ;;"
     }
-    description(m).foreach(d => lines += s"    description: ${quote(d)}")
+    combinedDescription(m).foreach(d => lines += s"    description: ${quote(d)}")
     lines += "  }"
     lines.toSeq
   }
@@ -249,41 +209,6 @@ object LookMLConverter extends LazyLogging {
     sanitized
   }
 
-  /** Recognize a whole expression that is exactly one simple aggregate call. Arguments containing
-    * parentheses (nested calls, arithmetic) are rejected so the caller falls back to raw SQL.
-    */
-  private[semantic] def parseAggregate(expr: String): Option[ParsedAggregate] =
-    expr.trim match {
-      case AggregatePattern(fn, rawArg) =>
-        val arg = rawArg.trim
-        if (arg.contains("(") || arg.contains(")")) None
-        else
-          fn.toUpperCase match {
-            case "COUNT" =>
-              arg match {
-                case "*"                  => Some(ParsedAggregate("count", None))
-                case DistinctPattern(col) => Some(ParsedAggregate("count_distinct", Some(col.trim)))
-                case _                    => None
-              }
-            case "SUM" => Some(ParsedAggregate("sum", Some(arg)))
-            case "AVG" => Some(ParsedAggregate("average", Some(arg)))
-            case "MIN" => Some(ParsedAggregate("min", Some(arg)))
-            case "MAX" => Some(ParsedAggregate("max", Some(arg)))
-          }
-      case _ => None
-    }
-
-  private def description(node: JsonNode): Option[String] = {
-    val desc = text(node, "description")
-    val synonyms = elems(node, "synonyms").map(_.asText()).filter(_.nonEmpty)
-    val synPart =
-      if (synonyms.nonEmpty) Some(s"Synonyms: ${synonyms.mkString(", ")}") else None
-    (desc, synPart) match {
-      case (Some(d), Some(s)) => Some(s"$d. $s")
-      case (d, s)             => d.orElse(s)
-    }
-  }
-
   private def dimensionType(raw: String): Option[String] =
     raw.trim.toUpperCase match {
       case "NUMBER" | "NUMERIC" | "DECIMAL" | "INT" | "INTEGER" | "BIGINT" | "SMALLINT" | "FLOAT" |
@@ -294,19 +219,6 @@ object LookMLConverter extends LazyLogging {
       case _                                      => None
     }
 
-  private def source(table: JsonNode): String = {
-    val base = table.path("base_table")
-    val parts = List("database", "schema", "table").flatMap(k => text(base, k)).filter(_.nonEmpty)
-    if (parts.nonEmpty) parts.mkString(".") else table.path("name").asText()
-  }
-
   private def quote(s: String): String =
     "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
-
-  private def elems(node: JsonNode, key: String): List[JsonNode] =
-    if (node.has(key) && node.get(key).isArray) node.get(key).elements().asScala.toList
-    else Nil
-
-  private def text(node: JsonNode, key: String): Option[String] =
-    Option(node.path(key).asText(null)).filter(_.nonEmpty)
 }

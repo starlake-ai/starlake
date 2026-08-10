@@ -6,7 +6,8 @@ import org.scalatest.matchers.should.Matchers
 
 class LookMLConverterSpec extends AnyFlatSpec with Matchers {
 
-  import LookMLConverter.{parseAggregate, sanitize, ParsedAggregate}
+  import LookMLConverter.sanitize
+  import SemanticModelOps.{parseAggregate, ParsedAggregate}
 
   "sanitize" should "lowercase and replace invalid characters" in {
     sanitize("order_id") shouldBe "order_id"
