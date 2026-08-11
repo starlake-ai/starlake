@@ -1074,6 +1074,16 @@ object Settings extends LazyLogging {
               connection.copy(options = options.removed("authenticator"))
             else
               connection
+          } else if (connection.isFlightSql()) {
+            val withDriver =
+              if (connection.options.contains("driver")) connection.options
+              else
+                connection.options +
+                ("driver" -> "org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver")
+            val newSparkFormat =
+              if (connection.isDuckDb()) None // duckdb dialect: spark mode not supported
+              else connection.sparkFormat
+            connection.copy(options = withDriver, sparkFormat = newSparkFormat)
           } else if (connection.isDuckDb())
             connection.copy(sparkFormat = None) // spark mode not supported in duckdb
           else connection
