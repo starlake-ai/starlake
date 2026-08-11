@@ -1,6 +1,6 @@
 package ai.starlake.utils
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{ConnectionInfo, Settings}
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.TableAttribute
@@ -83,7 +83,7 @@ object SparkUtils extends LazyLogging {
   ): Seq[String] = {
     val url = jdbcOptions("url")
     if (isFlat(incomingSparkSchema)) {
-      val existingSchema = getSchemaOption(conn, jdbcOptions, domainAndTableName)
+      val existingSchema = getSchemaOption(conn, jdbcOptions, domainAndTableName, engineName)
       val addedSColumns =
         SparkUtils.added(incomingSparkSchema, existingSchema.getOrElse(incomingSparkSchema))
       val deletedColumns =
@@ -120,9 +120,11 @@ object SparkUtils extends LazyLogging {
   def getSchemaOption(
     conn: Connection,
     options: Map[String, String],
-    table: String
+    table: String,
+    engineName: String
   ): Option[StructType] = {
-    val dialect = SparkUtils.dialectForUrl(options("url"))
+    val dialect =
+      SparkUtils.dialectForUrl(ConnectionInfo.jdbcUrlForDialect(options("url"), engineName))
     val preferTimestampNTZ =
       options
         .get(JDBC_PREFER_TIMESTAMP_NTZ)
@@ -217,6 +219,7 @@ object SparkUtils extends LazyLogging {
         schema,
         caseSensitive,
         options.url,
+        engineName,
         attrDdlMapping,
         0
       ) // options.createTableColumnTypes
@@ -276,6 +279,7 @@ object SparkUtils extends LazyLogging {
     schema: StructType,
     caseSensitive: Boolean,
     url: String,
+    engineName: String,
     createTableColumnTypes: Map[String, Map[String, String]] = Map.empty,
     level: Int
   )(implicit settings: Settings): String = {
@@ -283,6 +287,7 @@ object SparkUtils extends LazyLogging {
       schema,
       caseSensitive,
       url,
+      engineName,
       createTableColumnTypes,
       level
     )
@@ -293,6 +298,7 @@ object SparkUtils extends LazyLogging {
     schema: StructType,
     caseSensitive: Boolean,
     url: String,
+    engineName: String,
     sparkToSqlTypeMappings: Map[String, Map[String, String]] = Map.empty,
     level: Int
   )(implicit settings: Settings): List[String] = {
@@ -300,16 +306,23 @@ object SparkUtils extends LazyLogging {
     sparkToSqlTypeMappings.foreach { case (k, v) =>
       logger.debug(s"Column $k has DDL types $v")
     }
-    val dialectPattern = Pattern
-      .compile("jdbc:([a-zA-Z]+):.*")
-      .matcher(
-        url.replace(":starlake:", ":")
-      ) // in case we are coming with a starlake wrapped jdbc url
-    require(dialectPattern.find())
-    val dialectName = dialectPattern.group(1)
+    // A flight sql url names a transport, not an engine: only the connection knows the engine.
+    // Any other url keeps its historical url derived name (mariadb and databricks urls have their
+    // own engine profile here, unlike the name returned by getJdbcEngineName).
+    val dialectName =
+      if (ConnectionInfo.isFlightSqlUrl(url)) engineName
+      else {
+        val dialectPattern = Pattern
+          .compile("jdbc:([a-zA-Z]+):.*")
+          .matcher(
+            url.replace(":starlake:", ":")
+          ) // in case we are coming with a starlake wrapped jdbc url
+        require(dialectPattern.find())
+        dialectPattern.group(1)
+      }
     val jdbcEng = settings.appConfig.jdbcEngines(dialectName)
 
-    val dialect = dialectForUrl(url)
+    val dialect = dialectForUrl(ConnectionInfo.jdbcUrlForDialect(url, engineName))
     val typMap =
       if (caseSensitive) sparkToSqlTypeMappings
       else
@@ -338,7 +351,14 @@ object SparkUtils extends LazyLogging {
               elementType match {
                 case struct: StructType =>
                   val fields =
-                    sqlSchema(struct, caseSensitive, url, sparkToSqlTypeMappings, level + 1)
+                    sqlSchema(
+                      struct,
+                      caseSensitive,
+                      url,
+                      engineName,
+                      sparkToSqlTypeMappings,
+                      level + 1
+                    )
                   if (repeated) {
                     s"$name STRUCT(${fields.mkString(",")})[]"
                   } else {

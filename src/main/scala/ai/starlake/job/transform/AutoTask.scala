@@ -688,6 +688,7 @@ abstract class AutoTask(
       sparkSchema,
       caseSensitive = false,
       sinkConnection.jdbcUrl,
+      jdbcSinkEngineName.toString,
       ddlMap,
       0
     )

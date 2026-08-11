@@ -56,7 +56,12 @@ class SparkJdbcWriter(
       val url = jdbcOptions("url")
       val connectionInfo = ConnectionInfo(ConnectionType.JDBC, options = jdbcOptions)
       JdbcDbUtils.withJDBCConnection(settings.schemaHandler().dataBranch(), jdbcOptions) { conn =>
-        val tableExists = JdbcDbUtils.tableExists(conn, url, cliConfig.outputDomainAndTableName)
+        val tableExists = JdbcDbUtils.tableExists(
+          conn,
+          url,
+          cliConfig.outputDomainAndTableName,
+          connectionInfo.getJdbcEngineName().toString
+        )
         if (!tableExists && settings.appConfig.createSchemaIfNotExists) {
           logger.info(s"table ${cliConfig.outputDomainAndTableName} not found, trying to create it")
           JdbcDbUtils.createSchema(conn, outputDomain)
@@ -66,7 +71,12 @@ class SparkJdbcWriter(
         val schema = sourceDF.schema
         if (SparkUtils.isFlat(schema) && tableExists) {
           val existingSchema =
-            SparkUtils.getSchemaOption(conn, jdbcOptions, cliConfig.outputDomainAndTableName)
+            SparkUtils.getSchemaOption(
+              conn,
+              jdbcOptions,
+              cliConfig.outputDomainAndTableName,
+              connectionInfo.getJdbcEngineName().toString
+            )
           val addedSchema = SparkUtils.added(schema, existingSchema.getOrElse(schema))
           val deletedSchema = SparkUtils.dropped(schema, existingSchema.getOrElse(schema))
           val alterTableDropColumns =

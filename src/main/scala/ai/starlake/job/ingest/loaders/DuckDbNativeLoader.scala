@@ -67,7 +67,8 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
               JdbcDbUtils.tableExists(
                 conn,
                 sinkConnection.jdbcUrl,
-                domain.finalName + "." + schema.finalName
+                domain.finalName + "." + schema.finalName,
+                sinkConnection.getJdbcEngineName().toString
               )
             if (tableExists) {
               // get line count from table
@@ -304,7 +305,12 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
         // the two lines below are intentional to initialize the database
         val stmtExternal = conn.createStatement()
         stmtExternal.close()
-        val tableExists = JdbcDbUtils.tableExists(conn, sinkConnection.jdbcUrl, domainAndTableName)
+        val tableExists = JdbcDbUtils.tableExists(
+          conn,
+          sinkConnection.jdbcUrl,
+          domainAndTableName,
+          sinkConnection.getJdbcEngineName().toString
+        )
         JdbcDbUtils.createSchema(conn, domain)
         strategy.getEffectiveType() match {
           case WriteStrategyType.APPEND =>

@@ -35,7 +35,7 @@ final case class ConnectionInfo(
 
   @JsonIgnore
   def isFlightSql(): Boolean =
-    options.get("url").exists(_.startsWith("jdbc:arrow-flight-sql:"))
+    options.get("url").exists(ConnectionInfo.isFlightSqlUrl)
 
   @JsonIgnore
   private def flightSqlDialect(): String =
@@ -474,7 +474,7 @@ final case class ConnectionInfo(
 
     }
     val resolvedEngineName =
-      if (engineName.toLowerCase() == "arrow-flight-sql") flightSqlDialect()
+      if (engineName.toLowerCase() == ConnectionInfo.FlightSqlScheme) flightSqlDialect()
       else engineName
     Engine.fromString(resolvedEngineName)
   }
@@ -527,19 +527,19 @@ final case class ConnectionInfo(
     )
   )
 
+  /** The jdbc url to resolve a spark dialect from. Flight SQL urls carry no engine in their scheme,
+    * the engine comes from the `dialect` option, so the scheme is rewritten to the resolved engine.
+    * Identical to [[jdbcUrl]] for any other connection. Never use it to open a connection.
+    */
+  @JsonIgnore
+  lazy val jdbcUrlForDialect: String =
+    ConnectionInfo.jdbcUrlForDialect(jdbcUrl, getJdbcEngineName().toString)
+
   @JsonIgnore
   lazy val dialect: JdbcDialect =
     applyIfConnectionTypeIs(
-      ConnectionType.JDBC, {
-        val urlForDialect =
-          if (isFlightSql())
-            jdbcUrl.replaceFirst(
-              "^jdbc:arrow-flight-sql:",
-              s"jdbc:${getJdbcEngineName().toString}:"
-            )
-          else jdbcUrl
-        SparkUtils.dialectForUrl(urlForDialect)
-      }
+      ConnectionType.JDBC,
+      SparkUtils.dialectForUrl(jdbcUrlForDialect)
     )
 
   def quoteIdentifier(identifier: String): String = dialect.quoteIdentifier(identifier)
@@ -560,6 +560,26 @@ final case class ConnectionInfo(
 }
 
 object ConnectionInfo {
+
+  /** Scheme of an Arrow Flight SQL jdbc url. It designates a transport, not an engine: the engine
+    * comes from the connection `dialect` option (duckdb by default).
+    */
+  val FlightSqlScheme = "arrow-flight-sql"
+
+  val FlightSqlUrlPrefix = s"jdbc:$FlightSqlScheme:"
+
+  val ArrowFlightDriverClass = "org.apache.arrow.driver.jdbc.ArrowFlightJdbcDriver"
+
+  def isFlightSqlUrl(url: String): Boolean = url.startsWith(FlightSqlUrlPrefix)
+
+  /** Rewrite a Flight SQL url scheme to the resolved engine so that engine aware helpers (spark
+    * dialects) recognize it. Any other url is returned unchanged.
+    */
+  def jdbcUrlForDialect(url: String, engineName: String): String =
+    if (isFlightSqlUrl(url))
+      s"jdbc:$engineName:" + url.stripPrefix(FlightSqlUrlPrefix)
+    else url
+
   val gcsOptions = List(
     "gcsBucket",
     "temporaryGcsBucket",

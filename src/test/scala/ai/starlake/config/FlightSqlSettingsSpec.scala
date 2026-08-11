@@ -40,5 +40,20 @@ class FlightSqlSettingsSpec extends TestHelper {
       adjustedConn.options("driver") shouldBe "com.example.CustomFlightDriver"
       adjustedConn.sparkFormat shouldBe Some("jdbc")
     }
+
+    it should "default the arrow flight driver even when the dialect resolves to snowflake" in {
+      val conn = ConnectionInfo(
+        `type` = ConnectionType.JDBC,
+        sparkFormat = Some("jdbc"),
+        options = Map("url" -> qodUrl, "dialect" -> "snowflake")
+      )
+      conn.isSnowflake() shouldBe true // the dialect shadows the flight transport
+      val appConfig = settings.appConfig.copy(connections = Map("qod" -> conn))
+      val adjusted = Settings.adjustConnectionProperties(settings.copy(appConfig = appConfig))
+      val adjustedConn = adjusted.appConfig.connections("qod")
+      adjustedConn.options("driver") shouldBe ConnectionInfo.ArrowFlightDriverClass
+      adjustedConn.sparkFormat shouldBe Some("jdbc")
+      adjustedConn.options("url") shouldBe qodUrl
+    }
   }
 }

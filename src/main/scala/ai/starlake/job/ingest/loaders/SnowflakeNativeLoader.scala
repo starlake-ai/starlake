@@ -382,7 +382,12 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
     val ddlMap = schemaHandler.getDdlMapping(schema.attributes)
     val attrsWithDDLTypes = schemaHandler.getAttributesWithDDLType(schema, "snowflake")
 
-    val tableExists = JdbcDbUtils.tableExists(conn, sinkConnection.jdbcUrl, domainAndTableName)
+    val tableExists = JdbcDbUtils.tableExists(
+      conn,
+      sinkConnection.jdbcUrl,
+      domainAndTableName,
+      sinkConnection.getJdbcEngineName().toString
+    )
     JdbcDbUtils.createSchema(conn, domain)
     strategy.getEffectiveType() match {
       case WriteStrategyType.APPEND =>

@@ -1,5 +1,6 @@
 package ai.starlake.extract
 
+import ai.starlake.config.ConnectionInfo
 import ai.starlake.utils.StarlakeJdbcOps
 import com.typesafe.scalalogging.LazyLogging
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
@@ -119,7 +120,7 @@ object StarlakeConnectionPool extends LazyLogging {
     // Flight SQL connections are pure remote clients: any ducklake/quack attach
     // happens server-side, never on this JVM (see docs/quack.md isolation model)
     val isFlightSql =
-      connectionOptions.get("url").exists(_.startsWith("jdbc:arrow-flight-sql:"))
+      connectionOptions.get("url").exists(ConnectionInfo.isFlightSqlUrl)
     val isAttachBacked =
       !isFlightSql &&
       connectionOptions

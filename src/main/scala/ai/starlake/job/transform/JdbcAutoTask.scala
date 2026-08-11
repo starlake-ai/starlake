@@ -105,7 +105,12 @@ class JdbcAutoTask(
         sinkConnection.options
       ) { conn =>
         val url = sinkConnection.options("url")
-        val exists = JdbcDbUtils.tableExists(conn, url, fullTableName)
+        val exists = JdbcDbUtils.tableExists(
+          conn,
+          url,
+          fullTableName,
+          sinkConnection.getJdbcEngineName().toString
+        )
         exists
       }
     if (!exists && taskDesc._auditTableName.isDefined)
@@ -535,7 +540,12 @@ class JdbcAutoTask(
       conn =>
         if (targetTableExists) {
           val existingSchema =
-            SparkUtils.getSchemaOption(conn, sinkConnectionRefOptions, tableName)
+            SparkUtils.getSchemaOption(
+              conn,
+              sinkConnectionRefOptions,
+              tableName,
+              sinkConnection.getJdbcEngineName().toString
+            )
           val addedSchema =
             SparkUtils.added(
               incomingSchemaWithSCD2,

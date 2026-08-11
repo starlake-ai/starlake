@@ -191,7 +191,7 @@ object JdbcDbUtils extends LazyLogging {
   ): Unit = {
     val isDucklake = preActions.getOrElse("").contains("ducklake:")
     val isFlightSql =
-      connectionOptions.get("url").exists(_.startsWith("jdbc:arrow-flight-sql:"))
+      connectionOptions.get("url").exists(ConnectionInfo.isFlightSqlUrl)
 
     if (!isFlightSql) {
       // Set home_directory and secret_directory BEFORE any S3 settings or extension loading
@@ -357,8 +357,13 @@ object JdbcDbUtils extends LazyLogging {
     }
   }
 
-  def tableExists(conn: Connection, url: String, domainAndTablename: String): Boolean = {
-    val dialect = SparkUtils.dialectForUrl(url)
+  def tableExists(
+    conn: Connection,
+    url: String,
+    domainAndTablename: String,
+    engineName: String
+  ): Boolean = {
+    val dialect = SparkUtils.dialectForUrl(ConnectionInfo.jdbcUrlForDialect(url, engineName))
     Try {
       val existQuery = dialect.getTableExistsQuery(domainAndTablename)
       val statement = conn.prepareStatement(existQuery)
@@ -833,8 +838,7 @@ object JdbcDbUtils extends LazyLogging {
     settings: Settings,
     dbExtractEC: ExtractExecutionContext
   ): Map[TableName, ExtractTableAttributes] = {
-    val url = connectionSettings.options("url")
-    val jdbcServer = url.split(":")(1)
+    val jdbcServer = connectionSettings.getJdbcEngineName().toString
     val jdbcEngine = settings.appConfig.jdbcEngines.get(jdbcServer)
     val jdbcTableMap =
       jdbcSchema.tables

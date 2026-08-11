@@ -404,6 +404,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
           finalSparkSchema,
           caseSensitive = false,
           options.url,
+          sinkConnection.getJdbcEngineName().toString,
           ddlMap,
           0
         )

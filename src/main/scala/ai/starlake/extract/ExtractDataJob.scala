@@ -893,7 +893,8 @@ class ExtractDataJob(schemaHandler: SchemaHandler) extends ExtractPathHelper wit
             tableExists(
               connection,
               connectionSettings.jdbcUrl,
-              s"${auditSchema}.$lastExportTableName"
+              s"${auditSchema}.$lastExportTableName",
+              connectionSettings.getJdbcEngineName().toString
             )
           if (!existLastExportTable && settings.appConfig.createSchemaIfNotExists) {
             createSchema(connection, auditSchema)
