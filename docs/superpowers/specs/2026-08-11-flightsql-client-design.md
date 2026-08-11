@@ -56,6 +56,33 @@ connections:
       dialect: "duckdb"   # optional, defaults to duckdb
 ```
 
+### Gateway URLs (quack-on-demand)
+
+Everything after the host:port is opaque to Starlake: the URL query string is
+passed to the Arrow driver untouched, and the driver forwards unknown
+parameters to the server. Gateway-specific routing therefore needs no Starlake
+support. Connecting to a quack-on-demand FlightSQL gateway looks like:
+
+```yaml
+connections:
+  qod_bi:
+    type: jdbc
+    options:
+      url: "jdbc:arrow-flight-sql://localhost:31338?useEncryption=true&disableCertificateVerification=true&tenant=acme&pool=bi&superuser=true"
+      user: "..."
+      password: "..."
+      # dialect defaults to duckdb, which is what QoD fronts
+```
+
+`useEncryption` and `disableCertificateVerification` are TLS flags understood
+by the Arrow driver itself; `tenant`, `pool`, and `superuser` are QoD routing
+parameters the driver passes through to the gateway. Starlake only ever
+inspects the `jdbc:arrow-flight-sql:` scheme (dialect resolution rewrites the
+scheme purely for the Spark `JdbcDialects` quoting lookup; the connection
+always uses the original URL). Connections with different query strings (other
+tenants or pools) get distinct HikariCP pools because the pool key hashes the
+full URL.
+
 Flight SQL is a transport, not a dialect: the endpoint fronts a real engine whose
 SQL Starlake must generate. Changes, all in `config/ConnectionInfo.scala`:
 
