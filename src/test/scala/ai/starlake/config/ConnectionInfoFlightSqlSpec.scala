@@ -8,7 +8,7 @@ class ConnectionInfoFlightSqlSpec extends AnyFlatSpec with Matchers {
 
   private val qodUrl =
     "jdbc:arrow-flight-sql://localhost:31338?useEncryption=true" +
-      "&disableCertificateVerification=true&tenant=acme&pool=bi&superuser=true"
+    "&disableCertificateVerification=true&tenant=acme&pool=bi&superuser=true"
 
   private def flightConnection(extraOptions: Map[String, String] = Map.empty): ConnectionInfo =
     ConnectionInfo(

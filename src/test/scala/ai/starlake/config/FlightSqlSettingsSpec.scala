@@ -7,7 +7,7 @@ class FlightSqlSettingsSpec extends TestHelper {
 
   private val qodUrl =
     "jdbc:arrow-flight-sql://localhost:31338?useEncryption=true" +
-      "&disableCertificateVerification=true&tenant=acme&pool=bi&superuser=true"
+    "&disableCertificateVerification=true&tenant=acme&pool=bi&superuser=true"
 
   new WithSettings() {
     "flight sql connection normalization" should "fill in the default driver and strip sparkFormat for duckdb dialect" in {
