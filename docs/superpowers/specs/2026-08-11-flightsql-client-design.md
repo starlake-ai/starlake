@@ -15,8 +15,9 @@ transform target, audit and expectation tables).
 
 - Full engine parity, not source-only.
 - Dialect is chosen by the connection option `dialect`, defaulting to `duckdb`.
-- Driver is the official `org.apache.arrow:flight-sql-jdbc-driver`, `provided`
-  scope, downloaded by `Setup.java` (same pattern as Snowflake/Redshift/Postgres).
+- Driver is the official `org.apache.arrow:flight-sql-jdbc-driver`, a pure
+  runtime artifact downloaded by `Setup.java` (same delivery as
+  Snowflake/Redshift/Postgres); no sbt dependency.
 - Clean break: the `gizmosql` command is removed with no deprecated alias.
 
 ## Part 1: GizmoSQL removal
@@ -126,12 +127,6 @@ Consequences:
   skipped for Flight SQL connections; credentials live server-side. The
   generic `preActions` loop still runs, so session SQL such as `USE lake` or
   `SET schema` can be sent over the Flight connection.
-- New connection option `ducklake: "true"`: `isDucklake()` returns true when
-  `preActions` contains `'ducklake:` (existing behavior) OR
-  `options("ducklake")` equals `true`. This lets a Flight SQL connection
-  declare that the server fronts a DuckLake, enabling DuckLake-only behavior
-  such as partitioned-table DDL (`Sink.getPartitionByClauseSQL`,
-  `DuckDbNativeLoader.setPartition`).
 - Loading: `IngestionJob.selectLoader()` resolves `duckdb` for
   dialect-duckdb Flight connections, so `DuckDbNativeLoader` runs its
   `read_csv`/`read_json` SQL over the remote connection, server-side. Files
@@ -152,10 +147,10 @@ Consequences:
 
 ## Part 4: Packaging and Setup.java
 
-- `project/Dependencies.scala`: add
-  `"org.apache.arrow" % "flight-sql-jdbc-driver" % Versions.arrowFlightSql % "provided"`
-  with `Versions.arrowFlightSql = "19.0.0"` (latest stable on Maven Central as of
-  2026-08-11). No Jackson exclusions needed: the driver jar is shaded.
+- No sbt dependency at all: Starlake never references driver classes at compile
+  time (the driver is loaded by class name through the normal JDBC machinery),
+  so the jar is a pure runtime artifact delivered by Setup.java. Version
+  `19.0.0` (latest stable on Maven Central as of 2026-08-11).
 - `src/main/java/Setup.java`:
   - `ENABLE_FLIGHTSQL` flag, default true via `envIsTrueWithDefaultTrue`, honored
     by `ENABLE_ALL` and the interactive prompt like the other flags.
@@ -172,16 +167,11 @@ Consequences:
   - `dialect: postgresql` resolves engine to `postgresql`.
   - Driver option defaults to the Arrow driver class when absent.
   - Spark dialect lookup uses the rewritten scheme.
-- Integration test: start Arrow's in-process `FlightSqlExample` server
-  (Derby-backed, ships in `org.apache.arrow:flight-sql`) on a random port, then
-  through the real driver: open a pooled connection, list tables via JDBC
-  metadata, run a SELECT through `JdbcDbUtils`. Both `flight-sql` and
-  `flight-sql-jdbc-driver` are added in Test scope so the integration test runs
-  without Setup.java. This exercises driver loading, the pool, and metadata
-  paths with no external service.
-- End-to-end load/transform against a DuckDB-backed Flight SQL endpoint remains
-  a manual test; with GizmoSQL removed there is no bundled server to automate
-  against.
+  - The full QoD gateway URL
+    (`jdbc:arrow-flight-sql://localhost:31338?useEncryption=true&disableCertificateVerification=true&tenant=acme&pool=bi&superuser=true`)
+    resolves and is never rewritten.
+- End-to-end verification is manual, against a live QoD gateway with the URL
+  above. No in-process Flight SQL test server is bundled.
 - `YamlSerdeSpec` updated for the removed `GizmoSql` settings type.
 
 ## Part 6: Docs, skills, changelog
@@ -192,9 +182,8 @@ Consequences:
 
 ## Error handling
 
-- Unknown `dialect` value: `validate` reports early with a clear message listing
-  the valid `jdbcEngines` keys; at runtime the existing "engine not found" error
-  path applies.
+- Unknown `dialect` value: the existing "engine not found" error path applies
+  at first use (no dedicated validation).
 - Missing driver jar (user skipped Setup or ENABLE_FLIGHTSQL=false): the pool's
   existing driver-class-not-found failure surfaces; the message already names the
   missing class, which is enough to point at Setup.
