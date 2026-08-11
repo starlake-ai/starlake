@@ -16,7 +16,6 @@ import ai.starlake.job.sink.jdbc.JdbcConnectionLoadCmd
 import ai.starlake.job.sink.kafka.KafkaJobCmd
 import ai.starlake.job.site.SiteCmd
 import ai.starlake.job.tools.SummarizeCmd
-import ai.starlake.job.gizmo.GizmoCmd
 import ai.starlake.job.quack.QuackCmd
 import ai.starlake.job.transform.{JobCmd, TransformCmd}
 import ai.starlake.lineage.{
@@ -129,7 +128,6 @@ object Main extends LazyLogging {
     SettingsCmd,
     SummarizeCmd,
     JobCmd,
-    GizmoCmd,
     QuackCmd,
     SemanticExportCmd
   )

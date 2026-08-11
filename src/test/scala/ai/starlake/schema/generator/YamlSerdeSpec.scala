@@ -11,7 +11,6 @@ import ai.starlake.config.Settings.{
   ConnectionInfo,
   DagRef,
   ExpectationsConfig,
-  GizmoSql,
   Http,
   Internal,
   JdbcEngine,
@@ -1300,13 +1299,6 @@ object YamlConfigGenerators {
     } yield Http(interface = interface, port = port)
   }
 
-  implicit val gizmo: Arbitrary[GizmoSql] = Arbitrary {
-    for {
-      url    <- arbitrary[String]
-      apiKey <- arbitrary[String]
-    } yield GizmoSql(url = url, apiKey = apiKey)
-  }
-
   implicit val timezone: Arbitrary[TimeZone] = Arbitrary {
     Gen.oneOf(TimeZone.getAvailableIDs).map(TimeZone.getTimeZone)
   }
@@ -1398,7 +1390,6 @@ object YamlConfigGenerators {
       syncYamlWithDb          <- arbitrary[Boolean]
       onExceptionRetries      <- arbitrary[Int]
       pythonLibsDir           <- arbitrary[String]
-      gizmosql                <- arbitrary[GizmoSql]
     } yield AppConfig(
       env = env,
       datasets = datasets,
@@ -1486,8 +1477,7 @@ object YamlConfigGenerators {
       syncSqlWithYaml = syncSqlWithYaml,
       syncYamlWithDb = syncYamlWithDb,
       onExceptionRetries = onExceptionRetries,
-      pythonLibsDir = pythonLibsDir,
-      gizmosql = gizmosql
+      pythonLibsDir = pythonLibsDir
     )
   }
 
