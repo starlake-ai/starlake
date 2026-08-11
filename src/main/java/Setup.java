@@ -45,7 +45,7 @@
  * <p>
  * Environment Variables:
  * <ul>
- *   <li>ENABLE_ALL, ENABLE_BIGQUERY, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_DUCKDB, ENABLE_KAFKA, ENABLE_MARIADB, ENABLE_CLICKHOUSE, ENABLE_TRINODB, ENABLE_SPARK</li>
+ *   <li>ENABLE_ALL, ENABLE_BIGQUERY, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_DUCKDB, ENABLE_FLIGHTSQL, ENABLE_KAFKA, ENABLE_MARIADB, ENABLE_CLICKHOUSE, ENABLE_TRINODB, ENABLE_SPARK</li>
  *   <li>SL_VERSION, SCALA_VERSION, SPARK_VERSION, HADOOP_VERSION, etc. (for version overrides)</li>
  *   <li>https_proxy, http_proxy, no_proxy (for proxy configuration)</li>
  *   <li>SL_INSECURE (to disable SSL certificate validation)</li>
@@ -214,6 +214,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     public static boolean ENABLE_REDSHIFT = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_REDSHIFT");
     public static boolean ENABLE_POSTGRESQL = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_POSTGRESQL");
     public static boolean ENABLE_DUCKDB = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_DUCKDB");
+    public static boolean ENABLE_FLIGHTSQL = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_FLIGHTSQL");
     public static boolean ENABLE_KAFKA = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_KAFKA");
     public static boolean ENABLE_MARIADB = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_MARIA");
     public static boolean ENABLE_CLICKHOUSE = ENABLE_ALL || envIsTrueWithDefaultTrue("ENABLE_CLICKHOUSE");
@@ -229,6 +230,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             ENABLE_POSTGRESQL,
             ENABLE_TRINODB,
             ENABLE_DUCKDB,
+            ENABLE_FLIGHTSQL,
             ENABLE_KAFKA
         };
     }
@@ -322,6 +324,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
     // DUCKDB
     private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.5.3.0");
 
+    // ARROW FLIGHT SQL
+    private static final String FLIGHT_SQL_JDBC_VERSION = getEnv("FLIGHT_SQL_JDBC_VERSION").orElse("19.0.0");
+
     // REDSHIFT
     private static final String AWS_JAVA_SDK_VERSION = getEnv("AWS_JAVA_SDK_VERSION").orElse("1.12.797");
     private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.3.6");
@@ -363,6 +368,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency POSTGRESQL_JAR = new ResourceDependency("postgresql", "https://repo1.maven.org/maven2/org/postgresql/postgresql/" + POSTGRESQL_VERSION + "/postgresql-" + POSTGRESQL_VERSION + ".jar");
 
     private static final ResourceDependency DUCKDB_JAR = new ResourceDependency("duckdb_jdbc", "https://repo1.maven.org/maven2/org/duckdb/duckdb_jdbc/" + DUCKDB_VERSION + "/duckdb_jdbc-" + DUCKDB_VERSION + ".jar");
+    private static final ResourceDependency FLIGHT_SQL_JDBC_JAR = new ResourceDependency("flight-sql-jdbc-driver", "https://repo1.maven.org/maven2/org/apache/arrow/flight-sql-jdbc-driver/" + FLIGHT_SQL_JDBC_VERSION + "/flight-sql-jdbc-driver-" + FLIGHT_SQL_JDBC_VERSION + ".jar");
     private static final ResourceDependency AWS_JAVA_SDK_JAR = new ResourceDependency("aws-java-sdk-bundle", "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/" + AWS_JAVA_SDK_VERSION + "/aws-java-sdk-bundle-" + AWS_JAVA_SDK_VERSION + ".jar");
     private static final ResourceDependency HADOOP_AWS_JAR = new ResourceDependency("hadoop-aws", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/" + HADOOP_AWS_VERSION + "/hadoop-aws-" + HADOOP_AWS_VERSION + ".jar");
     private static final ResourceDependency REDSHIFT_JDBC_JAR = new ResourceDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
@@ -402,6 +408,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     private static final ResourceDependency[] duckDbDependencies = {
             DUCKDB_JAR
+    };
+
+    private static final ResourceDependency[] flightSqlDependencies = {
+            FLIGHT_SQL_JDBC_JAR
     };
 
     private static final ResourceDependency[] bigqueryDependencies = {
@@ -506,6 +516,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             variableWriter.apply(writer).accept("ENABLE_TRINODB", String.valueOf(ENABLE_TRINODB));
             variableWriter.apply(writer).accept("ENABLE_KAFKA", String.valueOf(ENABLE_KAFKA));
             variableWriter.apply(writer).accept("ENABLE_DUCKDB", String.valueOf(ENABLE_DUCKDB));
+            variableWriter.apply(writer).accept("ENABLE_FLIGHTSQL", String.valueOf(ENABLE_FLIGHTSQL));
             variableWriter.apply(writer).accept("SL_VERSION", SL_VERSION);
             variableWriter.apply(writer).accept("SCALA_VERSION", SCALA_VERSION);
             variableWriter.apply(writer).accept("SPARK_VERSION", SPARK_VERSION);
@@ -541,6 +552,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
             }
             if (ENABLE_DUCKDB || !anyDependencyEnabled()) {
                 variableWriter.apply(writer).accept("DUCKDB_VERSION", DUCKDB_VERSION);
+            }
+            if (ENABLE_FLIGHTSQL || !anyDependencyEnabled()) {
+                variableWriter.apply(writer).accept("FLIGHT_SQL_JDBC_VERSION", FLIGHT_SQL_JDBC_VERSION);
             }
         } finally {
             writer.close();
@@ -652,6 +666,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
         ENABLE_MARIADB = true;
         ENABLE_CLICKHOUSE = false;
         ENABLE_DUCKDB = true;
+        ENABLE_FLIGHTSQL = true;
         ENABLE_KAFKA = true;
         ENABLE_TRINODB = true;
     }
@@ -677,7 +692,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
             setTerminalRaw();
             int currentSelection = 0;
             // Menu items mapping to flags
-            // 0: Azure, 1: BigQuery, 2: Snowflake, 3: Redshift, 4: Postgres, 5: DuckDB, 6: Spark(noop), 7: Kafka, 8: Mariadb, 9: Trino, 10: All, 11: None, 12: Confirm
+            // 0: Azure, 1: BigQuery, 2: Snowflake, 3: Redshift, 4: Postgres, 5: DuckDB, 6: FlightSQL, 7: Spark(noop), 8: Kafka, 9: Mariadb, 10: Trino, 11: All, 12: None, 13: Confirm
             boolean done = false;
 
             while (!done) {
@@ -693,15 +708,16 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 printMenuOption(3, currentSelection, ENABLE_REDSHIFT, "Redshift");
                 printMenuOption(4, currentSelection, ENABLE_POSTGRESQL, "Postgres");
                 printMenuOption(5, currentSelection, ENABLE_DUCKDB, "DuckDB");
-                printMenuOption(6, currentSelection, ENABLE_SPARK , "Spark");
-                printMenuOption(7, currentSelection, ENABLE_KAFKA, "Kafka");
-                printMenuOption(8, currentSelection, ENABLE_MARIADB, "Mariadb");
-                printMenuOption(9, currentSelection, ENABLE_TRINODB, "Trino");
-                
+                printMenuOption(6, currentSelection, ENABLE_FLIGHTSQL, "FlightSQL");
+                printMenuOption(7, currentSelection, ENABLE_SPARK , "Spark");
+                printMenuOption(8, currentSelection, ENABLE_KAFKA, "Kafka");
+                printMenuOption(9, currentSelection, ENABLE_MARIADB, "Mariadb");
+                printMenuOption(10, currentSelection, ENABLE_TRINODB, "Trino");
+
                 System.out.print("\r\n");
-                System.out.print((currentSelection == 10 ? " > " : "   ") + "[ Select All ]\r\n");
-                System.out.print((currentSelection == 11 ? " > " : "   ") + "[ Select None ]\r\n");
-                System.out.print((currentSelection == 12 ? " > " : "   ") + "[ DONE ]\r\n");
+                System.out.print((currentSelection == 11 ? " > " : "   ") + "[ Select All ]\r\n");
+                System.out.print((currentSelection == 12 ? " > " : "   ") + "[ Select None ]\r\n");
+                System.out.print((currentSelection == 13 ? " > " : "   ") + "[ DONE ]\r\n");
 
                 // Read input
                 int c = System.in.read();
@@ -711,32 +727,33 @@ public class Setup extends ProxySelector implements X509TrustManager {
                         int dir = System.in.read();
                         if (dir == 65) { // UP
                             currentSelection--;
-                            if (currentSelection < 0) currentSelection = 12;
+                            if (currentSelection < 0) currentSelection = 13;
                         } else if (dir == 66) { // DOWN
                             currentSelection++;
-                            if (currentSelection > 12) currentSelection = 0;
+                            if (currentSelection > 13) currentSelection = 0;
                         }
                     }
                 } else if (c == 9 || c == 32) { // TAB or SPACE
                     toggleOption(currentSelection);
                 } else if (c == 13 || c == 10) { // ENTER
-                    if (currentSelection <= 9) {
+                    if (currentSelection <= 10) {
                         toggleOption(currentSelection);
                     }
-                    if (currentSelection == 10) { // All
+                    if (currentSelection == 11) { // All
                         enableAllDependencies();
-                    } else if (currentSelection == 11) { // None
+                    } else if (currentSelection == 12) { // None
                         ENABLE_AZURE = false;
                         ENABLE_BIGQUERY = false;
                         ENABLE_SNOWFLAKE = false;
                         ENABLE_REDSHIFT = false;
                         ENABLE_POSTGRESQL = false;
                         ENABLE_DUCKDB = false;
+                        ENABLE_FLIGHTSQL = false;
                         ENABLE_KAFKA = false;
                         ENABLE_MARIADB = false;
                         ENABLE_TRINODB = false;
                         ENABLE_SPARK = false;
-                    } else if (currentSelection == 12) { // Done
+                    } else if (currentSelection == 13) { // Done
                         done = true;
                     }
                 } else if (c == 3) { // Ctrl+C
@@ -776,10 +793,11 @@ public class Setup extends ProxySelector implements X509TrustManager {
             case 3: ENABLE_REDSHIFT = !ENABLE_REDSHIFT; break;
             case 4: ENABLE_POSTGRESQL = !ENABLE_POSTGRESQL; break;
             case 5: ENABLE_DUCKDB = !ENABLE_DUCKDB; break;
-            case 6: ENABLE_SPARK = !ENABLE_SPARK; break;
-            case 7: ENABLE_KAFKA = !ENABLE_KAFKA; break;
-            case 8: ENABLE_MARIADB = !ENABLE_MARIADB; break;
-            case 9: ENABLE_TRINODB = !ENABLE_TRINODB; break;
+            case 6: ENABLE_FLIGHTSQL = !ENABLE_FLIGHTSQL; break;
+            case 7: ENABLE_SPARK = !ENABLE_SPARK; break;
+            case 8: ENABLE_KAFKA = !ENABLE_KAFKA; break;
+            case 9: ENABLE_MARIADB = !ENABLE_MARIADB; break;
+            case 10: ENABLE_TRINODB = !ENABLE_TRINODB; break;
         }
     }
     private static void askUserWhichConfigToEnableWindows() {
@@ -799,6 +817,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 System.out.println((ENABLE_REDSHIFT ? "[x]" : "[ ]") + " Redshift");
                 System.out.println((ENABLE_POSTGRESQL ? "[x]" : "[ ]") + " Postgres");
                 System.out.println((ENABLE_DUCKDB ? "[x]" : "[ ]") + " DuckDB");
+                System.out.println((ENABLE_FLIGHTSQL ? "[x]" : "[ ]") + " FlightSQL");
                 System.out.println((ENABLE_SPARK ? "[x]" : "[ ]") + " Spark");
                 System.out.println((ENABLE_KAFKA ? "[x]" : "[ ]") + " Kafka");
                 System.out.println((ENABLE_MARIADB ? "[x]" : "[ ]") + " Mariadb");
@@ -821,6 +840,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                     ENABLE_REDSHIFT = false;
                     ENABLE_POSTGRESQL = false;
                     ENABLE_DUCKDB = false;
+                    ENABLE_FLIGHTSQL = false;
                     ENABLE_KAFKA = false;
                     ENABLE_MARIADB = false;
                     ENABLE_TRINODB = false;
@@ -849,14 +869,17 @@ public class Setup extends ProxySelector implements X509TrustManager {
                                 ENABLE_DUCKDB = !ENABLE_DUCKDB;
                                 break;
                             case "7":
+                                ENABLE_FLIGHTSQL = !ENABLE_FLIGHTSQL;
                                 break;
                             case "8":
-                                ENABLE_KAFKA = !ENABLE_KAFKA;
                                 break;
                             case "9":
-                                ENABLE_MARIADB = !ENABLE_MARIADB;
+                                ENABLE_KAFKA = !ENABLE_KAFKA;
                                 break;
                             case "10":
+                                ENABLE_MARIADB = !ENABLE_MARIADB;
+                                break;
+                            case "11":
                                 ENABLE_TRINODB = !ENABLE_TRINODB;
                                 break;
                         }
@@ -866,7 +889,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
             if (!anyDependencyEnabled()) {
                 System.out.println("Please enable the configurations you want to use by setting the corresponding environment variables below");
-                System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_DUCKDB, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA, ENABLE_MARIADB, ENABLE_TRINODB");
+                System.out.println("ENABLE_BIGQUERY, ENABLE_DATABRICKS, ENABLE_AZURE, ENABLE_SNOWFLAKE, ENABLE_DUCKDB, ENABLE_FLIGHTSQL, ENABLE_REDSHIFT, ENABLE_POSTGRESQL, ENABLE_ANY_JDBC, ENABLE_KAFKA, ENABLE_MARIADB, ENABLE_TRINODB");
                 System.exit(1);
             } else {
                 System.out.println("Installing selected dependencies...");
@@ -933,6 +956,11 @@ public class Setup extends ProxySelector implements X509TrustManager {
             deleteDependencies(duckDbDependencies, depsDir);
             if (ENABLE_DUCKDB) {
                 downloadAndDisplayProgress(duckDbDependencies, depsDir, true);
+            }
+
+            deleteDependencies(flightSqlDependencies, depsDir);
+            if (ENABLE_FLIGHTSQL) {
+                downloadAndDisplayProgress(flightSqlDependencies, depsDir, true);
             }
 
             deleteDependencies(confluentDependencies, depsDir);
