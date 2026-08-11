@@ -116,7 +116,12 @@ object StarlakeConnectionPool extends LazyLogging {
       connectionOptions.contains("driver"),
       s"driver class not found in JDBC connection options $connectionOptions"
     )
+    // Flight SQL connections are pure remote clients: any ducklake/quack attach
+    // happens server-side, never on this JVM (see docs/quack.md isolation model)
+    val isFlightSql =
+      connectionOptions.get("url").exists(_.startsWith("jdbc:arrow-flight-sql:"))
     val isAttachBacked =
+      !isFlightSql &&
       connectionOptions
         .get("preActions")
         .exists(pa => pa.contains("ducklake:") || pa.contains("quack:"))
