@@ -34,6 +34,14 @@ final case class ConnectionInfo(
     this.options.getOrElse("preActions", "").contains("'ducklake:")
 
   @JsonIgnore
+  def isFlightSql(): Boolean =
+    options.get("url").exists(_.startsWith("jdbc:arrow-flight-sql:"))
+
+  @JsonIgnore
+  private def flightSqlDialect(): String =
+    options.getOrElse("dialect", "duckdb").toLowerCase()
+
+  @JsonIgnore
   def isQuackClient(): Boolean = {
     val pa = this.options.getOrElse("preActions", "")
     pa.contains("'quack:") && !pa.contains("'ducklake:quack:")
@@ -386,6 +394,8 @@ final case class ConnectionInfo(
       case ConnectionType.JDBC =>
         if (options.contains("sfUrl"))
           options("sfUrl").split(':')(1).toLowerCase() // should return snowflake
+        else if (isFlightSql())
+          getJdbcEngineName().toString
         else if (options.contains("url")) {
           options("url").split(':')(1).toLowerCase()
         } else "spark"
@@ -413,6 +423,8 @@ final case class ConnectionInfo(
         None
     }
     this.getJdbcEngineName().toString match {
+      case _ if isFlightSql() =>
+        options.get("database").orElse(options.get("db"))
       case "duckdb" =>
         // duckdb url example: jdbc:duckdb:/path/to/database.db returns database
         val uri = extractFromUrl(options("url"))
@@ -461,7 +473,10 @@ final case class ConnectionInfo(
           .getOrElse("spark")
 
     }
-    Engine.fromString(engineName)
+    val resolvedEngineName =
+      if (engineName.toLowerCase() == "arrow-flight-sql") flightSqlDialect()
+      else engineName
+    Engine.fromString(resolvedEngineName)
   }
 
   @JsonIgnore
@@ -514,7 +529,18 @@ final case class ConnectionInfo(
 
   @JsonIgnore
   lazy val dialect: JdbcDialect =
-    applyIfConnectionTypeIs(ConnectionType.JDBC, SparkUtils.dialectForUrl(jdbcUrl))
+    applyIfConnectionTypeIs(
+      ConnectionType.JDBC, {
+        val urlForDialect =
+          if (isFlightSql())
+            jdbcUrl.replaceFirst(
+              "^jdbc:arrow-flight-sql:",
+              s"jdbc:${getJdbcEngineName().toString}:"
+            )
+          else jdbcUrl
+        SparkUtils.dialectForUrl(urlForDialect)
+      }
+    )
 
   def quoteIdentifier(identifier: String): String = dialect.quoteIdentifier(identifier)
 
