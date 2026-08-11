@@ -79,6 +79,42 @@ No new `jdbcEngines` entry is added; dialect delegation reuses the existing
 entries (spark, bigquery, snowflake, duckdb, postgresql, redshift, sqlserver,
 mysql, mariadb).
 
+## Part 2b: DuckDB / DuckLake behind Flight SQL (primary scenario)
+
+The default dialect is `duckdb` because the primary deployment model is a
+DuckDB or DuckLake lakehouse exposed through a Flight SQL server, exactly the
+way quack-on-demand and GizmoSQL work: the server attaches the DuckLake and
+holds the object-storage credentials; the client is a pure remote participant
+that never runs `ATTACH 'ducklake:...'` and never sees Parquet files or
+secrets (same isolation model as `docs/quack.md`).
+
+Consequences:
+
+- `StarlakeConnectionPool.getConnection`: the attach-backed special case
+  (`preActions` containing `ducklake:` or `quack:` forces a local
+  `jdbc:duckdb:` URL) must never fire for `arrow-flight-sql` URLs. Flight SQL
+  connections always take the standard HikariCP path with their own URL.
+- `JdbcDbUtils.runDuckLakePreActions`: the local-DuckDB session setup (SET
+  `home_directory`, `secret_directory`, S3 endpoint/credential SETs) is
+  skipped for Flight SQL connections; credentials live server-side. The
+  generic `preActions` loop still runs, so session SQL such as `USE lake` or
+  `SET schema` can be sent over the Flight connection.
+- New connection option `ducklake: "true"`: `isDucklake()` returns true when
+  `preActions` contains `'ducklake:` (existing behavior) OR
+  `options("ducklake")` equals `true`. This lets a Flight SQL connection
+  declare that the server fronts a DuckLake, enabling DuckLake-only behavior
+  such as partitioned-table DDL (`Sink.getPartitionByClauseSQL`,
+  `DuckDbNativeLoader.setPartition`).
+- Loading: `IngestionJob.selectLoader()` resolves `duckdb` for
+  dialect-duckdb Flight connections, so `DuckDbNativeLoader` runs its
+  `read_csv`/`read_json` SQL over the remote connection, server-side. Files
+  must therefore be visible to the server (object storage the server has
+  secrets for, or a shared filesystem). Purely client-local file paths fail
+  with the server's error; this is documented, not worked around.
+- `Settings` connection normalization strips `sparkFormat` for
+  dialect-duckdb Flight connections (same rule as native DuckDB) and fills in
+  the default driver class.
+
 ## Part 3: Connection pool and Spark integration
 
 - `StarlakeConnectionPool`: no structural change. Flight SQL connections use the
