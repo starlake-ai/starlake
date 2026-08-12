@@ -1,7 +1,7 @@
 
 # Release notes
 
-# 1.5.16-SNAPSHOT:
+# 1.7.0:
 __Improvement__:
 - **Quack server CLI**: New `starlake quack` command — host a Quack DuckDB query server (exposing a DuckLake without sharing object-storage credentials with clients) directly from the Starlake JVM. Actions: `serve` (foreground), `start` (detached daemon, state under `$SL_ROOT/.quack/`), `stop`, `list`, `stop-all`. Companion client-side recognition: connections whose `preActions` contain a `'quack:` ATTACH are pooled distinctly so multiple Quack clients don't collide. Token + bind + port can be set via connection options (`quackServerToken`, `quackBind`, `quackPort`) or per invocation (`--token`, `--bind`, `--port`). Default bind is `127.0.0.1` — use a reverse proxy with TLS to expose on the network.
 - **Upgrade DuckDB**: Update DuckDB JDBC to 1.5.3 so the `quack` extension is available as a core extension (it lives in `core_nightly` on 1.5.2).
