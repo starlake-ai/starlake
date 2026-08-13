@@ -148,24 +148,42 @@ function resolve_java {
     return @{ Exe = ""; Major = 0; Source = "none" }
 }
 
+function get_required_java_version {
+    # The java floor depends on the Starlake version being installed:
+    #   up to 1.4.x (and every 0.x) -> java 11, from 1.5.0 on -> java 17.
+    # Unparseable versions get the current floor (17).
+    param([string]$SlVersion)
+    if ($SlVersion -match '^(\d+)\.(\d+)') {
+        $major = [int]$Matches[1]
+        $minor = [int]$Matches[2]
+        if ($major -lt 1 -or ($major -eq 1 -and $minor -le 4)) { return 11 }
+    }
+    return 17
+}
+
 function ensure_java {
-    # Check the installed Java (JAVA_HOME first). If none is found, or its
-    # version is below the required minimum, install an EMBEDDED portable
-    # Temurin JDK inside the starlake install directory (<install-dir>\jdk)
-    # and update the SESSION environment (JAVA_HOME + PATH). No administrator
-    # rights: portable zip + process-scoped variables only. starlake.cmd picks
-    # the embedded JDK up automatically in later sessions.
-    param([string]$InstallDir, [int]$MinVersion = 11, [int]$EmbeddedVersion = 17)
+    # Check the installed Java (JAVA_HOME first) against the floor required by
+    # the Starlake version being installed. If none is found, or its version is
+    # below that floor, install an EMBEDDED portable Temurin 17 JDK inside the
+    # starlake install directory (<install-dir>\jdk) and update the SESSION
+    # environment (JAVA_HOME + PATH). The embedded JDK is ALWAYS 17: it
+    # satisfies both floors (a newer JVM runs older-target bytecode). No
+    # administrator rights: portable zip + process-scoped variables only.
+    # starlake.cmd picks the embedded JDK up automatically in later sessions.
+    param([string]$InstallDir, [string]$SlVersion)
+
+    $MinVersion = get_required_java_version $SlVersion
+    $EmbeddedVersion = 17
 
     $java = resolve_java
     if ($java.Major -ge $MinVersion) {
-        Write-Host "Using Java $($java.Major) from $($java.Source)"
+        Write-Host "Using Java $($java.Major) from $($java.Source) (Starlake $SlVersion requires $MinVersion or above)"
         return
     }
     if ($java.Major -gt 0) {
-        Write-Host "Java $($java.Major) found via $($java.Source) but Java $MinVersion or above is required."
+        Write-Host "Java $($java.Major) found via $($java.Source) but Starlake $SlVersion requires Java $MinVersion or above."
     } else {
-        Write-Host "No Java found (checked JAVA_HOME and PATH). Java $MinVersion or above is required."
+        Write-Host "No Java found (checked JAVA_HOME and PATH). Starlake $SlVersion requires Java $MinVersion or above."
     }
 
     $jdkDir = Join-Path $InstallDir "jdk"
@@ -219,9 +237,11 @@ function main {
     }
     print_starlake_ascii_art
     $INSTALL_DIR = get_installation_directory
-    # java check needs the install dir: an embedded JDK lands in <install-dir>\jdk
-    ensure_java -InstallDir $INSTALL_DIR
     $VERSION = get_version_to_install -RequestedVersion $RequestedVersion
+    # after version resolution: the java floor depends on the Starlake version
+    # (<= 1.4 -> java 11, >= 1.5 -> java 17), and an embedded JDK would land
+    # in <install-dir>\jdk
+    ensure_java -InstallDir $INSTALL_DIR -SlVersion $VERSION
     install_starlake $INSTALL_DIR $VERSION
     add_starlake_to_path $INSTALL_DIR
     run_installation_command -InstallDir $INSTALL_DIR -Version $VERSION
