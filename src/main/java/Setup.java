@@ -92,6 +92,8 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -145,6 +147,58 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static boolean isWindowsOs() {
         String os = System.getProperty("os.name").toLowerCase();
         return os.startsWith("windows");
+    }
+
+    /**
+     * The winutils.exe/hadoop.dll installed by this setup (cdarlint, hadoop-3.3.6)
+     * are linked against the VC++ 2015+ runtime (vcruntime140.dll). Locked-down
+     * corporate images may not have it in System32, in which case winutils.exe
+     * fails to start with 0xC0000135 (STATUS_DLL_NOT_FOUND) and the first Spark
+     * local write dies with "ExitCodeException exitCode=-1073741515". Copying the
+     * DLLs next to winutils.exe fixes it for good - the exe's own directory is
+     * first in the Windows DLL search order. Sources tried, all user-writable and
+     * admin-free: the JVM running this setup (Temurin 8+ Windows builds ship the
+     * DLLs in bin), then JAVA_HOME, then VS Code's per-user install.
+     */
+    private static void ensureWinutilsRuntime(File hadoopBinDir) {
+        String systemRoot = System.getenv("SystemRoot");
+        if (systemRoot != null && new File(new File(systemRoot, "System32"), "vcruntime140.dll").exists()) {
+            return; // runtime globally available, nothing to do
+        }
+        List<File> candidates = new ArrayList<>();
+        String javaHomeProp = System.getProperty("java.home");
+        if (javaHomeProp != null) {
+            candidates.add(new File(javaHomeProp, "bin"));
+        }
+        String javaHomeEnv = System.getenv("JAVA_HOME");
+        if (javaHomeEnv != null) {
+            candidates.add(new File(javaHomeEnv, "bin"));
+        }
+        String localAppData = System.getenv("LOCALAPPDATA");
+        if (localAppData != null) {
+            candidates.add(new File(new File(localAppData, "Programs"), "Microsoft VS Code"));
+        }
+        for (File dir : candidates) {
+            File[] dlls = dir.listFiles((d, name) -> {
+                String lower = name.toLowerCase();
+                return lower.startsWith("vcruntime140") && lower.endsWith(".dll");
+            });
+            if (dlls != null && dlls.length > 0) {
+                try {
+                    for (File dll : dlls) {
+                        Files.copy(dll.toPath(), new File(hadoopBinDir, dll.getName()).toPath(),
+                                StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    System.out.println("Copied vcruntime140 runtime from " + dir + " next to winutils.exe");
+                    return;
+                } catch (IOException e) {
+                    System.out.println("Could not copy vcruntime140 from " + dir + ": " + e.getMessage());
+                }
+            }
+        }
+        System.out.println("WARNING: vcruntime140.dll not found (System32, JDK, VS Code). " +
+                "winutils.exe may fail to start (exit 0xC0000135); install the Microsoft " +
+                "Visual C++ 2015-2022 x64 redistributable.");
     }
 
     private static void parseProxy(String proxy) {
@@ -299,9 +353,16 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String JETTY_VERSION = getEnv("JETTY_VERSION").orElse("9.4.58.v20250814");
 
     // HADOOP_LIB ON WINDOWS
+    // hadoop-3.3.6, not 3.3.5: the 3.3.5 binaries of this repo are linked against
+    // MSVCR100.dll (VC++ 2010), which bare Windows 10/11 images do not ship and which
+    // has no standalone install path - winutils.exe then fails to start with
+    // 0xC0000135 (STATUS_DLL_NOT_FOUND) and every Spark local write dies with
+    // "ExitCodeException exitCode=-1073741515". The 3.3.6 binaries are linked against
+    // VCRUNTIME140 + the universal CRT (an OS component since Windows 10); see also
+    // ensureWinutilsRuntime below.
     private static final ResourceDependency[] HADOOP_LIBS = new ResourceDependency[]{
-            new ResourceDependency("winutils", "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-3.3.5/bin/winutils.exe"),
-            new ResourceDependency("hadoop.dll", "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-3.3.5/bin/hadoop.dll")
+            new ResourceDependency("winutils", "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-3.3.6/bin/winutils.exe"),
+            new ResourceDependency("hadoop.dll", "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-3.3.6/bin/hadoop.dll")
     };
 
     // SNOWFLAKE
@@ -932,6 +993,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 for (ResourceDependency lib : HADOOP_LIBS) {
                     downloadAndDisplayProgress(lib, (resource, url) -> new File(hadoopBinDir, resource.getUrlName(url)));
                 }
+                ensureWinutilsRuntime(hadoopBinDir);
 
             }
 
