@@ -11,6 +11,18 @@ API_BIN_DIR="$SCRIPT_DIR/bin/api/bin"
 
 SL_ROOT="${SL_ROOT:-`pwd`}"
 
+# Prefer the embedded JDK installed by setup.sh when JAVA_HOME is not set,
+# then put that java first on the SESSION PATH: some run paths invoke bare
+# `java`, and the system PATH may pin an older default Java first.
+if [ -z "${JAVA_HOME:-}" ] && [ -x "$SCRIPT_DIR/jdk/bin/java" ]
+then
+  export JAVA_HOME="$SCRIPT_DIR/jdk"
+fi
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]
+then
+  export PATH="$JAVA_HOME/bin:$PATH"
+fi
+
 case "$1" in
   reinstall)
     rm "$SCRIPT_DIR/versions.sh"
