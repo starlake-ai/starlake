@@ -114,22 +114,99 @@ function print_success_message {
     Write-Host "Starlake has been successfully installed!"
 }
 
-function check_java_version {
-    # Check if Java is installed using JAVA_HOME env variable
-    if ($null -eq $env:JAVA_HOME) {
-        $runner = "java"
+function get_java_major_version {
+    # Parse the REAL runtime version from `java -version` (stderr). The file
+    # version of java.exe is unreliable, and string comparison is lexicographic
+    # ("8.0" -lt "11" is false), which used to let Java 8 pass the check.
+    # Handles both version schemes: "17.0.12" -> 17, "1.8.0_292" -> 8.
+    param([string]$JavaExe)
+    if (-not (Test-Path $JavaExe) -and -not (Get-Command $JavaExe -ErrorAction SilentlyContinue)) {
+        return 0
+    }
+    $line = & $JavaExe -version 2>&1 | Select-Object -First 1
+    if ("$line" -match 'version "(\d+)(?:\.(\d+))?') {
+        $major = [int]$Matches[1]
+        if ($major -eq 1 -and $Matches[2]) { $major = [int]$Matches[2] }
+        return $major
+    }
+    return 0
+}
+
+function resolve_java {
+    # JAVA_HOME wins when it is set (that is also what starlake.cmd executes);
+    # otherwise fall back to `java` from the PATH.
+    if ($env:JAVA_HOME) {
+        $exe = Join-Path $env:JAVA_HOME "bin\java.exe"
+        if (Test-Path $exe) {
+            return @{ Exe = $exe; Major = (get_java_major_version $exe); Source = "JAVA_HOME ($env:JAVA_HOME)" }
+        }
+    }
+    $cmd = Get-Command java -ErrorAction SilentlyContinue
+    if ($cmd) {
+        return @{ Exe = $cmd.Source; Major = (get_java_major_version $cmd.Source); Source = "PATH ($($cmd.Source))" }
+    }
+    return @{ Exe = ""; Major = 0; Source = "none" }
+}
+
+function ensure_java {
+    # Check the installed Java (JAVA_HOME first). If none is found, or its
+    # version is below the required minimum, install an EMBEDDED portable
+    # Temurin JDK inside the starlake install directory (<install-dir>\jdk)
+    # and update the SESSION environment (JAVA_HOME + PATH). No administrator
+    # rights: portable zip + process-scoped variables only. starlake.cmd picks
+    # the embedded JDK up automatically in later sessions.
+    param([string]$InstallDir, [int]$MinVersion = 11, [int]$EmbeddedVersion = 17)
+
+    $java = resolve_java
+    if ($java.Major -ge $MinVersion) {
+        Write-Host "Using Java $($java.Major) from $($java.Source)"
+        return
+    }
+    if ($java.Major -gt 0) {
+        Write-Host "Java $($java.Major) found via $($java.Source) but Java $MinVersion or above is required."
     } else {
-        $runner = "$env:JAVA_HOME\bin\java"
+        Write-Host "No Java found (checked JAVA_HOME and PATH). Java $MinVersion or above is required."
     }
-    $javaVersion = (Get-Command $runner | Select-Object -ExpandProperty Version).tostring()
-    if ($null -eq $javaVersion) {
-        Write-Host "Java is not installed. Please install Java 11 or above."
+
+    $jdkDir = Join-Path $InstallDir "jdk"
+    Write-Host "Installing an embedded Temurin $EmbeddedVersion JDK into $jdkDir (portable zip, no administrator rights)"
+    # The Adoptium API redirects to the latest GA windows x64 JDK zip. On
+    # Windows-on-ARM the x64 build runs fine under the built-in emulation.
+    $adoptiumUrl = "https://api.adoptium.net/v3/binary/latest/$EmbeddedVersion/ga/windows/x64/jdk/hotspot/normal/eclipse?project=jdk"
+    $zip = Join-Path ([System.IO.Path]::GetTempPath()) "starlake-embedded-jdk.zip"
+    $unpack = Join-Path ([System.IO.Path]::GetTempPath()) ("starlake-jdk-" + [System.IO.Path]::GetRandomFileName())
+    try {
+        Invoke-WebRequest -UseBasicParsing -Uri $adoptiumUrl -OutFile $zip -ErrorAction Stop
+    } catch {
+        Write-Host "Error: failed to download the embedded JDK from $adoptiumUrl"
+        Write-Host $_.Exception.Message
         exit 1
     }
-    if ($javaVersion -lt "11") {
-        Write-Host "Java version $javaVersion is not supported. Please install Java 11 or above."
+    Expand-Archive -Path $zip -DestinationPath $unpack -Force
+    Remove-Item $zip
+    # the archive unpacks as jdk-<version>+<build>\ - flatten it to <install-dir>\jdk
+    $inner = Get-ChildItem $unpack -Directory | Select-Object -First 1
+    if ($null -eq $inner -or -not (Test-Path (Join-Path $inner.FullName "bin\java.exe"))) {
+        Write-Host "Error: unexpected JDK archive layout"
         exit 1
     }
+    if (Test-Path $jdkDir) { Remove-Item $jdkDir -Recurse -Force }
+    Move-Item $inner.FullName $jdkDir
+    Remove-Item $unpack -Recurse -Force
+
+    # SESSION environment only: JAVA_HOME + PATH first, so this very install
+    # (starlake.cmd install below) and everything started from this shell use
+    # the embedded JDK. Later sessions are covered by starlake.cmd itself,
+    # which adopts <install-dir>\jdk when JAVA_HOME is not set.
+    $env:JAVA_HOME = $jdkDir
+    $env:Path = (Join-Path $jdkDir "bin") + ";" + $env:Path
+
+    $major = get_java_major_version (Join-Path $jdkDir "bin\java.exe")
+    if ($major -lt $MinVersion) {
+        Write-Host "Error: the embedded JDK did not install correctly (got version $major)"
+        exit 1
+    }
+    Write-Host "Embedded JDK $major ready: JAVA_HOME=$jdkDir (session)"
 }
 
 function main {
@@ -140,9 +217,10 @@ function main {
             $RequestedVersion = $arg.Substring(10)
         }
     }
-    check_java_version
     print_starlake_ascii_art
     $INSTALL_DIR = get_installation_directory
+    # java check needs the install dir: an embedded JDK lands in <install-dir>\jdk
+    ensure_java -InstallDir $INSTALL_DIR
     $VERSION = get_version_to_install -RequestedVersion $RequestedVersion
     install_starlake $INSTALL_DIR $VERSION
     add_starlake_to_path $INSTALL_DIR
