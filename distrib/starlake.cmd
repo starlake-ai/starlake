@@ -11,6 +11,13 @@ if not defined SL_ROOT (
 )
 set "SL_ROOT=!SL_ROOT:\=/!"
 
+rem Prefer the embedded JDK installed by setup.ps1 when JAVA_HOME is not set,
+rem then put that java first on the SESSION PATH: some run paths invoke bare
+rem `java`, and on corporate machines the system PATH often pins an older
+rem default Java first (user PATH entries can never outrank the system PATH).
+if not defined JAVA_HOME if exist "%SCRIPT_DIR%jdk\bin\java.exe" set "JAVA_HOME=%SCRIPT_DIR%jdk"
+if defined JAVA_HOME if exist "%JAVA_HOME%\bin\java.exe" set "PATH=%JAVA_HOME%\bin;%PATH%"
+
 if not defined HADOOP_HOME (
     set "HADOOP_HOME=%SCRIPT_DIR%bin\hadoop"
 )
