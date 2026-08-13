@@ -123,6 +123,13 @@ function get_java_major_version {
     if (-not (Test-Path $JavaExe) -and -not (Get-Command $JavaExe -ErrorAction SilentlyContinue)) {
         return 0
     }
+    # `java -version` prints to STDERR. Under Windows PowerShell 5.1, when the
+    # CALLER runs with $ErrorActionPreference = "Stop" (a dynamically scoped
+    # preference this script inherits), redirected native stderr lines become
+    # terminating NativeCommandError. Reset the preference for this scope so
+    # the version probe can never throw; stderr lines may still arrive as
+    # ErrorRecord objects, hence the explicit stringification below.
+    $ErrorActionPreference = "Continue"
     $line = & $JavaExe -version 2>&1 | Select-Object -First 1
     if ("$line" -match 'version "(\d+)(?:\.(\d+))?') {
         $major = [int]$Matches[1]
