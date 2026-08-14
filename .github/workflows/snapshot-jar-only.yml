@@ -1,7 +1,12 @@
 name: snapshot-jar-only
-# This workflow is triggered on demand only. Publish the snapshot version of the library and trigger the API workflow.
+# On-demand only. Builds the core assembly at the current SNAPSHOT version,
+# publishes it to the v<version>-SNAPSHOT pre-release on this repo, then
+# triggers the starlake-api snapshot workflow (which uploads the api zip to
+# the same pre-release and chains into the api docker build).
 on:
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   snapshot:
     runs-on: ubuntu-latest
@@ -14,32 +19,35 @@ jobs:
           fields: repo,message,commit,author,action,eventName,ref,workflow,job,took,pullRequest # selectable (default: repo,message)
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_STARLAKE_CORE_WEBHOOK_URL }} # required
-      - name: Env
-        run: |
-          echo "SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }}" >>  $GITHUB_ENV
-          echo "SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}" >>  $GITHUB_ENV
-      - uses: smartsquaregmbh/delete-old-packages@v0.3.1
-        with:
-          version-pattern: "^\\d+\\.\\d+\\.\\d+-SNAPSHOT$" # Remove all previous SNAPSHOT versions
-          keep: 0
-          names: |
-            ai.starlake.starlake-core_2.13
       - uses: actions/checkout@v4
       - name: Set up Zulu 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin' # See 'Supported distributions' for available options
+          distribution: 'temurin'
           java-version: '17'
       - name: Setup sbt launcher
         uses: sbt/setup-sbt@v1
         with:
           sbt-runner-version: '1.11.5'
-      - name: Publish Snapshot on Sonatype
+      - name: Build assembly
         env:
-          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           SBT_OPTS: "-Xss8M -Xmx16g -XX:+UseG1GC"
-        run: sbt update clean compile publish
+        run: sbt update clean assembly
+      - name: Publish snapshot pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          V=$(sed -n 's/.*"\(.*\)".*/\1/p' version.sbt)
+          case "$V" in *-SNAPSHOT) ;; *) echo "version.sbt holds '$V', not a SNAPSHOT; refusing"; exit 1 ;; esac
+          JAR="target/scala-2.13/starlake-core_2.13-${V}-assembly.jar"
+          test -f "$JAR"
+          shasum -a 256 "$JAR" | sed "s| .*target/scala-2.13/| |" > "${JAR}.sha256"
+          TAG="v${V}"
+          gh release view "$TAG" --repo starlake-ai/starlake >/dev/null 2>&1 \
+            || gh release create "$TAG" --repo starlake-ai/starlake --prerelease \
+                 --title "$TAG" --notes "Rolling snapshot build. Assets are overwritten on every snapshot publish."
+          gh release upload "$TAG" "$JAR" "${JAR}.sha256" --repo starlake-ai/starlake --clobber
       - name: trigger-starlake-api
         if: ${{ success() }}
         uses: actions/github-script@v6
