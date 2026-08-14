@@ -1088,8 +1088,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
         final File demoDir = new File(projectsDir, "demo");
         final File binDir = new File(targetDir, "bin");
         File apiDir = new File(binDir, "api");
-        deleteRecursively(apiDir);
-
+        // The previous installation is kept until the new one is on disk:
+        // replaceDirectory() below deletes it right before swapping, so a failed
+        // download no longer leaves the machine without an API.
 
         ResourceDependency apiZip = SL_API_RELEASE_ZIP;
         downloadAndDisplayProgress(new ResourceDependency[]{apiZip}, binDir, false);
@@ -1108,20 +1109,56 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
             if (extractedDir.exists()) {
                 System.out.println("Renaming " + extractedDir.getAbsolutePath() + " to " + renamedDir.getAbsolutePath());
-                extractedDir.renameTo(renamedDir);
+                replaceDirectory(extractedDir, renamedDir);
             }
         });
-        File starbakeZip = new File(apiDir, "starbake.zip");
-        final File demoStarbakeZip = new File(demoDir, "starbake.zip");
         demoDir.mkdirs();
-        if (starbakeZip.exists() && !starbakeZip.renameTo(demoStarbakeZip)) {
-            System.out.println("Failed to rename " + starbakeZip.getAbsolutePath() + " to " + demoStarbakeZip.getAbsolutePath());
+        moveIfExists(new File(apiDir, "starbake.zip"), new File(demoDir, "starbake.zip"));
+        moveIfExists(new File(apiDir, "tpch001.zip"), new File(demoDir, "tpch001.zip"));
+    }
+
+    /**
+     * Move a file, overwriting the destination. File.renameTo() is not usable here:
+     * on Windows it fails when the destination already exists (i.e. on every
+     * re-install), and it reports that failure only through a boolean.
+     */
+    private static void moveIfExists(File source, File destination) {
+        if (!source.exists()) {
+            return;
         }
-        File tpch001Zip = new File(apiDir, "tpch001.zip");
-        final File demoTpch001Zip = new File(demoDir, "tpch001.zip");
-        demoDir.mkdirs();
-        if (starbakeZip.exists() && !starbakeZip.renameTo(demoTpch001Zip)) {
-            System.out.println("Failed to rename " + starbakeZip.getAbsolutePath() + " to " + demoTpch001Zip.getAbsolutePath());
+        try {
+            Files.move(source.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            System.out.println("Failed to move " + source.getAbsolutePath() + " to "
+                    + destination.getAbsolutePath() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Put the freshly extracted directory in place of the target one.
+     * <p>
+     * Both steps must be verified. On Windows a file that another process still
+     * has open cannot be deleted, so a running API (`starlake serve`, the VS Code
+     * extension) keeps bin/api/lib/*.jar alive: the deletion then removes bin/,
+     * ui/ and git/ but not lib/, the target directory survives, and the rename
+     * silently does nothing - leaving a half-replaced API that fails at run time
+     * with a bare "path not found". Fail here instead, with the actual remedy.
+     */
+    private static void replaceDirectory(File extractedDir, File targetDir) {
+        deleteRecursively(targetDir);
+        if (targetDir.exists()) {
+            System.out.println("Cannot replace " + targetDir.getAbsolutePath()
+                    + ": some of its files could not be deleted. A running Starlake API"
+                    + " (starlake serve, or the VS Code extension) holds them open -"
+                    + " stop it and run the installation again.");
+            System.exit(1);
+        }
+        try {
+            Files.move(extractedDir.toPath(), targetDir.toPath());
+        } catch (IOException e) {
+            System.out.println("Failed to move " + extractedDir.getAbsolutePath() + " to "
+                    + targetDir.getAbsolutePath() + ": " + e.getMessage());
+            System.exit(1);
         }
     }
 
