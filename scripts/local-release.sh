@@ -263,6 +263,16 @@ if should_run 6; then
       echo "  publishing release $TAG (creates the remote tag and triggers the Docker workflow)"
       gh release edit "$TAG" --repo "$GH_REPO" --draft=false
     fi
+
+    # The just-released version's rolling snapshot pre-release is now stale:
+    # delete it and its tag (assets for X.Y.Z-SNAPSHOT stop making sense once
+    # vX.Y.Z exists). The next snapshot pre-release appears lazily on the first
+    # snapshot publish after the version bump.
+    SNAP_TAG="v${RELEASE_VERSION}-SNAPSHOT"
+    if release_exists "$SNAP_TAG"; then
+      echo "  deleting stale snapshot pre-release $SNAP_TAG"
+      run gh release delete "$SNAP_TAG" --repo "$GH_REPO" --yes --cleanup-tag
+    fi
   fi
 fi
 
