@@ -435,13 +435,9 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency REDSHIFT_JDBC_JAR = new ResourceDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
     private static final ResourceDependency SPARK_REDSHIFT_JAR = new ResourceDependency("spark-redshift", "https://repo1.maven.org/maven2/ai/starlake/spark-redshift_" + SCALA_VERSION + "/" + SPARK_REDSHIFT_VERSION + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION + ".jar");
 
-    // Releases live on GitHub Releases; SNAPSHOT core jars are only published to Sonatype's
-    // snapshot repository (by the snapshot-jar-only workflow), so snapshot versions resolve there.
-    private static final String SL_SNAPSHOT_BASE_URL = "https://central.sonatype.com/repository/maven-snapshots/ai/starlake";
-    private static final ResourceDependency STARLAKE_RELEASE_JAR = new ResourceDependency("starlake-core",
-            SL_VERSION.endsWith("-SNAPSHOT")
-                    ? SL_SNAPSHOT_BASE_URL + "/starlake-core_" + SCALA_VERSION + "/" + SL_VERSION + "/starlake-core_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar"
-                    : SL_RELEASE_BASE_URL + "/v" + SL_VERSION + "/starlake-core_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
+    // Snapshots and releases both live on GitHub Releases: snapshots as rolling
+    // v<version>-SNAPSHOT pre-releases, so one URL scheme covers everything.
+    private static final ResourceDependency STARLAKE_RELEASE_JAR = new ResourceDependency("starlake-core", SL_RELEASE_BASE_URL + "/v" + SL_VERSION + "/starlake-core_" + SCALA_VERSION + "-" + SL_VERSION + "-assembly.jar");
     private static final ResourceDependency CONFLUENT_KAFKA_SCHEMA_REGISTRY_CLIENT = new ResourceDependency("kafka-schema-registry-client", "https://packages.confluent.io/maven/io/confluent/kafka-schema-registry-client/" + CONFLUENT_VERSION + "/kafka-schema-registry-client-" + CONFLUENT_VERSION + ".jar");
     private static final ResourceDependency CONFLUENT_KAFKA_AVRO_SERIALIZER = new ResourceDependency("kafka-avro-serializer", "https://packages.confluent.io/maven/io/confluent/kafka-avro-serializer/" + CONFLUENT_VERSION + "/kafka-avro-serializer-" + CONFLUENT_VERSION + ".jar");
 
