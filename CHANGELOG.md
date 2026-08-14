@@ -1,7 +1,7 @@
 
 # Release notes
 
-# 1.7.1-SNAPSHOT:
+# 1.7.1:
 __Improvement__:
 - **All artifacts on GitHub Releases**: SNAPSHOT builds of starlake-core (assembly jar) and starlake-api (zip) are now published to a rolling pre-release tagged `v<version>-SNAPSHOT` on starlake-ai/starlake, with sha256 companions, replacing Sonatype snapshot publishing entirely. Setup and CI download scripts use one URL scheme for snapshots and releases. The release flow deletes the stale snapshot pre-release when the version ships.
 
