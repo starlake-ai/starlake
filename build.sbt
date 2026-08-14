@@ -2,7 +2,6 @@ import Dependencies.*
 import sbt.Tests.{Group, SubProcess}
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations.*
 import sbtrelease.Version.Bump.Next
-import xerial.sbt.Sonatype.*
 
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
@@ -219,9 +218,6 @@ Compile / packageBin / publishArtifact := true
 
 Compile / packageSrc / publishArtifact := true
 
-// Your profile name of the sonatype account. The default is the same with the organization value
-sonatypeProfileName := "ai.starlake"
-
 // To sync with Maven central, you need to supply the following information:
 publishMavenStyle := true
 
@@ -230,22 +226,10 @@ licenses := Seq(
   "Apache License, Version 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0.html")
 )
 
-sonatypeProjectHosting := Some(
-  GitHubHosting("starlake-ai", "starlake", "hayssam.saleh@starlake.ai")
-)
-
 pgpPassphrase := sys.env.get("PGP_PASSPHRASE").map(_.toCharArray)
 
 // Do not disable checksum
 publishLocal / checksums := Nil
-
-sonatypeCredentialHost := sonatypeCentralHost
-
-ThisBuild / publishTo := {
-  val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
-  if (isSnapshot.value) Some("central-snapshots" at centralSnapshots)
-  else localStaging.value
-}
 
 // Release
 releaseCrossBuild := true
@@ -261,7 +245,6 @@ releaseProcess := Seq(
   commitReleaseVersion, // forces to push dirty files
   tagRelease,
   releaseStepCommandAndRemaining("publishSigned"),
-  releaseStepCommand("sonaRelease"),
   setNextVersion,
   commitNextVersion,
   pushChanges
