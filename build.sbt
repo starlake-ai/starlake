@@ -1,7 +1,5 @@
 import Dependencies.*
 import sbt.Tests.{Group, SubProcess}
-import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations.*
-import sbtrelease.Version.Bump.Next
 
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
@@ -230,29 +228,6 @@ pgpPassphrase := sys.env.get("PGP_PASSPHRASE").map(_.toCharArray)
 
 // Do not disable checksum
 publishLocal / checksums := Nil
-
-// Release
-releaseCrossBuild := true
-
-releaseIgnoreUntrackedFiles := true
-
-releaseProcess := Seq(
-//  checkSnapshotDependencies, //allow snapshot dependencies
-  inquireVersions,
-  runClean,
-//  releaseStepCommand("+test"),
-  setReleaseVersion,
-  commitReleaseVersion, // forces to push dirty files
-  tagRelease,
-  releaseStepCommandAndRemaining("publishSigned"),
-  setNextVersion,
-  commitNextVersion,
-  pushChanges
-)
-
-releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
-
-releaseVersionBump := Next
 
 developers := List(
   Developer(

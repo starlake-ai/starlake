@@ -15,8 +15,6 @@ addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.5")
 
 addSbtPlugin("com.lightbend" % "sbt-google-cloud-storage" % "0.0.10")
 
-addSbtPlugin("com.github.sbt" % "sbt-release" % "1.1.0")
-
 addSbtPlugin("com.github.sbt" % "sbt-pgp" % "2.2.1")
 
 // provides "sbt dependencyUpdates":

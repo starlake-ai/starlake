@@ -42,7 +42,7 @@ jobs:
           case "$V" in *-SNAPSHOT) ;; *) echo "version.sbt holds '$V', not a SNAPSHOT; refusing"; exit 1 ;; esac
           JAR="target/scala-2.13/starlake-core_2.13-${V}-assembly.jar"
           test -f "$JAR"
-          shasum -a 256 "$JAR" | sed "s| .*target/scala-2.13/| |" > "${JAR}.sha256"
+          ( cd target/scala-2.13 && shasum -a 256 "starlake-core_2.13-${V}-assembly.jar" > "starlake-core_2.13-${V}-assembly.jar.sha256" )
           TAG="v${V}"
           gh release view "$TAG" --repo starlake-ai/starlake >/dev/null 2>&1 \
             || gh release create "$TAG" --repo starlake-ai/starlake --prerelease \

@@ -5,6 +5,7 @@ on:
   push:
     tags:
       - "v*.*.*"
+      - "!v*-SNAPSHOT"
 jobs:
   docker-hub:
     name: Release Docker Image
