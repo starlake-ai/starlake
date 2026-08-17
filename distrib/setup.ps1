@@ -9,11 +9,21 @@ function print_starlake_ascii_art {
 }
 
 function get_installation_directory {
-    $INSTALL_DIR = Read-Host "Where do you want to install Starlake? [$HOME\starlake]"
+    # --target <dir> (or --target=<dir>) installs without prompting, the same
+    # contract setup.sh offers, so a scripted install always lands where the
+    # caller expects it.
+    param([string]$RequestedTarget = "")
+
+    $INSTALL_DIR = $RequestedTarget
+    if ($INSTALL_DIR -eq "") {
+        $INSTALL_DIR = Read-Host "Where do you want to install Starlake? [$HOME\starlake]"
+    }
     if ($INSTALL_DIR -eq "") {
         $INSTALL_DIR = "$HOME\starlake"
     }
-    $INSTALL_DIR = Invoke-Expression "Write-Output $INSTALL_DIR"
+    # expand any variable the user typed ($HOME, $env:USERPROFILE); the inner
+    # quotes keep a path with spaces a single argument
+    $INSTALL_DIR = Invoke-Expression "Write-Output `"$INSTALL_DIR`""
     New-Item -ItemType Directory -Path $INSTALL_DIR -Force | Out-Null
     $INSTALL_DIR
 }
@@ -22,7 +32,18 @@ function get_installation_directory {
 function get_version_to_install {
     param([string]$RequestedVersion = "")
 
+    # An explicitly requested version is authoritative: install it as asked and
+    # never call the GitHub API (same contract as setup.sh). The API is only
+    # needed to build the interactive menu. Locked-down corporate networks
+    # routinely reach raw.githubusercontent.com but block or rate-limit
+    # api.github.com (60 requests/hour per egress IP, shared by the whole NAT),
+    # and a pinned install has nothing to ask about.
+    if ($RequestedVersion -ne "") {
+        return $RequestedVersion
+    }
+
     $RELEASE_VERSIONS = @()
+    $apiError = ""
     try {
         $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/starlake-ai/starlake/releases?per_page=15" -UseBasicParsing
         $RELEASE_VERSIONS = @($releases |
@@ -31,10 +52,18 @@ function get_version_to_install {
             ForEach-Object { $_.TrimStart('v') } |
             Sort-Object -Descending { [version]$_ } |
             Select-Object -First 5)
-    } catch {}
+    } catch {
+        $apiError = $_.Exception.Message
+    }
 
     if ($RELEASE_VERSIONS.Count -eq 0) {
         Write-Host "Error: no releases found at https://github.com/starlake-ai/starlake/releases"
+        # never swallow the cause: a proxy refusal, a TLS failure and an API
+        # rate limit all reach this line and need different remedies
+        if ($apiError -ne "") {
+            Write-Host "Cause: $apiError"
+        }
+        Write-Host "If this network blocks api.github.com, pass the version explicitly, e.g. --version=1.7.1"
         exit 1
     }
 
@@ -83,14 +112,27 @@ function install_starlake {
 }
 
 function add_starlake_to_path {
-    param([string]$x)
-    if (!($env:PATH -split ';' -contains $X)){
+    param([string]$x, [bool]$NonInteractive = $false)
+    if (!($env:PATH -split ';' -contains $x)){
         $Env:Path+= ";" +  $x
-        Write-Output $Env:Path
-        $write = Read-Host 'Set PATH permanently ? (yes|no)'
+        # a scripted install (--target=) persists the PATH the way setup.sh
+        # does for the shell rc file: without asking
+        if ($NonInteractive) {
+            $write = "yes"
+        } else {
+            Write-Output $Env:Path
+            $write = Read-Host 'Set PATH permanently ? (yes|no)'
+        }
         if ($write -eq "yes")
         {
-            [Environment]::SetEnvironmentVariable("Path",$env:Path, [System.EnvironmentVariableTarget]::User)
+            # append to the USER PATH, never write $env:Path back: the process
+            # PATH is "system + user", so storing it in the user scope copies
+            # the whole machine PATH there and freezes a stale copy of it
+            $userPath = [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
+            if (($userPath -split ';') -notcontains $x) {
+                $userPath = if ($userPath) { "$userPath;$x" } else { $x }
+                [Environment]::SetEnvironmentVariable("Path", $userPath, [System.EnvironmentVariableTarget]::User)
+            }
             Write-Output 'PATH updated'
         }
     }
@@ -237,20 +279,45 @@ function ensure_java {
 function main {
     param([string[]]$ScriptArgs = @())
     $RequestedVersion = ""
-    foreach ($arg in $ScriptArgs) {
-        if ($arg.StartsWith("--version=")) {
-            $RequestedVersion = $arg.Substring(10)
+    $RequestedTarget = ""
+    # Both "--opt value" and "--opt=value" are accepted. The separate-token form
+    # is the only one that survives PowerShell for a Windows PATH: PowerShell
+    # reads an unquoted token starting with "-" as parameter syntax and splits
+    # it at the first colon, so `--target=C:\sl` arrives as `--target=C` plus
+    # `\sl` - which would silently install into a directory named "C". Rejoin
+    # that split rather than obeying it.
+    for ($i = 0; $i -lt $ScriptArgs.Count; $i++) {
+        $arg = $ScriptArgs[$i]
+        $name = ""
+        $value = ""
+        if ($arg -match '^(--[a-z]+)=(.*)$') {
+            $name = $Matches[1]
+            $value = $Matches[2]
+            # drive letter torn off by PowerShell's -name:value parsing
+            if ($value -match '^[A-Za-z]$' -and ($i + 1) -lt $ScriptArgs.Count -and $ScriptArgs[$i + 1] -match '^[\\/]') {
+                $value = $value + ":" + $ScriptArgs[$i + 1]
+                $i++
+            }
+        }
+        elseif ($arg -match '^(--[a-z]+)$' -and ($i + 1) -lt $ScriptArgs.Count) {
+            $name = $Matches[1]
+            $value = $ScriptArgs[$i + 1]
+            $i++
+        }
+        switch ($name) {
+            "--version" { $RequestedVersion = $value }
+            "--target"  { $RequestedTarget = $value }
         }
     }
     print_starlake_ascii_art
-    $INSTALL_DIR = get_installation_directory
+    $INSTALL_DIR = get_installation_directory -RequestedTarget $RequestedTarget
     $VERSION = get_version_to_install -RequestedVersion $RequestedVersion
     # after version resolution: the java floor depends on the Starlake version
     # (<= 1.4 -> java 11, >= 1.5 -> java 17), and an embedded JDK would land
     # in <install-dir>\jdk
     ensure_java -InstallDir $INSTALL_DIR -SlVersion $VERSION
     install_starlake $INSTALL_DIR $VERSION
-    add_starlake_to_path $INSTALL_DIR
+    add_starlake_to_path $INSTALL_DIR ($RequestedTarget -ne "")
     run_installation_command -InstallDir $INSTALL_DIR -Version $VERSION
     print_success_message
 }
