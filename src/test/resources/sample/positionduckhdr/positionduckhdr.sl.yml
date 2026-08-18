@@ -1,0 +1,11 @@
+---
+version: 1
+load:
+  name: "positionduckhdr"
+  metadata:
+    directory: "__SL_TEST_ROOT__/positionduckhdr"
+    format: "POSITION"
+    withHeader: true
+    loader: "native"
+    writeStrategy:
+      type: "APPEND"

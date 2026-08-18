@@ -1,0 +1,12 @@
+---
+version: 1
+load:
+  name: "positionduckenc"
+  metadata:
+    directory: "__SL_TEST_ROOT__/positionduckenc"
+    format: "POSITION"
+    withHeader: false
+    loader: "native"
+    encoding: "ISO-8859-1"
+    writeStrategy:
+      type: "APPEND"

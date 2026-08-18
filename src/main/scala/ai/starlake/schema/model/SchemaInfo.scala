@@ -708,7 +708,8 @@ case class SchemaInfo(
   def buildSecondStepSqlSelectOnLoad(
     table: String,
     jdbcEngine: Option[JdbcEngine] = None,
-    ddlTypesByAttribute: Map[String, String] = Map.empty
+    ddlTypesByAttribute: Map[String, String] = Map.empty,
+    safeCastFunction: String = "SAFE_CAST"
   ): String = {
     val attributeQuote = jdbcEngine.map(_.quote).getOrElse("")
     val (scriptAttributes, transformAttributes) =
@@ -718,9 +719,9 @@ case class SchemaInfo(
 
     val isPosition = this.metadata.map(_.resolveFormat()).contains(Format.POSITION)
 
-    // SAFE_CAST is BigQuery-specific. POSITION is currently only enabled for BigQuery
-    // native; if added to other engines later, this should become engine-aware
-    // (Snowflake/DuckDB use TRY_CAST). A no-op cast to STRING is skipped for readability.
+    // The cast function is engine-specific: SAFE_CAST on BigQuery, TRY_CAST on
+    // DuckDB/Snowflake — callers pass the right one. A no-op cast to a string-like
+    // type is skipped for readability.
     def isStringLikeDdlType(ddlType: String): Boolean = {
       val upper = ddlType.trim.toUpperCase
       upper == "STRING" || upper.startsWith("VARCHAR") || upper.startsWith("CHAR") ||
@@ -742,7 +743,7 @@ case class SchemaInfo(
       val finalName = s"$attributeQuote${field.getFinalName()}$attributeQuote"
       ddlTypesByAttribute.get(field.name) match {
         case Some(ddlType) if !isStringLikeDdlType(ddlType) =>
-          s"SAFE_CAST($raw AS $ddlType) as $finalName"
+          s"$safeCastFunction($raw AS $ddlType) as $finalName"
         case _ =>
           s"$raw as $finalName"
       }

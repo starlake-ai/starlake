@@ -12,6 +12,7 @@ import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import java.nio.charset.Charset
 import java.sql.Connection
@@ -44,12 +45,15 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
   lazy val engineName: Engine = sinkConnection.getJdbcEngineName()
 
   private def requireTwoSteps(schema: SchemaInfo): Boolean = {
-    // renamed attribute can be loaded directly so it's not in the condition
+    // renamed attribute can be loaded directly so it's not in the condition.
+    // POSITION always needs two steps: the first step loads each line as a single VARCHAR
+    // column, the second step slices it via SUBSTR into the target columns.
     schema
       .hasTransformOrIgnoreOrScriptColumns() ||
     strategy.isMerge() ||
     !schema.isVariant() ||
     schema.filter.nonEmpty ||
+    mergedMetadata.resolveFormat() == Format.POSITION ||
     settings.appConfig.archiveTable
   }
   lazy val effectiveSchema: SchemaInfo = computeEffectiveInputSchema()
@@ -114,7 +118,17 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
             .map(s"SELECT * FROM ${domain.finalName}." + _)
             .mkString("(", " UNION ALL ", ")")
           val targetFullTableName = s"${domain.finalName}.${schema.finalName}"
-          val sqlWithTransformedFields = schema.buildSecondStepSqlSelectOnLoad(unionTempTables)
+          // Per-attribute DDL type, used by POSITION to wrap each SUBSTR projection in
+          // TRY_CAST (DuckDB's SAFE_CAST) so malformed cells yield NULL instead of
+          // aborting the whole INSERT.
+          val ddlTypesByAttribute: Map[String, String] = Try(
+            schemaHandler.getAttributesWithDDLType(schema, "duckdb").toMap
+          ).getOrElse(Map.empty)
+          val sqlWithTransformedFields = schema.buildSecondStepSqlSelectOnLoad(
+            unionTempTables,
+            ddlTypesByAttribute = ddlTypesByAttribute,
+            safeCastFunction = "TRY_CAST"
+          )
 
           val taskDesc = AutoTaskInfo(
             name = schema.finalName,
@@ -271,6 +285,18 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     }
   }
 
+  // Map the Java charset name from the metadata to DuckDB's read_csv encoding
+  // names. UTF-8 is DuckDB's default and is omitted; unknown charsets are passed
+  // through lowercased so DuckDB fails loudly instead of silently mis-decoding.
+  private def duckDbEncoding(charsetName: String): Option[String] = {
+    charsetName.toUpperCase() match {
+      case "UTF-8" | "US-ASCII"                => None
+      case "ISO-8859-1" | "LATIN-1" | "LATIN1" => Some("latin-1")
+      case "UTF-16" | "UTF-16LE" | "UTF-16BE"  => Some("utf-16")
+      case other                               => Some(other.toLowerCase())
+    }
+  }
+
   private def setPartition(connection: Connection, domainAndTableName: String) = {
     if (sinkConnection.isDucklake()) {
       val jdbcEngine = settings.appConfig.jdbcEngines("duckdb")
@@ -291,8 +317,14 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
     path: List[Path]
   ) = {
     val isTemporary = table.startsWith("zztmp_")
+    // For POSITION format the first step loads each line as a single VARCHAR
+    // column named `value`; the second step slices it via SUBSTR.
+    val isPosition = mergedMetadata.resolveFormat() == Format.POSITION
     val incomingSparkSchema =
-      schema.sparkSchemaWithIgnoreAndScript(schemaHandler, !isTemporary)
+      if (isPosition)
+        StructType(Seq(StructField("value", StringType)))
+      else
+        schema.sparkSchemaWithIgnoreAndScript(schemaHandler, !isTemporary)
     val domainAndTableName = domain + "." + table
     val optionsWrite =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, domainAndTableName, sinkConnection.options)
@@ -405,6 +437,30 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
                | $nullstr
                | $extraOptions
                | columns = { $columnsString});""".stripMargin
+            JdbcDbUtils.execute(sql, conn)
+
+          case Format.POSITION =>
+            // Load each line of the fixed-width file as a single VARCHAR column named
+            // `value`. The field delimiter is set to SOH (\x01) — a control char
+            // vanishingly unlikely to appear in fixed-width data, so each line becomes
+            // one field. Quote and escape are disabled so any `"` or `\` in the data is
+            // treated as a literal byte. Same approach as the BigQuery native loader.
+            val skip =
+              if (mergedMetadata.resolveWithHeader()) "skip = 1," else ""
+            val encoding =
+              duckDbEncoding(mergedMetadata.resolveEncoding())
+                .map(enc => s"encoding = '$enc',")
+                .getOrElse("")
+            val sql = s"""INSERT INTO $domainAndTableName SELECT
+               | * FROM read_csv(
+               | ${paths},
+               | delim = e'\\x01',
+               | quote = '',
+               | escape = '',
+               | header = false,
+               | $skip
+               | $encoding
+               | columns = {'value': 'VARCHAR'});""".stripMargin
             JdbcDbUtils.execute(sql, conn)
 
           case Format.JSON_FLAT | Format.JSON =>

@@ -1,0 +1,11 @@
+---
+version: 1
+load:
+  name: "positionduck"
+  metadata:
+    directory: "__SL_TEST_ROOT__/positionduck"
+    format: "POSITION"
+    withHeader: false
+    loader: "native"
+    writeStrategy:
+      type: "APPEND"

@@ -202,5 +202,28 @@ class SchemaInfoSpec extends TestHelper {
       sql should include("SUBSTR(value, 12, 20) as label")
       sql should not include "SAFE_CAST(SUBSTR(value, 12, 20) AS STRING)"
     }
+
+    "buildSecondStepSqlSelectOnLoad" should "use the provided cast function for POSITION projections" in {
+      val schema = SchemaInfo(
+        name = "account",
+        pattern = Pattern.compile(".*TBL\\.POS"),
+        metadata = Some(Metadata(format = Some(Format.POSITION))),
+        attributes = List(
+          TableAttribute(name = "code", `type` = "byte", position = Some(Position(0, 0))),
+          TableAttribute(name = "label", `type` = "string", position = Some(Position(1, 10)))
+        )
+      )
+      val sql = schema
+        .buildSecondStepSqlSelectOnLoad(
+          "tmp_table",
+          ddlTypesByAttribute = Map("code" -> "TINYINT", "label" -> "VARCHAR"),
+          safeCastFunction = "TRY_CAST"
+        )
+        .replaceAll("\\s+", " ")
+      sql should include("TRY_CAST(SUBSTR(value, 1, 1) AS TINYINT) as code")
+      // string-like DDL types stay uncast whatever the cast function
+      sql should include("SUBSTR(value, 2, 10) as label")
+      sql should not include "SAFE_CAST"
+    }
   }
 }
