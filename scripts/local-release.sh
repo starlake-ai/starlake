@@ -15,6 +15,7 @@ set -euo pipefail
 # Every step is idempotent: a failed release is resumed by simply re-running
 # the script (optionally with --steps). Steps skip work already done:
 #   - version.sbt already at the release version -> skip the set + commit
+#   - ui/ already synced to the current starlake-ui2 commit -> skip UI build
 #   - tag v{v} already exists                    -> skip tag
 #   - artifact already built                     -> skip build
 #   - release / asset already on GitHub          -> skip create / upload
@@ -22,21 +23,22 @@ set -euo pipefail
 #
 # Usage (from repo root):
 #   ./scripts/local-release.sh                  # all steps
-#   ./scripts/local-release.sh --steps 6        # only the GitHub release
+#   ./scripts/local-release.sh --steps 7        # only the GitHub release
 #   ./scripts/local-release.sh --dry-run        # preview
 #   RELEASE_VERSION=1.6.0 NEXT_VERSION=1.6.1-SNAPSHOT ./scripts/local-release.sh
-#   RELEASE_VERSION=1.6.0 ./scripts/local-release.sh --steps 6   # resume a specific release after version.sbt moved on
+#   RELEASE_VERSION=1.6.0 ./scripts/local-release.sh --steps 7   # resume a specific release after version.sbt moved on
 #
 # Steps:
 #   1 - Preflight (gh auth, clean trees, version alignment)  [always runs]
-#   2 - Set release version + commit (both repos)
-#   3 - Tag v{v} (both repos)
-#   4 - Build core assembly + publishLocal, build api zip
-#   5 - Push commits (both repos) and the api tag; the starlake tag is
-#       created remotely when step 6 publishes the release
-#   6 - Create the GitHub release (draft), upload sha256 assets, publish
-#   7 - Bump to next SNAPSHOT + commit + push (both repos)
-#   8 - Housekeeping: propagate versions, setup.jar, full assembly
+#   2 - Set release version + commit (core + api)
+#   3 - Build starlake-ui2, inject the static export into starlake-api/ui
+#   4 - Tag v{v} (core, api, ui)
+#   5 - Build core assembly + publishLocal, build api zip
+#   6 - Push commits (core + api) and the api/ui tags; the starlake tag is
+#       created remotely when step 7 publishes the release
+#   7 - Create the GitHub release (draft), upload sha256 assets, publish
+#   8 - Bump to next SNAPSHOT + commit + push (both repos)
+#   9 - Housekeeping: propagate versions, setup.jar, full assembly
 # ============================================================================
 
 SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
@@ -48,7 +50,7 @@ UI_DIR="${SL_UI_DIR:-$HOME/git/starlake-ui2}"
 PROFILE="$HOME/.bash_profile"
 
 DRY_RUN=false
-STEPS="1,2,3,4,5,6,7,8"
+STEPS="1,2,3,4,5,6,7,8,9"
 while [[ "${1:-}" == --* ]]; do
   case "$1" in
     --dry-run)  DRY_RUN=true; shift ;;
@@ -77,8 +79,11 @@ echo "============================================"
 require_gh_auth
 require_cmd shasum
 require_cmd sbt
+require_cmd node
+require_cmd yarn
 
 [[ -d "$API_DIR" ]] || die "starlake-api repo not found at $API_DIR (set SL_API_DIR)"
+[[ -d "$UI_DIR" ]] || die "starlake-ui2 repo not found at $UI_DIR (set SL_UI_DIR)"
 
 CURRENT_VERSION="$(read_version "$REPO_DIR/version.sbt")"
 API_CURRENT_VERSION="$(read_version "$API_DIR/version.sbt")"
@@ -105,6 +110,7 @@ echo ""
 if [[ "$DRY_RUN" == false ]]; then
   require_clean_tree "$REPO_DIR" starlake-core
   require_clean_tree "$API_DIR" starlake-api
+  require_clean_tree "$UI_DIR" starlake-ui2
   warn_if_not_master "$REPO_DIR" starlake-core
   confirm "Proceed?" || exit 1
   # Confirmed once here; later prompts in this run are pre-approved.
@@ -133,13 +139,56 @@ if should_run 2; then
 fi
 
 # ============================================================================
-# Step 3: Tag (idempotent)
+# Step 3: Build UI and inject into starlake-api (idempotent)
+# Runs before tagging so the api tag carries the freshly built UI. The Next.js
+# static export ($UI_DIR/build, per distDir/output in next.config.js) replaces
+# $API_DIR/ui and is committed with the starlake-ui2 commit SHA it was built
+# from; that SHA in the commit subject is what makes a rerun on the same UI
+# commit skip the rebuild.
 # ============================================================================
 if should_run 3; then
   echo "============================================"
-  echo "Step 3: Tag $TAG"
+  echo "Step 3: Build UI"
   echo "============================================"
-  for repo in "$REPO_DIR" "$API_DIR"; do
+  UI_SHA="$(git -C "$UI_DIR" rev-parse HEAD)"
+  LAST_UI_SYNC="$(git -C "$API_DIR" log -1 --format=%s -- ui)"
+  if [[ -f "$API_ZIP_BUILT" ]]; then
+    echo "  starlake-api-${RELEASE_VERSION}.zip already built, skipping UI rebuild."
+  elif [[ "$LAST_UI_SYNC" == *"starlake-ui2@$UI_SHA"* ]]; then
+    echo "  ui/ already built from starlake-ui2@${UI_SHA:0:12}, skipping."
+  else
+    echo "  building starlake-ui2@${UI_SHA:0:12}..."
+    ( cd "$UI_DIR" && run yarn install --frozen-lockfile )
+    run rm -rf "$UI_DIR/build"
+    ( cd "$UI_DIR" && run yarn build )
+    [[ "$DRY_RUN" == true || -f "$UI_DIR/build/index.html" ]] \
+      || die "yarn build did not produce $UI_DIR/build/index.html"
+    run rm -rf "$API_DIR/ui"
+    run mkdir -p "$API_DIR/ui"
+    run cp -R "$UI_DIR/build/." "$API_DIR/ui/"
+    if [[ "$DRY_RUN" == true ]]; then
+      echo "  [DRY-RUN] Would commit ui/ as: Update UI to starlake-ui2@$UI_SHA for $TAG"
+    else
+      git -C "$API_DIR" add -A ui
+      if git -C "$API_DIR" diff --cached --quiet; then
+        echo "  UI output unchanged, nothing to commit."
+      else
+        git -C "$API_DIR" commit -m "Update UI to starlake-ui2@$UI_SHA for $TAG"
+      fi
+    fi
+  fi
+fi
+
+# ============================================================================
+# Step 4: Tag (idempotent)
+# starlake-ui2 has no version.sbt; its tag is what ties a UI state to the
+# release.
+# ============================================================================
+if should_run 4; then
+  echo "============================================"
+  echo "Step 4: Tag $TAG"
+  echo "============================================"
+  for repo in "$REPO_DIR" "$API_DIR" "$UI_DIR"; do
     if tag_exists "$repo" "$TAG"; then
       echo "  $(basename "$repo"): tag $TAG already exists, skipping."
     else
@@ -150,21 +199,21 @@ if should_run 3; then
 fi
 
 # ============================================================================
-# Step 4: Build artifacts (idempotent)
+# Step 5: Build artifacts (idempotent)
 # Builds must happen while version.sbt still holds the release version. A
-# resumed run that lost an artifact after the step 7 bump rebuilds from the
+# resumed run that lost an artifact after the step 8 bump rebuilds from the
 # tag:  git show v{v}:version.sbt > version.sbt && sbt assembly
 #       && git checkout version.sbt
 # ============================================================================
-if should_run 4; then
+if should_run 5; then
   echo "============================================"
-  echo "Step 4: Build artifacts"
+  echo "Step 5: Build artifacts"
   echo "============================================"
   if [[ -f "$CORE_JAR" ]]; then
     echo "  $CORE_JAR_NAME already built, skipping."
   else
     [[ "$DRY_RUN" == true || "$(read_version "$REPO_DIR/version.sbt")" == "$RELEASE_VERSION" ]] \
-      || die "starlake-core version.sbt moved past $RELEASE_VERSION; rebuild from the tag (see comment above step 4)."
+      || die "starlake-core version.sbt moved past $RELEASE_VERSION; rebuild from the tag (see comment above step 5)."
     echo "  building $CORE_JAR_NAME + publishLocal..."
     run sbt assembly publishLocal
     [[ "$DRY_RUN" == true || -f "$CORE_JAR" ]] || die "sbt assembly did not produce $CORE_JAR"
@@ -173,7 +222,7 @@ if should_run 4; then
     echo "  starlake-api-${RELEASE_VERSION}.zip already built, skipping."
   else
     [[ "$DRY_RUN" == true || "$(read_version "$API_DIR/version.sbt")" == "$RELEASE_VERSION" ]] \
-      || die "starlake-api version.sbt moved past $RELEASE_VERSION; rebuild from the tag (see comment above step 4)."
+      || die "starlake-api version.sbt moved past $RELEASE_VERSION; rebuild from the tag (see comment above step 5)."
     echo "  building starlake-api zip..."
     ( cd "$API_DIR" && run sbt Universal/packageBin )
     [[ "$DRY_RUN" == true || -f "$API_ZIP_BUILT" ]] || die "sbt Universal/packageBin did not produce $API_ZIP_BUILT"
@@ -181,25 +230,27 @@ if should_run 4; then
 fi
 
 # ============================================================================
-# Step 5: Push commits and tags (unconditional no-ops when up to date)
+# Step 6: Push commits and tags (unconditional no-ops when up to date)
 # The starlake tag is NOT pushed here: pushing it now would trigger the
 # tag-triggered Docker workflow (.github/workflows/release.yml) before the
 # release assets exist, and its build would 404 downloading them. The
 # starlake tag instead reaches GitHub when the release is published at the
-# end of step 6, after the assets are uploaded, so the Docker workflow finds
-# them. The api repo's tag has no such workflow, so it is pushed as usual.
+# end of step 7, after the assets are uploaded, so the Docker workflow finds
+# them. The api and ui repos' tags have no such workflow, so they are pushed
+# as usual.
 # ============================================================================
-if should_run 5; then
+if should_run 6; then
   echo "============================================"
-  echo "Step 5: Push commits and tags"
+  echo "Step 6: Push commits and tags"
   echo "============================================"
   run git -C "$REPO_DIR" push origin HEAD
   run git -C "$API_DIR" push origin HEAD
   run git -C "$API_DIR" push origin "$TAG"
+  run git -C "$UI_DIR" push origin "$TAG"
 fi
 
 # ============================================================================
-# Step 6: GitHub release (idempotent)
+# Step 7: GitHub release (idempotent)
 # The .sha256 companion assets are the integrity source for starlake.sh,
 # starlake.cmd and Setup.java. Content is the standard "hash  basename" line
 # so `shasum -c` works next to the download.
@@ -210,9 +261,9 @@ fi
 # which creates the starlake tag on GitHub and triggers that workflow, by
 # which time the assets it downloads are already in place.
 # ============================================================================
-if should_run 6; then
+if should_run 7; then
   echo "============================================"
-  echo "Step 6: GitHub release $TAG"
+  echo "Step 7: GitHub release $TAG"
   echo "============================================"
   if [[ "$DRY_RUN" == true ]]; then
     echo "  [DRY-RUN] Would create release $TAG on $GH_REPO with assets:"
@@ -238,7 +289,7 @@ if should_run 6; then
     ensure_asset() {
       local asset="$1" local_file="$2"
       if ! release_has_asset "$TAG" "$asset"; then
-        [[ -f "$local_file" ]] || die "$local_file missing; run step 4 first (rebuild from the tag if version.sbt moved on)."
+        [[ -f "$local_file" ]] || die "$local_file missing; run step 5 first (rebuild from the tag if version.sbt moved on)."
         cp "$local_file" "$STAGE_DIR/$asset"
         ( cd "$STAGE_DIR" && shasum -a 256 "$asset" > "$asset.sha256" )
         echo "  uploading $asset (+ .sha256)"
@@ -277,11 +328,11 @@ if should_run 6; then
 fi
 
 # ============================================================================
-# Step 7: Bump to next SNAPSHOT + push (idempotent)
+# Step 8: Bump to next SNAPSHOT + push (idempotent)
 # ============================================================================
-if should_run 7; then
+if should_run 8; then
   echo "============================================"
-  echo "Step 7: Bump to $NEXT_VERSION"
+  echo "Step 8: Bump to $NEXT_VERSION"
   echo "============================================"
   for repo in "$REPO_DIR" "$API_DIR"; do
     v="$(read_version "$repo/version.sbt")"
@@ -296,20 +347,20 @@ if should_run 7; then
 fi
 
 # ============================================================================
-# Step 8: Housekeeping (kept from the pre-GitHub release script)
+# Step 9: Housekeeping (kept from the pre-GitHub release script)
 # ============================================================================
-if should_run 8; then
+if should_run 9; then
   echo "============================================"
-  echo "Step 8: Housekeeping"
+  echo "Step 9: Housekeeping"
   echo "============================================"
 
   # The version to propagate is whatever version.sbt now holds when it is
-  # already a -SNAPSHOT (correct even on a resumed run after the step 7
+  # already a -SNAPSHOT (correct even on a resumed run after the step 8
   # bump); fall back to NEXT_VERSION otherwise.
   PROPAGATE_VERSION="$(read_version "$REPO_DIR/version.sbt")"
   [[ "$PROPAGATE_VERSION" == *-SNAPSHOT ]] || PROPAGATE_VERSION="$NEXT_VERSION"
 
-  # --- 8a. Propagate PROPAGATE_VERSION to non-SBT config files ---
+  # --- 9a. Propagate PROPAGATE_VERSION to non-SBT config files ---
   SL_VERSION_FILES=(
     "$API_DIR/.versions"
     "$API_DIR/versions.sh"
@@ -317,7 +368,6 @@ if should_run 8; then
   )
   BROAD_VERSION_FILES=(
     "$UI_DIR/Dockerfile"
-    "$UI_DIR/.github/workflows/docker-hub-amd-arm.yml"
   )
   # Version pattern: matches X.Y.Z or X.Y.Z-SNAPSHOT
   VER_RE='[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\(-SNAPSHOT\)*'
@@ -353,9 +403,9 @@ if should_run 8; then
     echo "  Updated LOCAL_STARLAKE_VERSION in $PROFILE"
   fi
 
-  # --- 8b. Rebuild and push setup.jar ---
-  # No `clean` here: it would wipe the step 4 assembly needed by a resumed
-  # step 6.
+  # --- 9b. Rebuild and push setup.jar ---
+  # No `clean` here: it would wipe the step 5 assembly needed by a resumed
+  # step 7.
   if [[ "$DRY_RUN" == true ]]; then
     echo "  [DRY-RUN] Would run: sbt packageSetup + push distrib/setup.jar"
   else
@@ -367,8 +417,8 @@ if should_run 8; then
     fi
   fi
 
-  # --- 8c. Optional full assembly ---
-  # tmpsbt.sh derives the version from version.sbt, already bumped by step 7.
+  # --- 9c. Optional full assembly ---
+  # tmpsbt.sh derives the version from version.sbt, already bumped by step 8.
   if [[ -x "$REPO_DIR/tmpsbt.sh" ]]; then
     if [[ "$DRY_RUN" == true ]]; then
       echo "  [DRY-RUN] Would run: tmpsbt.sh"
