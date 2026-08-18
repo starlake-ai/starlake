@@ -16,6 +16,7 @@ import ai.starlake.schema.model.*
 import ai.starlake.utils.*
 import ai.starlake.utils.Formatter.*
 import com.google.cloud.bigquery.TableId
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.*
@@ -144,52 +145,7 @@ trait IngestionJob
     }
   }
 
-  private def selectLoader(): String = {
-    val sinkConn = mergedMetadata.getSinkConnection()
-    val dbName = sinkConn.targetDatawareHouse()
-    val nativeCandidate: Boolean = isNativeCandidate(dbName)
-    logger.info(s"Native candidate: $nativeCandidate")
-
-    val loader =
-      if (nativeCandidate) {
-        val loaders = Set("bigquery", "duckdb", "spark", "snowflake")
-        if (loaders.contains(dbName))
-          dbName
-        else
-          "spark"
-      } else {
-        "spark"
-      }
-    logger.info(s"Using $loader as ingestion engine")
-    loader
-  }
-
-  private val nativeSupportedFormats: Map[String, Set[Format]] = Map(
-    "bigquery" -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT, Format.POSITION),
-    "duckdb"   -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT, Format.POSITION),
-    "snowflake" -> Set(
-      Format.DSV,
-      Format.JSON,
-      Format.JSON_FLAT,
-      Format.XML,
-      Format.PARQUET,
-      Format.POSITION
-    ),
-    "redshift" -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
-  )
-
-  private def isNativeCandidate(dbName: String): Boolean = {
-    val isNative = mergedMetadata.loader
-      .orElse(mergedMetadata.getSinkConnection().loader)
-      .getOrElse(settings.appConfig.loader)
-      .equalsIgnoreCase("native")
-    isNative && {
-      val format = mergedMetadata.resolveFormat()
-      // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
-      val arrayOk = dbName != "bigquery" || !mergedMetadata.resolveArray()
-      nativeSupportedFormats.get(dbName).exists(_.contains(format)) && arrayOk
-    }
-  }
+  private def selectLoader(): String = IngestionJob.selectLoader(mergedMetadata)
 
   def buildListOfSQLStatementsAsMap(orchestrator: String): Map[String, Object] = {
     require(
@@ -298,6 +254,69 @@ trait IngestionJob
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
         Failure(exception)
+    }
+  }
+}
+
+object IngestionJob extends LazyLogging {
+
+  private val nativeSupportedFormats: Map[String, Set[Format]] = Map(
+    "bigquery" -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT, Format.POSITION),
+    "duckdb"   -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT, Format.POSITION),
+    "snowflake" -> Set(
+      Format.DSV,
+      Format.JSON,
+      Format.JSON_FLAT,
+      Format.XML,
+      Format.PARQUET,
+      Format.POSITION
+    ),
+    "redshift" -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
+  )
+
+  /** Loader effectively used to ingest a table with this merged metadata: "bigquery", "snowflake"
+    * or "duckdb" for warehouse-native loads, "spark" otherwise.
+    */
+  def selectLoader(mergedMetadata: Metadata)(implicit settings: Settings): String = {
+    val sinkConn = mergedMetadata.getSinkConnection()
+    val dbName = sinkConn.targetDatawareHouse()
+    val nativeCandidate: Boolean = isNativeCandidate(mergedMetadata, dbName)
+    logger.info(s"Native candidate: $nativeCandidate")
+
+    val loader =
+      if (nativeCandidate) {
+        val loaders = Set("bigquery", "duckdb", "spark", "snowflake")
+        if (loaders.contains(dbName))
+          dbName
+        else
+          "spark"
+      } else {
+        "spark"
+      }
+    logger.info(s"Using $loader as ingestion engine")
+    loader
+  }
+
+  /** True when loading this table requires a Spark session, in which case a server that cannot
+    * share its Spark session must run the load in a separate process.
+    */
+  def loadRequiresSpark(domain: DomainInfo, table: SchemaInfo)(implicit
+    settings: Settings
+  ): Boolean =
+    selectLoader(table.mergedMetadata(domain.metadata)) == "spark"
+
+  private def isNativeCandidate(mergedMetadata: Metadata, dbName: String)(implicit
+    settings: Settings
+  ): Boolean = {
+    val isNative = mergedMetadata.loader
+      .orElse(mergedMetadata.getSinkConnection().loader)
+      .getOrElse(settings.appConfig.loader)
+      .equalsIgnoreCase("native")
+    isNative && {
+      val format = mergedMetadata.resolveFormat()
+      // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
+      val arrayOk = dbName != "bigquery" || !mergedMetadata.resolveArray()
+      nativeSupportedFormats.get(dbName).exists(_.contains(format)) && arrayOk
     }
   }
 }
