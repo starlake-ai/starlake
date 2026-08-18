@@ -124,6 +124,15 @@ parse_proxy_and_build_args() {
 # All Java arguments will be collected in this array
 export JAVA_ARGS=()
 
+# The JVM prefers IPv4 by default; on dual-stack networks where an IPv4 path is
+# broken this makes it pick a dead address that curl/python would avoid.
+# "system" follows the OS address ordering (RFC 6724) and behaves identically
+# on IPv4-only networks. Users can still override via SPARK_DRIVER_OPTIONS/JAVA_OPTS.
+case "$JAVA_OPTS $SPARK_DRIVER_OPTIONS" in
+  *java.net.preferIPv6Addresses*) ;;
+  *) JAVA_ARGS+=("-Djava.net.preferIPv6Addresses=system") ;;
+esac
+
 # 1. Check for HTTPS_PROXY
 if [ -n "$HTTPS_PROXY" ]; then
     # Pass "https" as the type and the variable's value

@@ -63,6 +63,13 @@ if defined https_proxy (
 
 set "JAVA_ARGS="
 
+REM The JVM prefers IPv4 by default; on dual-stack networks where an IPv4 path is
+REM broken this makes it pick a dead address that curl/python would avoid.
+REM "system" follows the OS address ordering and behaves identically on IPv4-only
+REM networks. Users can still override via SPARK_DRIVER_OPTIONS/JAVA_OPTS.
+echo.%JAVA_OPTS% %SPARK_DRIVER_OPTIONS% | findstr /C:"java.net.preferIPv6Addresses" >nul
+if errorlevel 1 set "JAVA_ARGS=-Djava.net.preferIPv6Addresses=system"
+
 if defined HTTPS_PROXY (
     echo Using HTTPS_PROXY: %HTTPS_PROXY%
     call :parse_proxy_and_build_args "https" "%HTTPS_PROXY%"
