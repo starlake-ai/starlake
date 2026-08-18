@@ -13,6 +13,7 @@ import com.typesafe.scalalogging.LazyLogging
 import com.univocity.parsers.csv.{CsvFormat, CsvParser, CsvParserSettings}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import java.nio.charset.Charset
 import java.sql.Timestamp
@@ -252,11 +253,18 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
         .getAttributesWithDDLType(starlakeSchema, engineName.toString)
         .toMap
     ).getOrElse(Map.empty)
+    // BigQuery calls it SAFE_CAST, DuckDB and Snowflake TRY_CAST — same semantics
+    // (NULL on failure).
+    val safeCastFunction = engineName.toString.toLowerCase() match {
+      case "duckdb" | "snowflake" => "TRY_CAST"
+      case _                      => "SAFE_CAST"
+    }
     val sqlWithTransformedFields =
       starlakeSchema.buildSecondStepSqlSelectOnLoad(
         tempTable,
         queryEngine,
-        ddlTypesByAttribute
+        ddlTypesByAttribute,
+        safeCastFunction
       )
 
     val taskDesc = AutoTaskInfo(
@@ -384,8 +392,13 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     val connectionPreActions =
       sinkConnection.options.get("preActions").map(_.split(';')).getOrElse(Array.empty).toList
 
+    // For POSITION format the first step loads each line as a single VARCHAR
+    // column named `value`; the second step slices it via SUBSTR.
     val tempSparkSchema =
-      starlakeSchema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = false)
+      if (format == Format.POSITION)
+        StructType(Seq(StructField("value", StringType)))
+      else
+        starlakeSchema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = false)
     val finalSparkSchema =
       starlakeSchema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = true)
 

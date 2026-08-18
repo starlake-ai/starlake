@@ -12,6 +12,7 @@ import com.google.gson.Gson
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcOptionsInWrite
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.util.{Failure, Success, Try}
 
@@ -58,8 +59,18 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
                 tempTables
                   .map(s"SELECT * FROM ${domain.finalName}." + _)
                   .mkString("(", " UNION ALL ", ")")
+              // Per-attribute DDL type, used by POSITION to wrap each SUBSTR projection
+              // in TRY_CAST (Snowflake's SAFE_CAST) so malformed cells yield NULL
+              // instead of aborting the whole INSERT.
+              val ddlTypesByAttribute: Map[String, String] = Try(
+                schemaHandler.getAttributesWithDDLType(starlakeSchema, "snowflake").toMap
+              ).getOrElse(Map.empty)
               val sqlWithTransformedFields =
-                starlakeSchema.buildSecondStepSqlSelectOnLoad(unionTempTables)
+                starlakeSchema.buildSecondStepSqlSelectOnLoad(
+                  unionTempTables,
+                  ddlTypesByAttribute = ddlTypesByAttribute,
+                  safeCastFunction = "TRY_CAST"
+                )
               val targetTableFullName = s"${domain.finalName}.${starlakeSchema.finalName}"
 
               val taskDesc = AutoTaskInfo(
@@ -365,6 +376,36 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
          |""".stripMargin
     sql
   }
+
+  /** COPY for fixed-width files: load each line as a single VARCHAR column named `value`.
+    * FIELD_DELIMITER = NONE tells Snowflake the whole line is one field; quoting and escaping are
+    * disabled so any quote or backslash in the data is treated as a literal byte. The second step
+    * slices the line via SUBSTR.
+    */
+  private[loaders] def buildCopyPosition(domainAndTableName: String): String = {
+    val commonOptions = List("SKIP_HEADER", "ENCODING")
+    val extraOptions = copyExtraOptions(commonOptions)
+    val sql =
+      s"""
+         |COPY INTO $domainAndTableName
+         |FROM $copySource
+         |PATTERN = '$pattern'
+         |PURGE = $purge
+         |FILE_FORMAT = (
+         |  TYPE = CSV
+         |  ERROR_ON_COLUMN_COUNT_MISMATCH = false
+         |  SKIP_HEADER = ${skipCount.getOrElse("0")}
+         |  FIELD_DELIMITER = NONE
+         |  FIELD_OPTIONALLY_ENCLOSED_BY = NONE
+         |  ESCAPE_UNENCLOSED_FIELD = NONE
+         |  ENCODING = '$encoding'
+         |  $extraOptions
+         |  $compressionFormat
+         |)
+         |""".stripMargin
+    sql
+  }
+
   def singleStepLoad(
     domain: String,
     table: String,
@@ -374,8 +415,14 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
   ): List[Map[String, String]] = {
     val temporary = table.startsWith("zztmp_")
     val sinkConnection = mergedMetadata.getSinkConnection()
+    // For POSITION format the first step loads each line as a single VARCHAR
+    // column named `value`; the second step slices it via SUBSTR.
+    val isPosition = mergedMetadata.resolveFormat() == Format.POSITION
     val incomingSparkSchema =
-      schema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = !temporary)
+      if (isPosition)
+        StructType(Seq(StructField("value", StringType)))
+      else
+        schema.sparkSchemaWithIgnoreAndScript(schemaHandler, withFinalName = !temporary)
     val domainAndTableName = domain + "." + table
     val optionsWrite =
       new JdbcOptionsInWrite(sinkConnection.jdbcUrl, domainAndTableName, sinkConnection.options)
@@ -454,6 +501,9 @@ class SnowflakeNativeLoader(ingestionJob: IngestionJob)(implicit settings: Setti
         JdbcDbUtils.executeQueryAsMap(sql, conn)
       case Format.XML =>
         val sql = buildCopyXML(domainAndTableName)
+        JdbcDbUtils.executeQueryAsMap(sql, conn)
+      case Format.POSITION =>
+        val sql = buildCopyPosition(domainAndTableName)
         JdbcDbUtils.executeQueryAsMap(sql, conn)
       case format =>
         val sql = buildCopyOther(domainAndTableName, format.toString.toUpperCase())

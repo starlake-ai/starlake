@@ -1,0 +1,11 @@
+---
+version: 1
+load:
+  name: "positionsnow"
+  metadata:
+    directory: "__SL_TEST_ROOT__/positionsnow"
+    format: "POSITION"
+    withHeader: false
+    loader: "native"
+    writeStrategy:
+      type: "APPEND"
