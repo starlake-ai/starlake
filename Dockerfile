@@ -1,4 +1,6 @@
-FROM eclipse-temurin:21
+# Pin the distro flavor: the default python3 must stay within the range
+# supported by the bundled Spark's PySpark (noble ships Python 3.12).
+FROM eclipse-temurin:21-noble
 
 ARG BUILD_DATE
 ARG VCS_REF
@@ -26,8 +28,13 @@ RUN apt-get update \
         curl \
         bash \
         vim \
+        python3 \
+        python3-pip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# PythonRunner spawns this interpreter for PySpark transform tasks
+ENV PYSPARK_PYTHON=python3
 
 COPY starlake/bin /app/bin
 COPY starlake/starlake.sh /app/starlake.sh

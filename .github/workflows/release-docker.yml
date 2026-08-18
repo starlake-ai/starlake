@@ -100,6 +100,16 @@ jobs:
           platforms: linux/${{ matrix.platform }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
 
+      # Fail the build if the image's python can no longer run PySpark
+      # (e.g. a base-image bump moved python past what the bundled Spark supports).
+      - name: PySpark smoke test
+        run: |
+          docker run --rm --platform linux/${{ matrix.platform }} \
+            -v "$PWD/scripts/pyspark-smoke-test.sh:/pyspark-smoke-test.sh:ro" \
+            --entrypoint bash \
+            ${{ env.REGISTRY_IMAGE }}@${{ steps.build.outputs.digest }} \
+            /pyspark-smoke-test.sh
+
       - name: Export digest
         run: |
           mkdir -p ${{ runner.temp }}/digests
