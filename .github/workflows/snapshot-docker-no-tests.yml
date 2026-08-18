@@ -225,3 +225,17 @@ jobs:
       - name: Inspect image
         run: |
           docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ env.SL_VERSION }}
+
+      # The api image cohosts the UI; rebuild it whenever a core image is
+      # published. There is no separate starlake-ui image.
+      - name: trigger-starlake-api
+        if: ${{ success() }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.STARLAKE_API_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+            owner: 'starlake-ai',
+            repo: 'starlake-api',
+            workflow_id: 'docker-hub-amd-arm.yml',
+            ref: 'main'})

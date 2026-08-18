@@ -1,8 +1,10 @@
 name: snapshot-jar-only
 # On-demand only. Builds the core assembly at the current SNAPSHOT version,
 # publishes it to the v<version>-SNAPSHOT pre-release on this repo, then
-# triggers the starlake-api snapshot workflow (which uploads the api zip to
-# the same pre-release and chains into the api docker build).
+# triggers the starlake-api snapshot workflow, which uploads the api zip to
+# the same pre-release. No docker image is built here; the api docker image
+# is rebuilt only by the docker workflows (release, release-docker,
+# snapshot-docker-*), which dispatch the api docker workflow.
 on:
   workflow_dispatch:
 permissions:
