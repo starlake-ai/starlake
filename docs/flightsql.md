@@ -95,12 +95,3 @@ One consequence for loading: with a duckdb dialect, load SQL such as
 must be visible to the server (object storage it has secrets for, or a shared
 filesystem). Paths that only exist on the client machine fail with the
 server's error.
-
----
-
-## Migrating from `gizmosql`
-
-The `starlake gizmosql start|stop|list|stop-all` command and its
-`gizmosql.url` / `gizmosql.apiKey` settings were removed. Run any Arrow Flight
-SQL server you like (GizmoSQL still works fine as a server) and point a
-`jdbc:arrow-flight-sql://` connection at it as shown above.
