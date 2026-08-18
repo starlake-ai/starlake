@@ -124,15 +124,3 @@ jobs:
       #     subject-digest: ${{ steps.push.outputs.digest }}
       #     push-to-registry: true
       #     github-token: ${{ env.GITHUB_TOKEN }}
-
-      - name: trigger-starlake-api
-        if: ${{ success() }}
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.STARLAKE_API_TOKEN }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-            owner: 'starlake-ai',
-            repo: 'starlake-api',
-            workflow_id: 'docker-hub-amd-arm.yml',
-            ref: 'main'})
