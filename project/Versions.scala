@@ -45,8 +45,9 @@ object Versions {
   val scalaParallelCollections = "1.2.0" // matches Spark 4.1.3
   val derbyVersion =
     "10.15.2.0" // last version compatible with Java 11, see https://db.apache.org/derby/derby_downloads.html
-  val jSqlParser = "5.3.242"
-  val jSqlTranspiler = "1.10"
+  // jSqlParser must match the version jsqltranspiler's pom pins (its manticore snapshot line)
+  val jSqlParser = "5.4.243-SNAPSHOT"
+  val jSqlTranspiler = "1.11-SNAPSHOT"
   val starlakejdbc = "0.7"
   val airflowTemplates = "0.6.14"
   val jSqlFormatter = "5.4.1"
