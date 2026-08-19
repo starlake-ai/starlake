@@ -67,19 +67,19 @@ libraryDependencies ++= {
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies(isSnapshot.value) ++ spark3 ++
-    jacksonForSpark3 ++ // esSpark212 ++ (exclude elasticsearch until spark 4 is supported
+  dependencies(isSnapshot.value) ++ spark4 ++
+    jacksonForSpark4 ++ // esSpark212 excluded: no elasticsearch-spark release supports Spark 4 yet
     pureConfig ++ scalaReflection(scalaVersion.value) ++
     versionSpecificLibs
 }
 
 dependencyOverrides := Seq(
-  "com.google.protobuf"                % "protobuf-java"             % "3.25.8",
+  "com.google.protobuf"                % "protobuf-java"             % "4.33.0",
   "org.scala-lang"                    % "scala-library"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-reflect"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-compiler"            % scalaVersion.value,
-  "com.google.guava"                  %  "guava"                    % "31.1-jre", // required by jinjava 2.7.3
-  "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jacksonForSpark3,
+  "com.google.guava"                  %  "guava"                    % "33.4.8-jre", // match Spark 4.1.3; jinjava is fine with it
+  "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jacksonForSpark4,
   "com.manticore-projects.jsqlformatter" % "jsqlparser"             % Versions.jSqlParser // avoid MethodTooLargeException during assembly shading
 )
 
