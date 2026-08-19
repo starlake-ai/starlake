@@ -172,6 +172,9 @@ object Dependencies {
     // Add the jar file to spark dependencies
     "com.google.cloud.spark" % "spark-4.1-bigquery" % Versions.sparkBigquery % "provided" excludeAll (jacksonExclusions: _*),
     "com.google.cloud" % "google-cloud-datacatalog" % Versions.gcpDataCatalog excludeAll (jacksonExclusions: _*),
+    // gcs-connector 4.0.4 vendors com.google.cloud.logging unrelocated and wins classpath
+    // precedence (MergeStrategy.first in assembly), so this artifact is shadowed at runtime.
+    // GcpUtils.scala must import the connector's repackaged MonitoredResource for consistency.
     "com.google.cloud" % "google-cloud-logging" % Versions.gcpCloudLogging
   )
 
