@@ -74,6 +74,7 @@ libraryDependencies ++= {
 }
 
 dependencyOverrides := Seq(
+  // pinned to 4.33.0: raising it to 4.33.2 makes gcs-connector batch requests time out
   "com.google.protobuf"                % "protobuf-java"             % "4.33.0",
   "org.scala-lang"                    % "scala-library"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-reflect"             % scalaVersion.value,
