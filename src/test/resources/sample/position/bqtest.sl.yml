@@ -1,7 +1,7 @@
 ---
 version: 1
 load:
-  name: "bqtest"
+  name: "__SL_BQ_DATASET__"
   tags: ["datasetkey=value", "datasetkeynovalue"]
   metadata:
     directory: "__SL_TEST_ROOT__/position"

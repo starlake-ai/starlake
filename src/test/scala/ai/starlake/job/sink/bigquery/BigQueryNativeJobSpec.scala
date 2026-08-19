@@ -9,7 +9,7 @@ import ai.starlake.job.transform.TransformConfig
 import ai.starlake.schema.model.*
 import ai.starlake.utils.JsonSerializer
 import ai.starlake.workflow.IngestionWorkflow
-import com.google.cloud.bigquery.{BigQueryOptions, TableId}
+import com.google.cloud.bigquery.{BigQuery, BigQueryOptions, DatasetId, TableId}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
@@ -18,17 +18,15 @@ import java.time.Instant
 
 class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
   val bigquery = BigQueryOptions.newBuilder().build().getService()
-  override def beforeAll(): Unit = {
-    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
-      bigquery.delete(TableId.of("bqtest", "account"))
-      bigquery.delete(TableId.of("bqtest", "jobresult"))
-    }
-  }
+  // The suite works in its own per-run dataset (testBQDatasetName), so there is
+  // nothing to clean before, and everything to drop after.
   override def afterAll(): Unit = {
     super.afterAll()
     if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
-      // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
-      // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "jobresult"))
+      bigquery.delete(
+        DatasetId.of(testBQDatasetName),
+        BigQuery.DatasetDeleteOption.deleteContents()
+      )
     }
   }
 
@@ -62,7 +60,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
 
         new SpecTrait(
           sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
-          datasetDomainName = "bqtest",
+          datasetDomainName = testBQDatasetName,
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
           cleanMetadata
@@ -72,7 +70,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           loadPending
         }
         val tableFound =
-          Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
+          Option(bigquery.getTable(TableId.of(testBQDatasetName, "account"))).isDefined
         tableFound should be(true)
 
       }
@@ -86,7 +84,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
 
         new SpecTrait(
           sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
-          datasetDomainName = "bqtest",
+          datasetDomainName = testBQDatasetName,
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
           cleanMetadata
@@ -96,7 +94,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           secure(LoadConfig(accessToken = None, test = false, files = None, scheduledDate = None))
         }
         val tableFound =
-          Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
+          Option(bigquery.getTable(TableId.of(testBQDatasetName, "account"))).isDefined
         tableFound should be(true)
 
       }
@@ -106,14 +104,14 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
       if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
         new SpecTrait(
           sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
-          datasetDomainName = "bqtest",
+          datasetDomainName = testBQDatasetName,
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
           val businessTask1 = AutoTaskInfo(
             "",
-            Some("select * except(code0000) from bqtest.account"),
+            Some(s"select * except(code0000) from $testBQDatasetName.account"),
             None,
-            "bqtest",
+            testBQDatasetName,
             "jobresult",
             sink = Some(
               BigQuerySink(connectionRef = None).toAllSinks()
@@ -127,7 +125,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             .withAttribute(classOf[Settings], settings)
             .writeValueAsString(businessTask1)
           val pathBusiness =
-            new Path(starlakeMetadataPath + "/transform/bqtest/bqjobtest.sl.yml")
+            new Path(starlakeMetadataPath + s"/transform/$testBQDatasetName/bqjobtest.sl.yml")
           storageHandler.write(businessTaskDef, pathBusiness)
 
           val configJob =
@@ -141,14 +139,14 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             .withAttribute(classOf[Settings], settings)
             .writeValueAsString(configJob)
           val pathConfigBusiness =
-            new Path(starlakeMetadataPath + "/transform/bqtest/_config.sl.yml")
+            new Path(starlakeMetadataPath + s"/transform/$testBQDatasetName/_config.sl.yml")
           storageHandler.write(configJobDef, pathConfigBusiness)
 
           val schemaHandler = settings.schemaHandler()
 
           val workflow =
             new IngestionWorkflow(storageHandler, schemaHandler)
-          val config = TransformConfig(name = "bqtest.bqjobtest")
+          val config = TransformConfig(name = s"$testBQDatasetName.bqjobtest")
           workflow.autoJob(config).isSuccess should be(true)
           workflow.autoJob(config.copy(interactive = Some("json"))).isSuccess should be(true)
           workflow.autoJob(config.copy(interactive = Some("csv"))).isSuccess should be(true)
@@ -179,10 +177,10 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
 
         new SpecTrait(
           sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
-          datasetDomainName = "bqtest",
+          datasetDomainName = testBQDatasetName,
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
-          val config = TablesExtractConfig(tables = Map("bqtest" -> List("account")))
+          val config = TablesExtractConfig(tables = Map(testBQDatasetName -> List("account")))
           val result = FreshnessJob.freshness(config, settings.schemaHandler())
           val json = JsonSerializer.serializeObject(result)
           println(json)

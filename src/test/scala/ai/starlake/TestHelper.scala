@@ -236,8 +236,17 @@ trait TestHelper
 
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
 
+  /** One BigQuery dataset per suite instance, so live-BQ suites in the same sequential run cannot
+    * pollute each other's datasets. Referenced in fixtures via __SL_BQ_DATASET__.
+    */
+  lazy val testBQDatasetName: String =
+    s"bqtest_${this.getClass.getSimpleName}_${_testId.replace("-", "").take(8)}".toLowerCase
+      .replaceAll("[^a-z0-9_]", "_")
+
   def applyTestFileSubstitutions(fileContent: String): String = {
-    fileContent.replaceAll("__SL_TEST_ROOT__", starlakeTestRoot)
+    fileContent
+      .replaceAll("__SL_TEST_ROOT__", starlakeTestRoot)
+      .replaceAll("__SL_BQ_DATASET__", testBQDatasetName)
   }
 
   def withSettings(configuration: Config)(op: Settings => Assertion): Assertion = {

@@ -2,25 +2,11 @@ package ai.starlake.config
 
 import ai.starlake.TestHelper
 import ai.starlake.extract.{ExtractBigQuerySchema, TablesExtractConfig}
-import com.google.cloud.bigquery.{BigQueryOptions, TableId}
 import com.typesafe.config.{Config, ConfigFactory}
-import org.scalatest.BeforeAndAfterAll
 
-class BigQueryExtractSpec extends TestHelper with BeforeAndAfterAll {
-  val bigquery = BigQueryOptions.newBuilder().build().getService()
-  override def beforeAll(): Unit = {
-    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
-      bigquery.delete(TableId.of("bqtest", "account"))
-      bigquery.delete(TableId.of("bqtest", "jobresult"))
-    }
-  }
-  override def afterAll(): Unit = {
-    super.afterAll()
-    if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
-      // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
-      // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "jobresult"))
-    }
-  }
+// This suite only reads from BigQuery (schema extraction): it must not delete
+// tables in shared datasets, and its local domain uses a per-run dataset name.
+class BigQueryExtractSpec extends TestHelper {
   " BigQuery Extract" should "succeed" in {
     if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
       val bigQueryConfiguration: Config = {
@@ -43,7 +29,7 @@ class BigQueryExtractSpec extends TestHelper with BeforeAndAfterAll {
       new WithSettings(bigQueryConfiguration) {
         new SpecTrait(
           sourceDomainOrJobPathname = "/sample/position/bqtest.sl.yml",
-          datasetDomainName = "bqtest",
+          datasetDomainName = testBQDatasetName,
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
           val schemaHandler = settings.schemaHandler()

@@ -17,9 +17,10 @@ class TransformIntegration2Spec extends BigQueryIntegrationSpecBase {
       ) {
         cleanup()
         copyFilesToIncomingDir(sampleDataDir)
+        // bqtest_it2 is this suite's own dataset: no other suite reads or writes it
         assert(
           new Main().run(
-            Array("transform", "--name", "bqtest.table1")
+            Array("transform", "--name", "bqtest_it2.table1")
           )
         )
       }
