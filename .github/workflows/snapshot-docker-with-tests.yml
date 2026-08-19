@@ -60,8 +60,17 @@ jobs:
         run: gcloud info
       - name: Run tests
         run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" SL_SPARK_LOCAL_CATALOG=delta SL_SPARK_BIGQUERY_MATERIALIZATION_DATASET=SL_BQ_TEST_DS SL_ACCESS_POLICIES_PROJECT_ID=${{ env.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ env.TEMPORARY_GCS_BUCKET }} SL_REMOTE_TEST=true GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} sbt ++2.13 test
-      - name: Compile Spark 3 for scala 2.13
-        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} sbt ++2.13 update clean compile
+      - name: Build assembly for scala 2.13
+        run: SBT_OPTS="-Xss4M -Xms1g -Xmx4g" GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} sbt ++2.13 update clean assembly
+      # The docker jobs install this jar via SL_CORE_JAR instead of downloading it
+      # from the v<version>-SNAPSHOT pre-release, which may not exist yet.
+      - name: Upload core assembly
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-assembly
+          path: target/scala-2.13/starlake-core_2.13-*-assembly.jar
+          if-no-files-found: error
+          retention-days: 1
   docker-build:
     needs: snapshot
     name: Snapshot Docker Image
@@ -103,8 +112,15 @@ jobs:
           echo "DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}" >> $GITHUB_ENV
           echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
 
+      - name: Download core assembly
+        uses: actions/download-artifact@v4
+        with:
+          name: core-assembly
+          path: target/scala-2.13
+
       - name: Prepare
         run: |
+          export SL_CORE_JAR="$(ls "$PWD"/target/scala-2.13/starlake-core_2.13-*-assembly.jar)"
           ./scripts/docker-prepare.sh
 
       - name: Docker meta

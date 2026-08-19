@@ -91,6 +91,9 @@ elif [ "$BUILD" == "true" ]; then
         printError "Failed to build the application"
         clean 1
     fi
+    # Make starlake.sh install use the jar we just built instead of downloading
+    # it from the (possibly not yet existing) GitHub release
+    export SL_CORE_JAR="$(pwd)/target/scala-${SCALA_VERSION}/starlake-core_${SCALA_VERSION}-${SL_VERSION}-assembly.jar"
 else
     echo "Skipping the publication"
 fi

@@ -995,7 +995,21 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
             File slDir = new File(binDir, "sl");
             deleteRecursively(slDir);
-            downloadAndDisplayProgress(new ResourceDependency[]{STARLAKE_RELEASE_JAR}, slDir, false);
+            // SL_CORE_JAR points at a locally built assembly (CI docker builds, local dev):
+            // install then works even when the release/pre-release does not exist yet.
+            String localCoreJar = getEnv("SL_CORE_JAR").orElse(null);
+            if (localCoreJar != null) {
+                File coreJar = new File(localCoreJar);
+                if (!coreJar.isFile()) {
+                    throw new RuntimeException("SL_CORE_JAR is set but no file found at " + coreJar.getAbsolutePath());
+                }
+                slDir.mkdirs();
+                java.nio.file.Files.copy(coreJar.toPath(), new File(slDir, coreJar.getName()).toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                System.out.println("Using local starlake-core jar " + coreJar.getAbsolutePath());
+            } else {
+                downloadAndDisplayProgress(new ResourceDependency[]{STARLAKE_RELEASE_JAR}, slDir, false);
+            }
 
             if (ENABLE_API) {
                 downloadApi(targetDir);
