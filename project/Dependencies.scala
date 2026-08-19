@@ -287,7 +287,5 @@ object Dependencies {
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++
     pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler(
       isSnapshot
-    ) ++ cache ++ swaggerParser ++
-    // TODO spark4: re-enable once starlake-streaming 1.4.0-SNAPSHOT is publishLocal-ed (plan Task 13)
-    /* starlakeStreaming ++ */ templates
+    ) ++ cache ++ swaggerParser ++ starlakeStreaming ++ templates
 }
