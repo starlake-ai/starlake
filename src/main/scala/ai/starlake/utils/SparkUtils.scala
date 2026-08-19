@@ -137,6 +137,7 @@ object SparkUtils extends LazyLogging {
       try {
         Some(
           JdbcUtils.getSchema(
+            conn,
             statement.executeQuery(),
             dialect,
             isTimestampNTZ = preferTimestampNTZ
