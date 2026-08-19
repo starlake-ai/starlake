@@ -486,7 +486,7 @@ The separate `starlake-api` project wraps starlake-core with:
 | Language | Scala | 2.13.18 |
 | Runtime | Java | 17+ |
 | Build | SBT | - |
-| Compute | Apache Spark | 3.5.8 |
+| Compute | Apache Spark | 4.1.3 |
 | Lake Formats | Delta Lake | 3.3.2 |
 | SQL Parser | JSQLParser | 5.3.167 |
 | SQL Transpiler | JSQLTranspiler | 1.8 |
