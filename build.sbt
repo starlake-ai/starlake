@@ -160,7 +160,6 @@ assembly / assemblyExcludedJars := {
       "arrow-vector-",
       "commons-codec-",
       //"commons-compress-", // Because POI needs it
-      "commons-logging-",
       "commons-math3-",
       "flatbuffers-java-",
       // "gson-", // because BigQuery needs com.google.gson.JsonParser.parseString(Ljava/lang/String;)
@@ -170,12 +169,14 @@ assembly / assemblyExcludedJars := {
       "httpclient-",
       "httpcore-",
       "jackson-datatype-jsr310-",
-      "json-2",
+      "java-diff-utils-",
+      "jline-3.29.0-jdk8",
       "jsr305-",
       "lz4-java-",
       // "protobuf-java-", // BigQuery needs com/google/protobuf/GeneratedMessageV3
       "scala-compiler-",
       "scala-library-",
+      "scala-parallel-collections_",
       "scala-parser-combinators_",
       "scala-reflect-",
       "scala-xml_",
