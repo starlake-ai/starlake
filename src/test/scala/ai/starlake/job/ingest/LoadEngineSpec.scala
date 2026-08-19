@@ -18,6 +18,20 @@ class LoadEngineSpec extends TestHelper {
       |    driver: "org.duckdb.DuckDBDriver"
       |  }
       |}
+      |connections.duckdb_noloader {
+      |  type = "jdbc"
+      |  options {
+      |    url: "jdbc:duckdb:/tmp/load_engine_spec_noloader.duckdb"
+      |    driver: "org.duckdb.DuckDBDriver"
+      |  }
+      |}
+      |connections.redshift_test {
+      |  type = "jdbc"
+      |  options {
+      |    url: "jdbc:redshift://localhost:5439/dev"
+      |    driver: "com.amazon.redshift.jdbc42.Driver"
+      |  }
+      |}
       |""".stripMargin)
     .withFallback(testConfiguration)
 
@@ -65,6 +79,24 @@ class LoadEngineSpec extends TestHelper {
         format = Some(Format.DSV),
         loader = Some("native"),
         sink = Some(AllSinks(connectionRef = Some("spark")))
+      )
+      IngestionJob.selectLoader(metadata) shouldBe "spark"
+    }
+
+    "a native DSV load to Redshift" should "fall back to spark (no native loader implemented)" in {
+      val metadata = Metadata(
+        format = Some(Format.DSV),
+        loader = Some("native"),
+        sink = Some(AllSinks(connectionRef = Some("redshift_test")))
+      )
+      IngestionJob.selectLoader(metadata) shouldBe "spark"
+    }
+
+    "a DSV load with no loader set anywhere" should "fall back to appConfig.loader (spark)" in {
+      settings.appConfig.loader shouldBe "spark"
+      val metadata = Metadata(
+        format = Some(Format.DSV),
+        sink = Some(AllSinks(connectionRef = Some("duckdb_noloader")))
       )
       IngestionJob.selectLoader(metadata) shouldBe "spark"
     }
