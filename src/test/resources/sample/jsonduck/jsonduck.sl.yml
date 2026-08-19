@@ -1,0 +1,11 @@
+---
+version: 1
+load:
+  name: "jsonduck"
+  metadata:
+    directory: "__SL_TEST_ROOT__/jsonduck"
+    format: "JSON"
+    withHeader: false
+    loader: "native"
+    writeStrategy:
+      type: "APPEND"

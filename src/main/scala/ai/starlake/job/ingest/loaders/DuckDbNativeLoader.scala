@@ -481,7 +481,9 @@ class DuckDbNativeLoader(ingestionJob: IngestionJob)(implicit
                     s"""INSERT INTO $domainAndTableName SELECT * FROM read_json_objects($paths, format = '$format');"""
                   JdbcDbUtils.execute(sql, conn)
                 case _ =>
-                  s"""INSERT INTO $domainAndTableName SELECT * FROM read_json($paths, auto_detect = true, format = '$format');"""
+                  val sql =
+                    s"""INSERT INTO $domainAndTableName SELECT * FROM read_json($paths, auto_detect = true, format = '$format');"""
+                  JdbcDbUtils.execute(sql, conn)
               }
             }
           case _ =>

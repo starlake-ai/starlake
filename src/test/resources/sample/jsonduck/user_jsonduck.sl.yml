@@ -1,0 +1,12 @@
+---
+version: 1
+table:
+  name: "user"
+  pattern: "XJSONDUCK.*"
+  attributes:
+    - name: "id"
+      type: "long"
+      required: true
+    - name: "payload"
+      type: "variant"
+      required: false
