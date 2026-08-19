@@ -260,7 +260,7 @@ goto :eof
     echo Snowflake Spark connector %SPARK_SNOWFLAKE_VERSION%
     echo Snowflake JDBC driver %SNOWFLAKE_JDBC_VERSION%
     echo Postgres JDBC driver %POSTGRESQL_VERSION%
-    echo AWS SDK %AWS_JAVA_SDK_VERSION%
+    echo AWS SDK %AWS_JAVA_SDK_V2_VERSION%
     echo Hadoop for AWS %HADOOP_AWS_VERSION%
     echo Redshift JDBC driver %REDSHIFT_JDBC_VERSION%
     echo Redshift Spark connector %SPARK_REDSHIFT_VERSION%
