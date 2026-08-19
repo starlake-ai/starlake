@@ -339,6 +339,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String HADOOP_VERSION = getEnv("HADOOP_VERSION").orElse("3");
     // Artifacts that are published per Spark minor (bigquery, delta, iceberg) key off this,
     // not the full SPARK_VERSION, so a micro-version bump doesn't change their coordinates.
+    // Assumes SPARK_VERSION is always major.minor.patch (3 components); a SPARK_VERSION override
+    // without a patch segment (e.g. "4.1") would make this drop the minor instead of a no-op.
     private static final String SPARK_MAJOR_MINOR = SPARK_VERSION.substring(0, SPARK_VERSION.lastIndexOf('.'));
 
 
@@ -402,6 +404,8 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String AWS_JAVA_SDK_V2_VERSION = getEnv("AWS_JAVA_SDK_V2_VERSION").orElse("2.29.52");
     private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.4.2");
     private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.34");
+    // TODO spark4: the ai.starlake spark-redshift fork has no Spark 4 build yet - stays on the
+    // Spark 3.5 jar until that fork is republished for Spark 4.
     private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("6.5.1");
 
     // KAFKA CONFLUENT
