@@ -170,7 +170,7 @@ assembly / assemblyExcludedJars := {
       "httpcore-",
       "jackson-datatype-jsr310-",
       "java-diff-utils-",
-      "jline-3.29.0-jdk8",
+      "jline-3.29.0-jdk8", // pinned: distro also ships jline-2.14.6.jar (legacy Hive shell) under the bare jline- prefix
       "jsr305-",
       "lz4-java-",
       // "protobuf-java-", // BigQuery needs com/google/protobuf/GeneratedMessageV3
