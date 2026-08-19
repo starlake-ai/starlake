@@ -220,7 +220,7 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
         }
 
         val df = session.read
-          .format("com.databricks.spark.xml")
+          .format("xml")
           .option("encoding", encoding.name())
           .option("charset", encoding.name())
           .option("rowTag", tag)
@@ -230,12 +230,11 @@ class InferSchemaJob(implicit settings: Settings) extends LazyLogging {
         (df, Some(tag), formatFile)
       case "DSV" =>
         val df = session.read
-          .format("com.databricks.spark.csv")
+          .format("csv")
           .option("header", value = true)
           .option("inferSchema", value = inferSchema)
           .option("encoding", encoding.name())
           .option("delimiter", getSeparator(new Path(dataPath).firstLine(encoding)))
-          .option("parserLib", "UNIVOCITY")
           .load(dataPath)
         (df, None, formatFile)
     }
