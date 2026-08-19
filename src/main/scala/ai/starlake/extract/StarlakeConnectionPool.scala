@@ -49,14 +49,29 @@ object StarlakeConnectionPool extends LazyLogging {
   }
 
   def clearDuckdbPool(): Unit = {
-    duckDbPool.values.foreach { entry =>
-      Try(entry.connection.close()) match {
-        case Success(_) =>
-        case Failure(exception) =>
-          logger.warn(s"Could not close duckdb connection", exception)
+    clearDuckdbPool(_ => true)
+    ()
+  }
+
+  /** Close and remove only the pool entries whose key matches the predicate. Plain entries are
+    * keyed by resolved JDBC url + properties; ducklake/quack attach-backed entries are keyed by
+    * their whitespace-normalized ATTACH line.
+    * @return
+    *   the number of entries closed
+    */
+  def clearDuckdbPool(shouldClear: String => Boolean): Int = duckDbPool.synchronized {
+    val keys = duckDbPool.keys.filter(shouldClear).toList
+    keys.foreach { key =>
+      duckDbPool.get(key).foreach { entry =>
+        Try(entry.connection.close()) match {
+          case Success(_) =>
+          case Failure(exception) =>
+            logger.warn(s"Could not close duckdb connection", exception)
+        }
       }
+      duckDbPool.remove(key)
     }
-    duckDbPool.clear()
+    keys.size
   }
 
   def shutdown(): Unit = {
