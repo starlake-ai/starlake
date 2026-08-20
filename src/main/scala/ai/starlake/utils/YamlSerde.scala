@@ -192,7 +192,11 @@ object YamlSerde extends LazyLogging with YamlUtils {
           true
         )
       }
-    val validationMessages = validationResult.getErrors.asScala.toList
+    // getErrors() is a plain List in 2.0.4 (was a value-equality Set in 1.4.0's getValidationMessages()),
+    // so oneOf/anyOf branches that raise structurally-identical errors are no longer deduped upstream.
+    // Error overrides equals/hashCode by value (keyword, instanceLocation, evaluationPath, details, ...),
+    // so .distinct here reproduces the old Set semantics exactly.
+    val validationMessages = validationResult.getErrors.asScala.toList.distinct
 
     if (validationMessages.nonEmpty) {
       val formattedErrors = validationMessages
