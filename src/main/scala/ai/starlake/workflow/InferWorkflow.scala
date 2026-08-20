@@ -11,13 +11,24 @@ import org.apache.hadoop.fs.Path
 
 import scala.util.{Success, Try}
 
+/** Outcome of `InferWorkflow.inferSchema`: the resulting table YAML path, the domain/table it
+  * belongs to, and whether inference actually ran or was skipped because a definition for that
+  * domain/table already existed (and `clean` was not requested).
+  */
+final case class InferSchemaResult(
+  tablePath: Path,
+  domainName: String,
+  tableName: String,
+  skipped: Boolean
+)
+
 trait InferWorkflow extends LazyLogging {
   this: IngestionWorkflow =>
 
   protected def schemaHandler: SchemaHandler
   implicit protected def settings: Settings
 
-  def inferSchema(config: InferSchemaConfig): Try[Path] = {
+  def inferSchema(config: InferSchemaConfig): Try[InferSchemaResult] = {
     val domainName =
       if (config.domainName.isEmpty) {
         val file = File(config.inputPath)
@@ -44,7 +55,7 @@ trait InferWorkflow extends LazyLogging {
       logger.info(
         s"Table $tableName already defined in domain $domainName at $tablePath. Skipping inference."
       )
-      Success(tablePath)
+      Success(InferSchemaResult(tablePath, domainName, tableName, skipped = true))
     } else {
       val result = (new InferSchemaJob).infer(
         domainName = domainName,
@@ -62,7 +73,7 @@ trait InferWorkflow extends LazyLogging {
         fromJsonSchema = config.fromJsonSchema
       )(settings.storageHandler())
       Utils.logFailure(result, logger)
-      result
+      result.map(InferSchemaResult(_, domainName, tableName, skipped = false))
     }
   }
 

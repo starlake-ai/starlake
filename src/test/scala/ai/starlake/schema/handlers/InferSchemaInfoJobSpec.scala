@@ -225,6 +225,9 @@ class InferSchemaInfoJobSpec extends TestHelper {
           "/sample/simple-json-locations/flat_locations.sl.yml"
         ).foreach(deliverSourceTable)
         val inputData = loadTextFile("/sample/simple-json-locations/flat-locations.json")
+        val tableYamlFile =
+          File(domainMetadataRootPath.toString) / "locations" / "flat_locations.sl.yml"
+        val contentBeforeInfer = tableYamlFile.contentAsString
         for {
           sourceFile <- File.temporaryFile()
         } {
@@ -239,6 +242,8 @@ class InferSchemaInfoJobSpec extends TestHelper {
             )
           )
           result.isSuccess shouldBe true
+          // the pre-existing definition must survive untouched, not be silently re-written
+          tableYamlFile.contentAsString shouldBe contentBeforeInfer
         }
       }
     }

@@ -115,9 +115,15 @@ object InferSchemaCmd extends Cmd[InferSchemaConfig] with LazyLogging {
         .inferSchema(
           config.copy(inputPath = inputPath)
         ) match {
-        case Success(_) =>
-          logger.info(s"Successfully inferred schema for $inputPath")
-          Utils.printOut(s"Successfully inferred schema for $inputPath")
+        case Success(result) =>
+          val message =
+            if (result.skipped)
+              s"Skipped inference for ${result.domainName}.${result.tableName}: " +
+              "definition already exists (use --clean to overwrite)"
+            else
+              s"Successfully inferred schema for $inputPath"
+          logger.info(message)
+          Utils.printOut(message)
           Success(JobResult.empty)
         case Failure(exception) =>
           logger.error(s"Failed to infer schema for $inputPath", exception)
