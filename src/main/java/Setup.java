@@ -374,11 +374,11 @@ public class Setup extends ProxySelector implements X509TrustManager {
     };
 
     // SNOWFLAKE
-    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.28.0");
+    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("4.3.3");
     private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.2.1-spark_4.1");
 
     // POSTGRESQL
-    private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.7.10");
+    private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.7.11");
 
     // MARIADB
     private static final String MARIADB_VERSION = getEnv("MARIADB_VERSION").orElse("3.5.4");
@@ -403,7 +403,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     // leave S3A/Redshift staging without the credential/client classes hadoop-aws now calls.
     private static final String AWS_JAVA_SDK_V2_VERSION = getEnv("AWS_JAVA_SDK_V2_VERSION").orElse("2.29.52");
     private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.4.2");
-    private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.34");
+    private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.2.8");
     // TODO spark4: the ai.starlake spark-redshift fork has no Spark 4 build yet - stays on the
     // Spark 3.5 jar until that fork is republished for Spark 4.
     private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("6.5.1");
