@@ -74,8 +74,14 @@ libraryDependencies ++= {
 }
 
 dependencyOverrides := Seq(
-  // pinned to 4.33.0: raising it to 4.33.2 makes gcs-connector batch requests time out
-  "com.google.protobuf"                % "protobuf-java"             % "4.33.0",
+  // proto-google-iam-v1 (pulled in by google-cloud-bigquery/-bigquerystorage/-datacatalog)
+  // ships gencode stamped 4.33.2, and protobuf enforces runtime >= gencode since 4.26
+  // ("poison pill" checks), so PolicyTagManagerClient (BigQuery CLS) throws
+  // ProtobufRuntimeVersionException under 4.33.0. gcs-connector-4.0.4 and spark-4.1-bigquery
+  // fully shade/relocate their own protobuf-java, so raising this override does not affect
+  // GCS batch requests (an earlier 4.33.2 regression report was collateral eviction churn,
+  // not a protobuf conflict through this path).
+  "com.google.protobuf"                % "protobuf-java"             % "4.33.2",
   "org.scala-lang"                    % "scala-library"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-reflect"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-compiler"            % scalaVersion.value,
