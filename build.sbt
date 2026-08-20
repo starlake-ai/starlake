@@ -310,6 +310,8 @@ developers := List(
 
 val packageSetup = Def.taskKey[Unit]("Package Setup.class")
 packageSetup := {
+  // depend on compile so the jar never packages stale Setup.class files
+  val _ = (Compile / compile).value
   import java.nio.file.Paths
   def zipFile(from: List[java.nio.file.Path], to: java.nio.file.Path): Unit = {
     import java.util.jar.Manifest
