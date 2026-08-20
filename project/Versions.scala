@@ -46,7 +46,7 @@ object Versions {
   val derbyVersion =
     "10.15.2.0" // last version compatible with Java 11, see https://db.apache.org/derby/derby_downloads.html
   // jSqlParser must match the version jsqltranspiler's pom pins (its manticore snapshot line)
-  val jSqlParser = "5.4.243-SNAPSHOT"
+  val jSqlParser = "5.4.260-SNAPSHOT"
   val jSqlTranspiler = "1.11-SNAPSHOT"
   val starlakejdbc = "0.7"
   val airflowTemplates = "0.6.14"
