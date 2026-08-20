@@ -361,22 +361,32 @@ goto :eof
     rem SL_UPGRADE_VERSION env var. Falls back to the interactive prompt when
     rem neither is set (unchanged default).
     set "FORCED_SL_VERSION=%SL_UPGRADE_VERSION%"
+    rem NOTE: `shift` followed by `%~1` must NEVER sit inside the same
+    rem parenthesized ( ... ) block - cmd.exe substitutes every %1..%9 in a
+    rem block once, at parse time, before the block's first line runs, so a
+    rem shift part-way through would not affect a later %~1 read in that same
+    rem block (a classic batch pitfall). Each branch below is therefore a
+    rem separate unparenthesized line/label, so shift takes effect before the
+    rem next line's %~1 is read.
     :du_parse_args
     if "%~1" == "" goto :du_parse_done
-    if /i "%~1" == "--version" (
-        shift
-        set "FORCED_SL_VERSION=%~1"
-        shift
-        goto :du_parse_args
-    )
+    if /i "%~1" == "--version" goto :du_version_flag
     set "_du_arg=%~1"
-    if /i "!_du_arg:~0,10!" == "--version=" (
-        set "FORCED_SL_VERSION=!_du_arg:~10!"
-        shift
-        goto :du_parse_args
-    )
+    if /i "!_du_arg:~0,10!" == "--version=" goto :du_version_eq
     shift
     goto :du_parse_args
+
+    :du_version_flag
+    shift
+    set "FORCED_SL_VERSION=%~1"
+    shift
+    goto :du_parse_args
+
+    :du_version_eq
+    set "FORCED_SL_VERSION=!_du_arg:~10!"
+    shift
+    goto :du_parse_args
+
     :du_parse_done
 
     call :select_starlake_version "%FORCED_SL_VERSION%"
@@ -392,18 +402,19 @@ goto :eof
         set "TARGET_SETUP_JAVA=%SCRIPT_DIR%.target-setup-java.tmp"
         call :get_binary_from_url "https://raw.githubusercontent.com/starlake-ai/starlake/!TARGET_REF!/src/main/java/Setup.java" "!TARGET_SETUP_JAVA!"
         if errorlevel 1 exit /b 1
-        rem Extraction script written to a .ps1 file (same technique as
-        rem :parse_proxy_and_build_args above) rather than inlined into
-        rem -Command "...", so the literal double-quote in the regex below
-        rem does not collide with cmd's own quoting of the -Command argument.
-        set "_ver_ps=%TEMP%\sl_target_spark_%RANDOM%.ps1"
-        > "!_ver_ps!" (
-            echo $m = Select-String -Path '!TARGET_SETUP_JAVA!' -Pattern 'getEnv\("SPARK_VERSION"\)\.orElse\("([^"]*)"\)' ^| Select-Object -First 1
-            echo if ^($m^) { $m.Matches[0].Groups[1].Value }
-        )
+        rem The regex pattern is passed base64-encoded (UTF8) rather than typed
+        rem literally: it contains parens and embedded double-quote
+        rem characters that are not protected by PowerShell's single-quote
+        rem string (cmd.exe does not recognize single quotes as quoting at
+        rem all), which would otherwise unbalance cmd own double-quote
+        rem parity for this line or be misread as block syntax. The whole
+        rem -Command argument stays a single physical line with exactly one
+        rem opening and one closing double-quote, matching the already-working
+        rem verify_sha256 -Command usage above.
+        rem decoded pattern is: getEnv followed by open-paren quote SPARK_VERSION
+        rem quote close-paren dot orElse open-paren quote capture-group quote close-paren
         set "TARGET_SPARK_VERSION="
-        for /f "usebackq delims=" %%v in (`powershell -NoProfile -File "!_ver_ps!"`) do set "TARGET_SPARK_VERSION=%%v"
-        del "!_ver_ps!" 2>nul
+        for /f "usebackq delims=" %%v in (`powershell -NoProfile -Command "$m = Select-String -Path '!TARGET_SETUP_JAVA!' -Pattern ([System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('Z2V0RW52XCgiU1BBUktfVkVSU0lPTiJcKVwub3JFbHNlXCgiKFteIl0qKSJcKQ=='))) | Select-Object -First 1; if ($m) { $m.Matches[0].Groups[1].Value }"`) do set "TARGET_SPARK_VERSION=%%v"
         del "!TARGET_SETUP_JAVA!" 2>nul
 
         if not defined TARGET_SPARK_VERSION (
