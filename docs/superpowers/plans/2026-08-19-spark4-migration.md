@@ -783,6 +783,16 @@ SL_ROOT=$(mktemp -d) ./starlake.sh bootstrap 2>&1 | tail -3
 2. starlake-core: flip `Versions.starlakeStreaming` to `1.4.0`, merge `spark4` → `master`, tag `v1.8.0`. This is a minor-version crossing: per project policy the docker image-version bump is manual — do it.
 3. starlake-api: point `.versions` `SL_VERSION` at `1.8.0`, merge `spark4` → `main`.
 
+#### Release-flip checklist
+
+Snapshot/placeholder values that must be flipped to release versions as part of this train, before tagging:
+
+- **core**: `Versions.starlakeStreaming` flip `1.4.0-SNAPSHOT` → `1.4.0` (step 2 above).
+- **api**: `.versions` `SL_VERSION` → `1.8.0` (step 3 above).
+- **api**: `.versions` `SL_IMAGE_VERSION` `1.7` → `1.8`.
+- **api**: `version.sbt` `1.7.2-SNAPSHOT` → `1.8.x`.
+- **core**: `jSqlParser` and `jSqlTranspiler` in `project/Versions.scala` are pinned to `-SNAPSHOT` builds (`5.4.260-SNAPSHOT`, `1.11-SNAPSHOT`) — both must resolve to released versions before tagging `v1.8.0`.
+
 ### Task 19: Follow-ups (tracked, deliberately out of scope)
 
 - **Elasticsearch**: watch elasticsearch-hadoop for the first release containing the merged Spark 4 PRs (#2546-#2548); then restore `esSpark212` in core `build.sbt`, un-`ignore` `ESLoadJobSpec`, verify against ES 9.

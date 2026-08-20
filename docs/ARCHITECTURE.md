@@ -487,11 +487,11 @@ The separate `starlake-api` project wraps starlake-core with:
 | Runtime | Java | 17+ |
 | Build | SBT | - |
 | Compute | Apache Spark | 4.1.3 |
-| Lake Formats | Delta Lake | 3.3.2 |
-| SQL Parser | JSQLParser | 5.3.167 |
+| Lake Formats | Delta Lake | 4.3.1 |
+| SQL Parser | JSQLParser | 5.4.260-SNAPSHOT |
 | SQL Transpiler | JSQLTranspiler | 1.8 |
 | Config | PureConfig + Typesafe Config | 0.17.9 |
-| YAML | Jackson YAML (SnakeYAML) | 2.15.2 |
+| YAML | Jackson YAML (SnakeYAML) | 2.21.2 |
 | Schema Validation | networknt/json-schema-validator | 2019-09 |
 | Template Engine | Jinjava (Jinja2) | - |
 | HTTP Server | Jetty (embedded) | - |
