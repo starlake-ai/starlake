@@ -25,7 +25,6 @@ import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.lang.SystemUtils
 import org.apache.hadoop.fs._
-import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
 import java.io.{InputStream, InputStreamReader, OutputStream}
 import java.nio.charset.Charset.defaultCharset
@@ -105,7 +104,7 @@ trait StorageHandler extends LazyLogging {
 
   def blockSize(path: Path): Long
 
-  def lastModified(path: Path): Timestamp
+  def lastModified(path: Path): Long
 
   def spaceConsumed(path: Path): Long
 

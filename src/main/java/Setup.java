@@ -335,20 +335,25 @@ public class Setup extends ProxySelector implements X509TrustManager {
     }
 
     // SPARK
-    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("3.5.8");
+    private static final String SPARK_VERSION = getEnv("SPARK_VERSION").orElse("4.1.3");
     private static final String HADOOP_VERSION = getEnv("HADOOP_VERSION").orElse("3");
+    // Artifacts that are published per Spark minor (bigquery, delta, iceberg) key off this,
+    // not the full SPARK_VERSION, so a micro-version bump doesn't change their coordinates.
+    // Assumes SPARK_VERSION is always major.minor.patch (3 components); a SPARK_VERSION override
+    // without a patch segment (e.g. "4.1") would make this drop the minor instead of a no-op.
+    private static final String SPARK_MAJOR_MINOR = SPARK_VERSION.substring(0, SPARK_VERSION.lastIndexOf('.'));
 
 
     // BIGQUERY
-    private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.44.0");
+    private static final String SPARK_BQ_VERSION = getEnv("SPARK_BQ_VERSION").orElse("0.44.2-preview");
 
     // deltalake
-    private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("3.3.2");
+    private static final String DELTA_SPARK = getEnv("SPARK_DELTA").orElse("4.3.1");
 
     // ICEBERG
-    private static final String ICEBERG_SPARK = getEnv("SPARK_ICEBERG").orElse("1.10.0");
+    private static final String ICEBERG_SPARK = getEnv("SPARK_ICEBERG").orElse("1.11.0");
 
-    private static final String HADOOP_AZURE_VERSION = getEnv("HADOOP_AZURE_VERSION").orElse("3.3.5");
+    private static final String HADOOP_AZURE_VERSION = getEnv("HADOOP_AZURE_VERSION").orElse("3.4.2");
     private static final String AZURE_STORAGE_VERSION = getEnv("AZURE_STORAGE_VERSION").orElse("8.6.6");
     private static final String JETTY_VERSION = getEnv("JETTY_VERSION").orElse("9.4.58.v20250814");
 
@@ -360,17 +365,20 @@ public class Setup extends ProxySelector implements X509TrustManager {
     // "ExitCodeException exitCode=-1073741515". The 3.3.6 binaries are linked against
     // VCRUNTIME140 + the universal CRT (an OS component since Windows 10); see also
     // ensureWinutilsRuntime below.
+    // Still on 3.3.6 under Spark 4 (Hadoop 3.4 client jars): cdarlint/winutils has no
+    // hadoop-3.4.x folder (checked 2026-08-19, latest published build is 3.3.6) and the
+    // winutils.exe/hadoop.dll ABI is stable enough across 3.3.x/3.4.x for local Windows use.
     private static final ResourceDependency[] HADOOP_LIBS = new ResourceDependency[]{
             new ResourceDependency("winutils", "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-3.3.6/bin/winutils.exe"),
             new ResourceDependency("hadoop.dll", "https://raw.githubusercontent.com/cdarlint/winutils/master/hadoop-3.3.6/bin/hadoop.dll")
     };
 
     // SNOWFLAKE
-    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("3.28.0");
-    private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.1.8");
+    private static final String SNOWFLAKE_JDBC_VERSION = getEnv("SNOWFLAKE_JDBC_VERSION").orElse("4.3.3");
+    private static final String SPARK_SNOWFLAKE_VERSION = getEnv("SPARK_SNOWFLAKE_VERSION").orElse("3.2.1-spark_4.1");
 
     // POSTGRESQL
-    private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.7.10");
+    private static final String POSTGRESQL_VERSION = getEnv("POSTGRESQL_VERSION").orElse("42.7.11");
 
     // MARIADB
     private static final String MARIADB_VERSION = getEnv("MARIADB_VERSION").orElse("3.5.4");
@@ -383,15 +391,21 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String TRINODB_VERSION = getEnv("TRINODB_VERSION").orElse("478");
 
     // DUCKDB
-    private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.5.3.0");
+    private static final String DUCKDB_VERSION = getEnv("DUCKDB_VERSION").orElse("1.5.5.1");
 
     // ARROW FLIGHT SQL
     private static final String FLIGHT_SQL_JDBC_VERSION = getEnv("FLIGHT_SQL_JDBC_VERSION").orElse("19.0.0");
 
     // REDSHIFT
-    private static final String AWS_JAVA_SDK_VERSION = getEnv("AWS_JAVA_SDK_VERSION").orElse("1.12.797");
-    private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.3.6");
-    private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.1.0.34");
+    // hadoop-aws 3.4.x links against the AWS SDK v2 bundle (software.amazon.awssdk:bundle) at
+    // compile scope; the legacy com.amazonaws:aws-java-sdk-core (v1) is only "provided" in its
+    // POM, so it is not on the runtime classpath anymore - shipping the v1 bundle here would
+    // leave S3A/Redshift staging without the credential/client classes hadoop-aws now calls.
+    private static final String AWS_JAVA_SDK_V2_VERSION = getEnv("AWS_JAVA_SDK_V2_VERSION").orElse("2.29.52");
+    private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.4.2");
+    private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.2.8");
+    // TODO spark4: the ai.starlake spark-redshift fork has no Spark 4 build yet - stays on the
+    // Spark 3.5 jar until that fork is republished for Spark 4.
     private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("6.5.1");
 
     // KAFKA CONFLUENT
@@ -406,17 +420,22 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency SL_API_RELEASE_ZIP = new ResourceDependency("starlake-api", SL_RELEASE_BASE_URL + "/v" + SL_API_VERSION + "/starlake-api_" + SCALA_VERSION + "-" + SL_API_VERSION + ".zip");
 
     // SPARK
-    private static final ResourceDependency SPARK_JAR = new ResourceDependency("dist/spark", "https://www.apache.org/dyn/closer.lua/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION  + "-scala2.13.tgz?action=download");
+    // Spark 4 tarballs are no longer published with a "-scala2.13" suffix (only one Scala
+    // build exists per release), unlike Spark 3.x which shipped both 2.12 and 2.13 builds.
+    private static final ResourceDependency SPARK_JAR = new ResourceDependency("dist/spark", "https://www.apache.org/dyn/closer.lua/spark/spark-" + SPARK_VERSION + "/spark-" + SPARK_VERSION + "-bin-hadoop" + HADOOP_VERSION  + ".tgz?action=download");
+    // Spark-4-line artifact id is "spark-<major.minor>-bigquery" (no Scala suffix), replacing
+    // the old "spark-bigquery-with-dependencies_<scala>" naming used for Spark 3.x.
     private static final ResourceDependency SPARK_BQ_JAR = new ResourceDependency("bigquery-with-dependencies",
-            "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_" + SCALA_VERSION + "/" +
+            "https://repo1.maven.org/maven2/com/google/cloud/spark/spark-" + SPARK_MAJOR_MINOR + "-bigquery/" +
                     SPARK_BQ_VERSION + "/" +
-                    "spark-bigquery-with-dependencies_" + SCALA_VERSION + "-" + SPARK_BQ_VERSION + ".jar");
+                    "spark-" + SPARK_MAJOR_MINOR + "-bigquery-" + SPARK_BQ_VERSION + ".jar");
 
+    // Delta 4.x publishes one artifact per supported Spark minor: delta-spark_<spark>_<scala>.
     private static final ResourceDependency DELTA_SPARK_JAR = new ResourceDependency("delta-spark",
-            "https://repo1.maven.org/maven2/io/delta/delta-spark_" + SCALA_VERSION + "/" + DELTA_SPARK + "/delta-spark_" + SCALA_VERSION + "-" + DELTA_SPARK + ".jar");
+            "https://repo1.maven.org/maven2/io/delta/delta-spark_" + SPARK_MAJOR_MINOR + "_" + SCALA_VERSION + "/" + DELTA_SPARK + "/delta-spark_" + SPARK_MAJOR_MINOR + "_" + SCALA_VERSION + "-" + DELTA_SPARK + ".jar");
 
     private static final ResourceDependency ICEBERG_SPARK_JAR = new ResourceDependency("iceberg-spark",
-            "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-3.5_" + SCALA_VERSION + "/" + ICEBERG_SPARK + "/iceberg-spark-runtime-3.5_" + SCALA_VERSION + "-" + ICEBERG_SPARK + ".jar");
+            "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-" + SPARK_MAJOR_MINOR + "_" + SCALA_VERSION + "/" + ICEBERG_SPARK + "/iceberg-spark-runtime-" + SPARK_MAJOR_MINOR + "_" + SCALA_VERSION + "-" + ICEBERG_SPARK + ".jar");
 
     private static final ResourceDependency DELTA_STORAGE_JAR = new ResourceDependency("delta-storage",
             "https://repo1.maven.org/maven2/io/delta/delta-storage" + "/" + DELTA_SPARK + "/delta-storage" +"-" + DELTA_SPARK + ".jar");
@@ -430,7 +449,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
 
     private static final ResourceDependency DUCKDB_JAR = new ResourceDependency("duckdb_jdbc", "https://repo1.maven.org/maven2/org/duckdb/duckdb_jdbc/" + DUCKDB_VERSION + "/duckdb_jdbc-" + DUCKDB_VERSION + ".jar");
     private static final ResourceDependency FLIGHT_SQL_JDBC_JAR = new ResourceDependency("flight-sql-jdbc-driver", "https://repo1.maven.org/maven2/org/apache/arrow/flight-sql-jdbc-driver/" + FLIGHT_SQL_JDBC_VERSION + "/flight-sql-jdbc-driver-" + FLIGHT_SQL_JDBC_VERSION + ".jar");
-    private static final ResourceDependency AWS_JAVA_SDK_JAR = new ResourceDependency("aws-java-sdk-bundle", "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/" + AWS_JAVA_SDK_VERSION + "/aws-java-sdk-bundle-" + AWS_JAVA_SDK_VERSION + ".jar");
+    // Keep the artefact label "aws-java-sdk-bundle" (deleteDependencies matches on it by
+    // substring) so an in-place upgrade from a Spark 3 install still cleans up the old v1
+    // aws-java-sdk-bundle-*.jar before this v2 bundle-*.jar lands next to it.
+    private static final ResourceDependency AWS_JAVA_SDK_JAR = new ResourceDependency("aws-java-sdk-bundle", "https://repo1.maven.org/maven2/software/amazon/awssdk/bundle/" + AWS_JAVA_SDK_V2_VERSION + "/bundle-" + AWS_JAVA_SDK_V2_VERSION + ".jar");
     private static final ResourceDependency HADOOP_AWS_JAR = new ResourceDependency("hadoop-aws", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/" + HADOOP_AWS_VERSION + "/hadoop-aws-" + HADOOP_AWS_VERSION + ".jar");
     private static final ResourceDependency REDSHIFT_JDBC_JAR = new ResourceDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
     private static final ResourceDependency SPARK_REDSHIFT_JAR = new ResourceDependency("spark-redshift", "https://repo1.maven.org/maven2/ai/starlake/spark-redshift_" + SCALA_VERSION + "/" + SPARK_REDSHIFT_VERSION + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION + ".jar");
@@ -605,7 +627,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
                 variableWriter.apply(writer).accept("TRINODB_VERSION", TRINODB_VERSION);
             }
             if (ENABLE_REDSHIFT || !anyDependencyEnabled()) {
-                variableWriter.apply(writer).accept("AWS_JAVA_SDK_VERSION", AWS_JAVA_SDK_VERSION);
+                variableWriter.apply(writer).accept("AWS_JAVA_SDK_V2_VERSION", AWS_JAVA_SDK_V2_VERSION);
                 variableWriter.apply(writer).accept("HADOOP_AWS_VERSION", HADOOP_AWS_VERSION);
                 variableWriter.apply(writer).accept("REDSHIFT_JDBC_VERSION", REDSHIFT_JDBC_VERSION);
                 variableWriter.apply(writer).accept("SPARK_REDSHIFT_VERSION", SPARK_REDSHIFT_VERSION);

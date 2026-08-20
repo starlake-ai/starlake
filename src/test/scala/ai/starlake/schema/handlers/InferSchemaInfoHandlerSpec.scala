@@ -93,11 +93,10 @@ class InferSchemaInfoHandlerSpec extends TestHelper {
 
     "CreateAttributes" should "create the correct list of attributes for a dsv with header" in {
       val df1 = sparkSession.read
-        .format("com.databricks.spark.csv")
+        .format("csv")
         .option("inferSchema", value = true)
         .option("header", value = true)
         .option("delimiter", ";")
-        .option("parserLib", "UNIVOCITY")
         .load("src/test/resources/sample/SCHEMA-VALID.dsv")
 
       val dsv: List[TableAttribute] =
@@ -127,11 +126,10 @@ class InferSchemaInfoHandlerSpec extends TestHelper {
 
     "CreateAttributes" should "create the correct list of attributes for a dsv without header" in {
       val df1 = sparkSession.read
-        .format("com.databricks.spark.csv")
+        .format("csv")
         .option("inferSchema", value = true)
         .option("header", value = false)
         .option("delimiter", ";")
-        .option("parserLib", "UNIVOCITY")
         .load("src/test/resources/sample/SCHEMA-VALID-NOHEADER.dsv")
 
       val dsv: List[TableAttribute] = InferSchemaHandler.createAttributes(Map.empty, df1.schema)
@@ -146,7 +144,7 @@ class InferSchemaInfoHandlerSpec extends TestHelper {
     }
     "CreateXML Attributes with - or : chars" should "create the correct list of attributes for a XML without header" in {
       val df1 = sparkSession.read
-        .format("com.databricks.spark.xml")
+        .format("xml")
         .option("inferSchema", value = true)
         .option("rowTag", "catalog")
         .option("ignoreNamespace", "true")

@@ -91,8 +91,8 @@ Transform jobs can target different engines via `Engine`: Spark, BigQuery, Snowf
 
 ## Key Dependencies
 
-- **Spark 3.5.8** (provided scope — not bundled in standard assembly)
-- **Jackson 2.15.2** for JSON/YAML serialization
+- **Spark 4.1.3** (provided scope — not bundled in standard assembly)
+- **Jackson 2.21.2** for JSON/YAML serialization
 - **scopt** for CLI parsing
 - **PureConfig** for typesafe config
 - **better-files** for file I/O

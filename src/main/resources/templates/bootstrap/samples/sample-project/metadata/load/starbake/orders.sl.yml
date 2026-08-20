@@ -32,7 +32,7 @@ table:
     withHeader: true
     writeStrategy:
       type: "APPEND"
-    schedule: "hourly"
+    schedule: "0 * * * *"
   comment: "A detailed log of all order entries, linking customers to the products\
     \ they've purchased"
   sample: "{\"customer_id\":3,\"order_date\":\"2023-03-15\",\"order_id\":1,\"product_id\"\

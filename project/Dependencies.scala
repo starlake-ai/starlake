@@ -50,36 +50,35 @@ object Dependencies {
 
   // Provided
 
-  val jacksonForSpark3 = Seq(
-    "com.fasterxml.jackson.core" % "jackson-core" % Versions.jacksonForSpark3 % "provided",
-    "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jacksonForSpark3 % "provided",
-    "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jacksonForSpark3 % "provided",
-    "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jacksonForSpark3 % "provided",
-    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jacksonForSpark3 % "provided",
-    "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % Versions.jacksonForSpark3 % "provided"
+  val jacksonForSpark4 = Seq(
+    "com.fasterxml.jackson.core" % "jackson-core" % Versions.jacksonForSpark4 % "provided",
+    "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jacksonAnnotationsForSpark4 % "provided",
+    "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jacksonForSpark4 % "provided",
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jacksonForSpark4 % "provided",
+    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jacksonForSpark4 % "provided",
+    "com.fasterxml.jackson.datatype" % "jackson-datatype-jsr310" % Versions.jacksonForSpark4 % "provided"
   )
 
-  val spark3 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark3 % "provided" exclude (
+  val spark4 = Seq(
+    "org.apache.spark" %% "spark-core" % Versions.spark4 % "provided" exclude (
       "com.google.guava",
       "guava"
     ) excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-sql" % Versions.spark3 % "provided" exclude (
+    "org.apache.spark" %% "spark-sql" % Versions.spark4 % "provided" exclude (
       "com.google.guava",
       "guava"
     ) excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-hive" % Versions.spark3 % "provided" exclude (
+    "org.apache.spark" %% "spark-hive" % Versions.spark4 % "provided" exclude (
       "com.google.guava",
       "guava"
     ) excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark3 % "provided" exclude (
+    "org.apache.spark" %% "spark-mllib" % Versions.spark4 % "provided" exclude (
       "com.google.guava",
       "guava"
     ) excludeAll (jacksonExclusions: _*),
-    "com.databricks" %% "spark-xml" % Versions.sparkXML excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3 excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-avro" % Versions.spark3 excludeAll (jacksonExclusions: _*),
-    "io.delta" %% "delta-spark" % Versions.deltaSpark3d0 % "provided" exclude (
+    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark4 excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-avro" % Versions.spark4 excludeAll (jacksonExclusions: _*),
+    "io.delta" %% "delta-spark_4.1" % Versions.deltaSpark % "provided" exclude (
       "com.google.guava",
       "guava"
     ) excludeAll (jacksonExclusions: _*)
@@ -109,7 +108,7 @@ object Dependencies {
   )
 
   val azure = Seq(
-    "org.apache.hadoop" % "hadoop-azure" % "3.4.2" % "provided" excludeAll (jacksonExclusions: _*) exclude (
+    "org.apache.hadoop" % "hadoop-azure" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude (
       "com.google.guava",
       "guava"
     ),
@@ -126,8 +125,8 @@ object Dependencies {
 
   val redshift = Seq(
     "com.amazon.redshift" % "redshift-jdbc42" % Versions.redshiftJDBC % "provided" excludeAll (jacksonExclusions: _*),
-    "org.apache.hadoop" % "hadoop-aws" % "3.3.6" % "provided" excludeAll (jacksonExclusions: _*),
-    "com.amazonaws" % "aws-java-sdk-bundle" % "1.12.794" % "provided" excludeAll (jacksonExclusions: _*)
+    "org.apache.hadoop" % "hadoop-aws" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*),
+    "software.amazon.awssdk" % "bundle" % Versions.awsSdkBundle % "provided" excludeAll (jacksonExclusions: _*)
   )
 
   val scalaTest = Seq(
@@ -171,8 +170,11 @@ object Dependencies {
     "com.google.cloud" % "google-cloud-bigquery" % Versions.bigquery exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
     // see https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/36
     // Add the jar file to spark dependencies
-    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % Versions.sparkBigqueryWithDependencies % "provided" excludeAll (jacksonExclusions: _*),
+    "com.google.cloud.spark" % "spark-4.1-bigquery" % Versions.sparkBigquery % "provided" excludeAll (jacksonExclusions: _*),
     "com.google.cloud" % "google-cloud-datacatalog" % Versions.gcpDataCatalog excludeAll (jacksonExclusions: _*),
+    // gcs-connector 4.0.4 vendors com.google.cloud.logging unrelocated and wins classpath
+    // precedence (MergeStrategy.first in assembly), so this artifact is shadowed at runtime.
+    // GcpUtils.scala must import the connector's repackaged MonitoredResource for consistency.
     "com.google.cloud" % "google-cloud-logging" % Versions.gcpCloudLogging
   )
 
@@ -253,12 +255,9 @@ object Dependencies {
     "com.networknt" % "json-schema-validator" % Versions.jsonSchemaValidator excludeAll (jacksonExclusions: _*)
   )
 
-  val scala213LibsOnly = Seq(
-    "ai.starlake" %% "spark-redshift" % "6.5.1" % Test
-  )
+  val scala213LibsOnly = Seq("ai.starlake" %% "spark-redshift" % Versions.sparkRedshift % Test)
 
   val scalaCompat = Seq(
-    "org.scala-lang.modules" %% "scala-collection-compat" % Versions.scalaCompat,
     "org.scala-lang.modules" %% "scala-parallel-collections" % Versions.scalaParallelCollections
   )
 
@@ -273,7 +272,7 @@ object Dependencies {
   )
 
   val starlakeStreaming = Seq(
-    "ai.starlake" %% "starlake-streaming" % "1.3.5" % "provided"
+    "ai.starlake" %% "starlake-streaming" % Versions.starlakeStreaming % "provided"
   )
 
   val templates = Seq(
@@ -288,6 +287,5 @@ object Dependencies {
     scopt ++ hadoop ++ duckdb ++ gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja ++
     pgGcp ++ jsonSchemaValidator ++ mariadb ++ derbyTestServer ++ jSqlTranspiler(
       isSnapshot
-    ) ++ cache ++ swaggerParser ++
-    starlakeStreaming ++ templates
+    ) ++ cache ++ swaggerParser ++ starlakeStreaming ++ templates
 }

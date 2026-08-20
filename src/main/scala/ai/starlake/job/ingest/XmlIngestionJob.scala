@@ -69,7 +69,7 @@ class XmlIngestionJob(
         val df = path
           .map { singlePath =>
             session.read
-              .format("com.databricks.spark.xml")
+              .format("xml")
               .options(xmlOptions)
               .option("inferSchema", value = false)
               .option("encoding", mergedMetadata.resolveEncoding())
@@ -97,7 +97,7 @@ class XmlIngestionJob(
     xmlOptions.get("rowTag") match {
       case Some(_) =>
         rejectedLines.write
-          .format("com.databricks.spark.xml")
+          .format("xml")
           .options(xmlOptions)
           .option("rootTag", xmlOptions.getOrElse("rootTag", schema.name))
           .option("encoding", mergedMetadata.resolveEncoding())

@@ -2,7 +2,7 @@ package ai.starlake.sql
 
 import ai.starlake.extract.JdbcDbUtils
 import ai.starlake.extract.JdbcDbUtils.StarlakeConnectionPool
-import org.apache.spark.sql.AnalysisException
+import org.apache.spark.SparkThrowable
 import org.apache.spark.sql.catalyst.SQLConfHelper
 import org.apache.spark.sql.catalyst.analysis.{IndexAlreadyExistsException, NoSuchIndexException}
 import org.apache.spark.sql.connector.catalog.Identifier
@@ -211,35 +211,43 @@ private case object MariaDbDialect extends JdbcDialect with SQLConfHelper {
     s"DROP INDEX ${quoteIdentifier(indexName)} ON ${tableIdent.name()}"
   }
 
-  override def classifyException(message: String, e: Throwable): AnalysisException = {
+  override def classifyException(
+    e: Throwable,
+    condition: String,
+    messageParameters: Map[String, String],
+    description: String,
+    isRuntime: Boolean
+  ): Throwable with SparkThrowable = {
     e match {
       case sqlException: SQLException =>
         sqlException.getErrorCode match {
           // ER_DUP_KEYNAME
           case 1061 =>
-            // The message is: Failed to create index indexName in tableName
+            // description is: Failed to create index indexName in tableName
             val regex = "(?s)Failed to create index (.*) in (.*)".r
-            regex.findFirstMatchIn(message) match {
+            regex.findFirstMatchIn(description) match {
               case Some(m) =>
                 throw new IndexAlreadyExistsException(
                   indexName = m.group(1),
                   tableName = m.group(2),
                   cause = Some(e)
                 )
-              case None => super.classifyException(message, e)
+              case None =>
+                super.classifyException(e, condition, messageParameters, description, isRuntime)
             }
           case 1091 =>
-            // The message is: Failed to drop index indexName in tableName
+            // description is: Failed to drop index indexName in tableName
             val regex = "(?s)Failed to drop index (.*) in (.*)".r
-            regex.findFirstMatchIn(message) match {
+            regex.findFirstMatchIn(description) match {
               case Some(m) =>
                 throw new NoSuchIndexException(m.group(1), m.group(2), cause = Some(e))
-              case None => super.classifyException(message, e)
+              case None =>
+                super.classifyException(e, condition, messageParameters, description, isRuntime)
             }
-          case _ => super.classifyException(message, e)
+          case _ => super.classifyException(e, condition, messageParameters, description, isRuntime)
         }
       case unsupported: UnsupportedOperationException => throw unsupported
-      case _                                          => super.classifyException(message, e)
+      case _ => super.classifyException(e, condition, messageParameters, description, isRuntime)
     }
   }
 

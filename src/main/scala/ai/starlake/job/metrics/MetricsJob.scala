@@ -8,7 +8,6 @@ import ai.starlake.schema.model.{AutoTaskInfo, DomainInfo, SchemaInfo}
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
-import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.{col, lit}
 
 import scala.util.{Failure, Success, Try}
@@ -84,7 +83,7 @@ class MetricsJob(
     domain: DomainInfo,
     schema: SchemaInfo,
     count: Long,
-    ingestionTime: Timestamp
+    ingestionTime: Long
   ): MetricsDatasets = {
     def computeFrequenciesDF(discreteDataset: DataFrame) = {
       Some(
@@ -156,7 +155,7 @@ class MetricsJob(
     run(dataUse, now)
   }
 
-  def run(dataUse: DataFrame, timestamp: Timestamp): Try[SparkJobResult] = {
+  def run(dataUse: DataFrame, timestamp: Long): Try[SparkJobResult] = {
     val discAttrs: List[String] = schema.discreteAttrs(schemaHandler).map(_.getFinalName())
     val continAttrs: List[String] = schema.continuousAttrs(schemaHandler).map(_.getFinalName())
     logger.info("Discrete Attributes -> " + discAttrs.mkString(","))

@@ -26,7 +26,6 @@ import ai.starlake.utils.conversion.Conversions.convertToScalaIterator
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.*
 import org.apache.hadoop.io.compress.CompressionCodecFactory
-import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
 import java.io.*
 import java.net.URI
@@ -606,7 +605,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     currentFS.getContentSummary(path).getSpaceConsumed
   }
 
-  def lastModified(path: Path): Timestamp = {
+  def lastModified(path: Path): Long = {
     pathSecurityCheck(path)
     val currentFS = fs(path)
     currentFS.getFileStatus(path).getModificationTime

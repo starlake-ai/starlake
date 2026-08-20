@@ -52,7 +52,7 @@ import ai.starlake.transpiler.schema.{JdbcColumn, JdbcMetaData}
 import ai.starlake.utils.Formatter.*
 import ai.starlake.utils.{StarlakeConfigException, StarlakeNotFoundException, Utils, YamlSerde}
 import better.files.Resource
-import com.databricks.spark.xml.util.XSDToSchema
+import org.apache.spark.sql.execution.datasources.xml.XSDToSchema
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap

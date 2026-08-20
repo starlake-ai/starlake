@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
-while read line; do
-  export $line
+while read -r line; do
+  [[ -z "$line" || "$line" == \#* ]] && continue
+  export "$line"
 done < .versions
 
 FIRST_LINE=$(head -n 1 version.sbt)

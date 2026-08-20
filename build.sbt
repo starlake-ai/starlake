@@ -67,19 +67,28 @@ libraryDependencies ++= {
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies(isSnapshot.value) ++ spark3 ++
-    jacksonForSpark3 ++ // esSpark212 ++ (exclude elasticsearch until spark 4 is supported
+  dependencies(isSnapshot.value) ++ spark4 ++
+    jacksonForSpark4 ++ // esSpark212 excluded: no elasticsearch-spark release supports Spark 4 yet
     pureConfig ++ scalaReflection(scalaVersion.value) ++
     versionSpecificLibs
 }
 
 dependencyOverrides := Seq(
-  "com.google.protobuf"                % "protobuf-java"             % "3.25.8",
+  // proto-google-iam-v1 (pulled in by google-cloud-bigquery/-bigquerystorage/-datacatalog)
+  // ships gencode stamped 4.33.2, and protobuf enforces runtime >= gencode since 4.26
+  // ("poison pill" checks), so PolicyTagManagerClient (BigQuery CLS) throws
+  // ProtobufRuntimeVersionException under 4.33.0. gcs-connector-4.0.4 and spark-4.1-bigquery
+  // fully shade/relocate their own protobuf-java, so raising this override does not affect
+  // GCS batch requests (an earlier 4.33.2 regression report was collateral eviction churn,
+  // not a protobuf conflict through this path). google-cloud-datacatalog 1.101.0's own gencode
+  // is stamped 4.33.6, raising the runtime floor accordingly; 4.35.1 is the latest stable 4.x
+  // release satisfying that floor (avoid 4.36.0-RC, a pre-release).
+  "com.google.protobuf"                % "protobuf-java"             % "4.35.1",
   "org.scala-lang"                    % "scala-library"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-reflect"             % scalaVersion.value,
   "org.scala-lang"                    % "scala-compiler"            % scalaVersion.value,
-  "com.google.guava"                  %  "guava"                    % "31.1-jre", // required by jinjava 2.7.3
-  "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jacksonForSpark3,
+  "com.google.guava"                  %  "guava"                    % "33.4.8-jre", // match Spark 4.1.3; jinjava is fine with it
+  "com.fasterxml.jackson.dataformat"  % "jackson-dataformat-csv"    % Versions.jacksonForSpark4,
   "com.manticore-projects.jsqlformatter" % "jsqlparser"             % Versions.jSqlParser // avoid MethodTooLargeException during assembly shading
 )
 
@@ -159,7 +168,6 @@ assembly / assemblyExcludedJars := {
       "arrow-vector-",
       "commons-codec-",
       //"commons-compress-", // Because POI needs it
-      "commons-logging-",
       "commons-math3-",
       "flatbuffers-java-",
       // "gson-", // because BigQuery needs com.google.gson.JsonParser.parseString(Ljava/lang/String;)
@@ -169,12 +177,14 @@ assembly / assemblyExcludedJars := {
       "httpclient-",
       "httpcore-",
       "jackson-datatype-jsr310-",
-      "json-2",
+      "java-diff-utils-",
+      "jline-3.29.0-jdk8", // pinned: distro also ships jline-2.14.6.jar (legacy Hive shell) under the bare jline- prefix
       "jsr305-",
       "lz4-java-",
       // "protobuf-java-", // BigQuery needs com/google/protobuf/GeneratedMessageV3
       "scala-compiler-",
       "scala-library-",
+      "scala-parallel-collections_",
       "scala-parser-combinators_",
       "scala-reflect-",
       "scala-xml_",
@@ -302,6 +312,8 @@ developers := List(
 
 val packageSetup = Def.taskKey[Unit]("Package Setup.class")
 packageSetup := {
+  // depend on compile so the jar never packages stale Setup.class files
+  val _ = (Compile / compile).value
   import java.nio.file.Paths
   def zipFile(from: List[java.nio.file.Path], to: java.nio.file.Path): Unit = {
     import java.util.jar.Manifest

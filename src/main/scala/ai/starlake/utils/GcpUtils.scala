@@ -3,7 +3,10 @@ package ai.starlake.utils
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import better.files.File
-import com.google.cloud.MonitoredResource
+// gcs-connector's shaded jar vendors com.google.cloud.logging.* unrelocated (it wins classpath
+// precedence over the real google-cloud-logging artifact), but relocates its own MonitoredResource
+// dependency to this repackaged path; the two must match or LogEntry.Builder#setResource won't compile.
+import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.MonitoredResource
 import com.google.cloud.logging.Payload.JsonPayload
 import com.google.cloud.logging.{LogEntry, LoggingException, LoggingOptions}
 import com.google.common.base.VerifyException

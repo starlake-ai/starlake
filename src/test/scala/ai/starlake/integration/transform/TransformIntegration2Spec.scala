@@ -4,11 +4,7 @@ import ai.starlake.integration.BigQueryIntegrationSpecBase
 import ai.starlake.job.Main
 
 class TransformIntegration2Spec extends BigQueryIntegrationSpecBase {
-  if (
-    sys.env
-      .getOrElse("SL_REMOTE_TEST", "true")
-      .toBoolean
-  ) {
+  if (sys.env.getOrElse("SL_REMOTE_TEST", "false").toBoolean) {
 
     "Import / Load / Transform BQ" should "succeed" in {
       withEnvs(

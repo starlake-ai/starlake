@@ -71,12 +71,19 @@ trait BigQueryJobBase extends LazyLogging {
 
   }
   def applyRLSAndCLS(forceApply: Boolean = false)(implicit settings: Settings): Try[Unit] = {
-    val client = policyClient()
+    // Built on demand: applyCLS only needs the client when an attribute actually carries an
+    // access policy, and creating it requires GCP credentials.
+    var clientCreated = false
+    lazy val client = {
+      val created = policyClient()
+      clientCreated = true
+      created
+    }
     val result = for {
       _ <- applyRLS(forceApply)
       _ <- applyCLS(forceApply, client)
     } yield ()
-    client.shutdown()
+    if (clientCreated) client.shutdown()
     result
   }
 
@@ -266,7 +273,7 @@ trait BigQueryJobBase extends LazyLogging {
     (location, taxonomyProjectId, taxonomy, taxonomyRef)
   }
 
-  private def applyCLS(forceApply: Boolean, policyTagClient: PolicyTagManagerClient)(implicit
+  private def applyCLS(forceApply: Boolean, policyTagClient: => PolicyTagManagerClient)(implicit
     settings: Settings
   ): Try[Unit] = {
     Try {

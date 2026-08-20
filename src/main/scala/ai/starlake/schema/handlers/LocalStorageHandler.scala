@@ -25,7 +25,6 @@ import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.*
 import org.apache.hadoop.io.compress.CompressionCodecFactory
-import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
 import java.io.{IOException, InputStream, InputStreamReader, OutputStream}
 import java.nio.charset.{Charset, StandardCharsets}
@@ -315,7 +314,7 @@ class LocalStorageHandler(implicit
     file.size()
   }
 
-  def lastModified(path: Path): Timestamp = {
+  def lastModified(path: Path): Long = {
     pathSecurityCheck(path)
     val file = localFile(path)
     file.lastModifiedTime.toEpochMilli
