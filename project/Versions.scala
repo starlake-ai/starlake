@@ -23,7 +23,15 @@ object Versions {
   // incompatible with the Spark classpath). Never bump past the 2.x line.
   val jsonSchemaValidator = "2.0.4"
   val scopt = "4.1.0"
-  val bigquery = "2.49.0"
+  // Capped at 2.68.0, NOT the latest (2.69.0): 2.69.0 hangs TransformIntegration2Spec
+  // forever (forked test JVM never completes its handshake back to sbt; new "could not
+  // find method serverCertificateRequested" / "Unable to read from client" lines appear
+  // right before the hang). Bisected to exactly this one release (2.68.0 passes, 2.69.0
+  // hangs) with grpc-api/grpc-netty-shaded/conscrypt-openjdk-uber held at identical
+  // versions on both sides (1.82.2 / 2.6.0, pulled in either way via datacatalog 1.101.0),
+  // so the regression is inside the google-cloud-bigquery 2.69.0 artifact itself, not a
+  // transitive dependency clash. See .superpowers/sdd/recipeb-report.md for the full bisect.
+  val bigquery = "2.68.0"
   val gcsConnector = "4.0.4" // new versioning scheme, built against Hadoop 3.4.2
   val hadoop = "3.4.2" // must match Spark 4.1.3's Hadoop line; aws/azure artifacts use this too
   val awsSdkBundle = "2.29.52" // software.amazon.awssdk (v2), pinned by hadoop-project 3.4.2
@@ -34,8 +42,8 @@ object Versions {
   val confluentVersion = "7.7.5"
   val kafkaClients = "7.7.5-ce"
   val testContainers = "0.44.0"
-  val gcpCloudLogging = "3.23.10"
-  val gcpDataCatalog = "1.79.0"
+  val gcpCloudLogging = "3.36.0"
+  val gcpDataCatalog = "1.101.0"
   val jinja = "2.7.4" // forces dependency override on guava
   val snowflakeJDBC = "4.3.3" // spark-snowflake 3.2.x requires >= 4.0.2
   val snowflakeSpark: String = "3.2.1-spark_4.1"
