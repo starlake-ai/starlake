@@ -779,9 +779,16 @@ SL_ROOT=$(mktemp -d) ./starlake.sh bootstrap 2>&1 | tail -3
 
 ### Task 18: Release train (in order; each step gates the next)
 
-1. starlake-streaming: merge `spark4` → `main`, tag `v1.4.0`, publish per the GitHub Releases process.
+1. starlake-streaming: merge `spark4` → `main`, run `sbt release` (bumps/tags/pushes `v1.4.0` only — no artifact publishing), then run `scripts/gh-release.sh 1.4.0 --run` to build the jar/pom/ivy.xml from a fresh `publishLocal` and attach them as assets on the `v1.4.0` GitHub Release. starlake-core's `Resolvers.starlakeStreamingGithubReleases` (`project/Common.scala`) resolves `ai.starlake:starlake-streaming:1.4.0` anonymously from `https://github.com/starlake-ai/starlake-streaming/releases/download/v1.4.0/...` only once these assets exist — core CI depends on this release existing, so it must complete strictly before the core PR opens.
 2. starlake-core: flip `Versions.starlakeStreaming` to `1.4.0`, merge `spark4` → `master`, tag `v1.8.0`. This is a minor-version crossing: per project policy the docker image-version bump is manual — do it.
 3. starlake-api: point `.versions` `SL_VERSION` at `1.8.0`, merge `spark4` → `main`.
+
+Asset naming convention (must match the resolver's `Patterns` in `Common.scala` exactly):
+`starlake-streaming_2.13-<version>.jar`, `starlake-streaming_2.13-<version>-assembly.jar` (the ivy.xml
+declares the assembly classifier against every configuration including `provided`, so it is always
+fetched alongside the main jar and must be present), `starlake-streaming_2.13-<version>.pom`,
+`ivy-<version>.xml`. Validated offline against a `file://` resolver pointed at a hand-built asset
+directory before this was wired to the real URL (see `.superpowers/sdd/resolver-report.md`).
 
 #### Release-flip checklist
 

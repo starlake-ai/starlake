@@ -116,8 +116,26 @@ object Resolvers {
 
   val snapshots = Resolver.sonatypeCentralSnapshots
 
+  // resolves ai.starlake:starlake-streaming from its GitHub Release assets (anonymous; see plan Task 18)
+  val starlakeStreamingGithubReleases = Resolver.url(
+    "starlake-streaming-github-releases",
+    url("https://github.com/starlake-ai/starlake-streaming/releases/download/")
+  )(
+    Patterns()
+      .withIvyPatterns(Vector("v[revision]/ivy-[revision].xml"))
+      .withArtifactPatterns(Vector("v[revision]/[artifact]-[revision](-[classifier]).[ext]"))
+      .withIsMavenCompatible(false)
+  )
+
   val allResolvers =
-    Seq(Resolver.mavenLocal, snapshots, typeSafe, confluent, mulesoft)
+    Seq(
+      Resolver.mavenLocal,
+      snapshots,
+      typeSafe,
+      confluent,
+      mulesoft,
+      starlakeStreamingGithubReleases
+    )
 
   val googleCloudBigDataMavenRepo = "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss"
 
