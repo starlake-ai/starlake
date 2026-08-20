@@ -36,35 +36,35 @@ class DuckDbNativeJsonLoadSpec extends TestHelper {
     // branch whose first attribute is not a variant built the INSERT SQL but never executed
     // it, silently loading 0 rows while reporting success.
     "Native DuckDB load of a nested JSON file with a non-variant first attribute" should
-      "actually insert the rows" in {
-        new SpecTrait(
-          sourceDomainOrJobPathname = "/sample/jsonduck/jsonduck.sl.yml",
-          datasetDomainName = "jsonduck",
-          sourceDatasetPathName = "/sample/jsonduck/XJSONDUCKTBL"
-        ) {
-          cleanMetadata
-          deliverSourceDomain()
-          deliverSourceTable(
-            "jsonduck",
-            "/sample/jsonduck/user_jsonduck.sl.yml",
-            Some("user.sl.yml")
-          )
+    "actually insert the rows" in {
+      new SpecTrait(
+        sourceDomainOrJobPathname = "/sample/jsonduck/jsonduck.sl.yml",
+        datasetDomainName = "jsonduck",
+        sourceDatasetPathName = "/sample/jsonduck/XJSONDUCKTBL"
+      ) {
+        cleanMetadata
+        deliverSourceDomain()
+        deliverSourceTable(
+          "jsonduck",
+          "/sample/jsonduck/user_jsonduck.sl.yml",
+          Some("user.sl.yml")
+        )
 
-          val result = loadPending
-          result.isSuccess shouldBe true
+        val result = loadPending
+        result.isSuccess shouldBe true
 
-          val rows = queryDuckDb(
-            """SELECT id, payload->'a'->>'b' AS b FROM jsonduck.user ORDER BY id"""
-          ) { rs =>
-            val buf = scala.collection.mutable.ListBuffer[(Long, String)]()
-            while (rs.next()) {
-              buf += ((rs.getLong("id"), rs.getString("b")))
-            }
-            buf.toList
+        val rows = queryDuckDb(
+          """SELECT id, payload->'a'->>'b' AS b FROM jsonduck.user ORDER BY id"""
+        ) { rs =>
+          val buf = scala.collection.mutable.ListBuffer[(Long, String)]()
+          while (rs.next()) {
+            buf += ((rs.getLong("id"), rs.getString("b")))
           }
-
-          rows shouldBe List((1L, "x"), (2L, "y"))
+          buf.toList
         }
+
+        rows shouldBe List((1L, "x"), (2L, "y"))
       }
+    }
   }
 }
