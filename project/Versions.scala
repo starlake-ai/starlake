@@ -55,4 +55,5 @@ object Versions {
   val orchestrationTemplates = "0.5.6.1"
   val snowflakeTemplates = "0.4.1"
   val starlakeStreaming = "1.4.0-SNAPSHOT" // Spark 4 build from the streaming spark4 branch; flip to 1.4.0 at release (plan Task 18)
+  val sparkRedshift = "7.0.0-SNAPSHOT" // flip to 7.0.0 at release; Spark 4 build of the ai.starlake fork
 }

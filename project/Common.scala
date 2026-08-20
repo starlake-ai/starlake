@@ -127,6 +127,17 @@ object Resolvers {
       .withIsMavenCompatible(false)
   )
 
+  // resolves ai.starlake:spark-redshift from its GitHub Release assets (anonymous; see plan Task 18)
+  val sparkRedshiftGithubReleases = Resolver.url(
+    "spark-redshift-github-releases",
+    url("https://github.com/starlake-ai/spark-redshift/releases/download/")
+  )(
+    Patterns()
+      .withIvyPatterns(Vector("v[revision]/ivy-[revision].xml"))
+      .withArtifactPatterns(Vector("v[revision]/[artifact]-[revision](-[classifier]).[ext]"))
+      .withIsMavenCompatible(false)
+  )
+
   val allResolvers =
     Seq(
       Resolver.mavenLocal,
@@ -134,7 +145,8 @@ object Resolvers {
       typeSafe,
       confluent,
       mulesoft,
-      starlakeStreamingGithubReleases
+      starlakeStreamingGithubReleases,
+      sparkRedshiftGithubReleases
     )
 
   val googleCloudBigDataMavenRepo = "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss"

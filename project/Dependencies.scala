@@ -255,7 +255,7 @@ object Dependencies {
     "com.networknt" % "json-schema-validator" % Versions.jsonSchemaValidator excludeAll (jacksonExclusions: _*)
   )
 
-  val scala213LibsOnly = Seq.empty[ModuleID]
+  val scala213LibsOnly = Seq("ai.starlake" %% "spark-redshift" % Versions.sparkRedshift % Test)
 
   val scalaCompat = Seq(
     "org.scala-lang.modules" %% "scala-parallel-collections" % Versions.scalaParallelCollections

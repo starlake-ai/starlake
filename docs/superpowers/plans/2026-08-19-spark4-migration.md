@@ -780,8 +780,9 @@ SL_ROOT=$(mktemp -d) ./starlake.sh bootstrap 2>&1 | tail -3
 ### Task 18: Release train (in order; each step gates the next)
 
 1. starlake-streaming: merge `spark4` → `main`, run `sbt release` (bumps/tags/pushes `v1.4.0` only — no artifact publishing), then run `scripts/gh-release.sh 1.4.0 --run` to build the jar/pom/ivy.xml from a fresh `publishLocal` and attach them as assets on the `v1.4.0` GitHub Release. starlake-core's `Resolvers.starlakeStreamingGithubReleases` (`project/Common.scala`) resolves `ai.starlake:starlake-streaming:1.4.0` anonymously from `https://github.com/starlake-ai/starlake-streaming/releases/download/v1.4.0/...` only once these assets exist — core CI depends on this release existing, so it must complete strictly before the core PR opens.
-2. starlake-core: flip `Versions.starlakeStreaming` to `1.4.0`, merge `spark4` → `master`, tag `v1.8.0`. This is a minor-version crossing: per project policy the docker image-version bump is manual — do it.
-3. starlake-api: point `.versions` `SL_VERSION` at `1.8.0`, merge `spark4` → `main`.
+2. spark-redshift (`ai.starlake` fork, local checkout `/Users/hayssams/git/public/spark-redshift`): merge/tag `v7.0.0`, then run `scripts/gh-release.sh 7.0.0 --run` to build the jar/sources/javadoc/pom/ivy.xml from a fresh `publishLocal` and attach them as assets on the `v7.0.0` GitHub Release. NOTE: unlike starlake-streaming, this fork's `origin` remote currently points directly at `spark-redshift-community/spark-redshift` (the upstream community repo, added here as `upstream` too) — there is no `starlake-ai/spark-redshift` GitHub repo yet. One must be created (fork or new repo under the `starlake-ai` org, named `spark-redshift`) before this step can run; `Resolvers.sparkRedshiftGithubReleases` in `project/Common.scala` already assumes that org/repo name. This must complete strictly before the core PR opens (same reasoning as streaming).
+3. starlake-core: flip `Versions.starlakeStreaming` to `1.4.0` and `Versions.sparkRedshift` to `7.0.0`, merge `spark4` → `master`, tag `v1.8.0`. This is a minor-version crossing: per project policy the docker image-version bump is manual — do it.
+4. starlake-api: point `.versions` `SL_VERSION` at `1.8.0`, merge `spark4` → `main`.
 
 Asset naming convention (must match the resolver's `Patterns` in `Common.scala` exactly):
 `starlake-streaming_2.13-<version>.jar`, `starlake-streaming_2.13-<version>-assembly.jar` (the ivy.xml
@@ -794,8 +795,9 @@ directory before this was wired to the real URL (see `.superpowers/sdd/resolver-
 
 Snapshot/placeholder values that must be flipped to release versions as part of this train, before tagging:
 
-- **core**: `Versions.starlakeStreaming` flip `1.4.0-SNAPSHOT` → `1.4.0` (step 2 above).
-- **api**: `.versions` `SL_VERSION` → `1.8.0` (step 3 above).
+- **core**: `Versions.starlakeStreaming` flip `1.4.0-SNAPSHOT` → `1.4.0` (step 3 above).
+- **core**: `Versions.sparkRedshift` flip `7.0.0-SNAPSHOT` → `7.0.0` (step 3 above).
+- **api**: `.versions` `SL_VERSION` → `1.8.0` (step 4 above).
 - **api**: `.versions` `SL_IMAGE_VERSION` `1.7` → `1.8`.
 - **api**: `version.sbt` `1.7.2-SNAPSHOT` → `1.8.x`.
 - **core**: `jSqlParser` and `jSqlTranspiler` in `project/Versions.scala` are pinned to `-SNAPSHOT` builds (`5.4.260-SNAPSHOT`, `1.11-SNAPSHOT`) — both must resolve to released versions before tagging `v1.8.0`.
@@ -803,7 +805,7 @@ Snapshot/placeholder values that must be flipped to release versions as part of 
 ### Task 19: Follow-ups (tracked, deliberately out of scope)
 
 - **Elasticsearch**: watch elasticsearch-hadoop for the first release containing the merged Spark 4 PRs (#2546-#2548); then restore `esSpark212` in core `build.sbt`, un-`ignore` `ESLoadJobSpec`, verify against ES 9.
-- **ai.starlake/spark-redshift fork**: rebuild against Spark 4.1, publish 7.x, restore the core test dependency and un-`ignore` the specs; update `SPARK_REDSHIFT_VERSION` in both `.versions` files and Setup.java.
+- **ai.starlake/spark-redshift fork**: DONE — `spark4` branch merges upstream's own Spark 4.1 port (upstream added Spark 4.1.0 support independently; bumped to 4.1.3/Scala 2.13.18 here), `publishLocal`'d as `7.0.0-SNAPSHOT`, core test dependency restored (`scala213LibsOnly`), redshift-related core specs already passed with no `ignore`s to lift. Remaining before release: create the `starlake-ai/spark-redshift` GitHub repo (doesn't exist yet — see Task 18 step 2), release `v7.0.0`, flip `Versions.sparkRedshift`. Separately: update `SPARK_REDSHIFT_VERSION` in both `.versions` files and Setup.java (not touched by this work).
 - **json-schema-validator 1.4.0 → 2.0.4**: now unblocked by Jackson 2.21; requires `JsonSchemaFactory`/`SchemaValidatorsConfig` API migration.
 - **Embrace ANSI mode**: remove the `sql.ansi.enabled=false` parity pin, fix ingestion/tests, document the behavior change.
 - **Restore `-Xfatal-warnings`** in starlake-api once deprecation warnings are cleaned.
