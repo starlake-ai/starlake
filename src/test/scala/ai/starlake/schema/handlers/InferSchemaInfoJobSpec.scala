@@ -1,7 +1,7 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
-import ai.starlake.job.infer.InferSchemaJob
+import ai.starlake.job.infer.{InferSchemaConfig, InferSchemaJob}
 import ai.starlake.schema.model.{TableAttribute, WriteMode}
 import ai.starlake.utils.{Utils, YamlSerde}
 import better.files.File
@@ -204,6 +204,41 @@ class InferSchemaInfoJobSpec extends TestHelper {
           removeSampleField(
             discoveredSchema.head.table.attributes
           ) should contain theSameElementsAs removeSampleField(expectedTable.head.table.attributes)
+        }
+      }
+    }
+
+    // Reproduces the autoload bug: re-running inference (e.g. via `autoload`) on a domain/table
+    // that already has a schema definition must skip inference and succeed, not hard-fail with
+    // "already defined". See AutoLoadCmd, which infers a schema for every incoming file on every
+    // run, including ones already covered by a shipped .sl.yml.
+    "Infer Schema" should "skip inference and succeed when the table is already defined" in {
+      new SpecTrait(
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations_domain.sl.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
+      ) {
+        cleanMetadata
+        deliverSourceDomain()
+        List(
+          "/sample/simple-json-locations/locations.sl.yml",
+          "/sample/simple-json-locations/flat_locations.sl.yml"
+        ).foreach(deliverSourceTable)
+        val inputData = loadTextFile("/sample/simple-json-locations/flat-locations.json")
+        for {
+          sourceFile <- File.temporaryFile()
+        } {
+          sourceFile.overwrite(inputData)
+          val wf = loadWorkflow()
+          val result = wf.inferSchema(
+            InferSchemaConfig(
+              domainName = "locations",
+              schemaName = "flat_locations",
+              inputPath = sourceFile.pathAsString,
+              clean = false
+            )
+          )
+          result.isSuccess shouldBe true
         }
       }
     }
