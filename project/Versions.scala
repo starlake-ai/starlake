@@ -54,5 +54,5 @@ object Versions {
   val dagsterTemplates = "0.5.9"
   val orchestrationTemplates = "0.5.6.1"
   val snowflakeTemplates = "0.4.1"
-  val starlakeStreaming = "1.4.0-SNAPSHOT" // Spark 4 build, released from starlake-streaming spark4 branch
+  val starlakeStreaming = "1.4.0-SNAPSHOT" // Spark 4 build from the streaming spark4 branch; flip to 1.4.0 at release (plan Task 18)
 }
