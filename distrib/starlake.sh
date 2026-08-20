@@ -25,8 +25,18 @@ fi
 
 case "$1" in
   reinstall)
-    rm "$SCRIPT_DIR/versions.sh"
-    rm -rf "$SCRIPT_DIR/bin/spark"
+    # Preserve the currently-pinned SL_VERSION (if any) across the wipe below and
+    # export it so the java Setup subprocess launched by launch_setup reinstalls
+    # AT that version instead of falling back to "latest github release".
+    if [ -f "$SCRIPT_DIR/versions.sh" ]
+    then
+      source "$SCRIPT_DIR/versions.sh"
+    fi
+    if [ -n "$SL_VERSION" ]; then
+      export SL_VERSION
+    fi
+    rm -f "$SCRIPT_DIR/versions.sh"
+    rm -rf "$SCRIPT_DIR/bin/spark" "$SCRIPT_DIR/bin/deps" "$SCRIPT_DIR/bin/sl"
     ;;
   *)
     if [ -f "$SCRIPT_DIR/versions.sh" ]
@@ -35,6 +45,31 @@ case "$1" in
     fi
     ;;
 esac
+
+# Launch-time consistency guard: rescue installs left poisoned by an older
+# starlake.sh whose `upgrade` only swapped the core jar/API and never touched
+# bin/spark (versions.sh could end up claiming a SPARK_VERSION that the actual
+# jars on disk do not match). Cheap check: does bin/spark/jars contain a
+# spark-core jar for the SPARK_VERSION versions.sh declares? Skipped for the
+# commands that are themselves how you fix this (install/reinstall/upgrade),
+# and for a not-yet-installed tree (no SPARK_VERSION/no bin/spark yet).
+if [ -z "$SL_SKIP_CONSISTENCY_CHECK" ] && [ -n "$SPARK_VERSION" ] && [ -d "$SCRIPT_DIR/bin/spark/jars" ]
+then
+  case "$1" in
+    install|reinstall|upgrade|_do_upgrade) ;;
+    *)
+      if ! compgen -G "$SCRIPT_DIR/bin/spark/jars/spark-core_*-${SPARK_VERSION}.jar" > /dev/null 2>&1
+      then
+        echo "ERROR: Starlake installation is inconsistent." >&2
+        echo "versions.sh declares Spark $SPARK_VERSION but $SCRIPT_DIR/bin/spark/jars has no matching spark-core jar." >&2
+        echo "This usually happens after upgrading with an older starlake.sh that did not refresh the Spark runtime." >&2
+        echo "Run '$SCRIPT_DIR/starlake.sh reinstall' to fix it (wipes and re-downloads bin/spark, bin/deps and bin/sl for the currently pinned SL_VERSION)." >&2
+        echo "Set SL_SKIP_CONSISTENCY_CHECK=1 to bypass this check." >&2
+        exit 1
+      fi
+      ;;
+  esac
+fi
 
 SL_ARTIFACT_NAME=starlake-core_$SCALA_VERSION
 SPARK_DIR_NAME=spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION
@@ -258,6 +293,15 @@ menu_select() {
 }
 
 select_starlake_version() {
+    # Non-interactive override: `upgrade --version X.Y.Z` / SL_UPGRADE_VERSION,
+    # so scripted/CI/Docker upgrades don't have to fake a keypress on the menu.
+    local forced_version="$1"
+    if [ -n "$forced_version" ]; then
+        NEW_SL_VERSION="$forced_version"
+        echo "Selected version: $NEW_SL_VERSION (forced)"
+        return
+    fi
+
     RELEASES_JSON=$(get_content_from_url "https://api.github.com/repos/starlake-ai/starlake/releases?per_page=15")
     ALL_RELEASE_VERSIONS=$(echo "$RELEASES_JSON" \
       | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"v[0-9][^"]*"' \
@@ -295,8 +339,14 @@ verify_sha256() {
 }
 
 launch_setup() {
-  local setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar
-  get_binary_from_url $setup_url "$SCRIPT_DIR/setup.jar"
+  # $1: optional git ref (tag, e.g. "v1.8.0") to fetch setup.jar from; defaults
+  # to "master" (the existing install/reinstall behavior, unchanged). Upgrades
+  # pass the target release tag so Setup.java's compiled-in version defaults -
+  # its own generateVersions() is what writes versions.sh - match that exact
+  # release rather than whatever master happens to be at upgrade time.
+  local ref="${1:-master}"
+  local setup_url="https://raw.githubusercontent.com/starlake-ai/starlake/$ref/distrib/setup.jar"
+  get_binary_from_url "$setup_url" "$SCRIPT_DIR/setup.jar"
 
   if [ -n "${JAVA_HOME}" ]; then
     RUNNER="${JAVA_HOME}/bin/java"
@@ -432,104 +482,116 @@ case "$1" in
 	  echo Redshift Spark connector ${SPARK_REDSHIFT_VERSION}
     ;;
   install|reinstall)
-    launch_setup
+    # reinstall preserved+exported SL_VERSION above (if any was pinned); fetch
+    # that exact release's setup.jar so its version defaults match, instead of
+    # master's (which may have moved on since this box was installed). A first
+    # `install` has no prior SL_VERSION, so it falls back to master as before.
+    if [ "$1" = "reinstall" ] && [ -n "$SL_VERSION" ]; then
+      launch_setup "v$SL_VERSION"
+    else
+      launch_setup
+    fi
     echo
     echo "Installation done. You're ready to enjoy Starlake!"
     echo If any errors happen during installation. Please try to install again or open an issue.
     ;;
   upgrade)
-    # Self-update: download latest starlake.sh and re-launch
+    # Self-update: download latest starlake.sh and re-launch, forwarding any
+    # extra args (e.g. --version X.Y.Z) through to _do_upgrade.
     echo "Updating starlake script..."
     get_binary_from_url "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh" "$SCRIPT_DIR/starlake.sh.tmp"
     chmod +x "$SCRIPT_DIR/starlake.sh.tmp"
     mv "$SCRIPT_DIR/starlake.sh.tmp" "$SCRIPT_DIR/starlake.sh"
-    exec "$SCRIPT_DIR/starlake.sh" _do_upgrade
+    shift
+    exec "$SCRIPT_DIR/starlake.sh" _do_upgrade "$@"
     ;;
   _do_upgrade)
-    select_starlake_version
+    shift
+    # Non-interactive version selection: `upgrade --version X.Y.Z` (space or
+    # --version=X.Y.Z form) or SL_UPGRADE_VERSION env var. Falls back to the
+    # interactive arrow-key menu when neither is set (unchanged default).
+    FORCED_SL_VERSION="${SL_UPGRADE_VERSION:-}"
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --version=*) FORCED_SL_VERSION="${1#*=}" ;;
+            --version) shift; FORCED_SL_VERSION="$1" ;;
+        esac
+        shift
+    done
+    select_starlake_version "$FORCED_SL_VERSION"
     if [ -n "$NEW_SL_VERSION" ]; then
-        if [ -f "$SCRIPT_DIR/versions.sh" ]; then
-             sed -i.bak "s/SL_VERSION=\${SL_VERSION:-.*}/SL_VERSION=\${SL_VERSION:-$NEW_SL_VERSION}/" "$SCRIPT_DIR/versions.sh"
-             rm "$SCRIPT_DIR/versions.sh.bak"
-             echo "Updated versions.sh with SL_VERSION=$NEW_SL_VERSION"
-        fi
-        export SL_VERSION=$NEW_SL_VERSION
-
         echo "Upgrading Starlake to $NEW_SL_VERSION..."
 
-        BASE_URL="https://github.com/starlake-ai/starlake/releases/download/v${NEW_SL_VERSION}"
+        TARGET_REF="v$NEW_SL_VERSION"
 
-        SL_LIB_DIR="$STARLAKE_EXTRA_LIB_FOLDER"
-        BIN_DIR="$SCRIPT_DIR/bin"
-        API_DIR="$BIN_DIR/api"
-        DEMO_DIR="$SCRIPT_DIR/demo"
+        # Setup.java at the target release tag is the single source of truth for
+        # that release's Spark/Hadoop/connector version pins - it is also what
+        # generates versions.sh on a fresh install. Fetch just enough of it (its
+        # SPARK_VERSION default) to decide whether the Spark runtime itself needs
+        # to be re-provisioned, without duplicating those pins here.
+        # get_binary_from_url exits the whole script on a download failure (same
+        # fail-fast behavior as every other download in this script), so no
+        # explicit error handling is needed here.
+        TARGET_SETUP_JAVA="$SCRIPT_DIR/.target-setup-java.tmp"
+        get_binary_from_url "https://raw.githubusercontent.com/starlake-ai/starlake/$TARGET_REF/src/main/java/Setup.java" "$TARGET_SETUP_JAVA"
+        TARGET_SPARK_VERSION=$(grep -o 'getEnv("SPARK_VERSION")\.orElse("[^"]*")' "$TARGET_SETUP_JAVA" | head -n1 | sed -E 's/.*orElse\("([^"]*)"\).*/\1/')
+        rm -f "$TARGET_SETUP_JAVA"
 
-        mkdir -p "$SL_LIB_DIR"
-
-        CORE_ASSEMBLY_NAME="starlake-core_${SCALA_VERSION}-${NEW_SL_VERSION}-assembly.jar"
-        CORE_ASSEMBLY_URL="$BASE_URL/${CORE_ASSEMBLY_NAME}"
-
-        API_ZIP_NAME="starlake-api_${SCALA_VERSION}-${NEW_SL_VERSION}.zip"
-        API_ZIP_URL="$BASE_URL/${API_ZIP_NAME}"
-
-        # Delete old starlake core assembly
-        rm -f "$SL_LIB_DIR"/starlake-core_*-assembly.jar
-
-        # Download new core assembly
-        echo "Downloading $CORE_ASSEMBLY_NAME to $SL_LIB_DIR..."
-        get_binary_from_url "$CORE_ASSEMBLY_URL" "$SL_LIB_DIR/$CORE_ASSEMBLY_NAME"
-        verify_sha256 "$SL_LIB_DIR/$CORE_ASSEMBLY_NAME" "$CORE_ASSEMBLY_URL.sha256"
-
-        # Delete old api directory and reinstall from zip
-        rm -rf "$API_DIR"
-
-        echo "Downloading $API_ZIP_NAME to $BIN_DIR..."
-        get_binary_from_url "$API_ZIP_URL" "$BIN_DIR/$API_ZIP_NAME"
-        verify_sha256 "$BIN_DIR/$API_ZIP_NAME" "$API_ZIP_URL.sha256"
-
-        echo "Extracting $API_ZIP_NAME..."
-        unzip -q "$BIN_DIR/$API_ZIP_NAME" -d "$BIN_DIR"
-        rm -f "$BIN_DIR/$API_ZIP_NAME"
-
-        # Rename extracted directory to api (matches Setup.java behavior)
-        EXTRACTED_DIR="$BIN_DIR/starlake-api-${NEW_SL_VERSION}"
-        if [ -d "$EXTRACTED_DIR" ]; then
-            echo "Renaming $EXTRACTED_DIR to $API_DIR"
-            mv "$EXTRACTED_DIR" "$API_DIR"
+        if [ -z "$TARGET_SPARK_VERSION" ]; then
+            echo "Warning: could not determine the target Spark version for $NEW_SL_VERSION; re-provisioning bin/spark unconditionally to be safe." >&2
+            rm -rf "$SCRIPT_DIR/bin/spark"
+        elif ! compgen -G "$SCRIPT_DIR/bin/spark/jars/spark-core_${SCALA_VERSION}-${TARGET_SPARK_VERSION}.jar" > /dev/null 2>&1; then
+            echo "Spark runtime is changing (${SPARK_VERSION:-none} -> $TARGET_SPARK_VERSION): re-provisioning bin/spark."
+            rm -rf "$SCRIPT_DIR/bin/spark"
+        else
+            echo "Spark runtime already at $TARGET_SPARK_VERSION, keeping bin/spark as-is."
         fi
 
-        # Move demo zips out of api dir (matches Setup.java behavior)
-        mkdir -p "$DEMO_DIR"
-        if [ -f "$API_DIR/starbake.zip" ]; then
-            mv "$API_DIR/starbake.zip" "$DEMO_DIR/starbake.zip"
-        fi
-        if [ -f "$API_DIR/tpch001.zip" ]; then
-            mv "$API_DIR/tpch001.zip" "$DEMO_DIR/tpch001.zip"
-        fi
+        # bin/deps is always refreshed by launch_setup below: Setup.java deletes
+        # each dependency category by artefact-name match and re-downloads it at
+        # the version pinned by the target release, so stale connector jars (e.g.
+        # Delta/Iceberg/BigQuery/AWS SDK) get fixed even when Spark itself did not
+        # change and even though their versions are never recorded in versions.sh.
 
-        # Set API bin scripts as executable
-        if [ -d "$API_DIR/bin" ]; then
-            for file in "$API_DIR/bin"/local-*; do
-                if [ -f "$file" ]; then
-                    chmod +x "$file"
+        # ENABLE_* choices ARE recorded in versions.sh, but versions.sh is only
+        # `source`d here (never `export`ed), so they would not reach the
+        # `java -cp setup.jar Setup` subprocess that launch_setup spawns; left
+        # unset, every ENABLE_* flag defaults to true in Setup.java
+        # (envIsTrueWithDefaultTrue), silently turning a selective install into
+        # an ENABLE_ALL one on upgrade. Re-derive each flag instead from which
+        # jars are actually present in the installed bin/deps and export it
+        # explicitly, so upgrade preserves whatever the user originally opted
+        # into rather than trusting a value that may never have been exported.
+        infer_enable() {
+            local var_name="$1"; shift
+            local pattern
+            for pattern in "$@"; do
+                if compgen -G "$SCRIPT_DIR/bin/deps/$pattern" > /dev/null 2>&1; then
+                    export "$var_name=true"
+                    return
                 fi
             done
-        fi
+            export "$var_name=false"
+        }
+        infer_enable ENABLE_BIGQUERY "spark-*bigquery*.jar"
+        infer_enable ENABLE_AZURE "hadoop-azure-*.jar"
+        infer_enable ENABLE_SNOWFLAKE "snowflake-jdbc-*.jar" "spark-snowflake_*.jar"
+        infer_enable ENABLE_REDSHIFT "redshift-jdbc42-*.jar" "spark-redshift_*.jar"
+        infer_enable ENABLE_POSTGRESQL "postgresql-*.jar"
+        infer_enable ENABLE_MARIADB "mariadb-java-client-*.jar"
+        infer_enable ENABLE_TRINODB "trino-jdbc-*.jar"
+        infer_enable ENABLE_KAFKA "kafka-avro-serializer-*.jar" "kafka-schema-registry-client-*.jar"
+        infer_enable ENABLE_DUCKDB "duckdb_jdbc-*.jar"
+        infer_enable ENABLE_FLIGHTSQL "flight-sql-jdbc-driver-*.jar"
 
-        # Update python libs
-        PYTHON_LIBS_BASE_URL="https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/python-libs"
-        PYTHON_LIBS_DIR="${SL_PYTHON_LIBS_DIR:-$SCRIPT_DIR/bin/deps/python-libs}"
-        echo "Updating python libs in $PYTHON_LIBS_DIR..."
-        rm -rf "$PYTHON_LIBS_DIR"
-        mkdir -p "$PYTHON_LIBS_DIR"
-        get_binary_from_url "$PYTHON_LIBS_BASE_URL/versions.txt" "$PYTHON_LIBS_DIR/versions.txt"
-        while IFS= read -r line; do
-            line=$(echo "$line" | tr -d '[:space:]')
-            if [ -n "$line" ] && [[ "$line" != \#* ]]; then
-                echo "Downloading $line..."
-                get_binary_from_url "$PYTHON_LIBS_BASE_URL/$line" "$PYTHON_LIBS_DIR/$line"
-            fi
-        done < "$PYTHON_LIBS_DIR/versions.txt"
+        export SL_VERSION="$NEW_SL_VERSION"
+
+        # Re-provision via the real install machinery instead of a hand-rolled
+        # download of the core jar/API zip: Setup.java (fetched pinned to
+        # $TARGET_REF) replaces bin/sl, bin/api and bin/deps/python-libs, only
+        # skips bin/spark when it is already present (handled above), and writes
+        # a brand new versions.sh from scratch (no line-by-line sed patching).
+        launch_setup "$TARGET_REF"
 
         echo "Upgrade complete."
     fi

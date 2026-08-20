@@ -24,11 +24,44 @@ if not defined HADOOP_HOME (
 set "PATH=%HADOOP_HOME%\bin;%PATH%"
 
 if /i "%1" == "reinstall" (
+    rem Read the currently-pinned SL_VERSION (if any) before wiping versions.cmd,
+    rem so install_command below can reinstall AT that version instead of
+    rem falling back to "latest github release". Unlike starlake.sh, no
+    rem explicit export is needed: variables set in this cmd.exe process are
+    rem automatically part of the environment block child processes (java) see.
+    if exist "%SCRIPT_DIR%versions.cmd" (
+        call "%SCRIPT_DIR%versions.cmd"
+    )
     if exist "%SCRIPT_DIR%versions.cmd" del "%SCRIPT_DIR%versions.cmd"
     if exist "%SCRIPT_DIR%bin\spark" rmdir /s /q "%SCRIPT_DIR%bin\spark"
+    if exist "%SCRIPT_DIR%bin\deps" rmdir /s /q "%SCRIPT_DIR%bin\deps"
+    if exist "%SCRIPT_DIR%bin\sl" rmdir /s /q "%SCRIPT_DIR%bin\sl"
 ) else (
     if exist "%SCRIPT_DIR%versions.cmd" (
         call "%SCRIPT_DIR%versions.cmd"
+    )
+)
+
+rem Launch-time consistency guard: rescue installs left poisoned by an older
+rem starlake.cmd whose `upgrade` only swapped the core jar/API and never
+rem touched bin\spark. Cheap check: does bin\spark\jars contain a spark-core
+rem jar for the SPARK_VERSION versions.cmd declares? Skipped for the commands
+rem that are themselves how you fix this, and for a not-yet-installed tree.
+if not defined SL_SKIP_CONSISTENCY_CHECK if defined SPARK_VERSION if exist "%SCRIPT_DIR%bin\spark\jars" (
+    set "_sl_guard_skip="
+    if /i "%1" == "install" set "_sl_guard_skip=1"
+    if /i "%1" == "reinstall" set "_sl_guard_skip=1"
+    if /i "%1" == "upgrade" set "_sl_guard_skip=1"
+    if /i "%1" == "_do_upgrade" set "_sl_guard_skip=1"
+    if not defined _sl_guard_skip (
+        if not exist "%SCRIPT_DIR%bin\spark\jars\spark-core_*-%SPARK_VERSION%.jar" (
+            echo ERROR: Starlake installation is inconsistent.
+            echo versions.cmd declares Spark %SPARK_VERSION% but %SCRIPT_DIR%bin\spark\jars has no matching spark-core jar.
+            echo This usually happens after upgrading with an older starlake.cmd that did not refresh the Spark runtime.
+            echo Run "%SCRIPT_DIR%starlake.cmd" reinstall to fix it ^(wipes and re-downloads bin\spark, bin\deps and bin\sl for the currently pinned SL_VERSION^).
+            echo Set SL_SKIP_CONSISTENCY_CHECK=1 to bypass this check.
+            exit /b 1
+        )
     )
 )
 
@@ -151,7 +184,13 @@ goto :handle_command
     goto :eof
 
 :launch_setup
-    set "setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/setup.jar"
+    rem %1: optional git ref (tag, e.g. "v1.8.0") to fetch setup.jar from;
+    rem defaults to "master" (the existing install/reinstall behavior,
+    rem unchanged). Upgrades pass the target release tag so Setup.java's
+    rem compiled-in version defaults match that exact release.
+    set "_ls_ref=%~1"
+    if "%_ls_ref%" == "" set "_ls_ref=master"
+    set "setup_url=https://raw.githubusercontent.com/starlake-ai/starlake/%_ls_ref%/distrib/setup.jar"
     echo Downloading %setup_url% to %SCRIPT_DIR%setup.jar
     call :get_binary_from_url "%setup_url%" "%SCRIPT_DIR%setup.jar"
     if errorlevel 1 exit /b 1
@@ -267,6 +306,14 @@ goto :eof
     goto :eof
 
 :select_starlake_version
+    rem Non-interactive override: `upgrade --version X.Y.Z` / SL_UPGRADE_VERSION,
+    rem so scripted/CI upgrades don't have to drive the interactive prompt.
+    if not "%~1" == "" (
+        set "NEW_SL_VERSION=%~1"
+        echo Selected version: %NEW_SL_VERSION% ^(forced^)
+        goto :eof
+    )
+
     echo Fetching available versions...
 
     set "temp_meta=%TEMP%\sl_releases_%RANDOM%.json"
@@ -297,101 +344,114 @@ goto :eof
     goto :eof
 
 :upgrade_command
-    REM Self-update: download latest starlake.cmd and re-launch
+    REM Self-update: download latest starlake.cmd and re-launch, forwarding any
+    REM extra args (e.g. --version X.Y.Z) through to _do_upgrade.
     echo Updating starlake script...
     call :get_binary_from_url "https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd" "%SCRIPT_DIR%starlake.cmd.tmp"
     REM Ensure CRLF line endings
     powershell -Command "$c = [IO.File]::ReadAllText('%SCRIPT_DIR%starlake.cmd.tmp'); $c = $c -replace \"`r`n\",\"`n\" -replace \"`n\",\"`r`n\"; [IO.File]::WriteAllText('%SCRIPT_DIR%starlake.cmd.tmp', $c)"
     copy /y "%SCRIPT_DIR%starlake.cmd.tmp" "%SCRIPT_DIR%starlake.cmd" >nul
     del "%SCRIPT_DIR%starlake.cmd.tmp" 2>nul
-    REM Re-launch with updated script
-    "%SCRIPT_DIR%starlake.cmd" _do_upgrade
+    REM Re-launch with updated script, dropping %1 ("upgrade") from the args
+    "%SCRIPT_DIR%starlake.cmd" _do_upgrade %2 %3 %4 %5 %6 %7 %8 %9
     goto :eof
 
 :do_upgrade_command
-    call :select_starlake_version
+    rem Non-interactive version selection: `upgrade --version X.Y.Z` or
+    rem SL_UPGRADE_VERSION env var. Falls back to the interactive prompt when
+    rem neither is set (unchanged default).
+    set "FORCED_SL_VERSION=%SL_UPGRADE_VERSION%"
+    :du_parse_args
+    if "%~1" == "" goto :du_parse_done
+    if /i "%~1" == "--version" (
+        shift
+        set "FORCED_SL_VERSION=%~1"
+        shift
+        goto :du_parse_args
+    )
+    set "_du_arg=%~1"
+    if /i "!_du_arg:~0,10!" == "--version=" (
+        set "FORCED_SL_VERSION=!_du_arg:~10!"
+        shift
+        goto :du_parse_args
+    )
+    shift
+    goto :du_parse_args
+    :du_parse_done
+
+    call :select_starlake_version "%FORCED_SL_VERSION%"
     if defined NEW_SL_VERSION (
-        if exist "%SCRIPT_DIR%versions.cmd" (
-             powershell -Command "(Get-Content '%SCRIPT_DIR%versions.cmd') -replace 'SL_VERSION=.*', 'SL_VERSION=%NEW_SL_VERSION%' | Set-Content '%SCRIPT_DIR%versions.cmd'"
-             echo Updated versions.cmd with SL_VERSION=%NEW_SL_VERSION%
-        )
-        set "SL_VERSION=%NEW_SL_VERSION%"
         echo Upgrading Starlake to %NEW_SL_VERSION%...
+        set "TARGET_REF=v%NEW_SL_VERSION%"
 
-        set "BASE_URL=https://github.com/starlake-ai/starlake/releases/download/v%NEW_SL_VERSION%"
-
-        set "SL_LIB_DIR=%STARLAKE_EXTRA_LIB_FOLDER%"
-        set "BIN_DIR=%SCRIPT_DIR%bin"
-        set "API_DIR=!BIN_DIR!\api"
-        set "DEMO_DIR=%SCRIPT_DIR%demo"
-
-        if not exist "!SL_LIB_DIR!" mkdir "!SL_LIB_DIR!"
-
-        set "CORE_ASSEMBLY_NAME=starlake-core_%SCALA_VERSION%-%NEW_SL_VERSION%-assembly.jar"
-        set "CORE_ASSEMBLY_URL=!BASE_URL!/!CORE_ASSEMBLY_NAME!"
-
-        set "API_ZIP_NAME=starlake-api_%SCALA_VERSION%-%NEW_SL_VERSION%.zip"
-        set "API_ZIP_URL=!BASE_URL!/!API_ZIP_NAME!"
-
-        REM Delete old starlake core assembly
-        del /q "!SL_LIB_DIR!\starlake-core_*-assembly.jar" 2>nul
-
-        REM Download new core assembly
-        echo Downloading !CORE_ASSEMBLY_NAME! to !SL_LIB_DIR!...
-        call :get_binary_from_url "!CORE_ASSEMBLY_URL!" "!SL_LIB_DIR!\!CORE_ASSEMBLY_NAME!"
-        call :verify_sha256 "!SL_LIB_DIR!\!CORE_ASSEMBLY_NAME!" "!CORE_ASSEMBLY_URL!.sha256"
+        rem Setup.java at the target release tag is the single source of truth
+        rem for that release's Spark/Hadoop/connector version pins - it is also
+        rem what generates versions.cmd on a fresh install. Fetch just its
+        rem SPARK_VERSION default to decide whether bin\spark needs replacing,
+        rem without duplicating those pins here.
+        set "TARGET_SETUP_JAVA=%SCRIPT_DIR%.target-setup-java.tmp"
+        call :get_binary_from_url "https://raw.githubusercontent.com/starlake-ai/starlake/!TARGET_REF!/src/main/java/Setup.java" "!TARGET_SETUP_JAVA!"
         if errorlevel 1 exit /b 1
-
-        REM Delete old api directory and reinstall from zip
-        if exist "!API_DIR!" rmdir /s /q "!API_DIR!"
-
-        echo Downloading !API_ZIP_NAME! to !BIN_DIR!...
-        call :get_binary_from_url "!API_ZIP_URL!" "!BIN_DIR!\!API_ZIP_NAME!"
-        call :verify_sha256 "!BIN_DIR!\!API_ZIP_NAME!" "!API_ZIP_URL!.sha256"
-        if errorlevel 1 exit /b 1
-
-        echo Extracting !API_ZIP_NAME!...
-        powershell -Command "Expand-Archive -Path '!BIN_DIR!\!API_ZIP_NAME!' -DestinationPath '!BIN_DIR!' -Force"
-        del /q "!BIN_DIR!\!API_ZIP_NAME!" 2>nul
-
-        REM Rename extracted directory to api (matches Setup.java behavior)
-        set "EXTRACTED_DIR=!BIN_DIR!\starlake-api-%NEW_SL_VERSION%"
-        if exist "!EXTRACTED_DIR!" (
-            echo Renaming !EXTRACTED_DIR! to !API_DIR!
-            rename "!EXTRACTED_DIR!" "api"
+        rem Extraction script written to a .ps1 file (same technique as
+        rem :parse_proxy_and_build_args above) rather than inlined into
+        rem -Command "...", so the literal double-quote in the regex below
+        rem does not collide with cmd's own quoting of the -Command argument.
+        set "_ver_ps=%TEMP%\sl_target_spark_%RANDOM%.ps1"
+        > "!_ver_ps!" (
+            echo $m = Select-String -Path '!TARGET_SETUP_JAVA!' -Pattern 'getEnv\("SPARK_VERSION"\)\.orElse\("([^"]*)"\)' ^| Select-Object -First 1
+            echo if ^($m^) { $m.Matches[0].Groups[1].Value }
         )
+        set "TARGET_SPARK_VERSION="
+        for /f "usebackq delims=" %%v in (`powershell -NoProfile -File "!_ver_ps!"`) do set "TARGET_SPARK_VERSION=%%v"
+        del "!_ver_ps!" 2>nul
+        del "!TARGET_SETUP_JAVA!" 2>nul
 
-        REM Move demo zips out of api dir (matches Setup.java behavior)
-        if not exist "!DEMO_DIR!" mkdir "!DEMO_DIR!"
-        if exist "!API_DIR!\starbake.zip" move /y "!API_DIR!\starbake.zip" "!DEMO_DIR!\starbake.zip" >nul
-        if exist "!API_DIR!\tpch001.zip" move /y "!API_DIR!\tpch001.zip" "!DEMO_DIR!\tpch001.zip" >nul
-
-        REM Update python libs
-        set "PYTHON_LIBS_BASE_URL=https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/python-libs"
-        set "PYTHON_LIBS_DIR=%SL_PYTHON_LIBS_DIR%"
-        echo Updating python libs in !PYTHON_LIBS_DIR!...
-        if exist "!PYTHON_LIBS_DIR!" rmdir /s /q "!PYTHON_LIBS_DIR!"
-        mkdir "!PYTHON_LIBS_DIR!"
-        call :get_binary_from_url "!PYTHON_LIBS_BASE_URL!/versions.txt" "!PYTHON_LIBS_DIR!\versions.txt"
-        for /f "usebackq delims=" %%L in ("!PYTHON_LIBS_DIR!\versions.txt") do (
-            set "_line=%%L"
-            REM Strip leading/trailing whitespace and skip comments
-            set "_line=!_line: =!"
-            if defined _line (
-                echo !_line! | findstr /r "^#" >nul 2>&1
-                if errorlevel 1 (
-                    echo Downloading !_line!...
-                    call :get_binary_from_url "!PYTHON_LIBS_BASE_URL!/!_line!" "!PYTHON_LIBS_DIR!\!_line!"
-                )
+        if not defined TARGET_SPARK_VERSION (
+            echo Warning: could not determine the target Spark version for %NEW_SL_VERSION%; re-provisioning bin\spark unconditionally to be safe.
+            if exist "%SCRIPT_DIR%bin\spark" rmdir /s /q "%SCRIPT_DIR%bin\spark"
+        ) else (
+            if exist "%SCRIPT_DIR%bin\spark\jars\spark-core_%SCALA_VERSION%-!TARGET_SPARK_VERSION!.jar" (
+                echo Spark runtime already at !TARGET_SPARK_VERSION!, keeping bin\spark as-is.
+            ) else (
+                echo Spark runtime is changing ^(%SPARK_VERSION% -^> !TARGET_SPARK_VERSION!^): re-provisioning bin\spark.
+                if exist "%SCRIPT_DIR%bin\spark" rmdir /s /q "%SCRIPT_DIR%bin\spark"
             )
         )
+
+        rem bin\deps is always refreshed by launch_setup below: Setup.java
+        rem deletes each dependency category by artefact-name match and
+        rem re-downloads it at the target's pinned version, fixing stale
+        rem connector jars even when Spark itself did not change. ENABLE_*
+        rem choices from versions.cmd are already in this process's
+        rem environment (set via `call versions.cmd` above), and Windows child
+        rem processes inherit the full environment block automatically, so -
+        rem unlike starlake.sh - no re-derivation from bin\deps is needed here.
+
+        set "SL_VERSION=%NEW_SL_VERSION%"
+
+        rem Re-provision via the real install machinery instead of a
+        rem hand-rolled download of the core jar/API zip: Setup.java (fetched
+        rem pinned to TARGET_REF) replaces bin\sl, bin\api and
+        rem bin\deps\python-libs, only skips bin\spark when already present
+        rem (handled above), and writes a brand new versions.cmd from scratch.
+        call :launch_setup "!TARGET_REF!"
 
         echo Upgrade complete.
     )
     goto :eof
 
 :install_command
-    call :launch_setup
+    rem reinstall preserved SL_VERSION above (if any was pinned); fetch that
+    rem exact release's setup.jar so its version defaults match, instead of
+    rem master's (which may have moved on since this box was installed). A
+    rem first `install` has no prior SL_VERSION, so it falls back to master.
+    set "_is_ref="
+    if /i "%1" == "reinstall" if defined SL_VERSION set "_is_ref=v%SL_VERSION%"
+    if defined _is_ref (
+        call :launch_setup "%_is_ref%"
+    ) else (
+        call :launch_setup
+    )
     echo.
     echo Installation done. You're ready to enjoy Starlake!
     echo If any errors happen during installation. Please try to install again or open an issue.
