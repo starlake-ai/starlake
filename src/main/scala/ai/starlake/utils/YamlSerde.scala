@@ -10,7 +10,8 @@ import ai.starlake.utils.YamlMigrator.V1.TableForExtractConfig
 import com.fasterxml.jackson.databind.node.{ArrayNode, BooleanNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.networknt.schema._
-import com.networknt.schema.SpecVersion.VersionFlag
+import com.networknt.schema.path.PathType
+import com.networknt.schema.walk.{ApplyDefaultsStrategy, WalkConfig}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
@@ -105,7 +106,7 @@ object YamlSerde extends LazyLogging with YamlUtils {
             )
           currentNodeName -> newArrayNode
         case _: TextNode if currentNodeName == "$schema" =>
-          currentNodeName -> new TextNode(VersionFlag.V201909.getId)
+          currentNodeName -> new TextNode(SpecificationVersion.DRAFT_2019_09.getDialectId)
         case tn: TextNode if currentNodeName == "$ref" =>
           currentNodeName -> new TextNode(tn.asText().replaceFirst("^#/definitions/", "#/\\$defs/"))
         case _ => currentNodeName -> node
@@ -156,25 +157,42 @@ object YamlSerde extends LazyLogging with YamlUtils {
         s"No '$subPath' attribute found in $inputFilename. Please check your config and define it under '$subPath' attribute."
       )
     }
-    val validationResult: ValidationResult =
+    val validationResult: Result =
       forceLocaleIn(Locale.ROOT) { // Use root instead of ENGLISH otherwise it fallbacks to local language if it exists. ROOT messages are in ENGLISH.
-        val factory = JsonSchemaFactory.getInstance(VersionFlag.V201909)
-        val config = new SchemaValidatorsConfig()
-        config.setPathType(PathType.JSON_PATH)
-        config.setFormatAssertionsEnabled(true)
-        config.setJavaSemantics(true)
-        config.setApplyDefaultsStrategy(new ApplyDefaultsStrategy(true, true, true))
+        // javaSemantics no longer exists in 2.0.4: losslessNarrowing(true) reproduces the same
+        // effect, since TypeFactory's only javaSemantics check was `isJavaSemantics() || isLosslessNarrowing()`.
+        val schemaRegistryConfig = SchemaRegistryConfig
+          .builder()
+          .pathType(PathType.JSON_PATH)
+          .formatAssertionsEnabled(true)
+          .losslessNarrowing(true)
+          .build()
+
+        val registry = SchemaRegistry.withDefaultDialect(
+          SpecificationVersion.DRAFT_2019_09,
+          (builder: SchemaRegistry.Builder) => {
+            builder.schemaRegistryConfig(schemaRegistryConfig); ()
+          }
+        )
 
         val starlakeSchema = adaptSchemaV7ToStrictV201909(
           mapper.readTree(getClass.getResourceAsStream("/starlake.json"))
         )
-        val schema = factory.getSchema(starlakeSchema, config)
+        val schema = registry.getSchema(starlakeSchema)
+        val executionContext = schema.createExecutionContext()
+        executionContext.setWalkConfig(
+          WalkConfig
+            .builder()
+            .applyDefaultsStrategy(new ApplyDefaultsStrategy(true, true, true))
+            .build()
+        )
         schema.walk(
+          executionContext,
           effectiveRootNode,
           true
         )
       }
-    val validationMessages = validationResult.getValidationMessages.asScala.toList
+    val validationMessages = validationResult.getErrors.asScala.toList
 
     if (validationMessages.nonEmpty) {
       val formattedErrors = validationMessages

@@ -19,9 +19,9 @@ object Versions {
   // elasticsearch-spark has no Spark 4 build yet (merged upstream 2026-07, not released).
   // Re-enable esSpark212 in build.sbt when elasticsearch-spark-41_2.13 ships.
   val esSpark = "8.16.3"
-  // json-schema-validator 2.0.4 is the last Jackson-2 line (3.x uses Jackson 3 = tools.jackson).
-  // Bumping 1.4.0 -> 2.0.4 changes JsonSchemaFactory APIs: follow-up task, not part of this migration.
-  val jsonSchemaValidator = "1.4.0"
+  // json-schema-validator 2.0.4 is the last Jackson-2 line (3.x uses Jackson 3 = tools.jackson,
+  // incompatible with the Spark classpath). Never bump past the 2.x line.
+  val jsonSchemaValidator = "2.0.4"
   val scopt = "4.1.0"
   val bigquery = "2.49.0"
   val gcsConnector = "4.0.4" // new versioning scheme, built against Hadoop 3.4.2
