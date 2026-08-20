@@ -23,6 +23,49 @@ then
   export PATH="$JAVA_HOME/bin:$PATH"
 fi
 
+# ENABLE_* choices are recorded in versions.sh, but versions.sh is only
+# `source`d (never `export`ed), so a selective install's choices would not
+# reach the `java -cp setup.jar Setup` subprocess launch_setup spawns. Left
+# unset, Setup.java's ENABLE_ALL defaults to true and every ENABLE_X is
+# computed as `ENABLE_ALL || envIsTrueWithDefaultTrue(X)` - so exporting only
+# the per-category flags is NOT enough, the ENABLE_ALL||... short-circuits
+# them regardless; ENABLE_ALL itself must ALSO be forced to "false" for the
+# per-category overrides below to have any effect at all. Re-derive each flag
+# from which jars are actually present in bin/deps (reflecting the real
+# installed state, not a value that may never have been persisted). Used by
+# both upgrade and reinstall, called BEFORE bin/deps is wiped/replaced; a
+# genuine fresh `install` never calls this, so its ENABLE_ALL-defaults-true /
+# interactive selection behavior is unaffected.
+_infer_one_enable_flag() {
+  local var_name="$1"; shift
+  local pattern
+  for pattern in "$@"; do
+    if compgen -G "$SCRIPT_DIR/bin/deps/$pattern" > /dev/null 2>&1; then
+      export "$var_name=true"
+      return
+    fi
+  done
+  export "$var_name=false"
+}
+infer_enable_flags_from_deps() {
+  export ENABLE_ALL=false
+  # NOTE: Setup.java's field is ENABLE_MARIADB but the env var it actually
+  # reads is "ENABLE_MARIA" (envIsTrueWithDefaultTrue("ENABLE_MARIA")) - a
+  # pre-existing field/env-var name mismatch in Setup.java itself. Every
+  # other flag below has a matching field/env-var name (verified against
+  # every `envIsTrueWithDefaultTrue("ENABLE_...")` call in Setup.java).
+  _infer_one_enable_flag ENABLE_BIGQUERY "spark-*bigquery*.jar"
+  _infer_one_enable_flag ENABLE_AZURE "hadoop-azure-*.jar"
+  _infer_one_enable_flag ENABLE_SNOWFLAKE "snowflake-jdbc-*.jar" "spark-snowflake_*.jar"
+  _infer_one_enable_flag ENABLE_REDSHIFT "redshift-jdbc42-*.jar" "spark-redshift_*.jar"
+  _infer_one_enable_flag ENABLE_POSTGRESQL "postgresql-*.jar"
+  _infer_one_enable_flag ENABLE_MARIA "mariadb-java-client-*.jar"
+  _infer_one_enable_flag ENABLE_TRINODB "trino-jdbc-*.jar"
+  _infer_one_enable_flag ENABLE_KAFKA "kafka-avro-serializer-*.jar" "kafka-schema-registry-client-*.jar"
+  _infer_one_enable_flag ENABLE_DUCKDB "duckdb_jdbc-*.jar"
+  _infer_one_enable_flag ENABLE_FLIGHTSQL "flight-sql-jdbc-driver-*.jar"
+}
+
 case "$1" in
   reinstall)
     # Preserve the currently-pinned SL_VERSION (if any) across the wipe below and
@@ -35,6 +78,11 @@ case "$1" in
     if [ -n "$SL_VERSION" ]; then
       export SL_VERSION
     fi
+    # Capture which connectors were actually installed BEFORE bin/deps is
+    # wiped below - reinstall is meant to heal a poisoned install back to a
+    # consistent state at the same SL_VERSION, not silently switch a
+    # selective install into an ENABLE_ALL one.
+    infer_enable_flags_from_deps
     rm -f "$SCRIPT_DIR/versions.sh"
     rm -rf "$SCRIPT_DIR/bin/spark" "$SCRIPT_DIR/bin/deps" "$SCRIPT_DIR/bin/sl"
     ;;
@@ -49,20 +97,22 @@ esac
 # Launch-time consistency guard: rescue installs left poisoned by an older
 # starlake.sh whose `upgrade` only swapped the core jar/API and never touched
 # bin/spark (versions.sh could end up claiming a SPARK_VERSION that the actual
-# jars on disk do not match). Cheap check: does bin/spark/jars contain a
-# spark-core jar for the SPARK_VERSION versions.sh declares? Skipped for the
-# commands that are themselves how you fix this (install/reinstall/upgrade),
-# and for a not-yet-installed tree (no SPARK_VERSION/no bin/spark yet).
-if [ -z "$SL_SKIP_CONSISTENCY_CHECK" ] && [ -n "$SPARK_VERSION" ] && [ -d "$SCRIPT_DIR/bin/spark/jars" ]
+# jars on disk do not match), or by a re-provision that was interrupted after
+# wiping bin/spark but before the download completed (bin/spark absent
+# entirely - just as inconsistent, and just as silent otherwise). Gate on
+# versions.sh existing: a genuinely fresh, never-installed tree has no
+# versions.sh yet, and bin/spark not existing there is normal, not an error.
+# Skipped for the commands that are themselves how you fix this.
+if [ -z "$SL_SKIP_CONSISTENCY_CHECK" ] && [ -f "$SCRIPT_DIR/versions.sh" ] && [ -n "$SPARK_VERSION" ]
 then
   case "$1" in
     install|reinstall|upgrade|_do_upgrade) ;;
     *)
-      if ! compgen -G "$SCRIPT_DIR/bin/spark/jars/spark-core_*-${SPARK_VERSION}.jar" > /dev/null 2>&1
+      if [ ! -d "$SCRIPT_DIR/bin/spark/jars" ] || ! compgen -G "$SCRIPT_DIR/bin/spark/jars/spark-core_*-${SPARK_VERSION}.jar" > /dev/null 2>&1
       then
         echo "ERROR: Starlake installation is inconsistent." >&2
-        echo "versions.sh declares Spark $SPARK_VERSION but $SCRIPT_DIR/bin/spark/jars has no matching spark-core jar." >&2
-        echo "This usually happens after upgrading with an older starlake.sh that did not refresh the Spark runtime." >&2
+        echo "versions.sh declares Spark $SPARK_VERSION but $SCRIPT_DIR/bin/spark/jars has no matching spark-core jar (or is missing entirely - a re-provision may have been interrupted)." >&2
+        echo "This usually happens after upgrading with an older starlake.sh that did not refresh the Spark runtime, or an upgrade/reinstall that did not finish." >&2
         echo "Run '$SCRIPT_DIR/starlake.sh reinstall' to fix it (wipes and re-downloads bin/spark, bin/deps and bin/sl for the currently pinned SL_VERSION)." >&2
         echo "Set SL_SKIP_CONSISTENCY_CHECK=1 to bypass this check." >&2
         exit 1
@@ -553,36 +603,10 @@ case "$1" in
         # Delta/Iceberg/BigQuery/AWS SDK) get fixed even when Spark itself did not
         # change and even though their versions are never recorded in versions.sh.
 
-        # ENABLE_* choices ARE recorded in versions.sh, but versions.sh is only
-        # `source`d here (never `export`ed), so they would not reach the
-        # `java -cp setup.jar Setup` subprocess that launch_setup spawns; left
-        # unset, every ENABLE_* flag defaults to true in Setup.java
-        # (envIsTrueWithDefaultTrue), silently turning a selective install into
-        # an ENABLE_ALL one on upgrade. Re-derive each flag instead from which
-        # jars are actually present in the installed bin/deps and export it
-        # explicitly, so upgrade preserves whatever the user originally opted
-        # into rather than trusting a value that may never have been exported.
-        infer_enable() {
-            local var_name="$1"; shift
-            local pattern
-            for pattern in "$@"; do
-                if compgen -G "$SCRIPT_DIR/bin/deps/$pattern" > /dev/null 2>&1; then
-                    export "$var_name=true"
-                    return
-                fi
-            done
-            export "$var_name=false"
-        }
-        infer_enable ENABLE_BIGQUERY "spark-*bigquery*.jar"
-        infer_enable ENABLE_AZURE "hadoop-azure-*.jar"
-        infer_enable ENABLE_SNOWFLAKE "snowflake-jdbc-*.jar" "spark-snowflake_*.jar"
-        infer_enable ENABLE_REDSHIFT "redshift-jdbc42-*.jar" "spark-redshift_*.jar"
-        infer_enable ENABLE_POSTGRESQL "postgresql-*.jar"
-        infer_enable ENABLE_MARIADB "mariadb-java-client-*.jar"
-        infer_enable ENABLE_TRINODB "trino-jdbc-*.jar"
-        infer_enable ENABLE_KAFKA "kafka-avro-serializer-*.jar" "kafka-schema-registry-client-*.jar"
-        infer_enable ENABLE_DUCKDB "duckdb_jdbc-*.jar"
-        infer_enable ENABLE_FLIGHTSQL "flight-sql-jdbc-driver-*.jar"
+        # See infer_enable_flags_from_deps (defined near the top of this
+        # script) for why both ENABLE_ALL=false AND every per-category flag
+        # must be exported explicitly for this to actually take effect.
+        infer_enable_flags_from_deps
 
         export SL_VERSION="$NEW_SL_VERSION"
 

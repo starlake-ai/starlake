@@ -32,6 +32,13 @@ if /i "%1" == "reinstall" (
     if exist "%SCRIPT_DIR%versions.cmd" (
         call "%SCRIPT_DIR%versions.cmd"
     )
+    rem Capture which connectors were actually installed BEFORE bin\deps is
+    rem wiped below - reinstall is meant to heal a poisoned install back to a
+    rem consistent state at the same SL_VERSION, not silently switch a
+    rem selective install into an ENABLE_ALL one. See
+    rem :infer_enable_flags_from_deps for why ENABLE_ALL=false is required
+    rem too, not just the per-category flags.
+    call :infer_enable_flags_from_deps
     if exist "%SCRIPT_DIR%versions.cmd" del "%SCRIPT_DIR%versions.cmd"
     if exist "%SCRIPT_DIR%bin\spark" rmdir /s /q "%SCRIPT_DIR%bin\spark"
     if exist "%SCRIPT_DIR%bin\deps" rmdir /s /q "%SCRIPT_DIR%bin\deps"
@@ -44,20 +51,26 @@ if /i "%1" == "reinstall" (
 
 rem Launch-time consistency guard: rescue installs left poisoned by an older
 rem starlake.cmd whose `upgrade` only swapped the core jar/API and never
-rem touched bin\spark. Cheap check: does bin\spark\jars contain a spark-core
-rem jar for the SPARK_VERSION versions.cmd declares? Skipped for the commands
-rem that are themselves how you fix this, and for a not-yet-installed tree.
-if not defined SL_SKIP_CONSISTENCY_CHECK if defined SPARK_VERSION if exist "%SCRIPT_DIR%bin\spark\jars" (
+rem touched bin\spark, or by a re-provision that was interrupted after
+rem wiping bin\spark but before the download completed (bin\spark absent
+rem entirely - just as inconsistent, and just as silent otherwise). Gate on
+rem versions.cmd existing: a genuinely fresh, never-installed tree has no
+rem versions.cmd yet, and bin\spark not existing there is normal, not an
+rem error. Skipped for the commands that are themselves how you fix this.
+if not defined SL_SKIP_CONSISTENCY_CHECK if exist "%SCRIPT_DIR%versions.cmd" if defined SPARK_VERSION (
     set "_sl_guard_skip="
     if /i "%1" == "install" set "_sl_guard_skip=1"
     if /i "%1" == "reinstall" set "_sl_guard_skip=1"
     if /i "%1" == "upgrade" set "_sl_guard_skip=1"
     if /i "%1" == "_do_upgrade" set "_sl_guard_skip=1"
     if not defined _sl_guard_skip (
-        if not exist "%SCRIPT_DIR%bin\spark\jars\spark-core_*-%SPARK_VERSION%.jar" (
+        set "_sl_guard_bad="
+        if not exist "%SCRIPT_DIR%bin\spark\jars" set "_sl_guard_bad=1"
+        if not exist "%SCRIPT_DIR%bin\spark\jars\spark-core_*-%SPARK_VERSION%.jar" set "_sl_guard_bad=1"
+        if defined _sl_guard_bad (
             echo ERROR: Starlake installation is inconsistent.
-            echo versions.cmd declares Spark %SPARK_VERSION% but %SCRIPT_DIR%bin\spark\jars has no matching spark-core jar.
-            echo This usually happens after upgrading with an older starlake.cmd that did not refresh the Spark runtime.
+            echo versions.cmd declares Spark %SPARK_VERSION% but %SCRIPT_DIR%bin\spark\jars has no matching spark-core jar ^(or is missing entirely - a re-provision may have been interrupted^).
+            echo This usually happens after upgrading with an older starlake.cmd that did not refresh the Spark runtime, or an upgrade/reinstall that did not finish.
             echo Run "%SCRIPT_DIR%starlake.cmd" reinstall to fix it ^(wipes and re-downloads bin\spark, bin\deps and bin\sl for the currently pinned SL_VERSION^).
             echo Set SL_SKIP_CONSISTENCY_CHECK=1 to bypass this check.
             exit /b 1
@@ -124,6 +137,62 @@ if defined SPARK_DRIVER_OPTIONS (
 set "JAVA_OPTS=%JAVA_OPTS% %JAVA_ARGS%"
 
 goto :handle_command
+
+:infer_enable_flags_from_deps
+    rem Called by reinstall (top of file) and do_upgrade_command, BEFORE
+    rem bin\deps is wiped/replaced, so the checks below see the connectors
+    rem that were actually installed. Setup.java computes every ENABLE_X as
+    rem `ENABLE_ALL || envIsTrueWithDefaultTrue(X)`, and ENABLE_ALL defaults
+    rem to true when unset - so ENABLE_ALL itself must be forced false here,
+    rem in addition to each per-category flag, or the per-category values
+    rem below have no effect at all (they would just be OR'd away).
+    rem
+    rem NOTE: Setup.java's field is ENABLE_MARIADB but the env var it
+    rem actually reads is ENABLE_MARIA (a pre-existing field/env-var name
+    rem mismatch in Setup.java itself - not a typo here). Every other flag
+    rem below has a matching field/env-var name (verified against every
+    rem envIsTrueWithDefaultTrue("ENABLE_...") call in Setup.java).
+    rem
+    rem Written as flat, unparenthesized "set" + "if exist ... set" pairs
+    rem (no shared loop/subroutine over a variable jar-pattern list) so each
+    rem line is trivially, individually correct - deliberately avoiding any
+    rem clever variadic-argument batch construct this could not be tested
+    rem against a real cmd.exe.
+    set "ENABLE_ALL=false"
+
+    set "ENABLE_BIGQUERY=false"
+    if exist "%SCRIPT_DIR%bin\deps\spark-*bigquery*.jar" set "ENABLE_BIGQUERY=true"
+
+    set "ENABLE_AZURE=false"
+    if exist "%SCRIPT_DIR%bin\deps\hadoop-azure-*.jar" set "ENABLE_AZURE=true"
+
+    set "ENABLE_SNOWFLAKE=false"
+    if exist "%SCRIPT_DIR%bin\deps\snowflake-jdbc-*.jar" set "ENABLE_SNOWFLAKE=true"
+    if exist "%SCRIPT_DIR%bin\deps\spark-snowflake_*.jar" set "ENABLE_SNOWFLAKE=true"
+
+    set "ENABLE_REDSHIFT=false"
+    if exist "%SCRIPT_DIR%bin\deps\redshift-jdbc42-*.jar" set "ENABLE_REDSHIFT=true"
+    if exist "%SCRIPT_DIR%bin\deps\spark-redshift_*.jar" set "ENABLE_REDSHIFT=true"
+
+    set "ENABLE_POSTGRESQL=false"
+    if exist "%SCRIPT_DIR%bin\deps\postgresql-*.jar" set "ENABLE_POSTGRESQL=true"
+
+    set "ENABLE_MARIA=false"
+    if exist "%SCRIPT_DIR%bin\deps\mariadb-java-client-*.jar" set "ENABLE_MARIA=true"
+
+    set "ENABLE_TRINODB=false"
+    if exist "%SCRIPT_DIR%bin\deps\trino-jdbc-*.jar" set "ENABLE_TRINODB=true"
+
+    set "ENABLE_KAFKA=false"
+    if exist "%SCRIPT_DIR%bin\deps\kafka-avro-serializer-*.jar" set "ENABLE_KAFKA=true"
+    if exist "%SCRIPT_DIR%bin\deps\kafka-schema-registry-client-*.jar" set "ENABLE_KAFKA=true"
+
+    set "ENABLE_DUCKDB=false"
+    if exist "%SCRIPT_DIR%bin\deps\duckdb_jdbc-*.jar" set "ENABLE_DUCKDB=true"
+
+    set "ENABLE_FLIGHTSQL=false"
+    if exist "%SCRIPT_DIR%bin\deps\flight-sql-jdbc-driver-*.jar" set "ENABLE_FLIGHTSQL=true"
+    goto :eof
 
 :parse_proxy_and_build_args
     REM Args: %1=type (http/https), %2=url
@@ -432,11 +501,19 @@ goto :eof
         rem bin\deps is always refreshed by launch_setup below: Setup.java
         rem deletes each dependency category by artefact-name match and
         rem re-downloads it at the target's pinned version, fixing stale
-        rem connector jars even when Spark itself did not change. ENABLE_*
-        rem choices from versions.cmd are already in this process's
-        rem environment (set via `call versions.cmd` above), and Windows child
-        rem processes inherit the full environment block automatically, so -
-        rem unlike starlake.sh - no re-derivation from bin\deps is needed here.
+        rem connector jars even when Spark itself did not change.
+        rem
+        rem Unlike starlake.sh, versions.cmd's ENABLE_* values already reach
+        rem the java subprocess automatically (Windows child processes
+        rem inherit the full environment block, no export needed) - but
+        rem Setup.java computes every ENABLE_X as
+        rem `ENABLE_ALL || envIsTrueWithDefaultTrue(X)`, and ENABLE_ALL
+        rem itself defaults to true when unset, which would short-circuit
+        rem every category to true regardless of what versions.cmd says.
+        rem infer_enable_flags_from_deps forces ENABLE_ALL=false and
+        rem re-derives each per-category flag from which jars are actually
+        rem present in bin\deps, so this still needs to run here too.
+        call :infer_enable_flags_from_deps
 
         set "SL_VERSION=%NEW_SL_VERSION%"
 
