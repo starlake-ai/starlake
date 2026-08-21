@@ -1,6 +1,33 @@
 
 # Release notes
 
+# 1.8.1:
+__Improvement__:
+- **Smarter upgrades**: `starlake.sh`/`starlake.cmd upgrade` gained a `--version` flag, re-provisions Spark and its connectors whenever the target version changes, and guards against mixing artifacts from different versions in one installation.
+- **API version resolution**: `SL_API_VERSION` now defaults to the latest starlake-api release published for `SL_VERSION`'s branch, so core and api stay aligned without pinning it manually.
+
+__Bug fix__:
+- **Upgrade honors recorded ENABLE flags**: the upgrade no longer re-enables everything through a faulty `ENABLE_ALL` short-circuit, reads the MariaDB flag from its actual file key, and never disables dependency categories introduced after the source install.
+- **Windows upgrade**: fixed two batch pitfalls that broke `starlake.cmd`'s non-interactive upgrade.
+- **Reproducible installs**: pinned jsqltranspiler/starlakejdbc versions ship verbatim in releases, and spark-redshift 7.0.0 is provisioned from its GitHub release.
+
+# 1.8.0:
+__Improvement__:
+- **Spark 4.1.3**: core, streaming and api all run on Spark 4.1.3 (Hadoop 3.4.2, Jackson 2.21.2). XML loading now uses Spark's built-in XML data source (the `com.databricks:spark-xml` dependency is gone), ANSI mode stays off for Spark 3 behavior parity, and the installer provisions Spark 4 era connectors (Iceberg 4.1 runtime, spark-redshift 7.0.0, starlake-streaming 1.4.0, Snowflake JDBC 4.3.3, Redshift JDBC 2.2.8, PostgreSQL 42.7.11).
+- **POSITION files in native loaders**: fixed-width (POSITION format) files are now loaded natively by the DuckDB and Snowflake loaders, no Spark required.
+- **Load engine introspection**: the native-vs-Spark loader decision is exposed as `IngestionJob.selectLoader`/`loadRequiresSpark`.
+- **UI in the api zip**: the release flow builds starlake-ui and injects the static export into the starlake-api zip.
+- **Per-project DuckDB pool clearing**: `clearDuckdbPool` accepts a predicate so one project's connections can be cleared without touching the rest.
+- **DuckDB 1.5.5.1**: aligned across build, installer and docker images; docker images now include python3 so PySpark transform tasks run out of the box.
+
+__Bug fix__:
+- **Autoload**: tables already defined in the project are skipped during inference instead of failing the whole autoload.
+- **Validate**: duplicate schema-validation errors are collapsed again (regression from the json-schema-validator 2.0.4 upgrade).
+- **Bootstrap**: the sample project ships a valid schedule and an autoload-ready data layout.
+- **DuckDB nested JSON**: the nested-JSON insert in the DuckDB native loader was built but never executed.
+- **Setup**: the API zip is installed for real (right file moved, overwritten, verified); the launcher follows the OS address ordering instead of forcing IPv4 first.
+- **BigQuery CLS**: the DataCatalog policy client is only built when column-level security is actually used.
+
 # 1.7.1:
 __Improvement__:
 - **All artifacts on GitHub Releases**: SNAPSHOT builds of starlake-core (assembly jar) and starlake-api (zip) are now published to a rolling pre-release tagged `v<version>-SNAPSHOT` on starlake-ai/starlake, with sha256 companions, replacing Sonatype snapshot publishing entirely. Setup and CI download scripts use one URL scheme for snapshots and releases. The release flow deletes the stale snapshot pre-release when the version ships.
