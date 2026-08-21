@@ -404,9 +404,7 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final String AWS_JAVA_SDK_V2_VERSION = getEnv("AWS_JAVA_SDK_V2_VERSION").orElse("2.29.52");
     private static final String HADOOP_AWS_VERSION = getEnv("HADOOP_AWS_VERSION").orElse("3.4.2");
     private static final String REDSHIFT_JDBC_VERSION = getEnv("REDSHIFT_JDBC_VERSION").orElse("2.2.8");
-    // TODO spark4: the ai.starlake spark-redshift fork has no Spark 4 build yet - stays on the
-    // Spark 3.5 jar until that fork is republished for Spark 4.
-    private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("6.5.1");
+    private static final String SPARK_REDSHIFT_VERSION = getEnv("SPARK_REDSHIFT_VERSION").orElse("7.0.0");
 
     // KAFKA CONFLUENT
     private static final String CONFLUENT_VERSION = getEnv("CONFLUENT_VERSION").orElse("7.7.2");
@@ -455,7 +453,10 @@ public class Setup extends ProxySelector implements X509TrustManager {
     private static final ResourceDependency AWS_JAVA_SDK_JAR = new ResourceDependency("aws-java-sdk-bundle", "https://repo1.maven.org/maven2/software/amazon/awssdk/bundle/" + AWS_JAVA_SDK_V2_VERSION + "/bundle-" + AWS_JAVA_SDK_V2_VERSION + ".jar");
     private static final ResourceDependency HADOOP_AWS_JAR = new ResourceDependency("hadoop-aws", "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/" + HADOOP_AWS_VERSION + "/hadoop-aws-" + HADOOP_AWS_VERSION + ".jar");
     private static final ResourceDependency REDSHIFT_JDBC_JAR = new ResourceDependency("redshift-jdbc42", "https://repo1.maven.org/maven2/com/amazon/redshift/redshift-jdbc42/" + REDSHIFT_JDBC_VERSION + "/redshift-jdbc42-" + REDSHIFT_JDBC_VERSION + ".jar");
-    private static final ResourceDependency SPARK_REDSHIFT_JAR = new ResourceDependency("spark-redshift", "https://repo1.maven.org/maven2/ai/starlake/spark-redshift_" + SCALA_VERSION + "/" + SPARK_REDSHIFT_VERSION + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION + ".jar");
+    // The ai.starlake spark-redshift fork is published on its own GitHub Releases (not Maven
+    // Central) starting with its Spark 4 build, 7.0.0.
+    private static final String SPARK_REDSHIFT_RELEASE_BASE_URL = "https://github.com/starlake-ai/spark-redshift/releases/download";
+    private static final ResourceDependency SPARK_REDSHIFT_JAR = new ResourceDependency("spark-redshift", SPARK_REDSHIFT_RELEASE_BASE_URL + "/v" + SPARK_REDSHIFT_VERSION + "/spark-redshift_" + SCALA_VERSION + "-" + SPARK_REDSHIFT_VERSION + ".jar");
 
     // Snapshots and releases both live on GitHub Releases: snapshots as rolling
     // v<version>-SNAPSHOT pre-releases, so one URL scheme covers everything.
