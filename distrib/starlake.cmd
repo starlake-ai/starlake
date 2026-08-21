@@ -153,45 +153,89 @@ goto :handle_command
     rem below has a matching field/env-var name (verified against every
     rem envIsTrueWithDefaultTrue("ENABLE_...") call in Setup.java).
     rem
+    rem Two sources of truth, in priority order, mirroring starlake.sh's
+    rem infer_enable_flags_from_deps (see inference-fix-report.md for the
+    rem git-log evidence behind the split):
+    rem   1. The OLD versions.cmd's recorded ENABLE_X value (already loaded
+    rem      by the versions.cmd step above, captured into OLD_ENABLE_X
+    rem      below before it gets overwritten) - trusted verbatim.
+    rem   2. Otherwise, jar presence in bin\deps - but only for categories
+    rem      known to exist in every install this old (ENABLE_FLIGHTSQL is
+    rem      the one exception: introduced after ENABLE_ALL/BIGQUERY/etc,
+    rem      so its absence from an old versions.cmd means "did not exist
+    rem      yet", not "user opted out" - it is left completely undefined
+    rem      so Setup.java's own default-true provisions it).
+    rem
     rem Written as flat, unparenthesized "set" + "if exist ... set" pairs
     rem (no shared loop/subroutine over a variable jar-pattern list) so each
     rem line is trivially, individually correct - deliberately avoiding any
     rem clever variadic-argument batch construct this could not be tested
     rem against a real cmd.exe.
+    set "OLD_ENABLE_BIGQUERY=%ENABLE_BIGQUERY%"
+    set "OLD_ENABLE_AZURE=%ENABLE_AZURE%"
+    set "OLD_ENABLE_SNOWFLAKE=%ENABLE_SNOWFLAKE%"
+    set "OLD_ENABLE_REDSHIFT=%ENABLE_REDSHIFT%"
+    set "OLD_ENABLE_POSTGRESQL=%ENABLE_POSTGRESQL%"
+    set "OLD_ENABLE_MARIA=%ENABLE_MARIA%"
+    set "OLD_ENABLE_TRINODB=%ENABLE_TRINODB%"
+    set "OLD_ENABLE_KAFKA=%ENABLE_KAFKA%"
+    set "OLD_ENABLE_DUCKDB=%ENABLE_DUCKDB%"
+    set "OLD_ENABLE_FLIGHTSQL=%ENABLE_FLIGHTSQL%"
+
     set "ENABLE_ALL=false"
 
-    set "ENABLE_BIGQUERY=false"
-    if exist "%SCRIPT_DIR%bin\deps\spark-*bigquery*.jar" set "ENABLE_BIGQUERY=true"
+    if defined OLD_ENABLE_BIGQUERY (set "ENABLE_BIGQUERY=%OLD_ENABLE_BIGQUERY%") else (
+        set "ENABLE_BIGQUERY=false"
+        if exist "%SCRIPT_DIR%bin\deps\spark-*bigquery*.jar" set "ENABLE_BIGQUERY=true"
+    )
 
-    set "ENABLE_AZURE=false"
-    if exist "%SCRIPT_DIR%bin\deps\hadoop-azure-*.jar" set "ENABLE_AZURE=true"
+    if defined OLD_ENABLE_AZURE (set "ENABLE_AZURE=%OLD_ENABLE_AZURE%") else (
+        set "ENABLE_AZURE=false"
+        if exist "%SCRIPT_DIR%bin\deps\hadoop-azure-*.jar" set "ENABLE_AZURE=true"
+    )
 
-    set "ENABLE_SNOWFLAKE=false"
-    if exist "%SCRIPT_DIR%bin\deps\snowflake-jdbc-*.jar" set "ENABLE_SNOWFLAKE=true"
-    if exist "%SCRIPT_DIR%bin\deps\spark-snowflake_*.jar" set "ENABLE_SNOWFLAKE=true"
+    if defined OLD_ENABLE_SNOWFLAKE (set "ENABLE_SNOWFLAKE=%OLD_ENABLE_SNOWFLAKE%") else (
+        set "ENABLE_SNOWFLAKE=false"
+        if exist "%SCRIPT_DIR%bin\deps\snowflake-jdbc-*.jar" set "ENABLE_SNOWFLAKE=true"
+        if exist "%SCRIPT_DIR%bin\deps\spark-snowflake_*.jar" set "ENABLE_SNOWFLAKE=true"
+    )
 
-    set "ENABLE_REDSHIFT=false"
-    if exist "%SCRIPT_DIR%bin\deps\redshift-jdbc42-*.jar" set "ENABLE_REDSHIFT=true"
-    if exist "%SCRIPT_DIR%bin\deps\spark-redshift_*.jar" set "ENABLE_REDSHIFT=true"
+    if defined OLD_ENABLE_REDSHIFT (set "ENABLE_REDSHIFT=%OLD_ENABLE_REDSHIFT%") else (
+        set "ENABLE_REDSHIFT=false"
+        if exist "%SCRIPT_DIR%bin\deps\redshift-jdbc42-*.jar" set "ENABLE_REDSHIFT=true"
+        if exist "%SCRIPT_DIR%bin\deps\spark-redshift_*.jar" set "ENABLE_REDSHIFT=true"
+    )
 
-    set "ENABLE_POSTGRESQL=false"
-    if exist "%SCRIPT_DIR%bin\deps\postgresql-*.jar" set "ENABLE_POSTGRESQL=true"
+    if defined OLD_ENABLE_POSTGRESQL (set "ENABLE_POSTGRESQL=%OLD_ENABLE_POSTGRESQL%") else (
+        set "ENABLE_POSTGRESQL=false"
+        if exist "%SCRIPT_DIR%bin\deps\postgresql-*.jar" set "ENABLE_POSTGRESQL=true"
+    )
 
-    set "ENABLE_MARIA=false"
-    if exist "%SCRIPT_DIR%bin\deps\mariadb-java-client-*.jar" set "ENABLE_MARIA=true"
+    if defined OLD_ENABLE_MARIA (set "ENABLE_MARIA=%OLD_ENABLE_MARIA%") else (
+        set "ENABLE_MARIA=false"
+        if exist "%SCRIPT_DIR%bin\deps\mariadb-java-client-*.jar" set "ENABLE_MARIA=true"
+    )
 
-    set "ENABLE_TRINODB=false"
-    if exist "%SCRIPT_DIR%bin\deps\trino-jdbc-*.jar" set "ENABLE_TRINODB=true"
+    if defined OLD_ENABLE_TRINODB (set "ENABLE_TRINODB=%OLD_ENABLE_TRINODB%") else (
+        set "ENABLE_TRINODB=false"
+        if exist "%SCRIPT_DIR%bin\deps\trino-jdbc-*.jar" set "ENABLE_TRINODB=true"
+    )
 
-    set "ENABLE_KAFKA=false"
-    if exist "%SCRIPT_DIR%bin\deps\kafka-avro-serializer-*.jar" set "ENABLE_KAFKA=true"
-    if exist "%SCRIPT_DIR%bin\deps\kafka-schema-registry-client-*.jar" set "ENABLE_KAFKA=true"
+    if defined OLD_ENABLE_KAFKA (set "ENABLE_KAFKA=%OLD_ENABLE_KAFKA%") else (
+        set "ENABLE_KAFKA=false"
+        if exist "%SCRIPT_DIR%bin\deps\kafka-avro-serializer-*.jar" set "ENABLE_KAFKA=true"
+        if exist "%SCRIPT_DIR%bin\deps\kafka-schema-registry-client-*.jar" set "ENABLE_KAFKA=true"
+    )
 
-    set "ENABLE_DUCKDB=false"
-    if exist "%SCRIPT_DIR%bin\deps\duckdb_jdbc-*.jar" set "ENABLE_DUCKDB=true"
+    if defined OLD_ENABLE_DUCKDB (set "ENABLE_DUCKDB=%OLD_ENABLE_DUCKDB%") else (
+        set "ENABLE_DUCKDB=false"
+        if exist "%SCRIPT_DIR%bin\deps\duckdb_jdbc-*.jar" set "ENABLE_DUCKDB=true"
+    )
 
-    set "ENABLE_FLIGHTSQL=false"
-    if exist "%SCRIPT_DIR%bin\deps\flight-sql-jdbc-driver-*.jar" set "ENABLE_FLIGHTSQL=true"
+    rem ENABLE_FLIGHTSQL is NOT on the legacy list: if the old versions.cmd
+    rem never recorded it, leave it entirely undefined (not "false") so
+    rem Setup.java's own default-true provisions it, same as a fresh install.
+    if defined OLD_ENABLE_FLIGHTSQL (set "ENABLE_FLIGHTSQL=%OLD_ENABLE_FLIGHTSQL%") else (set "ENABLE_FLIGHTSQL=")
     goto :eof
 
 :parse_proxy_and_build_args

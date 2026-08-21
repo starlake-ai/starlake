@@ -30,14 +30,37 @@ fi
 # computed as `ENABLE_ALL || envIsTrueWithDefaultTrue(X)` - so exporting only
 # the per-category flags is NOT enough, the ENABLE_ALL||... short-circuits
 # them regardless; ENABLE_ALL itself must ALSO be forced to "false" for the
-# per-category overrides below to have any effect at all. Re-derive each flag
-# from which jars are actually present in bin/deps (reflecting the real
-# installed state, not a value that may never have been persisted). Used by
-# both upgrade and reinstall, called BEFORE bin/deps is wiped/replaced; a
-# genuine fresh `install` never calls this, so its ENABLE_ALL-defaults-true /
-# interactive selection behavior is unaffected.
+# per-category overrides below to have any effect at all. Used by both
+# upgrade and reinstall, called BEFORE bin/deps is wiped/replaced and AFTER
+# the old versions.sh has already been `source`d by the top-of-script case
+# statement; a genuine fresh `install` never calls this, so its
+# ENABLE_ALL-defaults-true / interactive selection behavior is unaffected.
+#
+# Two sources of truth, in priority order:
+#   1. The OLD versions.sh's recorded ENABLE_X value, if that line existed -
+#      explicit prior user intent, trusted verbatim over anything else.
+#   2. Otherwise (the old versions.sh predates this category entirely - e.g.
+#      an install from before ENABLE_FLIGHTSQL existed - see
+#      inference-fix-report.md for the git-log evidence), jar presence in
+#      bin/deps is only a valid signal for categories already known to exist
+#      in every install this old ("legacy" list below). For a category NOT
+#      on that list, its jar being absent just means it never had a chance
+#      to be installed yet, not that the user opted out - so it must be left
+#      completely UNSET, letting Setup.java's own default-true provision it,
+#      exactly like a fresh install would.
+_LEGACY_ENABLE_CATEGORIES=" ENABLE_BIGQUERY ENABLE_AZURE ENABLE_SNOWFLAKE ENABLE_REDSHIFT ENABLE_POSTGRESQL ENABLE_DUCKDB ENABLE_KAFKA ENABLE_MARIA ENABLE_TRINODB "
 _infer_one_enable_flag() {
   local var_name="$1"; shift
+  local old_var_name="OLD_${var_name}"
+  local old_val="${!old_var_name:-}"
+  if [ -n "$old_val" ]; then
+    export "$var_name=$old_val"
+    return
+  fi
+  case "$_LEGACY_ENABLE_CATEGORIES" in
+    *" $var_name "*) ;;
+    *) return ;;
+  esac
   local pattern
   for pattern in "$@"; do
     if compgen -G "$SCRIPT_DIR/bin/deps/$pattern" > /dev/null 2>&1; then
@@ -48,6 +71,14 @@ _infer_one_enable_flag() {
   export "$var_name=false"
 }
 infer_enable_flags_from_deps() {
+  # Snapshot whatever the old versions.sh recorded (already `source`d into
+  # plain, non-exported shell vars before this function runs) BEFORE the
+  # exports below start overwriting those same variable names in place. An
+  # unset OLD_ENABLE_X means the old versions.sh had no such line at all.
+  local _v
+  for _v in ENABLE_BIGQUERY ENABLE_AZURE ENABLE_SNOWFLAKE ENABLE_REDSHIFT ENABLE_POSTGRESQL ENABLE_MARIA ENABLE_TRINODB ENABLE_KAFKA ENABLE_DUCKDB ENABLE_FLIGHTSQL; do
+    eval "OLD_$_v=\"\${$_v:-}\""
+  done
   export ENABLE_ALL=false
   # NOTE: Setup.java's field is ENABLE_MARIADB but the env var it actually
   # reads is "ENABLE_MARIA" (envIsTrueWithDefaultTrue("ENABLE_MARIA")) - a
