@@ -39,6 +39,7 @@ set -euo pipefail
 #   7 - Create the GitHub release (draft), upload sha256 assets, publish
 #   8 - Bump to next SNAPSHOT + commit + push (both repos)
 #   9 - Housekeeping: propagate versions, setup.jar, full assembly
+#  10 - Announce on Discord (best effort; skips silently if unconfigured)
 # ============================================================================
 
 SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
@@ -50,7 +51,7 @@ UI_DIR="${SL_UI_DIR:-$HOME/git/starlake-ui2}"
 PROFILE="$HOME/.bash_profile"
 
 DRY_RUN=false
-STEPS="1,2,3,4,5,6,7,8,9"
+STEPS="1,2,3,4,5,6,7,8,9,10"
 while [[ "${1:-}" == --* ]]; do
   case "$1" in
     --dry-run)  DRY_RUN=true; shift ;;
@@ -89,8 +90,20 @@ CURRENT_VERSION="$(read_version "$REPO_DIR/version.sbt")"
 API_CURRENT_VERSION="$(read_version "$API_DIR/version.sbt")"
 echo "  starlake-core: $CURRENT_VERSION"
 echo "  starlake-api:  $API_CURRENT_VERSION"
-[[ "$CURRENT_VERSION" == "$API_CURRENT_VERSION" ]] \
-  || die "starlake-api version ($API_CURRENT_VERSION) != starlake-core version ($CURRENT_VERSION)"
+if [[ "$CURRENT_VERSION" != "$API_CURRENT_VERSION" ]]; then
+  if [[ "$API_CURRENT_VERSION" != *-SNAPSHOT && "$CURRENT_VERSION" == "$(next_snapshot "$API_CURRENT_VERSION")" ]]; then
+    # Interrupted step 8: core already bumped to the next snapshot, api still
+    # at the release version. Resume that release rather than dying.
+    echo "  resuming interrupted release: core already bumped, api still at $API_CURRENT_VERSION"
+    RELEASE_VERSION="${RELEASE_VERSION:-$API_CURRENT_VERSION}"
+  elif [[ "$(strip_snapshot "$CURRENT_VERSION")" == "$(strip_snapshot "$API_CURRENT_VERSION")" ]]; then
+    # Interrupted step 2: one repo already committed the release version, the
+    # other still holds its -SNAPSHOT. Same release either way.
+    echo "  resuming interrupted release: versions agree modulo -SNAPSHOT"
+  else
+    die "starlake-api version ($API_CURRENT_VERSION) != starlake-core version ($CURRENT_VERSION)"
+  fi
+fi
 
 RELEASE_VERSION="${RELEASE_VERSION:-$(strip_snapshot "$CURRENT_VERSION")}"
 NEXT_VERSION="${NEXT_VERSION:-$(next_snapshot "$RELEASE_VERSION")}"
@@ -128,6 +141,9 @@ if should_run 2; then
     v="$(read_version "$repo/version.sbt")"
     if [[ "$v" == "$RELEASE_VERSION" ]]; then
       echo "  $(basename "$repo"): already at $RELEASE_VERSION, skipping."
+    elif [[ "$v" == "$NEXT_VERSION" ]]; then
+      # Resumed run after the step 8 bump: don't regress to the release version.
+      echo "  $(basename "$repo"): already bumped to $NEXT_VERSION, skipping."
     elif [[ "$v" == *-SNAPSHOT ]]; then
       echo "  $(basename "$repo"): $v -> $RELEASE_VERSION"
       run set_version "$repo/version.sbt" "$RELEASE_VERSION"
@@ -427,6 +443,27 @@ if should_run 9; then
     fi
   else
     echo "  tmpsbt.sh not found or not executable, skipping full assembly."
+  fi
+fi
+
+# ============================================================================
+# Step 10: Announce on Discord (best effort - never blocks the release)
+# Unlike steps 2-9, this is not idempotency-checked against remote state
+# (there's no way to ask Discord "was this already posted"): re-running step
+# 10 re-announces. That's fine for a deliberate rerun (e.g. `--steps 10` to
+# announce a version released earlier); just don't include it in a routine
+# resume of a failed run past step 10.
+# ============================================================================
+if should_run 10; then
+  echo "============================================"
+  echo "Step 10: Announce on Discord"
+  echo "============================================"
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "  [DRY-RUN] Would run: ./scripts/announce-release-discord.sh $RELEASE_VERSION"
+  elif [[ -z "$(discord_webhook_url)" ]]; then
+    echo "  SL_DISCORD_WEBHOOK_URL not set (env var or .env); skipping announce."
+  else
+    "$REPO_DIR/scripts/announce-release-discord.sh" "$RELEASE_VERSION"
   fi
 fi
 

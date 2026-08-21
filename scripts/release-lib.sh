@@ -82,3 +82,17 @@ release_exists() { # <tag>
 release_has_asset() { # <tag> <asset name>
   gh release view "$1" --repo "$GH_REPO" --json assets --jq '.assets[].name' 2>/dev/null | grep -qxF "$2"
 }
+
+# ---- Discord announcement --------------------------------------------------
+# Shared by local-release.sh (step 10) and scripts/announce-release-discord.sh
+# so the webhook-resolution logic lives in exactly one place. Prints the
+# webhook URL - env var SL_DISCORD_WEBHOOK_URL, falling back to a
+# SL_DISCORD_WEBHOOK_URL=... line in the untracked REPO_DIR/.env - or nothing
+# if unconfigured. Never logs the value itself (it's a credential).
+discord_webhook_url() {
+  local url="${SL_DISCORD_WEBHOOK_URL:-}"
+  if [[ -z "$url" && -f "$REPO_DIR/.env" ]]; then
+    url="$(sed -n 's/^SL_DISCORD_WEBHOOK_URL=//p' "$REPO_DIR/.env" | tail -1)"
+  fi
+  echo "$url"
+}
