@@ -176,7 +176,12 @@ goto :handle_command
     set "OLD_ENABLE_SNOWFLAKE=%ENABLE_SNOWFLAKE%"
     set "OLD_ENABLE_REDSHIFT=%ENABLE_REDSHIFT%"
     set "OLD_ENABLE_POSTGRESQL=%ENABLE_POSTGRESQL%"
-    set "OLD_ENABLE_MARIA=%ENABLE_MARIA%"
+    rem ENABLE_MARIA is the odd one out: the *file key* versions.cmd persists
+    rem is ENABLE_MARIADB (generateVersions()'s own naming, verified back to
+    rem v1.6.0), but the *runtime key* Setup.java reads is ENABLE_MARIA - so
+    rem the old recorded value must be read from ENABLE_MARIADB, not
+    rem ENABLE_MARIA (which was never set by the earlier versions.cmd load).
+    set "OLD_ENABLE_MARIA=%ENABLE_MARIADB%"
     set "OLD_ENABLE_TRINODB=%ENABLE_TRINODB%"
     set "OLD_ENABLE_KAFKA=%ENABLE_KAFKA%"
     set "OLD_ENABLE_DUCKDB=%ENABLE_DUCKDB%"

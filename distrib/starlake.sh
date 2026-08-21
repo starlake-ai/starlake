@@ -76,9 +76,15 @@ infer_enable_flags_from_deps() {
   # exports below start overwriting those same variable names in place. An
   # unset OLD_ENABLE_X means the old versions.sh had no such line at all.
   local _v
-  for _v in ENABLE_BIGQUERY ENABLE_AZURE ENABLE_SNOWFLAKE ENABLE_REDSHIFT ENABLE_POSTGRESQL ENABLE_MARIA ENABLE_TRINODB ENABLE_KAFKA ENABLE_DUCKDB ENABLE_FLIGHTSQL; do
+  for _v in ENABLE_BIGQUERY ENABLE_AZURE ENABLE_SNOWFLAKE ENABLE_REDSHIFT ENABLE_POSTGRESQL ENABLE_TRINODB ENABLE_KAFKA ENABLE_DUCKDB ENABLE_FLIGHTSQL; do
     eval "OLD_$_v=\"\${$_v:-}\""
   done
+  # ENABLE_MARIA is the odd one out: the *file key* versions.sh persists is
+  # ENABLE_MARIADB (generateVersions()'s own naming, verified back to v1.6.0),
+  # but the *runtime key* Setup.java reads via envIsTrueWithDefaultTrue is
+  # ENABLE_MARIA - so the old recorded value must be read from ENABLE_MARIADB,
+  # not ENABLE_MARIA (which was never set by sourcing the old file at all).
+  OLD_ENABLE_MARIA="${ENABLE_MARIADB:-}"
   export ENABLE_ALL=false
   # NOTE: Setup.java's field is ENABLE_MARIADB but the env var it actually
   # reads is "ENABLE_MARIA" (envIsTrueWithDefaultTrue("ENABLE_MARIA")) - a
