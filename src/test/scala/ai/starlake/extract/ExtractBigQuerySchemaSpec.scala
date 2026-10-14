@@ -6,6 +6,8 @@ import com.google.cloud.bigquery._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.jdk.CollectionConverters._
+
 class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
 
   private val bqSchema = Schema.of(
@@ -74,6 +76,23 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
 
   private def getTable(tables: TableInfo*)(tableId: TableId): TableInfo =
     tables.find(_.getTableId == tableId).orNull
+
+  /** Dry run of views returning the given effective schemas, recording the dry run objects */
+  private class DryRun(schemas: (String, Schema)*) extends (TableInfo => Schema) {
+    val dryRunTables = scala.collection.mutable.ListBuffer.empty[String]
+    def apply(view: TableInfo): Schema = {
+      dryRunTables += view.getTableId.getTable()
+      schemas.toMap.getOrElse(view.getTableId.getTable(), null)
+    }
+  }
+
+  /** The schema of the view once its underlying table changed: amount is now an INT64 */
+  private val effectiveSchema = Schema.of(
+    Field.newBuilder("id", StandardSQLTypeName.INT64).setMode(Field.Mode.REQUIRED).build(),
+    Field.of("name", StandardSQLTypeName.STRING),
+    Field.of("amount", StandardSQLTypeName.INT64),
+    Field.newBuilder("tags", StandardSQLTypeName.STRING).setMode(Field.Mode.REPEATED).build()
+  )
 
   "parseTableTypes" should "default to tables only" in {
     ExtractBigQuerySchema.parseTableTypes(Nil) shouldBe Set(TableDefinition.Type.TABLE)
@@ -152,7 +171,8 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
       .extractTables(
         allObjects.map(listed),
         ExtractBigQuerySchema.parseTableTypes(Nil),
-        getTable(allObjects: _*)
+        getTable(allObjects: _*),
+        new DryRun()
       )
       .map(_.name) shouldBe List("my_table")
   }
@@ -161,7 +181,8 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
     val schemas = ExtractBigQuerySchema.extractTables(
       allObjects.map(listed),
       ExtractBigQuerySchema.parseTableTypes(List("TABLE", "VIEW", "MATERIALIZED_VIEW")),
-      getTable(allObjects: _*)
+      getTable(allObjects: _*),
+      new DryRun("my_view" -> bqSchema)
     )
     schemas.map(_.name) shouldBe List("my_table", "my_view", "my_materialized_view")
     schemas.map(_.attributes).distinct should have size 1
@@ -173,7 +194,8 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
       .extractTables(
         List(listed(externalTable)),
         ExtractBigQuerySchema.parseTableTypes(Nil),
-        getTable(externalTable)
+        getTable(externalTable),
+        new DryRun()
       ) shouldBe Nil
   }
 
@@ -192,9 +214,138 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
         ExtractBigQuerySchema.parseTableTypes(Nil),
         tableId =>
           if (tableId.getTable() == "failing") throw new BigQueryException(500, "failure")
-          else getTable(unsupportedColumn, table)(tableId)
+          else getTable(unsupportedColumn, table)(tableId),
+        new DryRun()
       )
       .map(_.name) shouldBe List("my_table")
+  }
+
+  it should "read the types of views from their effective schema, keeping their descriptions" in {
+    val dryRun = new DryRun("my_view" -> effectiveSchema)
+    val schemas = ExtractBigQuerySchema.extractTables(
+      List(table, view, materializedView).map(listed),
+      ExtractBigQuerySchema.parseTableTypes(List("TABLE", "VIEW", "MATERIALIZED_VIEW")),
+      getTable(table, view, materializedView),
+      dryRun
+    )
+    dryRun.dryRunTables shouldBe List("my_view")
+    schemas.tail.map(schema =>
+      schema.name -> schema.attributes.map(a => (a.name, a.`type`, a.comment))
+    ) shouldBe List(
+      "my_view" -> List(
+        ("id", "long", Some("Identifier")),
+        ("name", "string", Some("Name")),
+        ("amount", "long", None),
+        ("tags", "string", None)
+      ),
+      // Materialized views are not dry run: their data is stored with their schema
+      "my_materialized_view" -> List(
+        ("id", "long", Some("Identifier")),
+        ("name", "string", Some("Name")),
+        ("amount", "decimal", None),
+        ("tags", "string", None)
+      )
+    )
+  }
+
+  it should "fall back to the stored schema of a view when its effective one is not usable" in {
+    val storedTypes = List("long", "string", "decimal", "string")
+    def extractView(getViewSchema: TableInfo => Schema): List[String] =
+      ExtractBigQuerySchema
+        .extractTables(
+          List(listed(view)),
+          ExtractBigQuerySchema.parseTableTypes(List("VIEW")),
+          getTable(view),
+          getViewSchema
+        )
+        .flatMap(_.attributes.map(_.`type`))
+    // No bigquery.jobs.create permission
+    extractView(_ => throw new BigQueryException(403, "Access Denied")) shouldBe storedTypes
+    // No schema
+    extractView(new DryRun()) shouldBe storedTypes
+    extractView(_ => Schema.of()) shouldBe storedTypes
+    // A type that cannot be converted
+    extractView(_ => Schema.of(Field.of("id", StandardSQLTypeName.BYTES))) shouldBe storedTypes
+  }
+
+  "dryRunJob" should "query the view in the dataset location and the given project" in {
+    val standardSqlView = tableInfo(
+      "my_view",
+      ViewDefinition.newBuilder("SELECT 1").setUseLegacySql(false).build()
+    ).toBuilder.setTableId(TableId.of("source-project", "my_dataset", "my_view")).build()
+    val job = ExtractBigQuerySchema.dryRunJob(standardSqlView, "billing-project", Some("EU"))
+    job.getJobId.getProject shouldBe "billing-project"
+    job.getJobId.getLocation shouldBe "EU"
+    val query = job.getConfiguration[QueryJobConfiguration]()
+    query.getQuery shouldBe "SELECT * FROM `source-project.my_dataset.my_view`"
+    query.dryRun() shouldBe true
+    query.useLegacySql() shouldBe false
+  }
+
+  it should "query a legacy SQL view with legacy SQL" in {
+    val legacySqlView =
+      tableInfo("my_view", ViewDefinition.newBuilder("SELECT 1").setUseLegacySql(true).build())
+    val job = ExtractBigQuerySchema.dryRunJob(legacySqlView, "billing-project", None)
+    job.getJobId.getLocation shouldBe null
+    val query = job.getConfiguration[QueryJobConfiguration]()
+    query.getQuery shouldBe "SELECT * FROM [my_dataset.my_view]"
+    query.useLegacySql() shouldBe true
+  }
+
+  "mergeViewSchema" should "take the effective types and the stored descriptions at every level" in {
+    val stored = Schema.of(
+      Field.newBuilder("ID", StandardSQLTypeName.NUMERIC).setDescription("Identifier").build(),
+      Field
+        .newBuilder(
+          "address",
+          StandardSQLTypeName.STRUCT,
+          Field.newBuilder("zip", StandardSQLTypeName.BYTES).setDescription("Zip code").build()
+        )
+        .setDescription("Address")
+        .build(),
+      Field.of("dropped", StandardSQLTypeName.STRING)
+    )
+    val effective = Schema.of(
+      Field.of("id", StandardSQLTypeName.INT64),
+      Field.of(
+        "address",
+        StandardSQLTypeName.STRUCT,
+        Field.of("zip", StandardSQLTypeName.STRING)
+      ),
+      Field.of("added", StandardSQLTypeName.DATE)
+    )
+    val merged =
+      ExtractBigQuerySchema.mergeViewSchema("my_dataset.my_view", Some(stored), effective)
+    def describe(fields: FieldList): List[(String, String, String)] =
+      fields.asScala.toList.flatMap { field =>
+        (field.getName, field.getType.name(), field.getDescription) ::
+        Option(field.getSubFields).map(describe).getOrElse(Nil)
+      }
+    describe(merged.getFields) shouldBe List(
+      ("id", "INTEGER", "Identifier"),
+      ("address", "RECORD", "Address"),
+      ("zip", "STRING", "Zip code"),
+      ("added", "DATE", null)
+    )
+  }
+
+  it should "prefer the description of the view column to the one of the underlying column" in {
+    val merged = ExtractBigQuerySchema.mergeViewSchema(
+      "my_dataset.my_view",
+      Some(
+        Schema.of(Field.newBuilder("id", StandardSQLTypeName.INT64).setDescription("View").build())
+      ),
+      Schema.of(Field.newBuilder("id", StandardSQLTypeName.INT64).setDescription("Table").build())
+    )
+    merged.getFields.get("id").getDescription shouldBe "View"
+  }
+
+  it should "keep the effective schema as is when the stored one is missing" in {
+    ExtractBigQuerySchema.mergeViewSchema(
+      "my_dataset.my_view",
+      None,
+      effectiveSchema
+    ) shouldBe effectiveSchema
   }
 
   "extract-bq-schema" should "parse the --table-types option" in {
@@ -241,6 +392,33 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
         TableDefinition.Type.VIEW,
         TableDefinition.Type.MATERIALIZED_VIEW
       )
+    )
+  }
+
+  "schemaDifferences" should "list type, parameter and mode changes, new and missing columns" in {
+    ExtractBigQuerySchema.schemaDifferences(
+      List(
+        Field.of("id", StandardSQLTypeName.NUMERIC),
+        Field
+          .newBuilder("amount", StandardSQLTypeName.NUMERIC)
+          .setPrecision(10L)
+          .setScale(2L)
+          .build(),
+        Field.of("record", StandardSQLTypeName.STRUCT, Field.of("zip", StandardSQLTypeName.BYTES)),
+        Field.of("dropped", StandardSQLTypeName.STRING)
+      ),
+      List(
+        Field.newBuilder("ID", StandardSQLTypeName.NUMERIC).setMode(Field.Mode.REQUIRED).build(),
+        Field.of("amount", StandardSQLTypeName.NUMERIC),
+        Field.of("record", StandardSQLTypeName.STRUCT, Field.of("zip", StandardSQLTypeName.STRING)),
+        Field.of("added", StandardSQLTypeName.DATE)
+      )
+    ) shouldBe List(
+      "ID NUMERIC -> NUMERIC REQUIRED",
+      "amount NUMERIC(10,2) -> NUMERIC",
+      "record.zip BYTES -> STRING",
+      "new column added",
+      "missing column dropped"
     )
   }
 }

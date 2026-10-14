@@ -6,11 +6,25 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.BigQuery.{DatasetListOption, TableListOption}
-import com.google.cloud.bigquery.{BigQuery, Dataset, TableDefinition, TableId, TableInfo}
+import com.google.cloud.bigquery.{
+  BigQuery,
+  Dataset,
+  Field,
+  FieldList,
+  JobId,
+  JobInfo,
+  JobStatistics,
+  QueryJobConfiguration,
+  Schema,
+  TableDefinition,
+  TableId,
+  TableInfo,
+  ViewDefinition
+}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.types.{StructField, StructType}
 
-import java.util.Locale
+import java.util.{Locale, UUID}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -116,7 +130,8 @@ class ExtractBigQuerySchema(config: TablesExtractConfig)(implicit settings: Sett
       tables,
       tableTypes,
       // We get the Table again because Tables are returned with a null schema by listTables above.
-      tableId => bigquery.getTable(tableId)
+      tableId => bigquery.getTable(tableId),
+      dryRunSchema(Option(dataset.getLocation))
     )
     DomainInfo(
       name = dataset.getDatasetId().getDataset(),
@@ -128,6 +143,22 @@ class ExtractBigQuerySchema(config: TablesExtractConfig)(implicit settings: Sett
       database = Option(dataset.getDatasetId().getProject())
     )
   }
+
+  /** The project the dry runs of views are billed to: the connection one rather than the extracted
+    * one, which may belong to someone else
+    */
+  private lazy val dryRunProject: String =
+    Try(BigQueryJobBase.projectId(bqJob.connectionOptions.get("projectId"), None))
+      .getOrElse(bigquery.getOptions.getProjectId)
+
+  /** @return
+    *   the schema of a free dry run of `SELECT *` on the view, run in the dataset location
+    */
+  private def dryRunSchema(location: Option[String])(view: TableInfo): Schema =
+    bigquery
+      .create(ExtractBigQuerySchema.dryRunJob(view, dryRunProject, location))
+      .getStatistics[JobStatistics.QueryStatistics]()
+      .getSchema
 }
 
 object ExtractBigQuerySchema extends LazyLogging {
@@ -205,11 +236,14 @@ object ExtractBigQuerySchema extends LazyLogging {
     *   the BigQuery object types to extract
     * @param getTable
     *   fetches an object with its schema, null if it does not exist anymore
+    * @param getViewSchema
+    *   reads the effective schema of a view
     */
   def extractTables(
     listedTables: Iterable[TableInfo],
     tableTypes: Set[TableDefinition.Type],
-    getTable: TableId => TableInfo
+    getTable: TableId => TableInfo,
+    getViewSchema: TableInfo => Schema
   ): List[SchemaInfo] = {
     // Filter on the listed type first to avoid fetching objects that would be skipped anyway, and
     // again once fetched in case the listing did not return it.
@@ -219,7 +253,7 @@ object ExtractBigQuerySchema extends LazyLogging {
       Try(Option(getTable(tableId))) match {
         case Success(Some(table)) if isExtractable(table, tableTypes) =>
           logger.info(s"Extracting table $tableName")
-          Try(extractTable(table)) match {
+          Try(extractTableOrView(table, getViewSchema)) match {
             case Success(schema) =>
               schema
             case Failure(e) =>
@@ -236,6 +270,155 @@ object ExtractBigQuerySchema extends LazyLogging {
           None
       }
     }
+  }
+
+  /** @return
+    *   a job dry running `SELECT *` on the view, with the SQL dialect of the view
+    */
+  def dryRunJob(view: TableInfo, project: String, location: Option[String]): JobInfo = {
+    val tableId = view.getTableId
+    // Standard SQL cannot query a legacy SQL view, the dialect of the views that do not set it
+    val useLegacySql =
+      !java.lang.Boolean.FALSE.equals(view.getDefinition[ViewDefinition]().useLegacySql())
+    val viewProject = Option(tableId.getProject())
+    val query =
+      if (useLegacySql)
+        s"SELECT * FROM [${viewProject.map(_ + ":").getOrElse("")}${tableId.getDataset()}.${tableId.getTable()}]"
+      else
+        s"SELECT * FROM `${viewProject.map(_ + ".").getOrElse("")}${tableId.getDataset()}.${tableId.getTable()}`"
+    val jobId = JobId.newBuilder().setJob(UUID.randomUUID().toString).setProject(project)
+    location.foreach(jobId.setLocation)
+    JobInfo.of(
+      jobId.build(),
+      QueryJobConfiguration.newBuilder(query).setDryRun(true).setUseLegacySql(useLegacySql).build()
+    )
+  }
+
+  /** BigQuery does not recompute the stored schema of a view when its underlying tables change, so
+    * its types can be stale: the schema of a view is read from its effective schema, with the
+    * descriptions of the stored one. Falls back to the stored schema when the effective one cannot
+    * be read or converted.
+    */
+  private def extractTableOrView(
+    table: TableInfo,
+    getViewSchema: TableInfo => Schema
+  ): Option[SchemaInfo] =
+    table.getDefinition[TableDefinition]() match {
+      case view: ViewDefinition =>
+        val viewName = s"${table.getTableId.getDataset()}.${table.getTableId.getTable()}"
+        Try {
+          val effectiveSchema = Option(getViewSchema(table))
+            .filter(schema => fieldsOf(schema.getFields).nonEmpty)
+            .getOrElse(throw new IllegalStateException("the dry run returned no schema"))
+          val schema = mergeViewSchema(viewName, Option(view.getSchema), effectiveSchema)
+          extractTable(
+            table.toBuilder.setDefinition(view.toBuilder.setSchema(schema).build()).build()
+          )
+        } match {
+          case Success(schemaInfo) =>
+            schemaInfo
+          case Failure(e) =>
+            logger.warn(
+              s"Could not use the effective schema of view $viewName ($e), using its stored schema, which may be stale"
+            )
+            extractTable(table)
+        }
+      case _ =>
+        extractTable(table)
+    }
+
+  /** @return
+    *   the effective schema of a view, with the descriptions of its stored schema, matched by name
+    *   at every nesting level. Logs a warning listing the differences when the stored schema is
+    *   stale.
+    */
+  def mergeViewSchema(
+    viewName: String,
+    storedSchema: Option[Schema],
+    effectiveSchema: Schema
+  ): Schema = {
+    val storedFields = storedSchema.map(schema => fieldsOf(schema.getFields)).getOrElse(Nil)
+    val effectiveFields = fieldsOf(effectiveSchema.getFields)
+    val differences = schemaDifferences(storedFields, effectiveFields)
+    if (storedSchema.isDefined && differences.nonEmpty) {
+      val shown = differences.take(10).mkString(", ")
+      val more = if (differences.size > 10) ", ..." else ""
+      logger.warn(
+        s"The stored schema of view $viewName is stale, using its effective schema instead. ${differences.size} difference(s): $shown$more"
+      )
+    }
+    Schema.of(mergeFields(storedFields, effectiveFields).asJava)
+  }
+
+  private def fieldsOf(fields: FieldList): List[Field] =
+    Option(fields).map(_.asScala.toList).getOrElse(Nil)
+
+  /** BigQuery column names are case insensitive */
+  private def byName(fields: List[Field]): Map[String, Field] =
+    fields.map(field => field.getName.toLowerCase(Locale.ROOT) -> field).toMap
+
+  private def findField(fieldsByName: Map[String, Field], field: Field): Option[Field] =
+    fieldsByName.get(field.getName.toLowerCase(Locale.ROOT))
+
+  private def mergeFields(storedFields: List[Field], effectiveFields: List[Field]): List[Field] = {
+    val storedByName = byName(storedFields)
+    effectiveFields.map { field =>
+      findField(storedByName, field) match {
+        case None =>
+          field
+        case Some(storedField) =>
+          val builder = field.toBuilder
+          // The description of the view column wins over the one of the underlying column
+          Option(storedField.getDescription).foreach(builder.setDescription)
+          if (field.getSubFields != null) {
+            val subFields =
+              mergeFields(fieldsOf(storedField.getSubFields), fieldsOf(field.getSubFields))
+            builder.setType(field.getType, FieldList.of(subFields.asJava))
+          }
+          builder.build()
+      }
+    }
+  }
+
+  /** @return
+    *   the type, parameter and mode changes, new and missing columns from the stored to the
+    *   effective fields, at every nesting level
+    */
+  private[extract] def schemaDifferences(
+    storedFields: List[Field],
+    effectiveFields: List[Field],
+    prefix: String = ""
+  ): List[String] = {
+    def describe(field: Field): String = {
+      val parameters =
+        List(field.getMaxLength, field.getPrecision, field.getScale).flatMap(Option(_))
+      val mode = Option(field.getMode).filter(_ != Field.Mode.NULLABLE).map(" " + _)
+      field.getType.name() +
+      (if (parameters.isEmpty) "" else parameters.mkString("(", ",", ")")) +
+      mode.getOrElse("")
+    }
+    val storedByName = byName(storedFields)
+    val effectiveByName = byName(effectiveFields)
+    val changed = effectiveFields.flatMap { field =>
+      val name = prefix + field.getName
+      findField(storedByName, field) match {
+        case None =>
+          List(s"new column $name")
+        case Some(storedField) =>
+          val typeChange =
+            if (describe(storedField) == describe(field)) Nil
+            else List(s"$name ${describe(storedField)} -> ${describe(field)}")
+          typeChange ++ schemaDifferences(
+            fieldsOf(storedField.getSubFields),
+            fieldsOf(field.getSubFields),
+            s"$name."
+          )
+      }
+    }
+    val missing = storedFields
+      .filter(findField(effectiveByName, _).isEmpty)
+      .map(storedField => s"missing column $prefix${storedField.getName}")
+    changed ++ missing
   }
 
   /** @return

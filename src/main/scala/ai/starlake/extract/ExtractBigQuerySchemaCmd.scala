@@ -29,7 +29,7 @@ object ExtractBigQuerySchemaCmd extends TablesExtractCmd {
       .optional()
       .text(
         s"Types of the objects to extract, among ${ExtractBigQuerySchema.supportedTableTypes.keys.toList.sorted
-            .mkString(", ")}. Defaults to TABLE"
+            .mkString(", ")}. Defaults to TABLE. The types of a VIEW are read with a dry run query, which needs bigquery.jobs.create, or from its stored schema, which may be stale"
       )
   )
 
