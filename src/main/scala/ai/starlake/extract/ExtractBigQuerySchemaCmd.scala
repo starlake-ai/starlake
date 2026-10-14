@@ -4,6 +4,7 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{DomainInfo, JDBCSchema}
 import ai.starlake.utils.JobResult
+import scopt.{OParser, OParserBuilder}
 
 import scala.util.Try
 
@@ -19,6 +20,19 @@ object ExtractBigQuerySchemaCmd extends TablesExtractCmd {
   override def pageKeywords: Seq[String] =
     Seq("starlake extract-bq-schema", "BigQuery schema", "schema extraction", "metadata")
 
+  override protected def extraOptions(
+    builder: OParserBuilder[TablesExtractConfig]
+  ): List[OParser[_, TablesExtractConfig]] = List(
+    builder
+      .opt[Seq[String]]("table-types")
+      .action((x, c) => c.copy(tableTypes = x.toList))
+      .optional()
+      .text(
+        s"Types of the objects to extract, among ${ExtractBigQuerySchema.supportedTableTypes.keys.toList.sorted
+            .mkString(", ")}. Defaults to TABLE"
+      )
+  )
+
   def fromExtractSchemaConfig(
     config: ExtractSchemaConfig,
     jdbcSchema: JDBCSchema
@@ -31,10 +45,18 @@ object ExtractBigQuerySchemaCmd extends TablesExtractCmd {
         Map.empty[String, List[String]]
       else
         Map(jdbcSchema.schema -> tablesRenamed)
+    // fillWithDefaultValues() replaces an empty tableTypes with the JDBC default table types, which
+    // include VIEW: consider them as not set, to keep extracting BigQuery tables only by default.
+    val tableTypes =
+      if (jdbcSchema.tableTypes.toSet == JDBCSchema.defaultTableTypes.toSet) Nil
+      else jdbcSchema.tableTypes
     TablesExtractConfig(
+      connectionRef = config.connectionRef,
       tables = tables,
       database = jdbcSchema.catalog,
-      external = config.external
+      external = config.external,
+      accessToken = config.accessToken,
+      tableTypes = tableTypes
     )
   }
 

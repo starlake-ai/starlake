@@ -1,6 +1,13 @@
 
 # Release notes
 
+# 1.8.12:
+__Improvement__:
+- **`extract-bq-schema` extracts views, materialized views, external tables and snapshots on demand** (#1832): only standard tables were extracted, and every other BigQuery object was dropped without a log line, so a dataset made only of views (a BigQuery sharing linked dataset, for example) produced an empty domain. The object types to extract are now set with the `tableTypes` attribute of a `jdbcSchemas` entry of the extract config (`extract-schema` on a BigQuery connection), or with the new `--table-types` option of `extract-bq-schema`: `TABLE`, `VIEW`, `MATERIALIZED_VIEW` (or `MATERIALIZED VIEW`), `EXTERNAL` and `SNAPSHOT`, case insensitive. The schema, column descriptions and modes are read the same way whatever the object type.
+  - The default is unchanged (`TABLE` only), but every skipped object is now logged as a `WARN` with its type and how to include it. The JDBC default table types, which a `default:` section of the extract config fills in when `tableTypes` is not set, still mean `TABLE` only on BigQuery. Types unknown to BigQuery (`SYSTEM TABLE`, ...) are ignored with a warning, and a list with no BigQuery type fails.
+  - An object whose schema cannot be converted (an unsupported column type) or that was deleted since it was listed is now skipped with an error log, instead of failing the whole extraction.
+  - `extract-schema` on BigQuery now extracts with the connection and access token it was given (extract config `connectionRef`, `--connectionRef`, `--accessToken`) instead of the default connection.
+
 # 1.8.11:
 __New feature__:
 - **Database catalog browsing in `starlake serve`**: five new commands let an editor client (the VS Code extension first) browse the project's connections without leaving the IDE. `catalog-connections` lists the connections declared in `application.sl.yml`, marks the active one and shows their options with credentials masked. `catalog-schemas`, `catalog-tables` and `catalog-columns` walk the metadata of a connection, and `catalog-preview` returns the first rows of a table (`--limit`, 100 by default, capped at 1000). JDBC connections and BigQuery are supported; results come back as a JSON envelope with typed values.
