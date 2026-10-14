@@ -1,6 +1,13 @@
 
 # Release notes
 
+# 1.7.7:
+__Improvement__:
+- **`extract-bq-schema` extracts views, materialized views, external tables and snapshots on demand** (#1832): only standard tables were extracted, and every other BigQuery object was dropped without a log line, so a dataset made only of views (a BigQuery sharing linked dataset, for example) produced an empty domain. The object types to extract are now set with the `tableTypes` attribute of a `jdbcSchemas` entry of the extract config (`extract-schema` on a BigQuery connection), or with the new `--table-types` option of `extract-bq-schema`: `TABLE`, `VIEW`, `MATERIALIZED_VIEW` (or `MATERIALIZED VIEW`), `EXTERNAL` and `SNAPSHOT`, case insensitive. The schema, column descriptions and modes are read the same way whatever the object type.
+  - The default is unchanged (`TABLE` only), but every skipped object is now logged as a `WARN` with its type and how to include it. The JDBC default table types, which a `default:` section of the extract config fills in when `tableTypes` is not set, still mean `TABLE` only on BigQuery. Types unknown to BigQuery (`SYSTEM TABLE`, ...) are ignored with a warning, and a list with no BigQuery type fails.
+  - An object whose schema cannot be converted (an unsupported column type) or that was deleted since it was listed is now skipped with an error log, instead of failing the whole extraction.
+  - `extract-schema` on BigQuery now extracts with the connection and access token it was given (extract config `connectionRef`, `--connectionRef`, `--accessToken`) instead of the default connection.
+
 # 1.7.6:
 __Bug fix__:
 - **BigQuery transforms whose presql creates their target run on a new environment** (#1803): on the native BigQuery path, Starlake decided between `CREATE TABLE ... AS SELECT` and `INSERT`/`MERGE` by checking whether the table existed *before* the script ran, while the presql runs *inside* that script. A presql creating the target (`CREATE TABLE IF NOT EXISTS my_domain.my_table (...)`, typically followed by a `DELETE` of the re-computed window) therefore collided with the `CREATE TABLE ... AS SELECT` on the first run (`Already Exists ... at [3:1]`), and the task only succeeded from its second run on. When a top-level presql statement is a `CREATE [OR REPLACE] TABLE [IF NOT EXISTS]` of the task's own target (dataset and table names as in the sink, case-sensitive, project optional), the main query is now always an `INSERT`/`MERGE` into it: the first run behaves like every later one, and the table has the columns, partitioning and options the presql declares. The `INSERT`/`MERGE` still writes the columns of the SELECT, so a column the presql does not declare fails at the first run instead of being created.

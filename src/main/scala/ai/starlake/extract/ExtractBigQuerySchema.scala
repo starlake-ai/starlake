@@ -6,12 +6,13 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.BigQuery.{DatasetListOption, TableListOption}
-import com.google.cloud.bigquery.{BigQuery, Dataset, StandardTableDefinition, Table}
+import com.google.cloud.bigquery.{BigQuery, Dataset, TableDefinition, TableId, TableInfo}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.types.{StructField, StructType}
 
+import java.util.Locale
 import scala.jdk.CollectionConverters._
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class ExtractBigQuerySchema(config: TablesExtractConfig)(implicit settings: Settings)
     extends LazyLogging {
@@ -26,6 +27,9 @@ class ExtractBigQuerySchema(config: TablesExtractConfig)(implicit settings: Sett
   }
 
   val bigquery: BigQuery = bqJob.bigquery(accessToken = config.accessToken)
+
+  private val tableTypes: Set[TableDefinition.Type] =
+    ExtractBigQuerySchema.parseTableTypes(config.tableTypes)
 
   /** Extracts all schemas and table names from BigQuery. This method lists all datasets and their
     * tables, filtering out temporary tables that start with "zztmp_".
@@ -108,23 +112,15 @@ class ExtractBigQuerySchema(config: TablesExtractConfig)(implicit settings: Sett
       if (tablesToExclude.isEmpty) allTables
       else allTables.filterNot(t => tablesToExclude.contains(t.getTableId.getTable().toLowerCase()))
     }
-    val schemas = tables.flatMap { bqTable =>
-      logger.info(s"Extracting table $datasetName.${bqTable.getTableId.getTable()}")
-      // We get the Table again below because Tables are returned with a null definition by listTables above.
-      Try(bigquery.getTable(bqTable.getTableId())) match {
-        case scala.util.Success(tableWithDefinition) =>
-          if (tableWithDefinition.getDefinition().isInstanceOf[StandardTableDefinition])
-            Some(extractTable(tableWithDefinition))
-          else
-            None
-        case scala.util.Failure(e) =>
-          logger.error(s"Failed to get table ${bqTable.getTableId()}", e)
-          None
-      }
-    }
+    val schemas = ExtractBigQuerySchema.extractTables(
+      tables,
+      tableTypes,
+      // We get the Table again because Tables are returned with a null schema by listTables above.
+      tableId => bigquery.getTable(tableId)
+    )
     DomainInfo(
       name = dataset.getDatasetId().getDataset(),
-      tables = schemas.toList,
+      tables = schemas,
       comment = Option(dataset.getDescription),
       metadata = Some(
         Metadata(sink = Some(BigQuerySink(connectionRef = config.connectionRef).toAllSinks()))
@@ -132,18 +128,135 @@ class ExtractBigQuerySchema(config: TablesExtractConfig)(implicit settings: Sett
       database = Option(dataset.getDatasetId().getProject())
     )
   }
-
-  private def extractTable(table: Table): SchemaInfo = {
-    val bqSchema =
-      table.getDefinition[StandardTableDefinition].getSchema
-    val sparkSchema: StructType = BigQuerySchemaConverters.toSpark(bqSchema)
-    val schema =
-      SchemaInfo.fromSparkSchema(table.getTableId().getTable(), StructField("ignore", sparkSchema))
-    schema.copy(comment = Option(table.getDescription()))
-  }
 }
 
-object ExtractBigQuerySchema {
+object ExtractBigQuerySchema extends LazyLogging {
+
+  /** BigQuery object types extracted when no table type is configured. */
+  val defaultTableTypes: Set[TableDefinition.Type] = Set(TableDefinition.Type.TABLE)
+
+  /** Table types accepted by the `tableTypes` attribute and the `--table-types` option. */
+  val supportedTableTypes: Map[String, TableDefinition.Type] = List(
+    TableDefinition.Type.TABLE,
+    TableDefinition.Type.VIEW,
+    TableDefinition.Type.MATERIALIZED_VIEW,
+    TableDefinition.Type.EXTERNAL,
+    TableDefinition.Type.SNAPSHOT
+  ).map(tableType => tableType.name() -> tableType).toMap
+
+  private val supportedTableTypeNames: String =
+    supportedTableTypes.keys.toList.sorted.mkString(", ")
+
+  /** Maps configured table types to BigQuery object types. Names are case insensitive and spaces
+    * may be used instead of underscores ("MATERIALIZED VIEW"). Unknown names, such as JDBC only
+    * types, are ignored with a warning.
+    *
+    * @param tableTypes
+    *   configured table types, Nil to extract tables only
+    * @return
+    *   the BigQuery object types to extract
+    */
+  def parseTableTypes(tableTypes: List[String]): Set[TableDefinition.Type] = {
+    if (tableTypes.isEmpty) {
+      defaultTableTypes
+    } else {
+      val parsed = tableTypes.map { tableType =>
+        tableType -> supportedTableTypes.get(
+          tableType.trim.toUpperCase(Locale.ROOT).replaceAll("\\s+", "_")
+        )
+      }
+      val unknown = parsed.collect { case (tableType, None) => tableType }
+      val known = parsed.flatMap(_._2).toSet
+      if (unknown.nonEmpty)
+        logger.warn(
+          s"Ignoring table types not supported by BigQuery: ${unknown.mkString(", ")}. Supported table types are $supportedTableTypeNames"
+        )
+      if (known.isEmpty)
+        throw new IllegalArgumentException(
+          s"No supported BigQuery table type in ${tableTypes.mkString(", ")}. Supported table types are $supportedTableTypeNames"
+        )
+      known
+    }
+  }
+
+  /** @return
+    *   true if the object type is one of the table types to extract, or is not known yet. Logs a
+    *   warning when the object is skipped.
+    */
+  def isExtractable(table: TableInfo, tableTypes: Set[TableDefinition.Type]): Boolean = {
+    Option(table.getDefinition[TableDefinition]()).flatMap(d => Option(d.getType)) match {
+      case Some(tableType) if !tableTypes.contains(tableType) =>
+        logger.warn(
+          s"Skipping ${tableType.name()} ${table.getTableId.getDataset()}.${table.getTableId
+              .getTable()}: only ${tableTypes.map(_.name()).toList.sorted.mkString(", ")} objects are extracted. Add ${tableType.name()} to the BigQuery table types to extract it (tableTypes attribute of the extract config, --table-types option of extract-bq-schema)"
+        )
+        false
+      case _ =>
+        true
+    }
+  }
+
+  /** Extracts the schemas of the listed objects whose type is one of the table types to extract. An
+    * object that cannot be fetched or whose schema cannot be converted is skipped with an error.
+    *
+    * @param listedTables
+    *   objects returned by listTables: their definition holds their type but not their schema
+    * @param tableTypes
+    *   the BigQuery object types to extract
+    * @param getTable
+    *   fetches an object with its schema, null if it does not exist anymore
+    */
+  def extractTables(
+    listedTables: Iterable[TableInfo],
+    tableTypes: Set[TableDefinition.Type],
+    getTable: TableId => TableInfo
+  ): List[SchemaInfo] = {
+    // Filter on the listed type first to avoid fetching objects that would be skipped anyway, and
+    // again once fetched in case the listing did not return it.
+    listedTables.filter(isExtractable(_, tableTypes)).toList.flatMap { listedTable =>
+      val tableId = listedTable.getTableId
+      val tableName = s"${tableId.getDataset()}.${tableId.getTable()}"
+      Try(Option(getTable(tableId))) match {
+        case Success(Some(table)) if isExtractable(table, tableTypes) =>
+          logger.info(s"Extracting table $tableName")
+          Try(extractTable(table)) match {
+            case Success(schema) =>
+              schema
+            case Failure(e) =>
+              logger.error(s"Failed to extract the schema of $tableName", e)
+              None
+          }
+        case Success(Some(_)) =>
+          None
+        case Success(None) =>
+          logger.warn(s"Skipping $tableName: it does not exist anymore")
+          None
+        case Failure(e) =>
+          logger.error(s"Failed to get table $tableName", e)
+          None
+      }
+    }
+  }
+
+  /** @return
+    *   the table schema read from the table definition, whatever the BigQuery object type, or None
+    *   if the definition has no schema.
+    */
+  def extractTable(table: TableInfo): Option[SchemaInfo] = {
+    val tableName = table.getTableId().getTable()
+    Option(table.getDefinition[TableDefinition]()).flatMap(d => Option(d.getSchema)) match {
+      case Some(bqSchema) =>
+        val sparkSchema: StructType = BigQuerySchemaConverters.toSpark(bqSchema)
+        val schema = SchemaInfo.fromSparkSchema(tableName, StructField("ignore", sparkSchema))
+        Some(schema.copy(comment = Option(table.getDescription())))
+      case None =>
+        logger.warn(
+          s"Skipping ${table.getTableId.getDataset()}.$tableName: its definition has no schema"
+        )
+        None
+    }
+  }
+
   def run(
     args: Array[String]
   )(implicit settings: Settings, schemaHandler: SchemaHandler): Try[Unit] = {
