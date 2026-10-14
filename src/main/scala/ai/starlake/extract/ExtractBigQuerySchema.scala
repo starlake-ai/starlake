@@ -175,7 +175,7 @@ object ExtractBigQuerySchema extends LazyLogging {
     TableDefinition.Type.SNAPSHOT
   ).map(tableType => tableType.name() -> tableType).toMap
 
-  private val supportedTableTypeNames: String =
+  val supportedTableTypeNames: String =
     supportedTableTypes.keys.toList.sorted.mkString(", ")
 
   /** Maps configured table types to BigQuery object types. Names are case insensitive and spaces
@@ -247,50 +247,53 @@ object ExtractBigQuerySchema extends LazyLogging {
   ): List[SchemaInfo] = {
     // Filter on the listed type first to avoid fetching objects that would be skipped anyway, and
     // again once fetched in case the listing did not return it.
-    listedTables.filter(isExtractable(_, tableTypes)).toList.flatMap { listedTable =>
-      val tableId = listedTable.getTableId
-      val tableName = s"${tableId.getDataset()}.${tableId.getTable()}"
-      Try(Option(getTable(tableId))) match {
-        case Success(Some(table)) if isExtractable(table, tableTypes) =>
-          logger.info(s"Extracting table $tableName")
-          Try(extractTableOrView(table, getViewSchema)) match {
-            case Success(schema) =>
-              schema
-            case Failure(e) =>
-              logger.error(s"Failed to extract the schema of $tableName", e)
-              None
-          }
-        case Success(Some(_)) =>
-          None
-        case Success(None) =>
-          logger.warn(s"Skipping $tableName: it does not exist anymore")
-          None
-        case Failure(e) =>
-          logger.error(s"Failed to get table $tableName", e)
-          None
+    val extracted =
+      listedTables.filter(isExtractable(_, tableTypes)).toList.flatMap { listedTable =>
+        val tableId = listedTable.getTableId
+        val tableName = s"${tableId.getDataset()}.${tableId.getTable()}"
+        Try(Option(getTable(tableId))) match {
+          case Success(Some(table)) if isExtractable(table, tableTypes) =>
+            logger.info(s"Extracting table $tableName")
+            Try(extractTableOrView(table, getViewSchema)) match {
+              case Success(Some(schema)) =>
+                Some(Right(schema))
+              case Success(None) =>
+                Some(Left(tableName))
+              case Failure(e) =>
+                logger.error(s"Failed to extract the schema of $tableName", e)
+                Some(Left(tableName))
+            }
+          case Success(Some(_)) =>
+            None
+          case Success(None) =>
+            logger.warn(s"Skipping $tableName: it does not exist anymore")
+            None
+          case Failure(e) =>
+            logger.error(s"Failed to get table $tableName", e)
+            Some(Left(tableName))
+        }
       }
-    }
+    val notExtracted = extracted.collect { case Left(tableName) => tableName }
+    if (notExtracted.nonEmpty)
+      logger.warn(
+        s"${notExtracted.size} selected object(s) could not be extracted, see the errors above: ${notExtracted
+            .mkString(", ")}"
+      )
+    extracted.collect { case Right(schema) => schema }
   }
 
   /** @return
-    *   a job dry running `SELECT *` on the view, with the SQL dialect of the view
+    *   a job dry running `SELECT *` on the view in standard SQL
     */
   def dryRunJob(view: TableInfo, project: String, location: Option[String]): JobInfo = {
     val tableId = view.getTableId
-    // Standard SQL cannot query a legacy SQL view, the dialect of the views that do not set it
-    val useLegacySql =
-      !java.lang.Boolean.FALSE.equals(view.getDefinition[ViewDefinition]().useLegacySql())
-    val viewProject = Option(tableId.getProject())
-    val query =
-      if (useLegacySql)
-        s"SELECT * FROM [${viewProject.map(_ + ":").getOrElse("")}${tableId.getDataset()}.${tableId.getTable()}]"
-      else
-        s"SELECT * FROM `${viewProject.map(_ + ".").getOrElse("")}${tableId.getDataset()}.${tableId.getTable()}`"
+    val viewProject = Option(tableId.getProject()).map(_ + ".").getOrElse("")
+    val query = s"SELECT * FROM `$viewProject${tableId.getDataset()}.${tableId.getTable()}`"
     val jobId = JobId.newBuilder().setJob(UUID.randomUUID().toString).setProject(project)
     location.foreach(jobId.setLocation)
     JobInfo.of(
       jobId.build(),
-      QueryJobConfiguration.newBuilder(query).setDryRun(true).setUseLegacySql(useLegacySql).build()
+      QueryJobConfiguration.newBuilder(query).setDryRun(true).setUseLegacySql(false).build()
     )
   }
 
@@ -304,6 +307,13 @@ object ExtractBigQuerySchema extends LazyLogging {
     getViewSchema: TableInfo => Schema
   ): Option[SchemaInfo] =
     table.getDefinition[TableDefinition]() match {
+      // Legacy SQL is the dialect of the views that do not set it. The dry run of a legacy SQL
+      // query returns no schema, and standard SQL cannot query a legacy SQL view.
+      case view: ViewDefinition if !java.lang.Boolean.FALSE.equals(view.useLegacySql()) =>
+        logger.warn(
+          s"View ${table.getTableId.getDataset()}.${table.getTableId.getTable()} uses legacy SQL, whose effective schema cannot be read with a dry run: using its stored schema, which may be stale"
+        )
+        extractTable(table)
       case view: ViewDefinition =>
         val viewName = s"${table.getTableId.getDataset()}.${table.getTableId.getTable()}"
         Try {

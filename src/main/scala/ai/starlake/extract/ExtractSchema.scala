@@ -96,15 +96,14 @@ class ExtractSchema(schemaHandler: SchemaHandler) extends ExtractPathHelper with
       case None =>
         val extractArea = if (userConfig.external) DatasetArea.external else DatasetArea.extract
         if (connectionSettings.isBigQuery()) {
-          // Extract with the connection selected above, the extract config one taking precedence
-          val bigQueryUserConfig =
-            userConfig.copy(connectionRef =
-              jdbcSchemas.connectionRef.orElse(userConfig.connectionRef)
-            )
           val extractedDomains =
             jdbcSchemas.jdbcSchemas.getOrElse(Nil).flatMap { jdbcSchema =>
               val bigQueryConfig =
-                ExtractBigQuerySchemaCmd.fromExtractSchemaConfig(bigQueryUserConfig, jdbcSchema)
+                ExtractBigQuerySchemaCmd.fromExtractSchemaConfig(
+                  userConfig,
+                  jdbcSchema,
+                  jdbcSchemas.connectionRef
+                )
               ExtractBigQuerySchemaCmd.extract(bigQueryConfig, schemaHandler)
             }
           Some(extractedDomains)
