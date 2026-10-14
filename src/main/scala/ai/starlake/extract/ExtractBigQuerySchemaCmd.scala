@@ -28,14 +28,17 @@ object ExtractBigQuerySchemaCmd extends TablesExtractCmd {
       .action((x, c) => c.copy(tableTypes = x.toList))
       .optional()
       .text(
-        s"Types of the objects to extract, among ${ExtractBigQuerySchema.supportedTableTypes.keys.toList.sorted
-            .mkString(", ")}. Defaults to TABLE. The types of a VIEW are read with a dry run query, which needs bigquery.jobs.create, or from its stored schema, which may be stale"
+        s"Types of the objects to extract, among ${ExtractBigQuerySchema.supportedTableTypeNames}. Defaults to TABLE. The types of a standard SQL VIEW are read with a dry run query, which needs bigquery.jobs.create, or from its stored schema, which may be stale"
       )
   )
 
+  /** @param extractConnectionRef
+    *   connection of the extract config, which takes precedence over the one of the command
+    */
   def fromExtractSchemaConfig(
     config: ExtractSchemaConfig,
-    jdbcSchema: JDBCSchema
+    jdbcSchema: JDBCSchema,
+    extractConnectionRef: Option[String] = None
   ): TablesExtractConfig = {
     val tablesRenamed = jdbcSchema.tables.map { table =>
       if (table.name == "_" || table.name == "") "*" else table.name
@@ -51,7 +54,7 @@ object ExtractBigQuerySchemaCmd extends TablesExtractCmd {
       if (jdbcSchema.tableTypes.toSet == JDBCSchema.defaultTableTypes.toSet) Nil
       else jdbcSchema.tableTypes
     TablesExtractConfig(
-      connectionRef = config.connectionRef,
+      connectionRef = extractConnectionRef.orElse(config.connectionRef),
       tables = tables,
       database = jdbcSchema.catalog,
       external = config.external,

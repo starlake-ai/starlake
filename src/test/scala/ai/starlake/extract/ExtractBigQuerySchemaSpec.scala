@@ -268,7 +268,24 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
     extractView(_ => Schema.of(Field.of("id", StandardSQLTypeName.BYTES))) shouldBe storedTypes
   }
 
-  "dryRunJob" should "query the view in the dataset location and the given project" in {
+  it should "not dry run legacy SQL views, whose dry runs return no schema" in {
+    val legacySqlView = tableInfo(
+      "my_view",
+      ViewDefinition.newBuilder("SELECT 1").setUseLegacySql(true).setSchema(bqSchema).build()
+    )
+    val dryRun = new DryRun("my_view" -> effectiveSchema)
+    ExtractBigQuerySchema
+      .extractTables(
+        List(listed(legacySqlView)),
+        ExtractBigQuerySchema.parseTableTypes(List("VIEW")),
+        getTable(legacySqlView),
+        dryRun
+      )
+      .flatMap(_.attributes.map(_.`type`)) shouldBe List("long", "string", "decimal", "string")
+    dryRun.dryRunTables shouldBe Nil
+  }
+
+  "dryRunJob" should "query the view in standard SQL, the dataset location and the given project" in {
     val standardSqlView = tableInfo(
       "my_view",
       ViewDefinition.newBuilder("SELECT 1").setUseLegacySql(false).build()
@@ -280,16 +297,6 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
     query.getQuery shouldBe "SELECT * FROM `source-project.my_dataset.my_view`"
     query.dryRun() shouldBe true
     query.useLegacySql() shouldBe false
-  }
-
-  it should "query a legacy SQL view with legacy SQL" in {
-    val legacySqlView =
-      tableInfo("my_view", ViewDefinition.newBuilder("SELECT 1").setUseLegacySql(true).build())
-    val job = ExtractBigQuerySchema.dryRunJob(legacySqlView, "billing-project", None)
-    job.getJobId.getLocation shouldBe null
-    val query = job.getConfiguration[QueryJobConfiguration]()
-    query.getQuery shouldBe "SELECT * FROM [my_dataset.my_view]"
-    query.useLegacySql() shouldBe true
   }
 
   "mergeViewSchema" should "take the effective types and the stored descriptions at every level" in {
@@ -365,6 +372,20 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
     config.tableTypes shouldBe List("TABLE", "VIEW")
     config.connectionRef shouldBe Some("bigquery-source")
     config.accessToken shouldBe Some("token")
+  }
+
+  it should "prefer the connection of the extract config to the one of the command" in {
+    def connectionRef(command: Option[String], extractConfig: Option[String]): Option[String] =
+      ExtractBigQuerySchemaCmd
+        .fromExtractSchemaConfig(
+          ExtractSchemaConfig(connectionRef = command),
+          JDBCSchema(schema = "my_dataset"),
+          extractConfig
+        )
+        .connectionRef
+    connectionRef(Some("command"), Some("extract-config")) shouldBe Some("extract-config")
+    connectionRef(Some("command"), None) shouldBe Some("command")
+    connectionRef(None, None) shouldBe None
   }
 
   it should "keep extracting tables only when the table types are the JDBC default ones" in {
