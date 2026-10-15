@@ -5,6 +5,8 @@ import ai.starlake.extract.{ExtractBigQuerySchema, TablesExtractConfig}
 import com.google.cloud.bigquery.BigQuery.{DatasetListOption, TableDataListOption, TableListOption}
 import com.google.cloud.bigquery._
 
+import java.time.Instant
+
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
@@ -82,13 +84,10 @@ class BigQueryCatalogBackend(connectionName: String, connectionInfo: ConnectionI
     }
   }
 
-  private def jsonValue(value: FieldValue): Any =
-    if (value == null || value.isNull) null
-    else
-      value.getAttribute match {
-        case FieldValue.Attribute.PRIMITIVE => value.getStringValue
-        case _                              => String.valueOf(value.getValue)
-      }
+  private def rowValues(row: FieldValueList, fields: List[Field]): List[Any] =
+    row.asScala.toList.zipWithIndex.map { case (v, i) =>
+      BigQueryCatalogBackend.jsonValue(v, fields.lift(i).map(_.getType.getStandardType))
+    }
 
   override def preview(schema: String, table: String, limit: Int): CatalogPreview = run { bq =>
     val t = getTable(bq, schema, table)
@@ -105,16 +104,48 @@ class BigQueryCatalogBackend(connectionName: String, connectionInfo: ConnectionI
           .iterateAll()
           .asScala
           .take(limit + 1)
-          .map(row => row.asScala.toList.map(jsonValue))
+          .map(row => rowValues(row, fields))
           .toList
       } else {
         bq.listTableData(t.getTableId, TableDataListOption.pageSize(limit + 1L))
           .getValues
           .asScala
           .take(limit + 1)
-          .map(row => row.asScala.toList.map(jsonValue))
+          .map(row => rowValues(row, fields))
           .toList
       }
     CatalogPreview(columns, rows.take(limit), truncated = rows.size > limit)
   }
+}
+
+object BigQueryCatalogBackend {
+
+  /** Converts a BigQuery cell to a JSON scalar: INT64, FLOAT64 and BOOL are typed, TIMESTAMP is
+    * ISO-8601 UTC, everything else (NUMERIC, DATE, ...) stays a string. Falls back to the string
+    * value when the column type is unknown or the value cannot be parsed.
+    */
+  private[catalog] def jsonValue(value: FieldValue, tpe: Option[StandardSQLTypeName]): Any =
+    if (value == null || value.isNull) null
+    else if (value.getAttribute != FieldValue.Attribute.PRIMITIVE) String.valueOf(value.getValue)
+    else
+      try
+        tpe match {
+          case Some(StandardSQLTypeName.INT64) => java.lang.Long.valueOf(value.getLongValue)
+          case Some(StandardSQLTypeName.BOOL)  => java.lang.Boolean.valueOf(value.getBooleanValue)
+          case Some(StandardSQLTypeName.FLOAT64) =>
+            val d = value.getDoubleValue
+            if (d.isNaN || d.isInfinite) d.toString else java.lang.Double.valueOf(d)
+          case Some(StandardSQLTypeName.TIMESTAMP) =>
+            val micros = value.getTimestampValue
+            Instant
+              .ofEpochSecond(
+                Math.floorDiv(micros, 1000000L),
+                Math.floorMod(micros, 1000000L) * 1000L
+              )
+              .toString
+          case _ => value.getStringValue
+        }
+      catch {
+        case NonFatal(_) => value.getStringValue
+      }
 }
