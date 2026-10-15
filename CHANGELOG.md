@@ -1,6 +1,14 @@
 
 # Release notes
 
+# 1.8.11:
+__New feature__:
+- **Database catalog browsing in `starlake serve`**: five new commands let an editor client (the VS Code extension first) browse the project's connections without leaving the IDE. `catalog-connections` lists the connections declared in `application.sl.yml`, marks the active one and shows their options with credentials masked. `catalog-schemas`, `catalog-tables` and `catalog-columns` walk the metadata of a connection, and `catalog-preview` returns the first rows of a table (`--limit`, 100 by default, capped at 1000). JDBC connections and BigQuery are supported; results come back as a JSON envelope with typed values.
+  - BigQuery tables are previewed through `tabledata.list`, which is free. Views need a query, which is capped at 1 GiB billed and fails with an explicit message instead of scanning more.
+  - Integers beyond 2^53 are sent as strings, so JavaScript clients do not silently round them.
+  - Credentials are scrubbed from every error message, including those echoed by drivers and cloud clients, from password-like options, URL query parameters and URL userinfo (`user:password@host`).
+- **`starlake serve` accepts an `ARGUMENTS` payload**, a JSON array of strings sent inline or encoded as a string, as the VS Code extension sends it. `PARAMS` keeps working.
+
 # 1.8.9:
 __Bug Fix__:
 - **BigQuery transforms whose presql creates their target run on a new environment** (#1803): on the native BigQuery path, Starflow decided between `CREATE TABLE ... AS SELECT` and `INSERT`/`MERGE` by checking whether the table existed *before* the script ran, while the presql runs *inside* that script. A presql creating the target (`CREATE TABLE IF NOT EXISTS my_domain.my_table (...)`, typically followed by a `DELETE` of the re-computed window) therefore collided with the `CREATE TABLE ... AS SELECT` on the first run (`Already Exists ... at [3:1]`), and the task only succeeded from its second run on. When a top-level presql statement is a `CREATE [OR REPLACE] TABLE [IF NOT EXISTS]` of the task's own target (dataset and table names as in the sink, case-sensitive, project optional), the main query is now always an `INSERT`/`MERGE` into it: the first run behaves like every later one, and the table has the columns, partitioning and options the presql declares. The `INSERT`/`MERGE` still writes the columns of the SELECT, so a column the presql does not declare fails at the first run instead of being created.
