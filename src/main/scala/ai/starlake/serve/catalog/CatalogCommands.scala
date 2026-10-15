@@ -47,8 +47,9 @@ object CatalogCommands {
   private[catalog] def parseOptions(args: List[String]): Map[String, String] =
     args
       .sliding(2, 1)
-      .collect { case key :: value :: Nil if key.startsWith("--") && !value.startsWith("--") =>
-        key.drop(2) -> value
+      .collect {
+        case key :: value :: Nil if key.startsWith("--") && !value.startsWith("--") =>
+          key.drop(2) -> value
       }
       .toMap
 }

@@ -30,7 +30,15 @@ class CatalogCommandsSpec extends TestHelper {
 
   it should "use the default preview limit and parse --limit" in {
     new WithSettings() {
-      run("catalog-preview", "--connection", "duck", "--schema", "sales", "--table", "orders") should
+      run(
+        "catalog-preview",
+        "--connection",
+        "duck",
+        "--schema",
+        "sales",
+        "--table",
+        "orders"
+      ) should
       include(""""truncated":false""")
       run(
         "catalog-preview",
@@ -73,7 +81,9 @@ class CatalogCommandsSpec extends TestHelper {
 
   it should "report UNKNOWN_CONNECTION through the envelope" in {
     new WithSettings() {
-      run("catalog-schemas", "--connection", "nope") should include(""""code":"UNKNOWN_CONNECTION"""")
+      run("catalog-schemas", "--connection", "nope") should include(
+        """"code":"UNKNOWN_CONNECTION""""
+      )
     }
   }
 }
