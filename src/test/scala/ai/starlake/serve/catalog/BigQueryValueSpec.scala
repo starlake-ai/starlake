@@ -39,7 +39,9 @@ class BigQueryValueSpec extends AnyFlatSpec with Matchers {
 
   it should "map null to null and fall back to the string without a type" in {
     val nullCell = FieldValue.of(FieldValue.Attribute.PRIMITIVE, null)
-    Option(BigQueryCatalogBackend.jsonValue(nullCell, Some(StandardSQLTypeName.INT64))) shouldBe None
+    Option(
+      BigQueryCatalogBackend.jsonValue(nullCell, Some(StandardSQLTypeName.INT64))
+    ) shouldBe None
     BigQueryCatalogBackend.jsonValue(prim("42"), None) shouldBe "42"
   }
 }
