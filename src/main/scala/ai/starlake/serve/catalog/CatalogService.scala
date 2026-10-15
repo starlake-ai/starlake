@@ -37,6 +37,10 @@ class CatalogService(connections: Map[String, ConnectionInfo])(implicit settings
     backend(connection).preview(schema, table, effective)
   }
 
+  /** Masks the credentials of every known connection in a message. */
+  def scrub(message: String): String =
+    CatalogScrubber.scrub(message, connections.values.flatMap(_.options).toMap)
+
   private def notBrowsableReason(info: ConnectionInfo): Option[String] = {
     val isSpark = Try(info.isSpark()).getOrElse(false)
     if (info.isBigQuery()) None

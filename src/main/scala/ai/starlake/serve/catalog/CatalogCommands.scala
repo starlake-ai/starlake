@@ -2,7 +2,7 @@ package ai.starlake.serve.catalog
 
 import ai.starlake.config.Settings
 
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 object CatalogCommands {
 
@@ -28,7 +28,7 @@ object CatalogCommands {
         }
         .getOrElse(CatalogService.DefaultPreviewLimit)
 
-    CatalogJson.fromTry(Try {
+    val result = Try {
       args.headOption.getOrElse("") match {
         case "catalog-connections" => service.listConnections()
         case "catalog-schemas"     => service.listSchemas(required("connection"))
@@ -40,7 +40,17 @@ object CatalogCommands {
         case other =>
           throw new CatalogException(CatalogErrorCode.BadRequest, s"Unknown command '$other'")
       }
-    })
+    }.recoverWith {
+      case e: CatalogException => Failure(e)
+      case e =>
+        Failure(
+          new CatalogException(
+            CatalogErrorCode.QueryFailed,
+            service.scrub(CatalogJson.messageOf(e))
+          )
+        )
+    }
+    CatalogJson.fromTry(result)
   }
 
   /** `--key value` pairs. A key without a value is ignored. */

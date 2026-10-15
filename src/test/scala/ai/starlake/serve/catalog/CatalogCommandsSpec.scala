@@ -86,4 +86,20 @@ class CatalogCommandsSpec extends TestHelper {
       )
     }
   }
+
+  it should "turn an unexpected failure into a scrubbed QUERY_FAILED" in {
+    new WithSettings() {
+      val leaking = new CatalogService(connections) {
+        override protected def backend(name: String): CatalogBackend =
+          throw new RuntimeException(s"boom with ${DuckDbCatalogFixture.BrokenPassword}")
+      }
+      val json = CatalogCommands.handle(
+        Array("catalog-schemas", "--connection", "duck"),
+        leaking
+      )
+      json should include(""""code":"QUERY_FAILED"""")
+      json should include("boom with ***")
+      json should not include DuckDbCatalogFixture.BrokenPassword
+    }
+  }
 }

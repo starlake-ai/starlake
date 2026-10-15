@@ -52,6 +52,13 @@ class CatalogJsonSpec extends AnyFlatSpec with Matchers {
     ) shouldBe "cannot open jdbc:postgresql://h/db?user=bob&password=***&ssl=true"
   }
 
+  it should "mask token, secret, passwd and api key parameters in a URL" in {
+    CatalogScrubber.scrub(
+      "failed https://h/x?TOKEN=abc&secret=def;passwd=ghi&api_key=jkl&apikey=mno&ok=1",
+      Map.empty
+    ) shouldBe "failed https://h/x?TOKEN=***&secret=***;passwd=***&api_key=***&apikey=***&ok=1"
+  }
+
   it should "survive a null message" in {
     CatalogScrubber.scrub(null, Map("password" -> "x")) shouldBe ""
   }

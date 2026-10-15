@@ -6,7 +6,7 @@ import scala.util.matching.Regex
 object CatalogScrubber {
   private val SensitiveKey: Regex =
     "(?i).*(password|passwd|pwd|secret|token|private_?key|credential).*".r
-  private val UrlSecret: Regex = "(?i)((?:password|pwd)=)[^&;\\s]*".r
+  private val UrlSecret: Regex = "(?i)((?:password|passwd|pwd|token|secret|api_?key)=)[^&;\\s]*".r
   private val Mask = "***"
 
   def scrub(message: String, options: Map[String, String]): String = {
