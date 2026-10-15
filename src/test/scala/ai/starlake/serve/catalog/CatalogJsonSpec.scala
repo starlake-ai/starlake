@@ -75,6 +75,47 @@ class CatalogJsonSpec extends AnyFlatSpec with Matchers {
     )
   }
 
+  it should "mask cloud credential option names and URL userinfo in maskOptions" in {
+    val options = Map(
+      "jsonKeyBase64" -> "QUJDREVGRw==",
+      "jsonKeyfile"   -> "/secret/path/key.json",
+      "apiKey"        -> "AK-123456",
+      "accessKey"     -> "ACC-123456",
+      "privateKey"    -> "PK-123456",
+      "pgUrl"         -> "jdbc:postgresql://u:S3cret@h:5432/db",
+      "httpUrl"       -> "https://u:S3cret@h/x",
+      "paramUrl"      -> "jdbc:x://h/db?api_key=ZZZ999&access_key=YYY888&sas_key=XXX777"
+    )
+    val masked = CatalogScrubber.maskOptions(options)
+    masked.values.foreach { v =>
+      List(
+        "QUJDREVGRw",
+        "key.json",
+        "AK-123456",
+        "ACC-123456",
+        "PK-123456",
+        "S3cret",
+        "ZZZ999",
+        "YYY888",
+        "XXX777"
+      )
+        .foreach(secret => v should not include secret)
+    }
+    masked("pgUrl") shouldBe "jdbc:postgresql://u:***@h:5432/db"
+    masked("httpUrl") shouldBe "https://u:***@h/x"
+  }
+
+  it should "scrub userinfo and cloud credential values from messages" in {
+    val options = Map("jsonKeyBase64" -> "QUJDREVGRw==", "apiKey" -> "AK-123456")
+    val msg = CatalogScrubber.scrub(
+      "failed QUJDREVGRw== AK-123456 at jdbc:postgresql://u:S3cret@h:5432/db and https://u:S3cret@h/x?access_key=ACC1",
+      options
+    )
+    List("QUJDREVGRw", "AK-123456", "S3cret", "ACC1").foreach(secret =>
+      msg should not include secret
+    )
+  }
+
   "CatalogScrubber.scrub" should "mask values of sensitive options" in {
     val options = Map("url" -> "jdbc:postgresql://h/db", "user" -> "bob", "password" -> "s3cr3t!")
     CatalogScrubber.scrub("auth failed for bob with s3cr3t!", options) shouldBe
