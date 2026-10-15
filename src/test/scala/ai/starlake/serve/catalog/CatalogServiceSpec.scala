@@ -87,4 +87,49 @@ class CatalogServiceSpec extends TestHelper {
       cols(2).precision shouldBe None
     }
   }
+
+  "preview" should "return the first rows with column names and types" in {
+    new WithSettings() {
+      val p = service.preview("duck", "sales", "orders", 2)
+      p.columns.map(_.name) shouldBe List("id", "amount", "created", "note")
+      p.rows should have size 2
+      p.truncated shouldBe true
+      p.rows.head shouldBe List(1L, "12.50", "2024-01-31", "first")
+      p.rows(1)(3) shouldBe (null: Any)
+    }
+  }
+
+  it should "not be truncated when every row fits" in {
+    new WithSettings() {
+      val p = service.preview("duck", "sales", "orders", 10)
+      p.rows should have size 3
+      p.truncated shouldBe false
+    }
+  }
+
+  it should "preview views" in {
+    new WithSettings() {
+      service.preview("duck", "sales", "big_orders", 10).rows.map(_.head) shouldBe List(2L)
+    }
+  }
+
+  it should "quote identifiers containing quotes and dots" in {
+    new WithSettings() {
+      service.preview("duck", "sales", "we'ird.\"name\"", 10).rows shouldBe List(List(42L))
+    }
+  }
+
+  it should "clamp the limit between 1 and 1000" in {
+    new WithSettings() {
+      service.preview("duck", "sales", "orders", 0).rows should have size 1
+      service.preview("duck", "sales", "orders", 5000).rows should have size 3
+    }
+  }
+
+  it should "fail with QUERY_FAILED for a missing table" in {
+    new WithSettings() {
+      intercept[CatalogException](service.preview("duck", "sales", "nope", 10)).code shouldBe
+      CatalogErrorCode.QueryFailed
+    }
+  }
 }

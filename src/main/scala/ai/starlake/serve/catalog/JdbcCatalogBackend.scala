@@ -100,6 +100,40 @@ class JdbcCatalogBackend(connectionInfo: ConnectionInfo) extends CatalogBackend 
       }.sortBy(_._1).map(_._2)
     }
 
+  private def quoteIdentifier(identifier: String, quote: String): String =
+    if (quote == null || quote.trim.isEmpty) identifier
+    else quote + identifier.replace(quote, quote + quote) + quote
+
+  private[catalog] def jsonValue(value: Any): Any = value match {
+    case null                 => null
+    case b: java.lang.Boolean => b
+    case n @ (_: java.lang.Integer | _: java.lang.Long | _: java.lang.Short | _: java.lang.Byte) =>
+      n.asInstanceOf[Number].longValue()
+    case d: java.lang.Double if d.isNaN || d.isInfinite => d.toString
+    case f: java.lang.Float if f.isNaN || f.isInfinite  => f.toString
+    case n @ (_: java.lang.Double | _: java.lang.Float) => n.asInstanceOf[Number].doubleValue()
+    case d: java.math.BigDecimal                        => d.toPlainString
+    case bytes: Array[Byte]                             => s"<binary ${bytes.length} bytes>"
+    case other                                          => other.toString
+  }
+
   override def preview(schema: String, table: String, limit: Int): CatalogPreview =
-    throw new CatalogException(CatalogErrorCode.QueryFailed, "Preview is not implemented yet")
+    withConnection { conn =>
+      val quote = conn.getMetaData.getIdentifierQuoteString
+      val sql =
+        s"SELECT * FROM ${quoteIdentifier(schema, quote)}.${quoteIdentifier(table, quote)}"
+      Using.resource(conn.createStatement()) { st =>
+        st.setMaxRows(limit + 1)
+        Using.resource(st.executeQuery(sql)) { rs =>
+          val meta = rs.getMetaData
+          val columns = (1 to meta.getColumnCount).toList.map { i =>
+            CatalogPreviewColumn(meta.getColumnLabel(i), meta.getColumnTypeName(i))
+          }
+          val rows = ListBuffer[List[Any]]()
+          while (rows.size <= limit && rs.next())
+            rows += columns.indices.toList.map(i => jsonValue(rs.getObject(i + 1)))
+          CatalogPreview(columns, rows.take(limit).toList, truncated = rows.size > limit)
+        }
+      }
+    }
 }
