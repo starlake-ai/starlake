@@ -9,7 +9,7 @@ object CatalogScrubber {
   private val UrlSecret: Regex = "(?i)((?:password|passwd|pwd|token|secret|api_?key)=)[^&;\\s]*".r
   private val Mask = "***"
 
-  def scrub(message: String, options: Map[String, String]): String = {
+  def scrub(message: String, options: Iterable[(String, String)]): String = {
     val secrets = options.toList
       .collect {
         case (key, value) if value != null && value.length >= 3 && SensitiveKey.matches(key) =>

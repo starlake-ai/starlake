@@ -102,4 +102,32 @@ class CatalogCommandsSpec extends TestHelper {
       json should not include DuckDbCatalogFixture.BrokenPassword
     }
   }
+
+  it should "scrub the passwords of every connection, even when they share an option key" in {
+    new WithSettings() {
+      val first = "first-pw-aaa"
+      val second = "second-pw-bbb"
+      val two = Map(
+        "one" -> ai.starlake.config.ConnectionInfo(
+          ai.starlake.schema.model.ConnectionType.JDBC,
+          options = Map("url" -> "jdbc:x://a", "password" -> first)
+        ),
+        "two" -> ai.starlake.config.ConnectionInfo(
+          ai.starlake.schema.model.ConnectionType.JDBC,
+          options = Map("url" -> "jdbc:x://b", "password" -> second)
+        )
+      )
+      val leaking = new CatalogService(two) {
+        override protected def backend(name: String): CatalogBackend =
+          throw new RuntimeException(s"boom $first and $second")
+      }
+      val json = CatalogCommands.handle(
+        Array("catalog-schemas", "--connection", "one"),
+        leaking
+      )
+      json should include(""""code":"QUERY_FAILED"""")
+      json should not include first
+      json should not include second
+    }
+  }
 }

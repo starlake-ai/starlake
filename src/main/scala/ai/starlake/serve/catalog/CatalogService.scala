@@ -39,7 +39,7 @@ class CatalogService(connections: Map[String, ConnectionInfo])(implicit settings
 
   /** Masks the credentials of every known connection in a message. */
   def scrub(message: String): String =
-    CatalogScrubber.scrub(message, connections.values.flatMap(_.options).toMap)
+    CatalogScrubber.scrub(message, connections.values.flatMap(_.options))
 
   private def notBrowsableReason(info: ConnectionInfo): Option[String] = {
     val isSpark = Try(info.isSpark()).getOrElse(false)
