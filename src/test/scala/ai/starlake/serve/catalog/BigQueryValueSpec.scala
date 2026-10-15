@@ -14,6 +14,13 @@ class BigQueryValueSpec extends AnyFlatSpec with Matchers {
     conv("42", StandardSQLTypeName.INT64) shouldBe java.lang.Long.valueOf(42L)
   }
 
+  it should "send INT64 beyond 2^53 as a string" in {
+    conv("9007199254740991", StandardSQLTypeName.INT64) shouldBe
+    java.lang.Long.valueOf(9007199254740991L)
+    conv("9007199254740993", StandardSQLTypeName.INT64) shouldBe "9007199254740993"
+    conv("-9007199254740993", StandardSQLTypeName.INT64) shouldBe "-9007199254740993"
+  }
+
   it should "type FLOAT64 as Double and keep NaN and Infinity as strings" in {
     conv("1.5", StandardSQLTypeName.FLOAT64) shouldBe java.lang.Double.valueOf(1.5)
     conv("NaN", StandardSQLTypeName.FLOAT64) shouldBe "NaN"

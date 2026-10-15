@@ -108,7 +108,9 @@ class JdbcCatalogBackend(connectionInfo: ConnectionInfo) extends CatalogBackend 
     case null                 => null
     case b: java.lang.Boolean => b
     case n @ (_: java.lang.Integer | _: java.lang.Long | _: java.lang.Short | _: java.lang.Byte) =>
-      n.asInstanceOf[Number].longValue()
+      CatalogJson.safeInteger(n.asInstanceOf[Number].longValue())
+    case b: java.math.BigInteger =>
+      if (b.bitLength < 64) CatalogJson.safeInteger(b.longValue()) else b.toString
     case d: java.lang.Double if d.isNaN || d.isInfinite => d.toString
     case f: java.lang.Float if f.isNaN || f.isInfinite  => f.toString
     case n @ (_: java.lang.Double | _: java.lang.Float) => n.asInstanceOf[Number].doubleValue()

@@ -25,6 +25,12 @@ object CatalogJson {
     case Failure(e)                   => error(CatalogErrorCode.QueryFailed, messageOf(e))
   }
 
+  private val MaxSafeInteger = 9007199254740991L
+
+  /** JSON.parse rounds integers beyond 2^53-1, so those travel as strings. */
+  def safeInteger(v: Long): Any =
+    if (v > MaxSafeInteger || v < -MaxSafeInteger) v.toString else java.lang.Long.valueOf(v)
+
   def messageOf(e: Throwable): String =
     Option(e.getMessage).filter(_.nonEmpty).getOrElse(e.getClass.getSimpleName)
 }

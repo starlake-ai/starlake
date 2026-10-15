@@ -113,6 +113,26 @@ class CatalogServiceSpec extends TestHelper {
     }
   }
 
+  it should "send integers beyond 2^53 as strings" in {
+    new WithSettings() {
+      val (path, conns) = DuckDbCatalogFixture.create()
+      scala.util.Using.resource(java.sql.DriverManager.getConnection(s"jdbc:duckdb:$path")) { c =>
+        scala.util.Using.resource(c.createStatement()) { st =>
+          st.execute("CREATE TABLE sales.big (a BIGINT, h HUGEINT, s BIGINT)")
+          st.execute(
+            "INSERT INTO sales.big VALUES (9007199254740993, 9007199254740993, 9007199254740991)"
+          )
+          st.execute("INSERT INTO sales.big VALUES (-9007199254740993, 5, -9007199254740991)")
+        }
+      }
+      val rows = new CatalogService(conns).preview("duck", "sales", "big", 10).rows
+      rows shouldBe List(
+        List("9007199254740993", "9007199254740993", 9007199254740991L),
+        List("-9007199254740993", 5L, -9007199254740991L)
+      )
+    }
+  }
+
   it should "quote identifiers containing quotes and dots" in {
     new WithSettings() {
       service.preview("duck", "sales", "we'ird.\"name\"", 10).rows shouldBe List(List(42L))

@@ -168,7 +168,7 @@ object BigQueryCatalogBackend {
     else
       try
         tpe match {
-          case Some(StandardSQLTypeName.INT64) => java.lang.Long.valueOf(value.getLongValue)
+          case Some(StandardSQLTypeName.INT64) => CatalogJson.safeInteger(value.getLongValue)
           case Some(StandardSQLTypeName.BOOL)  => java.lang.Boolean.valueOf(value.getBooleanValue)
           case Some(StandardSQLTypeName.FLOAT64) =>
             val d = value.getDoubleValue
