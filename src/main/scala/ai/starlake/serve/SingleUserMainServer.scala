@@ -1,6 +1,7 @@
 package ai.starlake.serve
 
 import ai.starlake.buildinfo.BuildInfo
+import ai.starlake.serve.catalog.CatalogCommands
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.sparkproject.jetty.server.Server
@@ -71,6 +72,8 @@ object SingleUserMainServer {
         )
       case "types" =>
         SingleUserMainServer.mapper.writeValueAsString(SingleUserServices.types(reload)(settings))
+      case command if CatalogCommands.isCatalogCommand(command) =>
+        CatalogCommands.handle(args)(settings)
       case _ =>
         val errCapture = new ByteArrayOutputStream()
         val outCapture = new ByteArrayOutputStream()
