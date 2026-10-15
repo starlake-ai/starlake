@@ -12,7 +12,8 @@ object CatalogScrubber {
   def scrub(message: String, options: Map[String, String]): String = {
     val secrets = options.toList
       .collect {
-        case (key, value) if value != null && value.length >= 3 && SensitiveKey.matches(key) => value
+        case (key, value) if value != null && value.length >= 3 && SensitiveKey.matches(key) =>
+          value
       }
       .sortBy(-_.length)
     val masked = secrets.foldLeft(Option(message).getOrElse("")) { (msg, secret) =>

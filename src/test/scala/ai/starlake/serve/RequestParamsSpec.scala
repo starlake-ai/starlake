@@ -18,7 +18,8 @@ class RequestParamsSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "accept ARGUMENTS as a real JSON array" in {
-    val payload = RequestParams.parsePayload("""{"ARGUMENTS":["catalog-schemas","--connection","duck"]}""")
+    val payload =
+      RequestParams.parsePayload("""{"ARGUMENTS":["catalog-schemas","--connection","duck"]}""")
     RequestParams.args(payload).toList shouldBe List("catalog-schemas", "--connection", "duck")
   }
 
