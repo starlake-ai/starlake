@@ -39,6 +39,42 @@ class CatalogJsonSpec extends AnyFlatSpec with Matchers {
     """{"ok":true,"data":[{"name":"main"}]}"""
   }
 
+  "CatalogJson.ok" should "serialize a connection with active and ordered details" in {
+    val details = scala.collection.immutable.ListMap("url" -> "jdbc:duckdb:/x.db")
+    CatalogJson.ok(
+      CatalogConnection("duck", "JDBC", "duckdb", browsable = true, None, active = true, details)
+    ) shouldBe
+    """{"ok":true,"data":{"name":"duck","type":"JDBC","engine":"duckdb","browsable":true,"reason":null,"active":true,"details":{"url":"jdbc:duckdb:/x.db"}}}"""
+    CatalogJson.ok(
+      CatalogConnection(
+        "x",
+        "FS",
+        "unknown",
+        browsable = false,
+        Some("r"),
+        active = false,
+        scala.collection.immutable.ListMap.empty
+      )
+    ) should include(""""active":false,"details":{}""")
+  }
+
+  "CatalogScrubber.maskOptions" should "sort keys and mask secrets, url passwords and nulls" in {
+    val masked = CatalogScrubber.maskOptions(
+      Map(
+        "url"      -> "jdbc:postgresql://h/db?password=abc",
+        "password" -> "x",
+        "user"     -> "bob",
+        "note"     -> null
+      )
+    )
+    masked.toList shouldBe List(
+      "note"     -> "",
+      "password" -> "***",
+      "url"      -> "jdbc:postgresql://h/db?password=***",
+      "user"     -> "bob"
+    )
+  }
+
   "CatalogScrubber.scrub" should "mask values of sensitive options" in {
     val options = Map("url" -> "jdbc:postgresql://h/db", "user" -> "bob", "password" -> "s3cr3t!")
     CatalogScrubber.scrub("auth failed for bob with s3cr3t!", options) shouldBe

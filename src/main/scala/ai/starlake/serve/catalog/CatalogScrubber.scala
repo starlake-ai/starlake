@@ -1,5 +1,6 @@
 package ai.starlake.serve.catalog
 
+import scala.collection.immutable.ListMap
 import scala.util.matching.Regex
 
 /** JDBC drivers and cloud clients sometimes echo credentials in error messages. */
@@ -8,6 +9,16 @@ object CatalogScrubber {
     "(?i).*(password|passwd|pwd|secret|token|private_?key|credential).*".r
   private val UrlSecret: Regex = "(?i)((?:password|passwd|pwd|token|secret|api_?key)=)[^&;\\s]*".r
   private val Mask = "***"
+
+  /** Connection options safe to display: sorted by key, secrets masked. */
+  def maskOptions(options: Map[String, String]): ListMap[String, String] =
+    ListMap.from(options.toList.sortBy(_._1).map { case (key, value) =>
+      val shown =
+        if (SensitiveKey.matches(key)) Mask
+        else if (value == null) ""
+        else UrlSecret.replaceAllIn(value, m => Regex.quoteReplacement(m.group(1) + Mask))
+      key -> shown
+    })
 
   def scrub(message: String, options: Iterable[(String, String)]): String = {
     val secrets = options.toList

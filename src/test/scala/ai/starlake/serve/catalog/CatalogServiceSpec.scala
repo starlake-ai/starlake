@@ -9,6 +9,10 @@ class CatalogServiceSpec extends TestHelper {
   private def service(implicit settings: ai.starlake.config.Settings) =
     new CatalogService(connections)
 
+  private def serviceWithActive(active: Option[String])(implicit
+    settings: ai.starlake.config.Settings
+  ) = new CatalogService(connections, active)
+
   "listConnections" should "list every connection sorted, marking FS as not browsable" in {
     new WithSettings() {
       val result = service.listConnections()
@@ -20,6 +24,35 @@ class CatalogServiceSpec extends TestHelper {
       val lake = result.find(_.name == "lake").get
       lake.browsable shouldBe false
       lake.reason shouldBe Some("Spark and filesystem connections cannot be browsed")
+    }
+  }
+
+  it should "mark only the active connection and report sorted masked details" in {
+    new WithSettings() {
+      val result = serviceWithActive(Some("duck")).listConnections()
+      result.filter(_.active).map(_.name) shouldBe List("duck")
+      val broken = result.find(_.name == "broken").get
+      broken.details("password") shouldBe "***"
+      broken.details.values.exists(_.contains(DuckDbCatalogFixture.BrokenPassword)) shouldBe false
+      broken.details.keys.toList shouldBe broken.details.keys.toList.sorted
+    }
+  }
+
+  it should "mark nothing active without an active connection" in {
+    new WithSettings() {
+      serviceWithActive(None).listConnections().exists(_.active) shouldBe false
+      serviceWithActive(Some("nope")).listConnections().exists(_.active) shouldBe false
+    }
+  }
+
+  it should "mask a password embedded in a JDBC url detail" in {
+    new WithSettings() {
+      val info = ai.starlake.config.ConnectionInfo(
+        ai.starlake.schema.model.ConnectionType.JDBC,
+        options = Map("url" -> "jdbc:postgresql://h/db?user=bob&password=abc123")
+      )
+      val result = new CatalogService(Map("pg" -> info)).listConnections()
+      result.head.details("url") shouldBe "jdbc:postgresql://h/db?user=bob&password=***"
     }
   }
 

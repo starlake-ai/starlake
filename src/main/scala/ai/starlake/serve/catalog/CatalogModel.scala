@@ -5,7 +5,9 @@ final case class CatalogConnection(
   `type`: String,
   engine: String,
   browsable: Boolean,
-  reason: Option[String]
+  reason: Option[String],
+  active: Boolean,
+  details: scala.collection.immutable.ListMap[String, String]
 )
 
 final case class CatalogSchema(name: String)

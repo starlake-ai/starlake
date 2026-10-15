@@ -10,7 +10,10 @@ object CatalogService {
   val MaxPreviewLimit = 1000
 }
 
-class CatalogService(connections: Map[String, ConnectionInfo])(implicit settings: Settings) {
+class CatalogService(
+  connections: Map[String, ConnectionInfo],
+  activeConnection: Option[String] = None
+)(implicit settings: Settings) {
 
   def listConnections(): List[CatalogConnection] =
     connections.toList.sortBy(_._1).map { case (name, info) =>
@@ -20,7 +23,9 @@ class CatalogService(connections: Map[String, ConnectionInfo])(implicit settings
         `type` = info.`type`.value,
         engine = Try(info.getJdbcEngineName().toString).getOrElse("unknown"),
         browsable = reason.isEmpty,
-        reason = reason
+        reason = reason,
+        active = activeConnection.contains(name),
+        details = CatalogScrubber.maskOptions(info.options)
       )
     }
 

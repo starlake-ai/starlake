@@ -9,7 +9,13 @@ object CatalogCommands {
   def isCatalogCommand(name: String): Boolean = name.startsWith("catalog-")
 
   def handle(args: Array[String])(implicit settings: Settings): String =
-    handle(args, new CatalogService(settings.appConfig.connections))
+    handle(
+      args,
+      new CatalogService(
+        settings.appConfig.connections,
+        Option(settings.appConfig.connectionRef).filter(_.nonEmpty)
+      )
+    )
 
   def handle(args: Array[String], service: CatalogService): String = {
     val options = parseOptions(args.toList.drop(1))
