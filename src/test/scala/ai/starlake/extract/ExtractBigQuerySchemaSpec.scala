@@ -248,8 +248,7 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
     )
   }
 
-  it should "fall back to the stored schema of a view when its effective one is not usable" in {
-    val storedTypes = List("long", "string", "decimal", "string")
+  it should "fall back to the stored schema of a view only when its dry run fails" in {
     def extractView(getViewSchema: TableInfo => Schema): List[String] =
       ExtractBigQuerySchema
         .extractTables(
@@ -259,13 +258,14 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
           getViewSchema
         )
         .flatMap(_.attributes.map(_.`type`))
+    val storedTypes = List("long", "string", "decimal", "string")
     // No bigquery.jobs.create permission
     extractView(_ => throw new BigQueryException(403, "Access Denied")) shouldBe storedTypes
     // No schema
     extractView(new DryRun()) shouldBe storedTypes
     extractView(_ => Schema.of()) shouldBe storedTypes
-    // A type that cannot be converted
-    extractView(_ => Schema.of(Field.of("id", StandardSQLTypeName.BYTES))) shouldBe storedTypes
+    // An effective type that cannot be converted fails the view instead of extracting stale types
+    extractView(_ => Schema.of(Field.of("id", StandardSQLTypeName.BYTES))) shouldBe Nil
   }
 
   it should "not dry run legacy SQL views, whose dry runs return no schema" in {

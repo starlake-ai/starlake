@@ -275,8 +275,8 @@ object ExtractBigQuerySchema extends LazyLogging {
       }
     val notExtracted = extracted.collect { case Left(tableName) => tableName }
     if (notExtracted.nonEmpty)
-      logger.warn(
-        s"${notExtracted.size} selected object(s) could not be extracted, see the errors above: ${notExtracted
+      logger.error(
+        s"${notExtracted.size} selected object(s) could not be extracted, see the logs above: ${notExtracted
             .mkString(", ")}"
       )
     extracted.collect { case Right(schema) => schema }
@@ -299,8 +299,8 @@ object ExtractBigQuerySchema extends LazyLogging {
 
   /** BigQuery does not recompute the stored schema of a view when its underlying tables change, so
     * its types can be stale: the schema of a view is read from its effective schema, with the
-    * descriptions of the stored one. Falls back to the stored schema when the effective one cannot
-    * be read or converted.
+    * descriptions of the stored one. Falls back to the stored schema only when the effective one
+    * cannot be read.
     */
   private def extractTableOrView(
     table: TableInfo,
@@ -316,20 +316,24 @@ object ExtractBigQuerySchema extends LazyLogging {
         extractTable(table)
       case view: ViewDefinition =>
         val viewName = s"${table.getTableId.getDataset()}.${table.getTableId.getTable()}"
-        Try {
-          val effectiveSchema = Option(getViewSchema(table))
-            .filter(schema => fieldsOf(schema.getFields).nonEmpty)
-            .getOrElse(throw new IllegalStateException("the dry run returned no schema"))
-          val schema = mergeViewSchema(viewName, Option(view.getSchema), effectiveSchema)
-          extractTable(
-            table.toBuilder.setDefinition(view.toBuilder.setSchema(schema).build()).build()
-          )
-        } match {
-          case Success(schemaInfo) =>
-            schemaInfo
+        Try(
+          Option(getViewSchema(table)).filter(schema => fieldsOf(schema.getFields).nonEmpty)
+        ) match {
+          // A conversion failure of the effective schema is the error of the view: falling back to
+          // the stored schema could extract stale types
+          case Success(Some(effectiveSchema)) =>
+            val schema = mergeViewSchema(viewName, Option(view.getSchema), effectiveSchema)
+            extractTable(
+              table.toBuilder.setDefinition(view.toBuilder.setSchema(schema).build()).build()
+            )
+          case Success(None) =>
+            logger.warn(
+              s"The dry run of view $viewName returned no schema: using its stored schema, which may be stale"
+            )
+            extractTable(table)
           case Failure(e) =>
             logger.warn(
-              s"Could not use the effective schema of view $viewName ($e), using its stored schema, which may be stale"
+              s"Could not dry run view $viewName ($e): using its stored schema, which may be stale"
             )
             extractTable(table)
         }
