@@ -329,7 +329,7 @@ class Main extends LazyLogging {
           val r = cmd.run(args.drop(1).toIndexedSeq, schemaHandler)
           if (cmd.command == BootstrapCmd.command) {
             if (args.length == 1 || args(1) != "--no-exit") {
-              System.exit(0)
+              System.exit(Main.exitCodeOf(r))
             }
           }
           r

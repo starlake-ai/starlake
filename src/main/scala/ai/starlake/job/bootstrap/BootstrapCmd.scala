@@ -6,7 +6,7 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.{JobResult, Utils}
 import scopt.OParser
 
-import scala.util.{Success, Try}
+import scala.util.Try
 
 /** Command to create a new project optionally based on a specific template.
   *
@@ -57,9 +57,9 @@ object BootstrapCmd extends Cmd[BootstrapConfig] {
 
   override def run(config: BootstrapConfig, schemaHandler: SchemaHandler)(implicit
     settings: Settings
-  ): Try[JobResult] = {
+  ): Try[JobResult] = Try {
     Bootstrap.bootstrap(config.template, projectLocation = config.projectLocation)
     Utils.printOut(s"Project created based on ${config.template.getOrElse("default")} template")
-    Success(JobResult.empty)
+    JobResult.empty
   }
 }

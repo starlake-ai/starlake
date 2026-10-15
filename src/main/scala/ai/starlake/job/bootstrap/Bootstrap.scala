@@ -117,8 +117,11 @@ object Bootstrap extends LazyLogging {
     metadataFolder.createDirectories()
     File(metadataFolder.parent, "datasets").createDirectories()
     if (metadataFolder.collectChildren(!_.isDirectory).nonEmpty) {
-      println(s"Folder ${metadataFolder.pathAsString} already exists and is not empty. Aborting.")
-      System.exit(1)
+      // Throw rather than exit: bootstrap also runs inside the serve process, where exiting
+      // would take the whole server down.
+      throw new IllegalStateException(
+        s"Folder ${metadataFolder.pathAsString} already exists and is not empty. Aborting."
+      )
     }
     DatasetArea.initMetadata(effectiveSettings.storageHandler())(effectiveSettings)
     // val dagLibDir = File(metadataFolder, "dags", "generated")
