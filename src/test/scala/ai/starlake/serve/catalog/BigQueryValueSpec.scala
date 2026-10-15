@@ -45,3 +45,36 @@ class BigQueryValueSpec extends AnyFlatSpec with Matchers {
     BigQueryCatalogBackend.jsonValue(prim("42"), None) shouldBe "42"
   }
 }
+
+class BigQueryPreviewCostSpec extends AnyFlatSpec with Matchers {
+  import com.google.cloud.bigquery.BigQueryException
+
+  "viewPreviewJob" should "cap the bytes billed at 1 GiB and use standard SQL" in {
+    val job = BigQueryCatalogBackend.viewPreviewJob("SELECT 1")
+    BigQueryCatalogBackend.MaxPreviewBytesBilled shouldBe (1L << 30)
+    job.getMaximumBytesBilled shouldBe java.lang.Long.valueOf(1L << 30)
+    job.useLegacySql() shouldBe false
+  }
+
+  "isBytesBilledExceeded" should "recognize the reason and wrapped causes" in {
+    val limit = new BigQueryException(400, "Query exceeded limit for bytes billed")
+    BigQueryCatalogBackend.isBytesBilledExceeded(limit) shouldBe true
+    BigQueryCatalogBackend.isBytesBilledExceeded(new RuntimeException("wrapped", limit)) shouldBe
+    true
+    BigQueryCatalogBackend.isBytesBilledExceeded(
+      new BigQueryException(
+        400,
+        "x",
+        new com.google.cloud.bigquery.BigQueryError("bytesBilledLimitExceeded", null, "x")
+      )
+    ) shouldBe true
+    BigQueryCatalogBackend.isBytesBilledExceeded(new RuntimeException("other")) shouldBe false
+    BigQueryCatalogBackend.isBytesBilledExceeded(new BigQueryException(404, "Not found")) shouldBe
+    false
+  }
+
+  "bytesBilledMessage" should "name the view and suggest a worksheet" in {
+    BigQueryCatalogBackend.bytesBilledMessage("ds", "v") shouldBe
+    "Preview of view ds.v would scan more than 1 GiB; query it from a worksheet instead"
+  }
+}

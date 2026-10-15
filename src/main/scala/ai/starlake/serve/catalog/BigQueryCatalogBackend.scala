@@ -100,12 +100,21 @@ class BigQueryCatalogBackend(connectionName: String, connectionInfo: ConnectionI
       if (isView(definition.getType)) {
         val sql =
           s"SELECT * FROM `${schema.replace("`", "")}`.`${table.replace("`", "")}` LIMIT ${limit + 1}"
-        bq.query(QueryJobConfiguration.newBuilder(sql).setUseLegacySql(false).build())
-          .iterateAll()
-          .asScala
-          .take(limit + 1)
-          .map(row => rowValues(row, fields))
-          .toList
+        try
+          bq.query(BigQueryCatalogBackend.viewPreviewJob(sql))
+            .iterateAll()
+            .asScala
+            .take(limit + 1)
+            .map(row => rowValues(row, fields))
+            .toList
+        catch {
+          case e: Exception if BigQueryCatalogBackend.isBytesBilledExceeded(e) =>
+            throw new CatalogException(
+              CatalogErrorCode.QueryFailed,
+              BigQueryCatalogBackend.bytesBilledMessage(schema, table),
+              e
+            )
+        }
       } else {
         bq.listTableData(t.getTableId, TableDataListOption.pageSize(limit + 1L))
           .getValues
@@ -119,6 +128,35 @@ class BigQueryCatalogBackend(connectionName: String, connectionInfo: ConnectionI
 }
 
 object BigQueryCatalogBackend {
+
+  /** A view preview runs a real query, so its cost is capped at 1 GiB billed. */
+  val MaxPreviewBytesBilled: Long = 1L << 30
+
+  private[catalog] def viewPreviewJob(sql: String): QueryJobConfiguration =
+    QueryJobConfiguration
+      .newBuilder(sql)
+      .setUseLegacySql(false)
+      .setMaximumBytesBilled(MaxPreviewBytesBilled)
+      .build()
+
+  /** True when the failure (or one of its causes) is BigQuery refusing a query over the cap. */
+  private[catalog] def isBytesBilledExceeded(e: Throwable): Boolean =
+    Iterator
+      .iterate(e)(_.getCause)
+      .takeWhile(_ != null)
+      .take(10)
+      .exists {
+        case b: BigQueryException =>
+          b.getReason == "bytesBilledLimitExceeded" || mentionsBytesBilled(b.getMessage)
+        case other => mentionsBytesBilled(other.getMessage)
+      }
+
+  private def mentionsBytesBilled(message: String): Boolean =
+    message != null &&
+    (message.contains("bytesBilledLimitExceeded") || message.contains("limit for bytes billed"))
+
+  private[catalog] def bytesBilledMessage(schema: String, table: String): String =
+    s"Preview of view $schema.$table would scan more than 1 GiB; query it from a worksheet instead"
 
   /** Converts a BigQuery cell to a JSON scalar: INT64, FLOAT64 and BOOL are typed, TIMESTAMP is
     * ISO-8601 UTC, everything else (NUMERIC, DATE, ...) stays a string. Falls back to the string
