@@ -68,17 +68,18 @@ class SingleUserRequestHandler extends HttpServlet {
       if (reader != null)
         reader.close()
     }
-    val map = SingleUserMainServer.mapper
-      .readValue[Map[String, String]](payload.toString(), classOf[Map[String, String]])
-    val params = map.getOrElse("PARAMS", "").split(" ")
-    val root = map.getOrElse("ROOT", File.temp.pathAsString)
-    val env = map.get("ENV")
-    val metadata = map.get("METADATA")
+    val map = RequestParams.parsePayload(payload.toString())
+    val root = RequestParams.string(map, "ROOT").getOrElse(File.temp.pathAsString)
+    val env = RequestParams.string(map, "ENV")
+    val metadata = RequestParams.string(map, "METADATA")
     val duckDbMode =
-      map.getOrElse("SL_DUCKDB_MODE", map.getOrElse("SL_DUAL_MODE", "false")).toBoolean
-    val gcpProject = map.get("SL_DATABASE").filter(_.nonEmpty)
+      RequestParams
+        .string(map, "SL_DUCKDB_MODE")
+        .orElse(RequestParams.string(map, "SL_DUAL_MODE"))
+        .getOrElse("false")
+        .toBoolean
+    val gcpProject = RequestParams.string(map, "SL_DATABASE").filter(_.nonEmpty)
 
-    System.out.println(s"PARAMS=${params.toList}")
     System.out.println(s"ROOT=$root")
     System.out.println(s"METADATA=$metadata")
     System.out.println(s"ENV=$env")
@@ -87,6 +88,8 @@ class SingleUserRequestHandler extends HttpServlet {
     System.out.println(s"SL_DUAL_MODE=$duckDbMode")
 
     try {
+      val params = RequestParams.args(map)
+      System.out.println(s"PARAMS=${params.toList}")
       val response = SingleUserMainServer.run(root, metadata, params, env, gcpProject, duckDbMode)
       resp.setStatus(HttpServletResponse.SC_OK)
       resp.getWriter.println(response)
