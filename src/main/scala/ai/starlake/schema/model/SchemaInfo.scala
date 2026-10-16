@@ -27,7 +27,7 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Format.{DSV, XML}
 import ai.starlake.schema.model.Severity.*
 import ai.starlake.utils.Formatter.*
-import ai.starlake.utils.conversion.BigQueryUtils
+import ai.starlake.utils.conversion.{BigQueryNativeSchema, BigQueryType, BigQueryUtils}
 import ai.starlake.utils.{SparkUtils, Utils}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.google.cloud.bigquery.Schema as BQSchema
@@ -765,6 +765,14 @@ case class SchemaInfo(
           s"SAFE.ST_GEOGFROM($raw) as $finalName"
         case Some(ddlType) if ddlType.startsWith("JSON") =>
           s"SAFE.PARSE_JSON($raw) as $finalName"
+        case Some(ddlType) if ddlType.startsWith("RANGE") =>
+          BigQueryType
+            .parse(ddlType)
+            .flatMap(_.rangeElementType)
+            .map(elementType =>
+              s"${BigQueryNativeSchema.rangeFromText(raw, elementType.name(), safe = true)} as $finalName"
+            )
+            .getOrElse(s"$raw as $finalName")
         case Some(ddlType) if !isStringLikeDdlType(ddlType) =>
           s"SAFE_CAST($raw AS ${ddlTypesByAttribute(field.name)}) as $finalName"
         case _ =>
