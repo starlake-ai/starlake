@@ -232,8 +232,12 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     }
   }
 
+  /** @param castTypes
+    *   the DDL types to cast POSITION values to, by attribute name, instead of their `ddlMapping`
+    */
   def secondStepSQLTask(
-    firstStepTempTableNames: List[String]
+    firstStepTempTableNames: List[String],
+    castTypes: Map[String, String] = Map.empty
   ): AutoTask = {
     // val incomingSparkSchema = starlakeSchema.targetSparkSchemaWithoutIgnore(schemaHandler)
 
@@ -252,7 +256,7 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
       schemaHandler
         .getAttributesWithDDLType(starlakeSchema, engineName.toString)
         .toMap
-    ).getOrElse(Map.empty)
+    ).getOrElse(Map.empty) ++ castTypes
     // BigQuery calls it SAFE_CAST, DuckDB and Snowflake TRY_CAST — same semantics
     // (NULL on failure).
     val safeCastFunction = engineName.toString.toLowerCase() match {
