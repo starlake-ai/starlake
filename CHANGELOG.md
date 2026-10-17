@@ -1,6 +1,15 @@
 
 # Release notes
 
+# 1.8.14:
+__Bug fix__:
+- **Privacy is applied again when loading files**: the privacy levels that are not SQL (`HIDE`, `HIDE10X`, `APPROXLONG20`, `MD5`, `SHA1`, `SHA256`, `SHA512`, `INITIALS` and those declared in `privacy.options`) were checked against the attribute type but never applied, so these columns were loaded in clear text by every Spark load, whatever the format, since 1.5.16. The privacy is now applied to the input value of each attribute, after `trim` and `default` (including the default of a missing column), for nested fields, array elements and `variant` attributes too (stored as a JSON string), and its output is converted to the attribute type. SQL privacy (`privacy: "SQL: ..."`) is unchanged.
+  - A row is rejected when the privacy engine fails on its value, when its output cannot be converted to the attribute type (typed JSON or Parquet input included), or when the output is null for a required attribute; `AcceptAllValidator` still accepts every row. An empty output, such as `HIDE`, is null for a non-string attribute. A failing engine used to make the whole load fail with a `NullPointerException`. `INITIALS` no longer fails on a value starting with spaces.
+  - The native loaders (`loader: native`) only apply SQL privacy. A table with a non-SQL privacy is now loaded with Spark, with a `WARN` naming the attributes, instead of natively with clear values. Its scripts, SQL privacy and filter then run as Spark SQL, so expressions written in the dialect of the datawarehouse may have to be rewritten, and the load needs a Spark runtime that can write to the sink. The Snowflake orchestrator templates of `dag-generate`, which run the native SQL, refuse such a table with an explicit error: use a SQL privacy there.
+  - The schema `filter` (except the filter of POSITION files, applied to their raw lines), scripted attributes, SQL privacy and expectations now see the transformed values.
+  - **Upgrade note**: the tables loaded since 1.5.16 with a non-SQL privacy contain clear values. Reload them or transform the existing rows, then remove the clear values that remain elsewhere: time travel and table history (Delta, Iceberg, BigQuery), rejected and audit tables, downstream tables and exports. Until then, new rows are masked and old rows are not, so a merge key (`UPSERT_BY_KEY`, `SCD2`) or a join on such a column no longer matches the old rows.
+  - Known limitations: the privacy of a scripted attribute is not applied (write it in the script); rejected records keep their input values; custom privacy engines do not receive the other columns of the row; typed input is transformed in its Spark string form (for example a timestamp in the session time zone).
+
 # 1.8.13:
 __Improvement__:
 - jsqltranspiler upgraded to 1.15. It still pins jsqlparser 5.4.162, so the SQL parser is unchanged.

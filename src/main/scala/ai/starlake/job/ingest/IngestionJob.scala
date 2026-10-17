@@ -37,10 +37,9 @@ trait IngestionJob
   val scheduledDate: Option[String]
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
     val validatorClassName = loader.toLowerCase() match {
-      case "native" =>
-        logger.warn(s"Unexpected '$loader' loader !!!")
-        validatorClass
-      case "spark" => validatorClass
+      // A table configured with the native loader is loaded with Spark when its engine, format or
+      // attributes cannot be loaded natively
+      case "native" | "spark" => validatorClass
       case _ =>
         throw new Exception(s"Unexpected '$loader' loader !!!")
     }
@@ -146,13 +145,21 @@ trait IngestionJob
     }
   }
 
-  private def selectLoader(): String = IngestionJob.selectLoader(mergedMetadata)
+  private[ingest] def selectLoader(): String =
+    IngestionJob.selectLoader(mergedMetadata, schema.attributes, targetTableName)
 
   def buildListOfSQLStatementsAsMap(orchestrator: String): Map[String, Object] = {
     require(
       orchestrator == "snowflake",
       s"buildListOfSQLStatementsAsMap only supports snowflake, got $orchestrator"
     )
+    // The SQL runs in the orchestrator, where Spark cannot apply the privacy instead
+    val privacyAttributes = IngestionJob.nonSqlPrivacyAttributes(schema.attributes)
+    if (privacyAttributes.nonEmpty)
+      throw new IllegalArgumentException(
+        s"$targetTableName cannot be loaded by the $orchestrator orchestrator, which only applies SQL privacy, because of the privacy of ${privacyAttributes
+            .mkString(", ")}. Use a SQL privacy (privacy: \"SQL: ...\") or another orchestrator template"
+      )
     new NativeLoader(this, None).buildSQLStatements()
   }
 
@@ -286,10 +293,14 @@ object IngestionJob extends LazyLogging {
   /** Loader effectively used to ingest a table with this merged metadata: "bigquery", "snowflake"
     * or "duckdb" for warehouse-native loads, "spark" otherwise.
     */
-  def selectLoader(mergedMetadata: Metadata)(implicit settings: Settings): String = {
+  def selectLoader(
+    mergedMetadata: Metadata,
+    attributes: List[TableAttribute],
+    tableName: String
+  )(implicit settings: Settings): String = {
     val sinkConn = mergedMetadata.getSinkConnection()
     val dbName = sinkConn.targetDatawareHouse()
-    val nativeCandidate: Boolean = isNativeCandidate(mergedMetadata, dbName)
+    val nativeCandidate: Boolean = isNativeCandidate(mergedMetadata, attributes, tableName, dbName)
     logger.info(s"Native candidate: $nativeCandidate")
 
     val loader =
@@ -312,11 +323,18 @@ object IngestionJob extends LazyLogging {
   def loadRequiresSpark(domain: DomainInfo, table: SchemaInfo)(implicit
     settings: Settings
   ): Boolean =
-    selectLoader(table.mergedMetadata(domain.metadata)) == "spark"
+    selectLoader(
+      table.mergedMetadata(domain.metadata),
+      table.attributes,
+      domain.finalName + "." + table.finalName
+    ) == "spark"
 
-  private def isNativeCandidate(mergedMetadata: Metadata, dbName: String)(implicit
-    settings: Settings
-  ): Boolean = {
+  private def isNativeCandidate(
+    mergedMetadata: Metadata,
+    attributes: List[TableAttribute],
+    tableName: String,
+    dbName: String
+  )(implicit settings: Settings): Boolean = {
     val isNative = mergedMetadata.loader
       .orElse(mergedMetadata.getSinkConnection().loader)
       .getOrElse(settings.appConfig.loader)
@@ -326,6 +344,35 @@ object IngestionJob extends LazyLogging {
       // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
       val arrayOk = dbName != "bigquery" || !mergedMetadata.resolveArray()
       nativeSupportedFormats.get(dbName).exists(_.contains(format)) && arrayOk
+    } && {
+      // The native loaders only apply SQL privacy, computed by the SQL of the load
+      val privacyAttributes = nonSqlPrivacyAttributes(attributes)
+      if (privacyAttributes.nonEmpty)
+        logger.warn(
+          s"Loading $tableName with Spark instead of the native loader, which does not apply the privacy of ${privacyAttributes
+              .mkString(", ")}. Its scripts, SQL privacy and filter run as Spark SQL"
+        )
+      privacyAttributes.isEmpty
     }
   }
+
+
+  /** @return
+    *   the paths of the loaded leaf attributes, at every nesting level, whose privacy is not SQL.
+    *   Ignored attributes are not loaded, and the privacy of scripted ones is not applied by any
+    *   loader.
+    */
+  def nonSqlPrivacyAttributes(attributes: List[TableAttribute], prefix: String = ""): List[String] =
+    attributes
+      .filterNot(attribute => attribute.resolveIgnore() || attribute.script.nonEmpty)
+      .flatMap { attribute =>
+        val path = prefix + attribute.name
+        val privacy = attribute.resolvePrivacy()
+        if (attribute.attributes.nonEmpty)
+          nonSqlPrivacyAttributes(attribute.attributes, path + ".")
+        else if (privacy != TransformInput.None && !privacy.sql)
+          List(path)
+        else
+          Nil
+      }
 }
