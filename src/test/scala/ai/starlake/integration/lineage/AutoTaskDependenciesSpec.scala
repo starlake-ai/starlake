@@ -2,9 +2,12 @@ package ai.starlake.integration.utils
 
 import ai.starlake.integration.IntegrationTestBase
 import ai.starlake.job.Main
+import better.files.File
 
 class AutoTaskDependenciesSpec extends IntegrationTestBase {
-  override def theSampleFolder = samplesFolder / "starbake"
+  override def theSampleFolder: File = samplesFolder / "starbake"
+  override def sampleDataDir: File = theSampleFolder / "sample-data"
+  override def incomingDir: File = theSampleFolder / "datasets" / "incoming"
   logger.info(theSampleFolder.pathAsString)
 
   override def beforeEach(): Unit = {
