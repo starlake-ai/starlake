@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 1.8.13:
+__Improvement__:
+- jsqltranspiler upgraded to 1.15. It still pins jsqlparser 5.4.162, so the SQL parser is unchanged.
+
 # 1.8.12:
 __Improvement__:
 - **`extract-bq-schema` extracts views, materialized views, external tables and snapshots on demand** (#1832): only standard tables were extracted, and every other BigQuery object was dropped without a log line, so a dataset made only of views (a BigQuery sharing linked dataset, for example) produced an empty domain. The object types to extract are now set with the `tableTypes` attribute of a `jdbcSchemas` entry of the extract config (`extract-schema` on a BigQuery connection), or with the new `--table-types` option of `extract-bq-schema`: `TABLE`, `VIEW`, `MATERIALIZED_VIEW` (or `MATERIALIZED VIEW`), `EXTERNAL` and `SNAPSHOT`, case insensitive. The schema, column descriptions and modes are read the same way whatever the object type.
