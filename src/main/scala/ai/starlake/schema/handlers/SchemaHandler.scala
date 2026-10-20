@@ -93,6 +93,17 @@ object SchemaHandler {
   private val watcherMap: scala.collection.concurrent.TrieMap[String, Settings] =
     scala.collection.concurrent.TrieMap.empty
 
+  private def loadResourceTypes(resource: String): List[Type] =
+    Resource.asString(resource) match {
+      case Some(value) =>
+        YamlSerde.deserializeYamlTypes(value, s"resource:$resource")
+      case None =>
+        Nil
+    }
+
+  /** The built-in types added after the types of default.sl.yml, appended after the project types
+    */
+  lazy val extraTypes: List[Type] = loadResourceTypes("types/extra.sl.yml")
 }
 
 /** Handles access to datasets metadata, eq. domains / types / schemas.
@@ -122,7 +133,18 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       )
     }
 
-    val typesValidity = types.map(_.checkValidity())
+    val typesValidity = types.map(_.checkValidity()) ++
+      replacedExtraTypes().map { case (extraType, projectType) =>
+        Left(
+          List(
+            ValidationMessage(
+              Severity.Warning,
+              "Type.name",
+              replacedExtraTypeMessage(extraType, projectType)
+            )
+          )
+        )
+      }
     val loadedDomains = this.domains(domainNames, tableNames, reload)
     val loadedDomainsValidity = loadedDomains.map(_.checkValidity(this))
     val domainsValidity =
@@ -380,18 +402,59 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   // Do not load if not required (useful for the API)
   var _types: List[Type] = _
 
+  /** @return
+    *   the types used to find the type of a database column from its SQL type: the built-in types
+    *   of types/extra.sl.yml, or a copy of them, are left out, so that a column keeps the type it
+    *   had before they existed. For example, a Snowflake TIMESTAMP column is a TIMESTAMP_NTZ, the
+    *   mapping of datetime.
+    */
+  def typesForSqlTypeLookup(): List[Type] =
+    types().filterNot(SchemaHandler.extraTypes.contains)
+
+  /** @return
+    *   the name of the type of the attributes of a primitive type, in infer-schema for example: the
+    *   built-in type of the same name, unless the project replaced it with a type of another
+    *   primitive type, then the first type of that primitive type
+    */
+  def typeNameOf(primitiveType: PrimitiveType): Option[String] = {
+    val allTypes = types()
+    allTypes
+      .find(tpe => tpe.name == primitiveType.value && tpe.primitiveType == primitiveType)
+      .orElse(allTypes.find(_.primitiveType == primitiveType))
+      .map(_.name)
+  }
+
+  /** @return
+    *   the built-in types of types/extra.sl.yml that a project type replaces with another primitive
+    *   type, with that project type
+    */
+  def replacedExtraTypes(): List[(Type, Type)] = {
+    val allTypes = types()
+    SchemaHandler.extraTypes.flatMap { extraType =>
+      allTypes
+        .find(tpe => tpe.name == extraType.name && tpe.primitiveType != extraType.primitiveType)
+        .map(extraType -> _)
+    }
+  }
+
+  private def replacedExtraTypeMessage(extraType: Type, projectType: Type): String =
+    s"The type ${projectType.name} of the project, of primitive type ${projectType.primitiveType}, replaces the built-in type ${extraType.name} of primitive type ${extraType.primitiveType}: the attributes of type ${extraType.name} use it, those written by infer-schema included"
+
+  private def loadResourceTypes(resource: String): List[Type] =
+    SchemaHandler.loadResourceTypes(resource)
+
   /** All defined types. Load all default types defined in the file default.sl.yml Types are located
     * in the only file "types.sl.yml" Types redefined in the file "types.sl.yml" supersede the ones
     * in "default.sl.yml"
+    *
+    * The built-in types of types/extra.sl.yml come last, unless the project defines a type with the
+    * same name. Projects often hold a copy of the built-in default.sl.yml: types added to it would
+    * come before the copy, and a search by primitive or SQL type would return them instead.
     */
   @throws[Exception]
   private def loadTypes(): List[Type] = {
-    val resourceTypes = Resource.asString("types/default.sl.yml") match {
-      case Some(value) =>
-        YamlSerde.deserializeYamlTypes(value, "resource:types/default.sl.yml")
-      case None =>
-        Nil
-    }
+    val resourceTypes = loadResourceTypes("types/default.sl.yml")
+    val extraTypes = SchemaHandler.extraTypes
     val defaultTypes = loadTypes("default") :+ Type("struct", ".*", PrimitiveType.struct)
     val types = loadTypes("types")
 
@@ -403,9 +466,16 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val redefinedTypeNames = defaultAndRedefinedTypes.map(_.name).intersect(types.map(_.name))
 
-    this._types = defaultAndRedefinedTypes.filter(defaultType =>
+    val projectTypes = defaultAndRedefinedTypes.filter(defaultType =>
       !redefinedTypeNames.contains(defaultType.name)
     ) ++ types
+
+    val appendedExtraTypes =
+      extraTypes.filterNot(extraType => projectTypes.exists(_.name == extraType.name))
+    this._types = projectTypes ++ appendedExtraTypes
+    replacedExtraTypes().foreach { case (extraType, projectType) =>
+      logger.warn(replacedExtraTypeMessage(extraType, projectType))
+    }
 
     this._types
   }

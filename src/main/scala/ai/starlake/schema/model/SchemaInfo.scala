@@ -234,6 +234,17 @@ case class SchemaInfo(
   def sourceSparkSchemaUntypedEpochWithoutScriptedFields(
     schemaHandler: SchemaHandler
   ): StructType = {
+    // The datetime, time and binary values are read from their text by the validation, at every
+    // level: the readers would not apply the pattern of their type
+    def isReadAsText(attr: TableAttribute): Boolean =
+      attr.attributes.isEmpty && attr
+        .`type`(schemaHandler)
+        .exists(tpe =>
+          Set[PrimitiveType](PrimitiveType.datetime, PrimitiveType.time, PrimitiveType.binary)
+            .contains(tpe.primitiveType)
+        )
+    def readAsText(attr: TableAttribute): DataType =
+      if (attr.resolveArray()) ArrayType(StringType, !attr.resolveRequired()) else StringType
     val fields = attributesWithoutScriptedFields.map { attr =>
       val metadata =
         if (attr.`type` == "variant")
@@ -246,7 +257,15 @@ case class SchemaInfo(
             case (PrimitiveType.timestamp, "epoch_second") => LongType
             case (PrimitiveType.timestamp, "epoch_milli")  => LongType
             case (PrimitiveType.date, _)                   => StringType
-            case (_, _)                                    => attr.sparkType(schemaHandler)
+            case (PrimitiveType.datetime | PrimitiveType.time | PrimitiveType.binary, _) =>
+              readAsText(attr)
+            case (_, _) =>
+              attr.sparkType(
+                schemaHandler,
+                (field, structField) =>
+                  if (isReadAsText(field)) structField.copy(dataType = readAsText(field))
+                  else structField
+              )
           }
         }
 
@@ -895,6 +914,13 @@ object SchemaInfo {
             TableAttribute(
               obj.name,
               "decimal",
+              required = Some(!obj.nullable),
+              comment = obj.getComment()
+            )
+          case BinaryType | TimestampNTZType =>
+            TableAttribute(
+              obj.name,
+              PrimitiveType.from(obj.dataType).value,
               required = Some(!obj.nullable),
               comment = obj.getComment()
             )

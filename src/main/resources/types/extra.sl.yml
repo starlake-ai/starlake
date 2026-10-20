@@ -1,0 +1,38 @@
+---
+# Built-in types added after the types of default.sl.yml. They come after the types of the
+# project, so that a project with a copy of default.sl.yml finds its types first.
+version: 1
+types:
+  - name: "datetime"
+    primitiveType: "datetime"
+    pattern: "SQL_DATE_TIME"
+    sample: "2019-12-31 23:59:02.123456"
+    comment: "Date and time without time zone"
+    ddlMapping:
+      bigquery: DATETIME
+      snowflake: TIMESTAMP_NTZ
+      postgres: TIMESTAMP
+      synapse: datetime2
+      duckdb: TIMESTAMP
+  - name: "time"
+    primitiveType: "time"
+    pattern: "ISO_LOCAL_TIME"
+    sample: "23:59:02.123456"
+    comment: "Time of day without time zone"
+    ddlMapping:
+      bigquery: TIME
+      snowflake: TIME
+      postgres: TIME
+      synapse: time
+      duckdb: TIME
+  - name: "binary"
+    primitiveType: "binary"
+    pattern: "base64"
+    sample: "SGVsbG8gV29ybGQ="
+    comment: "Bytes encoded in base64"
+    ddlMapping:
+      bigquery: BYTES
+      snowflake: BINARY
+      postgres: BYTEA
+      synapse: varbinary(max)
+      duckdb: BLOB

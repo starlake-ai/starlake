@@ -28,6 +28,7 @@ import org.apache.spark.sql.types.StructField
 
 import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.Try
@@ -72,7 +73,8 @@ case class Type(
       case _ =>
         primitiveType match {
           case PrimitiveType.struct | PrimitiveType.date | PrimitiveType.timestamp |
-              PrimitiveType.boolean =>
+              PrimitiveType.boolean | PrimitiveType.datetime | PrimitiveType.time |
+              PrimitiveType.binary =>
             None
           case _ =>
             Some(Pattern.compile(pattern, Pattern.MULTILINE))
@@ -113,6 +115,8 @@ case class Type(
           Try(date.fromString(value, pattern, zone)).isSuccess
         case PrimitiveType.timestamp =>
           Try(timestamp.fromString(value, pattern, zone)).isSuccess
+        case PrimitiveType.datetime | PrimitiveType.time | PrimitiveType.binary =>
+          Try(primitiveType.fromString(value, pattern, zone)).isSuccess
         case PrimitiveType.boolean =>
           // We can get the pattern safely since checkValidity has been called by now
           booleanPattern match {
@@ -155,6 +159,12 @@ case class Type(
             case _ =>
               DateTimeFormatter.ofPattern(pattern)
           }
+        case PrimitiveType.datetime =>
+          PrimitiveType.datetime.checkPattern(pattern)
+        case PrimitiveType.time =>
+          PrimitiveType.time.checkPattern(pattern)
+        case PrimitiveType.binary =>
+          require(PrimitiveType.binary.encodings.contains(pattern.toLowerCase(Locale.ROOT)))
         case PrimitiveType.boolean =>
           val tf = pattern.split("<-TF->")
           require(tf.size == 2)
