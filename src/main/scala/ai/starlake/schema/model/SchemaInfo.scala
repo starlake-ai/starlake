@@ -751,7 +751,14 @@ case class SchemaInfo(
       )
       val raw = SchemaInfo.positionSlice(pos)
       val finalName = s"$attributeQuote${field.getFinalName()}$attributeQuote"
+      // BigQuery cannot cast a string to these types: it parses them. Only BigQuery, whose cast
+      // function is SAFE_CAST, gets these parsers: DuckDB maps variant to JSON and casts to it.
+      val bigQueryParsing = safeCastFunction == "SAFE_CAST"
       SchemaInfo.castableDdlType(ddlTypesByAttribute, field.name) match {
+        case Some(ddlType) if bigQueryParsing && ddlType.trim.toUpperCase.startsWith("GEOGRAPHY") =>
+          s"SAFE.ST_GEOGFROM($raw) as $finalName"
+        case Some(ddlType) if bigQueryParsing && ddlType.trim.toUpperCase.startsWith("JSON") =>
+          s"SAFE.PARSE_JSON($raw) as $finalName"
         case Some(ddlType) =>
           s"$safeCastFunction($raw AS $ddlType) as $finalName"
         case None =>

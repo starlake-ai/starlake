@@ -153,11 +153,29 @@ trait IngestionJob
       schemaHandler.types()
     )
 
+  /** Spark, DuckDB and Snowflake decimals have a precision of 38 at most: a wider decimal would
+    * lose digits
+    */
+  private def withoutWideDecimals(loader: String)(
+    load: => Try[List[IngestionCounters]]
+  ): Try[List[IngestionCounters]] =
+    Try(requireNoWideDecimals(loader)).flatMap(_ => load)
+
+  private def requireNoWideDecimals(loader: String): Unit = {
+    val wideDecimals = IngestionJob.wideDecimalAttributes(schema.attributes, schemaHandler)
+    if (wideDecimals.nonEmpty)
+      throw new IllegalArgumentException(
+        s"$targetTableName cannot be loaded with $loader, whose decimals have a precision of ${PrimitiveType.decimal.maxSparkPrecision} at most: the precision of ${wideDecimals
+            .mkString(", ")} is above. Only the native BigQuery loader loads such a decimal, into a BIGNUMERIC column, from DSV, JSON or POSITION files: use a decimal type of precision ${PrimitiveType.decimal.maxSparkPrecision} at most for other loads"
+      )
+  }
+
   def buildListOfSQLStatementsAsMap(orchestrator: String): Map[String, Object] = {
     require(
       orchestrator == "snowflake",
       s"buildListOfSQLStatementsAsMap only supports snowflake, got $orchestrator"
     )
+    requireNoWideDecimals(s"the $orchestrator orchestrator")
     // The SQL runs in the orchestrator, where Spark cannot apply the privacy instead
     val privacyAttributes = IngestionJob.nonSqlPrivacyAttributes(schema.attributes)
     if (privacyAttributes.nonEmpty)
@@ -170,13 +188,15 @@ trait IngestionJob
 
   def run(): Try[JobResult] = {
     val jobResult = selectLoader() match {
-      case "bigquery"  => new BigQueryNativeLoader(this, accessToken).run()
-      case "snowflake" => new SnowflakeNativeLoader(this).run()
-      case "duckdb"    => new DuckDbNativeLoader(this).run()
-      case "spark"     => ingestWithSpark()
+      case "bigquery" => new BigQueryNativeLoader(this, accessToken).run()
+      case "snowflake" =>
+        withoutWideDecimals("the native Snowflake loader")(new SnowflakeNativeLoader(this).run())
+      case "duckdb" =>
+        withoutWideDecimals("the native DuckDB loader")(new DuckDbNativeLoader(this).run())
+      case "spark" => withoutWideDecimals("Spark")(ingestWithSpark())
       case other =>
         logger.warn(s"Unsupported engine $other, falling back to spark")
-        ingestWithSpark()
+        withoutWideDecimals("Spark")(ingestWithSpark())
     }
     jobResult
       .recoverWith { case exception =>
@@ -409,6 +429,29 @@ object IngestionJob extends LazyLogging {
         }
     binaryLeaves(attributes, "")
   }
+
+  /** @return
+    *   the paths of the loaded leaf attributes, at every nesting level, scripted ones included, of
+    *   a decimal type whose precision is above the one of Spark decimals
+    */
+  def wideDecimalAttributes(
+    attributes: List[TableAttribute],
+    schemaHandler: SchemaHandler,
+    prefix: String = ""
+  ): List[String] =
+    attributes
+      .filterNot(_.resolveIgnore())
+      .flatMap { attribute =>
+        val path = prefix + attribute.name
+        if (attribute.attributes.nonEmpty)
+          wideDecimalAttributes(attribute.attributes, schemaHandler, path + ".")
+        else
+          attribute
+            .`type`(schemaHandler)
+            .filter(PrimitiveType.decimal.isWide)
+            .map(_ => path)
+            .toList
+      }
 
   /** @return
     *   the paths of the loaded leaf attributes, at every nesting level, whose privacy is not SQL.

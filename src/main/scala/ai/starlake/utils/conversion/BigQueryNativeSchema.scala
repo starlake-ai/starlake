@@ -1,7 +1,7 @@
 package ai.starlake.utils.conversion
 
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{PrimitiveType, TableAttribute}
+import ai.starlake.schema.model.{PrimitiveType, TableAttribute, Type}
 import com.google.cloud.bigquery.{
   Field,
   FieldElementType,
@@ -161,11 +161,12 @@ object BigQueryNativeSchema extends LazyLogging {
     *   false to log nothing, when the same schema is built several times by a load
     * @return
     *   the schema where each leaf field whose type has a `ddlMapping.bigquery` with another
-    *   BigQuery type than the derived one takes that type. Variant and decimal attributes keep
-    *   their derived type. A column of the target table keeps its type when it is the derived or
-    *   the mapped one, since BigQuery cannot change the type of a column: the flag and the mapping
-    *   then only apply to new columns. Any other type difference is a type change of the attribute,
-    *   which BigQuery rejects as before.
+    *   BigQuery type than the derived one takes that type. Variant attributes keep their derived
+    *   type, and so do decimal attributes, except those above the precision of Spark, which get a
+    *   BIGNUMERIC column from their zone, even when the flag is off. A column of the target table
+    *   keeps its type when it is the derived or the mapped one, since BigQuery cannot change the
+    *   type of a column: the flag and the mapping then only apply to new columns. Any other type
+    *   difference is a type change of the attribute, which BigQuery rejects as before.
     */
   def patch(
     schema: BQSchema,
@@ -176,7 +177,7 @@ object BigQueryNativeSchema extends LazyLogging {
     enabled: Boolean,
     log: Boolean = true
   ): BQSchema =
-    if (!enabled && existingTarget.isEmpty) schema
+    if (!enabled && existingTarget.isEmpty && !hasWideDecimals(attributes, schemaHandler)) schema
     else
       BQSchema.of(
         patchFields(
@@ -228,7 +229,10 @@ object BigQueryNativeSchema extends LazyLogging {
           } else {
             val derivedType = BigQueryType.of(field)
             val mapped = mappedType(attribute, field, schemaHandler, log && enabled)
-            val wantedType = if (enabled) mapped.getOrElse(derivedType) else derivedType
+            // The type of a decimal wider than Spark comes from its zone, not from its mapping
+            val wantedType =
+              if (enabled || isWideDecimal(attribute, schemaHandler)) mapped.getOrElse(derivedType)
+              else derivedType
             existingField.map(BigQueryType.of) match {
               case Some(existingType)
                   if existingType != wantedType && (existingType == derivedType || mapped
@@ -265,13 +269,15 @@ object BigQueryNativeSchema extends LazyLogging {
       for {
         tpe <- attribute.`type`(schemaHandler)
         if attribute.attributes.isEmpty &&
-        tpe.primitiveType != PrimitiveType.variant && tpe.primitiveType != PrimitiveType.decimal
-        ddl <- tpe.ddlMapping.flatMap(_.get("bigquery"))
+        (tpe.primitiveType != PrimitiveType.decimal || isWideDecimal(tpe))
+        ddl = tpe.ddlMapping.flatMap(_.get("bigquery"))
+        // The type of a wide decimal comes from its zone, with or without a mapping
+        if ddl.nonEmpty || isWideDecimal(tpe)
         field <- Option(targetSchema.getFields).flatMap(fields =>
           fields.asScala.find(_.getName.equalsIgnoreCase(attribute.getFinalName()))
         )
         effectiveType = BigQueryType.of(field)
-        if !BigQueryType.parse(ddl).contains(effectiveType)
+        if !ddl.flatMap(BigQueryType.parse).contains(effectiveType)
       } yield attribute.name -> effectiveType.render
     }.toMap
 
@@ -285,41 +291,94 @@ object BigQueryNativeSchema extends LazyLogging {
     log: Boolean
   ): Option[BigQueryType] =
     attribute.`type`(schemaHandler).flatMap { tpe =>
-      tpe.ddlMapping.flatMap(_.get("bigquery")).flatMap { ddl =>
-        val parsed = BigQueryType.parse(ddl)
-        tpe.primitiveType match {
-          // The variant type is a JSON column
-          case PrimitiveType.variant if field.getType.getStandardType == StandardSQLTypeName.JSON =>
-            None
-          // The decimal parameters come from the zone of the type
-          case PrimitiveType.decimal =>
-            val derivedType = BigQueryType.of(field)
-            val matches = parsed.exists(mapping =>
-              mapping == derivedType ||
-              mapping.standardType == derivedType.standardType && !mapping.hasParameters
-            )
-            if (log && !matches)
-              logger.warn(
-                s"The BigQuery mapping $ddl of the decimal type ${tpe.name} is not applied: the precision and scale of its zone give ${BigQueryType.of(field).render}"
-              )
-            None
-          case _ =>
-            parsed match {
-              case None =>
-                if (log)
-                  logger.warn(
-                    s"Ignoring the BigQuery mapping $ddl of type ${tpe.name}: it is not a BigQuery column type"
-                  )
-                None
-              case Some(bigQueryType) if bigQueryType == BigQueryType.of(field) =>
-                None
-              case Some(bigQueryType)
-                  if bigQueryType.standardType == field.getType.getStandardType && !bigQueryType.hasParameters =>
-                None
-              case some =>
-                some
-            }
+      if (tpe.primitiveType == PrimitiveType.decimal)
+        decimalType(tpe, field, log)
+      else
+        tpe.ddlMapping.flatMap(_.get("bigquery")).flatMap { ddl =>
+          val parsed = BigQueryType.parse(ddl)
+          tpe.primitiveType match {
+            // The variant type is a JSON column
+            case PrimitiveType.variant
+                if field.getType.getStandardType == StandardSQLTypeName.JSON =>
+              None
+            case _ =>
+              parsed match {
+                case None =>
+                  if (log)
+                    logger.warn(
+                      s"Ignoring the BigQuery mapping $ddl of type ${tpe.name}: it is not a BigQuery column type"
+                    )
+                  None
+                case Some(bigQueryType) if bigQueryType == BigQueryType.of(field) =>
+                  None
+                case Some(bigQueryType)
+                    if bigQueryType.standardType == field.getType.getStandardType && !bigQueryType.hasParameters =>
+                  None
+                case some =>
+                  some
+              }
+          }
         }
-      }
     }
+
+  /** @return
+    *   the BigQuery type of a decimal attribute, when it differs from the derived one. The
+    *   precision and scale come from the zone of the type. Spark cannot hold a precision above 38,
+    *   from which the derived type is the default decimal: the column is a BIGNUMERIC,
+    *   unparameterized when the mapping is.
+    */
+  private def decimalType(tpe: Type, field: Field, log: Boolean): Option[BigQueryType] = {
+    val mapping = tpe.ddlMapping.flatMap(_.get("bigquery"))
+    val parsed = mapping.flatMap(BigQueryType.parse)
+    tpe.zone.flatMap(PrimitiveType.decimal.precisionAndScale) match {
+      case Some((precision, scale)) if precision > PrimitiveType.decimal.maxSparkPrecision =>
+        if (parsed.contains(BigQueryType(StandardSQLTypeName.BIGNUMERIC)))
+          Some(BigQueryType(StandardSQLTypeName.BIGNUMERIC))
+        else {
+          val zoneType = BigQueryType(
+            StandardSQLTypeName.BIGNUMERIC,
+            precision = Some(precision.toLong),
+            scale = Some(scale.toLong)
+          )
+          mapping.filterNot(ddl => parsed.contains(zoneType)).foreach { ddl =>
+            if (log)
+              logger.warn(
+                s"The BigQuery mapping $ddl of the decimal type ${tpe.name} is not applied: the precision and scale of its zone give ${zoneType.render}"
+              )
+          }
+          Some(zoneType)
+        }
+      case _ =>
+        mapping.foreach { ddl =>
+          val derivedType = BigQueryType.of(field)
+          val matches = parsed.exists(mapping =>
+            mapping == derivedType ||
+            mapping.standardType == derivedType.standardType && !mapping.hasParameters
+          )
+          if (log && !matches)
+            logger.warn(
+              s"The BigQuery mapping $ddl of the decimal type ${tpe.name} is not applied: the precision and scale of its zone give ${derivedType.render}"
+            )
+        }
+        None
+    }
+  }
+
+  /** A decimal type above the precision of Spark */
+  def isWideDecimal(tpe: Type): Boolean = PrimitiveType.decimal.isWide(tpe)
+
+  /** A leaf attribute of a decimal type above the precision of Spark */
+  def isWideDecimal(attribute: TableAttribute, schemaHandler: SchemaHandler): Boolean =
+    attribute.attributes.isEmpty && attribute.`type`(schemaHandler).exists(isWideDecimal)
+
+  private def hasWideDecimals(
+    attributes: List[TableAttribute],
+    schemaHandler: SchemaHandler
+  ): Boolean =
+    attributes.exists(attribute =>
+      isWideDecimal(attribute, schemaHandler) || hasWideDecimals(
+        attribute.attributes,
+        schemaHandler
+      )
+    )
 }

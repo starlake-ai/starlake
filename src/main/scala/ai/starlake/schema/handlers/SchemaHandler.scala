@@ -104,6 +104,9 @@ object SchemaHandler {
   /** The built-in types added after the types of default.sl.yml, appended after the project types
     */
   lazy val extraTypes: List[Type] = loadResourceTypes("types/extra.sl.yml")
+
+  /** The built-in types: those of default.sl.yml, then those of extra.sl.yml */
+  lazy val builtInTypes: List[Type] = loadResourceTypes("types/default.sl.yml") ++ extraTypes
 }
 
 /** Handles access to datasets metadata, eq. domains / types / schemas.

@@ -275,7 +275,7 @@
         },
         "zone": {
           "$ref": "#/definitions/ConvertibleToString",
-          "description": "Context-specific parsing configuration:\n- For double: locale for decimal parsing (e.g., 'fr_FR' for comma as decimal separator)\n- For decimal: precision and scale as 'precision,scale' (e.g., '38,9')\n- For timestamp: timezone (e.g., 'UTC', 'Europe/Paris')"
+          "description": "Context-specific parsing configuration:\n- For double: locale for decimal parsing (e.g., 'fr_FR' for comma as decimal separator)\n- For decimal: precision and scale as 'precision,scale' (e.g., '38,9'). Spark holds a precision of 38 at most: a wider decimal, up to the bounds of a BigQuery BIGNUMERIC (scale of at most 38, precision of at most the scale + 38), is loaded by the native BigQuery loader only\n- For timestamp: timezone (e.g., 'UTC', 'Europe/Paris')"
         },
         "sample": {
           "$ref": "#/definitions/ConvertibleToString",

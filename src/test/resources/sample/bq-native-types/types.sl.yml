@@ -51,3 +51,13 @@ types:
     pattern: ".*"
     ddlMapping:
       bigquery: "JSON"
+  - name: "wide_decimal"
+    primitiveType: "decimal"
+    pattern: "[-+]?\\d*\\.?\\d+"
+    zone: "50,20"
+    ddlMapping:
+      bigquery: "NUMERIC"
+  - name: "wide_unmapped"
+    primitiveType: "decimal"
+    pattern: "[-+]?\\d*\\.?\\d+"
+    zone: "50, 20"

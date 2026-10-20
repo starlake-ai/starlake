@@ -213,6 +213,47 @@ class BigQueryNativeSchemaSpec extends TestHelper {
       field(patched(attributes), "doc").getType.getStandardType shouldBe StandardSQLTypeName.JSON
     }
 
+    it should "give a decimal wider than Spark a BIGNUMERIC column" in {
+      val attributes = List(
+        // The built-in bignumeric: zone 76,38 and an unparameterized BIGNUMERIC mapping
+        TableAttribute("big", "bignumeric"),
+        TableAttribute("wide", "wide_decimal", required = Some(true)),
+        TableAttribute("price", "decimal")
+      )
+      val schema = patched(attributes)
+      def describe(name: String) = {
+        val bigQueryField = field(schema, name)
+        (
+          bigQueryField.getType.getStandardType,
+          Option(bigQueryField.getPrecision).map(_.longValue()),
+          Option(bigQueryField.getScale).map(_.longValue()),
+          bigQueryField.getMode
+        )
+      }
+      describe("big") shouldBe (StandardSQLTypeName.BIGNUMERIC, None, None, Field.Mode.NULLABLE)
+      describe("wide") shouldBe (StandardSQLTypeName.BIGNUMERIC, Some(50L), Some(
+        20L
+      ), Field.Mode.REQUIRED)
+      // Unchanged: the precision and scale of the zone
+      describe("price") shouldBe (StandardSQLTypeName.NUMERIC, Some(38L), Some(
+        9L
+      ), Field.Mode.NULLABLE)
+      // POSITION loads cast to the column type when the mapping differs
+      BigQueryNativeSchema.castTypes(schema, attributes, schemaHandler) shouldBe Map(
+        "wide" -> "BIGNUMERIC(50, 20)"
+      )
+      // The type of a wide decimal comes from its zone, written with a space here, even without
+      // mapping or when the mappings are disabled
+      val unmapped = List(TableAttribute("wide", "wide_unmapped"))
+      val unmappedSchema = patched(unmapped, enabled = false)
+      field(unmappedSchema, "wide").getType.getStandardType shouldBe StandardSQLTypeName.BIGNUMERIC
+      BigQueryNativeSchema.castTypes(unmappedSchema, unmapped, schemaHandler) shouldBe Map(
+        "wide" -> "BIGNUMERIC(50, 20)"
+      )
+      field(patched(attributes, enabled = false), "big").getType.getStandardType shouldBe
+      StandardSQLTypeName.BIGNUMERIC
+    }
+
     it should "give the built-in datetime, time and binary types their BigQuery type" in {
       val attributes = List(
         TableAttribute("civil", "datetime", required = Some(true)),
@@ -248,13 +289,19 @@ class BigQueryNativeSchemaSpec extends TestHelper {
         patched(attributes, Some(existing)),
         attributes,
         schemaHandler
-      ) shouldBe Map("kept" -> "TIMESTAMP")
-      // Disabled: the columns keep the derived types
+      ) shouldBe Map("kept" -> "TIMESTAMP", "payload" -> "JSON")
+      // Disabled: the columns keep the derived types. The variant column is a JSON one, read with
+      // PARSE_JSON
       BigQueryNativeSchema.castTypes(
         patched(attributes, enabled = false),
         attributes,
         schemaHandler
-      ) shouldBe Map("kept" -> "TIMESTAMP", "created" -> "TIMESTAMP", "code" -> "STRING")
+      ) shouldBe Map(
+        "kept"    -> "TIMESTAMP",
+        "created" -> "TIMESTAMP",
+        "code"    -> "STRING",
+        "payload" -> "JSON"
+      )
     }
 
     "BigQueryNativeSchema.patch" should "not hide a type change of an attribute" in {
