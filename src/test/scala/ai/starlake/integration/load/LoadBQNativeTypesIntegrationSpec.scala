@@ -131,22 +131,33 @@ class LoadBQNativeTypesIntegrationSpec extends IntegrationTestBase {
           "id"      -> (StandardSQLTypeName.INT64, None, Field.Mode.REQUIRED),
           "civil"   -> (StandardSQLTypeName.DATETIME, None, Field.Mode.NULLABLE),
           "wall"    -> (StandardSQLTypeName.TIME, None, Field.Mode.NULLABLE),
-          "payload" -> (StandardSQLTypeName.BYTES, None, Field.Mode.NULLABLE)
+          "payload" -> (StandardSQLTypeName.BYTES, None, Field.Mode.NULLABLE),
+          // Unparameterized, as the BIGNUMERIC mapping of the built-in bignumeric type
+          "big"      -> (StandardSQLTypeName.BIGNUMERIC, None, Field.Mode.NULLABLE),
+          "area"     -> (StandardSQLTypeName.GEOGRAPHY, None, Field.Mode.NULLABLE),
+          "duration" -> (StandardSQLTypeName.INTERVAL, None, Field.Mode.NULLABLE)
         )
         columns("builtin") shouldBe builtinColumns
         bigquery
           .query(
             QueryJobConfiguration
               .newBuilder(
-                s"SELECT CAST(civil AS STRING), CAST(wall AS STRING), TO_BASE64(payload) FROM `$dataset.builtin`"
+                s"SELECT CAST(civil AS STRING), CAST(wall AS STRING), TO_BASE64(payload), CAST(big AS STRING), ST_ASTEXT(area), CAST(duration AS STRING) FROM `$dataset.builtin`"
               )
               .build()
           )
           .iterateAll()
           .asScala
-          .map(row => (0 until 3).map(i => row.get(i).getStringValue).toList)
+          .map(row => (0 until 6).map(i => row.get(i).getStringValue).toList)
           .toList shouldBe List(
-          List("2019-12-31 23:59:02.123456", "23:59:02.123456", "SGVsbG8=")
+          List(
+            "2019-12-31 23:59:02.123456",
+            "23:59:02.123456",
+            "SGVsbG8=",
+            "1234567890123456789012345678901234567.12345678901234567890123456789012345678",
+            "POINT(1 2)",
+            "1-2 3 4:5:6.789"
+          )
         )
 
         // The next load keeps the types and their parameters

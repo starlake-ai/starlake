@@ -139,10 +139,12 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                         schema
                           .bigquerySchemaWithIgnoreAndScript(schemaHandler, withFinalName = false),
                         // The raw values of the ignored, transformed and scripted attributes are not
-                        // loaded into the target: they keep their derived type
+                        // loaded into the target: they keep their derived type, except the decimals
+                        // wider than Spark, whose derived type would not hold them
                         schema.attributes.filterNot(attribute =>
-                          attribute
-                            .resolveIgnore() || attribute.transform.isDefined || attribute.script.isDefined
+                          (attribute
+                            .resolveIgnore() || attribute.transform.isDefined || attribute.script.isDefined) &&
+                          !BigQueryNativeSchema.isWideDecimal(attribute, schemaHandler)
                         ),
                         _.name,
                         existingTargetSchema,

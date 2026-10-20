@@ -170,15 +170,7 @@ case class Type(
           require(tf.size == 2)
           Pattern.compile(tf(0), Pattern.MULTILINE)
           Pattern.compile(tf(1), Pattern.MULTILINE)
-        case PrimitiveType.decimal =>
-          zone match {
-            case None =>
-            case Some(zone) =>
-              val precisionScale = zone.split(",")
-              require(precisionScale.length == 2)
-              precisionScale(0).toInt
-              precisionScale(0).toInt
-          }
+        case PrimitiveType.decimal => // the zone is checked below
         case _ =>
           Pattern.compile(pattern)
       }
@@ -189,6 +181,14 @@ case class Type(
         "Type.pattern",
         s"Type $name - invalid Pattern $pattern"
       )
+    if (primitiveType == PrimitiveType.decimal)
+      zone.flatMap(PrimitiveType.decimal.zoneError).foreach { error =>
+        errorList += ValidationMessage(
+          Error,
+          "Type.zone",
+          s"Type $name - invalid decimal zone: $error"
+        )
+      }
     val ok = sample.forall { sample =>
       this.matches(sample)
     }
