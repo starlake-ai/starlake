@@ -200,10 +200,11 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "skip objects that cannot be fetched or converted" in {
+    // Spark cannot hold the default precision of BIGNUMERIC
     val unsupportedColumn = tableInfo(
       "unsupported_column",
       StandardTableDefinition.of(
-        Schema.of(Field.of("bytes", StandardSQLTypeName.BYTES))
+        Schema.of(Field.of("big", StandardSQLTypeName.BIGNUMERIC))
       )
     )
     val failing = tableInfo("failing", StandardTableDefinition.of(bqSchema))
@@ -265,7 +266,30 @@ class ExtractBigQuerySchemaSpec extends AnyFlatSpec with Matchers {
     extractView(new DryRun()) shouldBe storedTypes
     extractView(_ => Schema.of()) shouldBe storedTypes
     // An effective type that cannot be converted fails the view instead of extracting stale types
-    extractView(_ => Schema.of(Field.of("id", StandardSQLTypeName.BYTES))) shouldBe Nil
+    extractView(_ => Schema.of(Field.of("id", StandardSQLTypeName.BIGNUMERIC))) shouldBe Nil
+  }
+
+  it should "extract BYTES columns as binary" in {
+    val bytesTable = tableInfo(
+      "bytes_table",
+      StandardTableDefinition.of(
+        Schema.of(
+          Field.of("payload", StandardSQLTypeName.BYTES),
+          Field.newBuilder("chunks", StandardSQLTypeName.BYTES).setMode(Field.Mode.REPEATED).build()
+        )
+      )
+    )
+    ExtractBigQuerySchema
+      .extractTables(
+        List(listed(bytesTable)),
+        ExtractBigQuerySchema.parseTableTypes(Nil),
+        getTable(bytesTable),
+        new DryRun()
+      )
+      .flatMap(_.attributes.map(a => (a.name, a.`type`, a.resolveArray()))) shouldBe List(
+      ("payload", "binary", false),
+      ("chunks", "binary", true)
+    )
   }
 
   it should "not dry run legacy SQL views, whose dry runs return no schema" in {

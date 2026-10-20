@@ -189,7 +189,46 @@ trait IngestionJob
               .mkString(", ")}. Its scripts, SQL privacy and filter run as Spark SQL"
         )
       privacyAttributes.isEmpty
+    } && {
+      val binaryAttributes = binaryAttributesNotDecodedNatively(dbName)
+      if (binaryAttributes.nonEmpty)
+        logger.warn(
+          s"Loading $targetTableName with Spark instead of the native $dbName loader, which would not decode the bytes of ${binaryAttributes
+              .mkString(", ")} from the encoding of their type. Its scripts, SQL privacy and filter run as Spark SQL"
+        )
+      binaryAttributes.isEmpty
     }
+  }
+
+  /** @return
+    *   the loaded binary attributes whose text the native loader of the engine does not decode with
+    *   the encoding of their type: it would store other bytes. BigQuery reads base64 in CSV and
+    *   JSON loads, Snowflake reads hex by default, DuckDB reads its own escaped text.
+    */
+  private def binaryAttributesNotDecodedNatively(dbName: String): List[String] = {
+    val format = mergedMetadata.resolveFormat()
+    // A Parquet file holds the bytes themselves
+    def decodedNatively(encoding: String): Boolean =
+      format == Format.PARQUET ||
+      dbName == "bigquery" && encoding == "base64" && format != Format.POSITION ||
+      dbName == "snowflake" && encoding == "hex"
+    def binaryLeaves(attributes: List[TableAttribute], prefix: String): List[String] =
+      attributes
+        .filterNot(attribute => attribute.resolveIgnore() || attribute.script.isDefined)
+        .flatMap { attribute =>
+          val path = prefix + attribute.getFinalName()
+          if (attribute.attributes.nonEmpty) binaryLeaves(attribute.attributes, path + ".")
+          else
+            attribute
+              .`type`(schemaHandler)
+              .filter(tpe =>
+                tpe.primitiveType == PrimitiveType.binary &&
+                !decodedNatively(tpe.pattern.toLowerCase(java.util.Locale.ROOT))
+              )
+              .map(_ => path)
+              .toList
+        }
+    binaryLeaves(schema.attributes, "")
   }
 
   def buildListOfSQLStatementsAsMap(orchestrator: String): Map[String, Object] = {
