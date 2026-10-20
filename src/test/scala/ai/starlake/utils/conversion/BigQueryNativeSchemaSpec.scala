@@ -213,6 +213,27 @@ class BigQueryNativeSchemaSpec extends TestHelper {
       field(patched(attributes), "doc").getType.getStandardType shouldBe StandardSQLTypeName.JSON
     }
 
+    it should "give the built-in datetime, time and binary types their BigQuery type" in {
+      val attributes = List(
+        TableAttribute("civil", "datetime", required = Some(true)),
+        TableAttribute("wall", "time"),
+        TableAttribute("payload", "binary", array = Some(true))
+      )
+      def types(schema: BQSchema) =
+        schema.getFields.asScala.toList.map(field => field.getType.getStandardType -> field.getMode)
+      // Spark has no time type: the derived column is a STRING
+      types(legacySchema(attributes)) shouldBe List(
+        StandardSQLTypeName.DATETIME -> Field.Mode.REQUIRED,
+        StandardSQLTypeName.STRING   -> Field.Mode.NULLABLE,
+        StandardSQLTypeName.BYTES    -> Field.Mode.REPEATED
+      )
+      types(patched(attributes)) shouldBe List(
+        StandardSQLTypeName.DATETIME -> Field.Mode.REQUIRED,
+        StandardSQLTypeName.TIME     -> Field.Mode.NULLABLE,
+        StandardSQLTypeName.BYTES    -> Field.Mode.REPEATED
+      )
+    }
+
     "BigQueryNativeSchema.castTypes" should "cast POSITION values to the type of the columns that differ from their mapping" in {
       val attributes = List(
         TableAttribute("kept", "civil_datetime"),

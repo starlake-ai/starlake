@@ -146,7 +146,13 @@ trait IngestionJob
   }
 
   private[ingest] def selectLoader(): String =
-    IngestionJob.selectLoader(mergedMetadata, schema.attributes, targetTableName)
+    IngestionJob.selectLoader(
+      mergedMetadata,
+      schema.attributes,
+      targetTableName,
+      schemaHandler.types()
+    )
+
 
   def buildListOfSQLStatementsAsMap(orchestrator: String): Map[String, Object] = {
     require(
@@ -296,11 +302,12 @@ object IngestionJob extends LazyLogging {
   def selectLoader(
     mergedMetadata: Metadata,
     attributes: List[TableAttribute],
-    tableName: String
+    tableName: String,
+    types: List[Type]
   )(implicit settings: Settings): String = {
     val sinkConn = mergedMetadata.getSinkConnection()
     val dbName = sinkConn.targetDatawareHouse()
-    val nativeCandidate: Boolean = isNativeCandidate(mergedMetadata, attributes, tableName, dbName)
+    val nativeCandidate: Boolean = isNativeCandidate(mergedMetadata, attributes, tableName, types, dbName)
     logger.info(s"Native candidate: $nativeCandidate")
 
     val loader =
@@ -326,13 +333,15 @@ object IngestionJob extends LazyLogging {
     selectLoader(
       table.mergedMetadata(domain.metadata),
       table.attributes,
-      domain.finalName + "." + table.finalName
+      domain.finalName + "." + table.finalName,
+      settings.schemaHandler().types()
     ) == "spark"
 
   private def isNativeCandidate(
     mergedMetadata: Metadata,
     attributes: List[TableAttribute],
     tableName: String,
+    types: List[Type],
     dbName: String
   )(implicit settings: Settings): Boolean = {
     val isNative = mergedMetadata.loader
@@ -353,7 +362,52 @@ object IngestionJob extends LazyLogging {
               .mkString(", ")}. Its scripts, SQL privacy and filter run as Spark SQL"
         )
       privacyAttributes.isEmpty
+    } && {
+      val binaryAttributes =
+        binaryAttributesNotDecodedNatively(mergedMetadata, attributes, types, dbName)
+      if (binaryAttributes.nonEmpty)
+        logger.warn(
+          s"Loading $tableName with Spark instead of the native $dbName loader, which would not decode the bytes of ${binaryAttributes
+              .mkString(", ")} from the encoding of their type. Its scripts, SQL privacy and filter run as Spark SQL"
+        )
+      binaryAttributes.isEmpty
     }
+  }
+
+  /** @return
+    *   the loaded binary attributes whose text the native loader of the engine does not decode with
+    *   the encoding of their type: it would store other bytes. BigQuery reads base64 in CSV and
+    *   JSON loads, Snowflake reads hex by default, DuckDB reads its own escaped text.
+    */
+  private def binaryAttributesNotDecodedNatively(
+    mergedMetadata: Metadata,
+    attributes: List[TableAttribute],
+    types: List[Type],
+    dbName: String
+  ): List[String] = {
+    val format = mergedMetadata.resolveFormat()
+    // A Parquet file holds the bytes themselves
+    def decodedNatively(encoding: String): Boolean =
+      format == Format.PARQUET ||
+      dbName == "bigquery" && encoding == "base64" && format != Format.POSITION ||
+      dbName == "snowflake" && encoding == "hex"
+    def binaryLeaves(attributes: List[TableAttribute], prefix: String): List[String] =
+      attributes
+        .filterNot(attribute => attribute.resolveIgnore() || attribute.script.isDefined)
+        .flatMap { attribute =>
+          val path = prefix + attribute.getFinalName()
+          if (attribute.attributes.nonEmpty) binaryLeaves(attribute.attributes, path + ".")
+          else
+            types
+              .find(_.name == attribute.`type`)
+              .filter(tpe =>
+                tpe.primitiveType == PrimitiveType.binary &&
+                !decodedNatively(tpe.pattern.toLowerCase(java.util.Locale.ROOT))
+              )
+              .map(_ => path)
+              .toList
+        }
+    binaryLeaves(attributes, "")
   }
 
 

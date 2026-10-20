@@ -99,6 +99,18 @@
         {
           "const": "struct",
           "description": "Any attribute that has children. Set the array to true if this attribute is made of a list of attributes"
+        },
+        {
+          "const": "datetime",
+          "description": "Date and time without time zone, such as the BigQuery DATETIME type. The pattern is a date time pattern such as 'yyyy-MM-dd HH:mm:ss', without offset or time zone, or one of SQL_DATE_TIME (a date, a space or a T, and a time whose seconds and fraction are optional), BASIC_ISO_DATE, ISO_LOCAL_DATE, ISO_DATE, ISO_LOCAL_DATE_TIME, ISO_DATE_TIME, ISO_ORDINAL_DATE or ISO_WEEK_DATE. A date without time is at the start of the day. A value with an offset or a time zone, or out of the years 1 to 9999, is rejected"
+        },
+        {
+          "const": "time",
+          "description": "Time of day without time zone, such as the BigQuery TIME type. The pattern is a time pattern such as 'HH:mm:ss', without offset, or ISO_LOCAL_TIME or ISO_TIME. On Spark, the value is the text HH:mm:ss followed by the microseconds when they are not 0"
+        },
+        {
+          "const": "binary",
+          "description": "Sequence of bytes, such as the BigQuery BYTES type. The pattern is the text encoding of the bytes: base64 or hex"
         }
       ]
     },

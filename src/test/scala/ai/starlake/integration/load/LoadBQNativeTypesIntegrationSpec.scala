@@ -12,7 +12,8 @@ import scala.jdk.CollectionConverters._
   */
 class LoadBQNativeTypesIntegrationSpec extends IntegrationTestBase {
   private val dataset = "starlake_it_bq_native_types"
-  private val tables = List("typed", "typed_two_steps", "existing_ts", "existing_two_steps")
+  private val tables =
+    List("typed", "typed_two_steps", "existing_ts", "existing_two_steps", "builtin")
 
   private val projectTemplate: File =
     File(getClass.getResource("/integration/bq-native-types").toURI)
@@ -125,10 +126,34 @@ class LoadBQNativeTypesIntegrationSpec extends IntegrationTestBase {
           List("2026-01-02 03:04:05", "12:34:56", """{"a":1}""", "POINT(1 2)", "abc")
         )
 
+        // The built-in datetime, time and binary types
+        val builtinColumns = Map(
+          "id"      -> (StandardSQLTypeName.INT64, None, Field.Mode.REQUIRED),
+          "civil"   -> (StandardSQLTypeName.DATETIME, None, Field.Mode.NULLABLE),
+          "wall"    -> (StandardSQLTypeName.TIME, None, Field.Mode.NULLABLE),
+          "payload" -> (StandardSQLTypeName.BYTES, None, Field.Mode.NULLABLE)
+        )
+        columns("builtin") shouldBe builtinColumns
+        bigquery
+          .query(
+            QueryJobConfiguration
+              .newBuilder(
+                s"SELECT CAST(civil AS STRING), CAST(wall AS STRING), TO_BASE64(payload) FROM `$dataset.builtin`"
+              )
+              .build()
+          )
+          .iterateAll()
+          .asScala
+          .map(row => (0 until 3).map(i => row.get(i).getStringValue).toList)
+          .toList shouldBe List(
+          List("2019-12-31 23:59:02.123456", "23:59:02.123456", "SGVsbG8=")
+        )
+
         // The next load keeps the types and their parameters
         load()
         columns("typed") shouldBe expected
         columns("typed_two_steps") shouldBe expected
+        columns("builtin") shouldBe builtinColumns
         tables.foreach(table => count(table) shouldBe 2)
       }
     }
