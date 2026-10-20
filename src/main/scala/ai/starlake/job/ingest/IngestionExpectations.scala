@@ -1,6 +1,7 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.job.metrics._
+import ai.starlake.job.ingest.loaders.BigQueryNativeLoader
 import ai.starlake.job.sink.bigquery._
 import ai.starlake.schema.handlers.SqlTransformations
 import ai.starlake.schema.model.{BigQuerySink, JdbcSink}
@@ -36,27 +37,56 @@ trait IngestionExpectations { self: IngestionJob =>
 
   private def runExpectationsWithHandler(handler: ExpectationAssertionHandler): Try[JobResult] = {
     if (settings.appConfig.expectations.active) {
-      new ExpectationJob(
-        Option(applicationId()),
-        schemaHandler.getDatabase(this.domain),
-        this.domain.finalName,
-        this.schema.finalName,
-        this.schema.expectations,
-        storageHandler,
-        schemaHandler,
-        handler,
-        false,
-        transpileSql = sql =>
-          SqlTransformations.transpileIfNeeded(
-            sql,
-            mergedMetadata.getSinkConnection(),
-            schemaHandler.activeEnvVars(),
-            this.test
-          )
-      ).run()
+      expectationJob(handler).run()
     } else {
       Success(SparkJobResult(None, None))
     }
+  }
+
+  /** The table expectations check, as (database, domain, table): the loaded table, except for a
+    * native BigQuery load on a data branch, which writes to the branch copy of the table. Spark
+    * loads never branch.
+    */
+  private def expectationTarget: (Option[String], String, String) = {
+    val database = schemaHandler.getDatabase(this.domain)
+    val loadedTable = (database, this.domain.finalName, this.schema.finalName)
+    if (IngestionJob.selectLoader(mergedMetadata) == "bigquery") {
+      val sinkOptions = mergedMetadata.getSink().getConnection().options
+      schemaHandler.dataBranch(sinkOptions) match {
+        case Some(branch) =>
+          val tableId = BigQueryNativeLoader.originalTableId(
+            database,
+            this.domain.finalName,
+            this.schema.finalName,
+            sinkOptions
+          )
+          (Option(tableId.getProject), branch, tableId.getTable)
+        case None => loadedTable
+      }
+    } else
+      loadedTable
+  }
+
+  private[ingest] def expectationJob(handler: ExpectationAssertionHandler): ExpectationJob = {
+    val (database, domainName, tableName) = expectationTarget
+    new ExpectationJob(
+      Option(applicationId()),
+      database,
+      domainName,
+      tableName,
+      this.schema.expectations,
+      storageHandler,
+      schemaHandler,
+      handler,
+      false,
+      transpileSql = sql =>
+        SqlTransformations.transpileIfNeeded(
+          sql,
+          mergedMetadata.getSinkConnection(),
+          schemaHandler.activeEnvVars(),
+          this.test
+        )
+    )
   }
 
   private def runJdbcExpectations(jdbcOptions: Map[String, String]): Try[JobResult] =
