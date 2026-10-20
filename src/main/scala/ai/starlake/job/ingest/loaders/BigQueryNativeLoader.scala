@@ -28,11 +28,11 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
     with LazyLogging {
 
   lazy val targetTableId: TableId = {
-    val originalTableId = BigQueryJobBase.extractProjectDatasetAndTable(
+    val originalTableId = BigQueryNativeLoader.originalTableId(
       schemaHandler.getDatabase(domain),
       domain.finalName,
       effectiveSchema.finalName,
-      sinkConnection.options.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
+      sinkConnection.options
     )
     schemaHandler.dataBranch(sinkConnection.options) match {
       case Some(branchName) =>
@@ -311,4 +311,24 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
     jobResult
   }
 
+}
+
+object BigQueryNativeLoader {
+
+  /** The table a native BigQuery load writes to when no data branch is active. On a branch, the
+    * load writes to the table of the same name in the branch dataset of this table's project (see
+    * BigQueryBranchHandler.prepareBranch).
+    */
+  def originalTableId(
+    database: Option[String],
+    domain: String,
+    table: String,
+    sinkOptions: Map[String, String]
+  )(implicit settings: Settings): TableId =
+    BigQueryJobBase.extractProjectDatasetAndTable(
+      database,
+      domain,
+      table,
+      sinkOptions.get("projectId").orElse(settings.appConfig.getDefaultDatabase())
+    )
 }

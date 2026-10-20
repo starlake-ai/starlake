@@ -90,6 +90,13 @@ abstract class AutoTask(
     */
   protected def expectationAssertionHandler: ExpectationAssertionHandler
 
+  /** The table expectations check, as (database, domain, table): the task's target by default.
+    * Engines that redirect the write elsewhere (e.g. a BigQuery data branch) override it so the
+    * expectations check the table that was actually written.
+    */
+  protected def expectationTarget: (Option[String], String, String) =
+    (taskDesc.database, taskDesc.domain, taskDesc.table)
+
   /** Runs expectations and returns the reports without persisting them.
     *
     * Use this for interactive validation where you want to see the results but not store them in
@@ -99,11 +106,12 @@ abstract class AutoTask(
     *   List of ExpectationReport containing pass/fail status for each assertion
     */
   def runExpectations(): List[ExpectationReport] = {
+    val (database, domain, table) = expectationTarget
     new ExpectationJob(
       Option(applicationId()),
-      taskDesc.database,
-      taskDesc.domain,
-      taskDesc.table,
+      database,
+      domain,
+      table,
       taskDesc.expectations,
       storageHandler,
       schemaHandler,
@@ -122,11 +130,12 @@ abstract class AutoTask(
     *   Try[JobResult] indicating success or failure of the expectation run
     */
   def runAndSinkExpectations(): Try[JobResult] = {
+    val (database, domain, table) = expectationTarget
     new ExpectationJob(
       Option(applicationId()),
-      taskDesc.database,
-      taskDesc.domain,
-      taskDesc.table,
+      database,
+      domain,
+      table,
       taskDesc.expectations,
       storageHandler,
       schemaHandler,

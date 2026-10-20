@@ -645,6 +645,13 @@ class BigQueryAutoTask(
 
   }
 
+  /** On a data branch the task writes to the branch copy of its target: check that one. */
+  override protected def expectationTarget: (Option[String], String, String) =
+    if (dataBranch.isDefined)
+      (Option(targetTableId.getProject), targetTableId.getDataset, targetTableId.getTable)
+    else
+      super.expectationTarget
+
   override protected def expectationAssertionHandler: ExpectationAssertionHandler =
     new BigQueryExpectationAssertionHandler(
       bqNativeJob(
