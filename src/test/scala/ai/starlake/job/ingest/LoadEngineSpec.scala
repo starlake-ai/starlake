@@ -117,7 +117,9 @@ class LoadEngineSpec extends TestHelper {
         format = Some(Format.DSV),
         sink = Some(AllSinks(connectionRef = Some("duckdb_noloader")))
       )
-      IngestionJob.selectLoader(metadata, Nil, "domain.table", Nil)(duckDbSettings) shouldBe "duckdb"
+      IngestionJob.selectLoader(metadata, Nil, "domain.table", Nil)(
+        duckDbSettings
+      ) shouldBe "duckdb"
     }
 
     "loadRequiresSpark" should "merge domain and table metadata before deciding" in {

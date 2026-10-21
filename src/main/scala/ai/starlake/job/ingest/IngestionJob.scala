@@ -153,7 +153,6 @@ trait IngestionJob
       schemaHandler.types()
     )
 
-
   def buildListOfSQLStatementsAsMap(orchestrator: String): Map[String, Object] = {
     require(
       orchestrator == "snowflake",
@@ -307,7 +306,8 @@ object IngestionJob extends LazyLogging {
   )(implicit settings: Settings): String = {
     val sinkConn = mergedMetadata.getSinkConnection()
     val dbName = sinkConn.targetDatawareHouse()
-    val nativeCandidate: Boolean = isNativeCandidate(mergedMetadata, attributes, tableName, types, dbName)
+    val nativeCandidate: Boolean =
+      isNativeCandidate(mergedMetadata, attributes, tableName, types, dbName)
     logger.info(s"Native candidate: $nativeCandidate")
 
     val loader =
@@ -409,7 +409,6 @@ object IngestionJob extends LazyLogging {
         }
     binaryLeaves(attributes, "")
   }
-
 
   /** @return
     *   the paths of the loaded leaf attributes, at every nesting level, whose privacy is not SQL.
