@@ -251,11 +251,14 @@ class NativeLoader(ingestionJob: IngestionJob, accessToken: Option[String])(impl
     // Per-attribute DDL type for the sink engine, used by POSITION to wrap each
     // SUBSTR projection in SAFE_CAST so malformed lines fail gracefully (NULL) instead
     // of aborting the whole INSERT.
-    val ddlTypesByAttribute: Map[String, String] = Try(
-      schemaHandler
-        .getAttributesWithDDLType(starlakeSchema, engineName.toString)
-        .toMap
-    ).getOrElse(Map.empty) ++ castTypes
+    // An attribute without a mapping for the engine is not cast, the others still are
+    val ddlTypesByAttribute: Map[String, String] = starlakeSchema.attributes.flatMap { attribute =>
+      attribute
+        .`type`(schemaHandler)
+        .flatMap(_.ddlMapping)
+        .flatMap(_.get(engineName.toString))
+        .map(attribute.name -> _)
+    }.toMap ++ castTypes
     val sqlWithTransformedFields =
       starlakeSchema.buildSecondStepSqlSelectOnLoad(
         tempTable,

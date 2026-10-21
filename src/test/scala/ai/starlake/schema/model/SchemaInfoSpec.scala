@@ -202,5 +202,27 @@ class SchemaInfoSpec extends TestHelper {
       sql should include("SUBSTR(value, 12, 20) as label")
       sql should not include "SAFE_CAST(SUBSTR(value, 12, 20) AS STRING)"
     }
+
+    it should "parse the POSITION values of the types that BigQuery cannot cast from a string" in {
+      val schema = SchemaInfo(
+        name = "places",
+        pattern = Pattern.compile(".*TBL\\.POS"),
+        metadata = Some(Metadata(format = Some(Format.POSITION))),
+        attributes = List(
+          TableAttribute(name = "area", `type` = "geography", position = Some(Position(0, 9))),
+          TableAttribute(name = "doc", `type` = "variant", position = Some(Position(10, 19))),
+          TableAttribute(name = "big", `type` = "bignumeric", position = Some(Position(20, 29)))
+        )
+      )
+      val sql = schema
+        .buildSecondStepSqlSelectOnLoad(
+          "tmp_table",
+          ddlTypesByAttribute = Map("area" -> "GEOGRAPHY", "doc" -> "JSON", "big" -> "BIGNUMERIC")
+        )
+        .replaceAll("\\s+", " ")
+      sql should include("SAFE.ST_GEOGFROM(SUBSTR(value, 1, 10)) as area")
+      sql should include("SAFE.PARSE_JSON(SUBSTR(value, 11, 10)) as doc")
+      sql should include("SAFE_CAST(SUBSTR(value, 21, 10) AS BIGNUMERIC) as big")
+    }
   }
 }

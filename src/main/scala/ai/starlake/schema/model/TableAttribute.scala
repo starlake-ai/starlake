@@ -322,9 +322,17 @@ case class TableAttribute(
               // first type of the same primitive type with a mapping
               val newPrimitiveTypes: Set[PrimitiveType] =
                 Set(PrimitiveType.datetime, PrimitiveType.time, PrimitiveType.binary)
-              (if (newPrimitiveTypes.contains(tpe.primitiveType))
-                 sameTypes.find(_.ddlMapping.exists(_.contains(datawarehouse)))
-               else sameTypes.headOption) match {
+              val fallbackType =
+                if (newPrimitiveTypes.contains(tpe.primitiveType))
+                  sameTypes.find(_.ddlMapping.exists(_.contains(datawarehouse)))
+                else sameTypes.headOption
+              if (PrimitiveType.decimal.isWide(tpe))
+                fallbackType.foreach { defaultType =>
+                  logger.warn(
+                    s"The decimal type ${tpe.name} of $name is wider than ${PrimitiveType.decimal.maxSparkPrecision} digits and has no mapping for $datawarehouse: its column takes the one of ${defaultType.name}, which may not hold its values"
+                  )
+                }
+              fallbackType match {
                 case None =>
                   throw new Exception(
                     s"No mapping found for ${tpe.name} with primitive type " +

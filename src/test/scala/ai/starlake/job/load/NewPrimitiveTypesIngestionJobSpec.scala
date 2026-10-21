@@ -120,6 +120,28 @@ class NewPrimitiveTypesIngestionJobSpec extends TestHelper {
       }
     }
 
+    "A Spark load" should "fail on a decimal wider than the precision of Spark, instead of losing digits" in {
+      new SpecTrait(
+        sourceDomainOrJobPathname = "/sample/new-types/_config.sl.yml",
+        datasetDomainName = "newtypes",
+        sourceDatasetPathName = "/sample/new-types/wide-1.dsv"
+      ) {
+        try {
+          deliverNewTypesProject()
+          deliverSourceDomain()
+          deliverSourceTable("/sample/new-types/wide.sl.yml")
+          val result = loadPending
+          result.isFailure shouldBe true
+          result.failed.get.getMessage should include(
+            "cannot be loaded with Spark, whose decimals have a precision of 38 at most: the precision of amount is above"
+          )
+          sparkSession.catalog.tableExists("newtypes.wide") shouldBe false
+        } finally {
+          sparkSession.sql("DROP TABLE IF EXISTS newtypes.wide")
+        }
+      }
+    }
+
     "A Parquet file" should "load its TIMESTAMP_NTZ, timestamp and binary columns as datetime and binary" in {
       new SpecTrait(
         sourceDomainOrJobPathname = "/sample/new-types/_config.sl.yml",

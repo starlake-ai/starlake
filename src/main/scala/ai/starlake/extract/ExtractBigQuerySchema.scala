@@ -4,7 +4,6 @@ import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
-import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.BigQuery.{DatasetListOption, TableListOption}
 import com.google.cloud.bigquery.{
   BigQuery,
@@ -16,15 +15,16 @@ import com.google.cloud.bigquery.{
   JobStatistics,
   QueryJobConfiguration,
   Schema,
+  StandardSQLTypeName,
   TableDefinition,
   TableId,
   TableInfo,
   ViewDefinition
 }
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.util.{Locale, UUID}
+import scala.collection.mutable.ListBuffer
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -131,7 +131,8 @@ class ExtractBigQuerySchema(config: TablesExtractConfig)(implicit settings: Sett
       tableTypes,
       // We get the Table again because Tables are returned with a null schema by listTables above.
       tableId => bigquery.getTable(tableId),
-      dryRunSchema(Option(dataset.getLocation))
+      dryRunSchema(Option(dataset.getLocation)),
+      typeNames(schemaHandler)
     )
     DomainInfo(
       name = dataset.getDatasetId().getDataset(),
@@ -142,6 +143,16 @@ class ExtractBigQuerySchema(config: TablesExtractConfig)(implicit settings: Sett
       ),
       database = Option(dataset.getDatasetId().getProject())
     )
+  }
+
+  // The project type names, resolved once per extraction
+  private var projectTypeNames: Option[String => String] = None
+  private def typeNames(schemaHandler: SchemaHandler): String => String = synchronized {
+    projectTypeNames.getOrElse {
+      val typeNames = ExtractBigQuerySchema.projectTypeNames(schemaHandler)
+      projectTypeNames = Some(typeNames)
+      typeNames
+    }
   }
 
   /** The project the dry runs of views are billed to: the connection one rather than the extracted
@@ -228,7 +239,7 @@ object ExtractBigQuerySchema extends LazyLogging {
   }
 
   /** Extracts the schemas of the listed objects whose type is one of the table types to extract. An
-    * object that cannot be fetched or whose schema cannot be converted is skipped with an error.
+    * object that cannot be fetched is skipped with an error.
     *
     * @param listedTables
     *   objects returned by listTables: their definition holds their type but not their schema
@@ -238,12 +249,15 @@ object ExtractBigQuerySchema extends LazyLogging {
     *   fetches an object with its schema, null if it does not exist anymore
     * @param getViewSchema
     *   reads the effective schema of a view
+    * @param typeName
+    *   the name of the project type of a built-in type
     */
   def extractTables(
     listedTables: Iterable[TableInfo],
     tableTypes: Set[TableDefinition.Type],
     getTable: TableId => TableInfo,
-    getViewSchema: TableInfo => Schema
+    getViewSchema: TableInfo => Schema,
+    typeName: String => String = identity
   ): List[SchemaInfo] = {
     // Filter on the listed type first to avoid fetching objects that would be skipped anyway, and
     // again once fetched in case the listing did not return it.
@@ -254,7 +268,7 @@ object ExtractBigQuerySchema extends LazyLogging {
         Try(Option(getTable(tableId))) match {
           case Success(Some(table)) if isExtractable(table, tableTypes) =>
             logger.info(s"Extracting table $tableName")
-            Try(extractTableOrView(table, getViewSchema)) match {
+            Try(extractTableOrView(table, getViewSchema, typeName)) match {
               case Success(Some(schema)) =>
                 Some(Right(schema))
               case Success(None) =>
@@ -304,7 +318,8 @@ object ExtractBigQuerySchema extends LazyLogging {
     */
   private def extractTableOrView(
     table: TableInfo,
-    getViewSchema: TableInfo => Schema
+    getViewSchema: TableInfo => Schema,
+    typeName: String => String
   ): Option[SchemaInfo] =
     table.getDefinition[TableDefinition]() match {
       // Legacy SQL is the dialect of the views that do not set it. The dry run of a legacy SQL
@@ -313,32 +328,31 @@ object ExtractBigQuerySchema extends LazyLogging {
         logger.warn(
           s"View ${table.getTableId.getDataset()}.${table.getTableId.getTable()} uses legacy SQL, whose effective schema cannot be read with a dry run: using its stored schema, which may be stale"
         )
-        extractTable(table)
+        extractTable(table, typeName)
       case view: ViewDefinition =>
         val viewName = s"${table.getTableId.getDataset()}.${table.getTableId.getTable()}"
         Try(
           Option(getViewSchema(table)).filter(schema => fieldsOf(schema.getFields).nonEmpty)
         ) match {
-          // A conversion failure of the effective schema is the error of the view: falling back to
-          // the stored schema could extract stale types
           case Success(Some(effectiveSchema)) =>
             val schema = mergeViewSchema(viewName, Option(view.getSchema), effectiveSchema)
             extractTable(
-              table.toBuilder.setDefinition(view.toBuilder.setSchema(schema).build()).build()
+              table.toBuilder.setDefinition(view.toBuilder.setSchema(schema).build()).build(),
+              typeName
             )
           case Success(None) =>
             logger.warn(
               s"The dry run of view $viewName returned no schema: using its stored schema, which may be stale"
             )
-            extractTable(table)
+            extractTable(table, typeName)
           case Failure(e) =>
             logger.warn(
               s"Could not dry run view $viewName ($e): using its stored schema, which may be stale"
             )
-            extractTable(table)
+            extractTable(table, typeName)
         }
       case _ =>
-        extractTable(table)
+        extractTable(table, typeName)
     }
 
   /** @return
@@ -366,6 +380,115 @@ object ExtractBigQuerySchema extends LazyLogging {
 
   private def fieldsOf(fields: FieldList): List[Field] =
     Option(fields).map(_.asScala.toList).getOrElse(Nil)
+
+  /** @return
+    *   the attribute of a BigQuery column, named after the built-in type of its BigQuery type.
+    *   Never fails: an unknown type is a string. Notes the parameters and types it does not keep.
+    */
+  private def attributeOf(
+    field: Field,
+    prefix: String,
+    typeName: String => String,
+    notes: ListBuffer[String]
+  ): TableAttribute = {
+    val path = prefix + field.getName
+    val mode = Option(field.getMode).getOrElse(Field.Mode.NULLABLE)
+    def withParameters(bigQueryType: String): Option[String] =
+      (Option(field.getPrecision), Option(field.getScale), Option(field.getMaxLength)) match {
+        case (None, None, None) => None
+        case (precision, scale, maxLength) =>
+          val parameters = (precision.toList ++ scale.toList ++ maxLength.toList).mkString(", ")
+          Some(s"$path is a $bigQueryType($parameters), whose parameters its type does not keep")
+      }
+    // A type unknown to this BigQuery client has no standard type
+    val (builtInTypeName, note) =
+      Option(field.getType).flatMap(t => Option(t.getStandardType)) match {
+        case Some(StandardSQLTypeName.STRUCT)     => "struct"     -> None
+        case Some(StandardSQLTypeName.STRING)     => "string"     -> withParameters("STRING")
+        case Some(StandardSQLTypeName.BYTES)      => "binary"     -> withParameters("BYTES")
+        case Some(StandardSQLTypeName.INT64)      => "long"       -> None
+        case Some(StandardSQLTypeName.FLOAT64)    => "double"     -> None
+        case Some(StandardSQLTypeName.NUMERIC)    => "decimal"    -> withParameters("NUMERIC")
+        case Some(StandardSQLTypeName.BIGNUMERIC) => "bignumeric" -> withParameters("BIGNUMERIC")
+        case Some(StandardSQLTypeName.BOOL)       => "boolean"    -> None
+        case Some(StandardSQLTypeName.TIMESTAMP)  => "timestamp"  -> None
+        case Some(StandardSQLTypeName.DATE)       => "date"       -> None
+        case Some(StandardSQLTypeName.TIME)       => "time"       -> None
+        case Some(StandardSQLTypeName.DATETIME)   => "datetime"   -> None
+        case Some(StandardSQLTypeName.GEOGRAPHY)  => "geography"  -> None
+        case Some(StandardSQLTypeName.JSON)       => "variant"    -> None
+        case Some(StandardSQLTypeName.INTERVAL)   => "interval"   -> None
+        case Some(StandardSQLTypeName.RANGE) =>
+          Option(field.getRangeElementType)
+            .flatMap(t => Option(t.getType))
+            .map(_.toUpperCase(Locale.ROOT)) match {
+            case Some("DATE")      => "range_date"      -> None
+            case Some("DATETIME")  => "range_datetime"  -> None
+            case Some("TIMESTAMP") => "range_timestamp" -> None
+            case other =>
+              "string" -> Some(s"$path is a RANGE<${other.getOrElse("")}>, extracted as a string")
+          }
+        case _ =>
+          val bigQueryType = Option(field.getType).map(_.name()).getOrElse("column of no type")
+          "string" -> Some(s"$path is a $bigQueryType, extracted as a string")
+      }
+    note.foreach(notes += _)
+    val isStruct = builtInTypeName == "struct"
+    TableAttribute(
+      name = field.getName,
+      `type` = if (isStruct) builtInTypeName else typeName(builtInTypeName),
+      array = if (mode == Field.Mode.REPEATED) Some(true) else None,
+      required = Some(mode == Field.Mode.REQUIRED),
+      comment = Option(field.getDescription),
+      attributes =
+        if (isStruct) fieldsOf(field.getSubFields).map(attributeOf(_, path + ".", typeName, notes))
+        else Nil
+    )
+  }
+
+  /** @return
+    *   the name of the project type of a built-in type: the built-in type itself, unless a project
+    *   type of the same name has another primitive type. Then the first type of the project, not a
+    *   built-in one, of the same primitive type and BigQuery mapping, or of the same primitive
+    *   type, or the name, when the project has none. Each name is resolved once, with a warning
+    *   when it is replaced.
+    */
+  def projectTypeNames(schemaHandler: SchemaHandler): String => String = {
+    lazy val projectTypes = schemaHandler.types()
+    val names = scala.collection.mutable.Map.empty[String, String]
+    def resolve(builtInTypeName: String): String =
+      SchemaHandler.builtInTypes.find(_.name == builtInTypeName) match {
+        case Some(builtInType)
+            if !projectTypes.exists(tpe =>
+              tpe.name == builtInType.name && tpe.primitiveType == builtInType.primitiveType
+            ) =>
+          val ownTypes = projectTypes.filter(tpe =>
+            tpe.primitiveType == builtInType.primitiveType && !SchemaHandler.builtInTypes
+              .contains(tpe)
+          )
+          val bigQueryMapping = builtInType.getDdlMappingForDB("bigquery")
+          ownTypes
+            .find(tpe =>
+              bigQueryMapping.nonEmpty && tpe.getDdlMappingForDB("bigquery") == bigQueryMapping
+            )
+            .orElse(ownTypes.headOption) match {
+            case Some(projectType) =>
+              logger.warn(
+                s"The project replaces the built-in type ${builtInType.name} with a type of another primitive type: its columns are extracted with the type ${projectType.name}"
+              )
+              projectType.name
+            case None =>
+              logger.warn(
+                s"The project replaces the built-in type ${builtInType.name} with a type of another primitive type, and has no other type of primitive type ${builtInType.primitiveType}: its columns are extracted with the type ${builtInType.name} of the project"
+              )
+              builtInTypeName
+          }
+        case _ =>
+          builtInTypeName
+      }
+    builtInTypeName =>
+      names.synchronized(names.getOrElseUpdate(builtInTypeName, resolve(builtInTypeName)))
+  }
 
   /** BigQuery column names are case insensitive */
   private def byName(fields: List[Field]): Map[String, Field] =
@@ -439,13 +562,24 @@ object ExtractBigQuerySchema extends LazyLogging {
     *   the table schema read from the table definition, whatever the BigQuery object type, or None
     *   if the definition has no schema.
     */
-  def extractTable(table: TableInfo): Option[SchemaInfo] = {
+  def extractTable(table: TableInfo, typeName: String => String = identity): Option[SchemaInfo] = {
     val tableName = table.getTableId().getTable()
     Option(table.getDefinition[TableDefinition]()).flatMap(d => Option(d.getSchema)) match {
       case Some(bqSchema) =>
-        val sparkSchema: StructType = BigQuerySchemaConverters.toSpark(bqSchema)
-        val schema = SchemaInfo.fromSparkSchema(tableName, StructField("ignore", sparkSchema))
-        Some(schema.copy(comment = Option(table.getDescription())))
+        val notes = ListBuffer.empty[String]
+        val attributes = fieldsOf(bqSchema.getFields).map(attributeOf(_, "", typeName, notes))
+        if (notes.nonEmpty)
+          logger.warn(
+            s"${table.getTableId.getDataset()}.$tableName: ${notes.mkString(", ")}"
+          )
+        Some(
+          SchemaInfo(
+            tableName,
+            java.util.regex.Pattern.compile("ignore"),
+            attributes,
+            comment = Option(table.getDescription())
+          )
+        )
       case None =>
         logger.warn(
           s"Skipping ${table.getTableId.getDataset()}.$tableName: its definition has no schema"

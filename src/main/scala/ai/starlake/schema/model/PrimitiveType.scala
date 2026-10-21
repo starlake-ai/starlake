@@ -167,6 +167,49 @@ object PrimitiveType {
   object decimal extends PrimitiveType("decimal") {
     val defaultDecimalType = DataTypes.createDecimalType(38, 9)
     var decimals: mutable.Map[String, DecimalType] = mutable.Map.empty
+
+    /** The largest precision of a Spark decimal */
+    val maxSparkPrecision: Int = DecimalType.MAX_PRECISION
+
+    /** @return
+      *   the precision and scale of a decimal zone, "precision,scale", if it is one
+      */
+    def precisionAndScale(zone: String): Option[(Int, Int)] =
+      zone.split(",").map(_.trim) match {
+        case Array(precision, scale) =>
+          for {
+            precision <- precision.toIntOption
+            scale     <- scale.toIntOption
+          } yield (precision, scale)
+        case _ => None
+      }
+
+    /** A decimal type whose zone is above the precision of Spark */
+    def isWide(tpe: Type): Boolean =
+      tpe.primitiveType == decimal && tpe.zone
+        .flatMap(precisionAndScale)
+        .exists(_._1 > maxSparkPrecision)
+
+    /** @return
+      *   why the precision and scale of a decimal zone are not valid: a scale between 0 and the
+      *   precision, and, above the precision 38 of Spark, the bounds of a BigQuery BIGNUMERIC
+      */
+    def zoneError(zone: String): Option[String] =
+      precisionAndScale(zone) match {
+        case None =>
+          Some(s"$zone is not a precision and a scale separated by a comma")
+        // Spark reads the zone of a decimal without spaces only
+        case Some(_) if zone.exists(_.isWhitespace) =>
+          Some(s"$zone must be written without spaces")
+        case Some((precision, scale)) if precision < 1 || scale < 0 || scale > precision =>
+          Some(s"$zone must have a precision of at least 1 and a scale between 0 and the precision")
+        case Some((precision, scale))
+            if precision > maxSparkPrecision && (scale > 38 || precision > scale + 38) =>
+          Some(
+            s"$zone is above the precision $maxSparkPrecision of Spark, and out of the bounds of a BigQuery BIGNUMERIC: a scale of at most 38 and a precision of at most the scale + 38"
+          )
+        case _ => None
+      }
     def fromString(str: String, pattern: String, zone: Option[String]): Any =
       if (str == null || str.isEmpty) null else BigDecimal(str.trim)
 
@@ -175,6 +218,8 @@ object PrimitiveType {
         case None =>
           defaultDecimalType
         case Some(zone) =>
+          // A zone with spaces keeps the default decimal, as it always did: the Spark types of
+          // existing tables do not change
           Try {
             val precisionScale = zone.split(",")
             val precision = precisionScale(0).toInt

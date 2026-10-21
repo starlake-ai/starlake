@@ -142,24 +142,56 @@ class DatetimeTimeBinaryTypesSpec extends TestHelper {
     valid(binary, "utf8") shouldBe false
   }
 
+  private val extraTypeNames = List(
+    "datetime"        -> datetime,
+    "time"            -> time,
+    "binary"          -> binary,
+    "bignumeric"      -> PrimitiveType.decimal,
+    "geography"       -> PrimitiveType.string,
+    "interval"        -> PrimitiveType.string,
+    "range_date"      -> PrimitiveType.string,
+    "range_datetime"  -> PrimitiveType.string,
+    "range_timestamp" -> PrimitiveType.string
+  )
+
+  "A decimal zone" should "be a precision and a scale within the bounds of Spark or of BigQuery" in {
+    def zoneErrors(zone: String) =
+      Type("t", "[-+]?\\d*\\.?\\d+", PrimitiveType.decimal, zone = Some(zone))
+        .checkValidity() match {
+        case Left(errors) => errors.filter(_.target == "Type.zone").map(_.message)
+        case Right(_)     => Nil
+      }
+    zoneErrors("38,9") shouldBe Nil
+    zoneErrors("10,0") shouldBe Nil
+    // Above the precision of Spark: a BigQuery BIGNUMERIC
+    zoneErrors("76,38") shouldBe Nil
+    zoneErrors("50,20") shouldBe Nil
+    zoneErrors("50,5") should have size 1
+    zoneErrors("77,38") should have size 1
+    zoneErrors("10,12") should have size 1
+    zoneErrors("10") should have size 1
+    zoneErrors("p,s") should have size 1
+    // Spark ignores a zone with spaces
+    zoneErrors("10, 2") should have size 1
+  }
+
   "The built-in types of extra.sl.yml" should "be valid against the JSON schema and their samples" in {
     val extraTypes =
       YamlSerde.deserializeYamlTypes(
         Source.fromResource("types/extra.sl.yml").mkString,
         "extra.sl.yml"
       )
-    extraTypes.map(tpe => tpe.name -> tpe.primitiveType) shouldBe List(
-      "datetime" -> datetime,
-      "time"     -> time,
-      "binary"   -> binary
-    )
+    extraTypes.map(tpe => tpe.name -> tpe.primitiveType) shouldBe extraTypeNames
     TypesInfo(1, extraTypes).checkValidity() shouldBe Right(true)
-    // The native loaders need a mapping for their engine
-    extraTypes.foreach { tpe =>
+    // The native loaders need a mapping for their engine. Only BigQuery holds a bignumeric
+    extraTypes.filterNot(_.name == "bignumeric").foreach { tpe =>
       tpe.ddlMapping
         .getOrElse(Map.empty)
         .keySet should contain allOf ("bigquery", "duckdb", "snowflake")
     }
+    extraTypes.find(_.name == "bignumeric").flatMap(_.ddlMapping).map(_.keySet) shouldBe Some(
+      Set("bigquery", "postgres")
+    )
   }
 
   new WithSettings() {
@@ -172,13 +204,17 @@ class DatetimeTimeBinaryTypesSpec extends TestHelper {
       types.find(_.name == "datetime").map(_.primitiveType) shouldBe Some(PrimitiveType.timestamp)
       types.find(_.name == "time").map(_.primitiveType) shouldBe Some(PrimitiveType.string)
       types.map(_.name).count(Set("datetime", "time", "binary")) shouldBe 3
-      types.last.name shouldBe "binary"
-      types.last.primitiveType shouldBe binary
+      // The built-in types the project does not replace come last
+      types.takeRight(7).map(_.name) shouldBe extraTypeNames.map(_._1).drop(2)
+      types
+        .takeRight(7)
+        .forall(ai.starlake.schema.handlers.SchemaHandler.extraTypes.contains) shouldBe
+      true
       // A search by primitive type still finds the types of the project first
       types.find(_.primitiveType == PrimitiveType.timestamp).map(_.name) shouldBe Some("timestamp")
       types.find(_.primitiveType == PrimitiveType.string).map(_.name) shouldBe Some("string")
-      // The types of the project are used to find the type of a column, not the built-in binary
-      schemaHandler.typesForSqlTypeLookup() shouldBe types.init
+      // The types of the project are used to find the type of a column, not the built-in ones
+      schemaHandler.typesForSqlTypeLookup() shouldBe types.dropRight(7)
       // Reported by validate
       schemaHandler.replacedExtraTypes().map { case (extraType, projectType) =>
         extraType.name -> projectType.primitiveType
@@ -199,17 +235,79 @@ class DatetimeTimeBinaryTypesSpec extends TestHelper {
     "A project without datetime and time types" should "get the built-in ones after its own types" in {
       val schemaHandler = projectWithoutDatetimeAndTime()
       val types = schemaHandler.types(reload = true)
-      types.takeRight(3).map(tpe => tpe.name -> tpe.primitiveType) shouldBe List(
-        "datetime" -> datetime,
-        "time"     -> time,
-        "binary"   -> binary
-      )
+      types.takeRight(9).map(tpe => tpe.name -> tpe.primitiveType) shouldBe extraTypeNames
       // The types of the project, unchanged, come first
-      types.dropRight(3).takeRight(2).map(_.name) shouldBe List("iso_civil", "hex_bytes")
+      types.dropRight(9).takeRight(2).map(_.name) shouldBe List("iso_civil", "hex_bytes")
       schemaHandler.replacedExtraTypes() shouldBe Nil
       // The built-in type, not the first type of the project of the same primitive type
       schemaHandler.typeNameOf(datetime) shouldBe Some("datetime")
       schemaHandler.typeNameOf(binary) shouldBe Some("binary")
+    }
+
+    "extract-bq-schema" should "extract the columns with the built-in types" in {
+      val typeName = ai.starlake.extract.ExtractBigQuerySchema.projectTypeNames(
+        projectWithoutDatetimeAndTime()
+      )
+      List("datetime", "binary", "bignumeric", "geography", "range_date", "long").map(
+        typeName
+      ) shouldBe
+      List("datetime", "binary", "bignumeric", "geography", "range_date", "long")
+    }
+
+    it should "extract the columns of a replaced built-in type with a project type of its primitive type" in {
+      cleanMetadata
+      deliverTestFile(
+        "/sample/new-types/replaced-types.sl.yml",
+        new Path(DatasetArea.types, "types.sl.yml")
+      )
+      val typeName =
+        ai.starlake.extract.ExtractBigQuerySchema
+          .projectTypeNames(settings.schemaHandler(reload = true))
+      typeName("datetime") shouldBe "civil"
+      typeName("time") shouldBe "time"
+      // Not the built-in bignumeric, of the same primitive type: the project has no other decimal
+      typeName("decimal") shouldBe "decimal"
+    }
+
+    it should "keep the name of a replaced built-in type when the project has no type of its primitive type" in {
+      // The test project replaces datetime with a timestamp type, and has no datetime type
+      cleanMetadata
+      val typeName =
+        ai.starlake.extract.ExtractBigQuerySchema
+          .projectTypeNames(settings.schemaHandler(reload = true))
+      typeName("datetime") shouldBe "datetime"
+      typeName("binary") shouldBe "binary"
+    }
+
+    "A decimal wider than Spark" should "only be loaded by BigQuery" in {
+      val schemaHandler = projectWithoutDatetimeAndTime()
+      // Scripted and nested attributes included, not the ignored ones that are not loaded
+      ai.starlake.job.ingest.IngestionJob.wideDecimalAttributes(
+        List(
+          TableAttribute("scripted", "bignumeric", script = Some("1")),
+          TableAttribute("ignored", "bignumeric", ignore = Some(true)),
+          TableAttribute(
+            "record",
+            "struct",
+            attributes = List(TableAttribute("nested", "bignumeric"))
+          ),
+          TableAttribute("amount", "decimal")
+        ),
+        schemaHandler
+      ) shouldBe List("scripted", "record.nested")
+      TableAttribute("big", "bignumeric").ddlMapping(
+        isPrimaryKey = false,
+        "bigquery",
+        schemaHandler
+      ) shouldBe
+      DDLLeaf("big", "BIGNUMERIC", required = false, None, primaryKey = false, Map.empty)
+      // The DDL of an engine without mapping takes the one of the decimal type, with a warning
+      TableAttribute("big", "bignumeric").ddlMapping(
+        isPrimaryKey = false,
+        "duckdb",
+        schemaHandler
+      ) shouldBe
+      DDLLeaf("big", "DECIMAL", required = false, None, primaryKey = false, Map.empty)
     }
 
     "An XML or Kafka load" should "read the datetime, time and binary values as text at every level" in {

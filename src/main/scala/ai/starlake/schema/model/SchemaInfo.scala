@@ -759,9 +759,14 @@ case class SchemaInfo(
       val length = pos.last - pos.first + 1
       val raw = s"SUBSTR(value, ${pos.first + 1}, $length)"
       val finalName = s"$attributeQuote${field.getFinalName()}$attributeQuote"
-      ddlTypesByAttribute.get(field.name) match {
+      ddlTypesByAttribute.get(field.name).map(_.trim.toUpperCase) match {
+        // BigQuery cannot cast a string to these types: it parses them
+        case Some(ddlType) if ddlType.startsWith("GEOGRAPHY") =>
+          s"SAFE.ST_GEOGFROM($raw) as $finalName"
+        case Some(ddlType) if ddlType.startsWith("JSON") =>
+          s"SAFE.PARSE_JSON($raw) as $finalName"
         case Some(ddlType) if !isStringLikeDdlType(ddlType) =>
-          s"SAFE_CAST($raw AS $ddlType) as $finalName"
+          s"SAFE_CAST($raw AS ${ddlTypesByAttribute(field.name)}) as $finalName"
         case _ =>
           s"$raw as $finalName"
       }
