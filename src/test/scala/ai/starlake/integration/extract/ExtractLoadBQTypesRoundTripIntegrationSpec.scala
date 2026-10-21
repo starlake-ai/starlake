@@ -29,6 +29,8 @@ class ExtractLoadBQTypesRoundTripIntegrationSpec extends IntegrationTestBase {
   private lazy val project: File = {
     val dir = File.newTemporaryDirectory("starlake-bq-roundtrip-")
     (projectTemplate / "metadata").copyToDirectory(dir)
+    // The load domain is written by the test: git keeps no empty directory
+    (dir / "metadata" / "load").createDirectories()
     dir
   }
 
@@ -186,10 +188,18 @@ class ExtractLoadBQTypesRoundTripIntegrationSpec extends IntegrationTestBase {
           )
           .writeDomainAsYaml(DatasetArea.load)(settings.storageHandler())
         val incoming = (project / "incoming" / targetDataset).createDirectories()
-        // GEOGRAPHY as its WKT text. INTERVAL is written in ISO 8601, as JSON loads read it
+        // GEOGRAPHY as its WKT text, and DATETIME with a space, as JSON loads read them. INTERVAL
+        // is written in ISO 8601, as JSON loads read it
+        val datetimeFormat = "'%F %H:%M:%E6S'"
         val lines = run(
           s"""SELECT TO_JSON_STRING(t) FROM (
-             |  SELECT * REPLACE (ST_ASTEXT(area) AS area) FROM `$sourceDataset.$table`) t""".stripMargin
+             |  SELECT * REPLACE (
+             |    ST_ASTEXT(area) AS area,
+             |    FORMAT_DATETIME($datetimeFormat, civil) AS civil,
+             |    IF(record IS NULL, NULL, STRUCT(record.instant AS instant, ARRAY(
+             |      SELECT FORMAT_DATETIME($datetimeFormat, c) FROM UNNEST(record.civils) c WITH OFFSET o
+             |      ORDER BY o) AS civils)) AS record)
+             |  FROM `$sourceDataset.$table`) t""".stripMargin
         ).iterateAll().asScala.map(_.get(0).getStringValue).toList
         (incoming / s"$table-1.json").overwrite(lines.mkString("", "\n", "\n"))
         // The canonical text of the RANGE values, as CSV loads read them
