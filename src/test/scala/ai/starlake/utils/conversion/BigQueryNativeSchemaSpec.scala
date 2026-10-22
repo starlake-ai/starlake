@@ -394,4 +394,30 @@ class BigQueryNativeSchemaSpec extends TestHelper {
       existing.getFields.get("period")
     )
   }
+
+  "BigQueryNativeSchema.rangeFromText" should "build a RANGE from its canonical text, in SQL that JSqlParser parses" in {
+    val strict = BigQueryNativeSchema.rangeFromText("`days`", "DATE", safe = false)
+    val trimmed = "TRIM(`days`)"
+    def bound(regex: String) = {
+      val text = s"TRIM(REGEXP_EXTRACT($trimmed, '$regex'))"
+      s"IF(UPPER($text) IN ('UNBOUNDED', 'NULL'), NULL, $text)"
+    }
+    val wellFormed = s"REGEXP_CONTAINS($trimmed, '^[[][^,]+,[^,]+[)]$$')"
+    // A malformed text is cast as a bound, which fails. No ERROR(): BigQuery does not implement it there
+    strict shouldBe
+    s"IF(`days` IS NULL, NULL, RANGE(CAST(IF($wellFormed, ${bound("^[[]([^,]+),")}, `days`) AS DATE), CAST(IF($wellFormed, ${bound(
+        ",([^,]+)[)]$"
+      )}, `days`) AS DATE)))"
+    strict should not include "ERROR("
+    val safe = BigQueryNativeSchema.rangeFromText("SUBSTR(value, 1, 30)", "TIMESTAMP", safe = true)
+    // A malformed text, a bound that is not a timestamp or bounds out of order give NULL
+    safe should startWith("CASE WHEN REGEXP_CONTAINS(TRIM(SUBSTR(value, 1, 30)), ")
+    safe should include("SAFE_CAST(")
+    safe should include(" < ")
+    safe should not include "ERROR("
+    safe should endWith(" END")
+    List(strict, safe).foreach { sql =>
+      ai.starlake.sql.SQLUtils.extractColumnNames(s"SELECT $sql AS r FROM t") shouldBe List("r")
+    }
+  }
 }

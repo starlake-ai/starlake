@@ -224,5 +224,26 @@ class SchemaInfoSpec extends TestHelper {
       sql should include("SAFE.PARSE_JSON(SUBSTR(value, 11, 10)) as doc")
       sql should include("SAFE_CAST(SUBSTR(value, 21, 10) AS BIGNUMERIC) as big")
     }
+
+    it should "build the POSITION RANGE values from their bounds, in SQL that JSqlParser parses" in {
+      val schema = SchemaInfo(
+        name = "periods",
+        pattern = Pattern.compile(".*TBL\\.POS"),
+        metadata = Some(Metadata(format = Some(Format.POSITION))),
+        attributes = List(
+          TableAttribute(name = "days", `type` = "range_date", position = Some(Position(0, 29)))
+        )
+      )
+      val sql = schema.buildSecondStepSqlSelectOnLoad(
+        "tmp_table",
+        ddlTypesByAttribute = Map("days" -> "RANGE<DATE>")
+      )
+      sql should include(
+        ai.starlake.utils.conversion.BigQueryNativeSchema
+          .rangeFromText("SUBSTR(value, 1, 30)", "DATE", safe = true) + " as days"
+      )
+      sql should not include "AS RANGE<DATE>"
+      ai.starlake.sql.SQLUtils.extractColumnNames(sql) shouldBe List("days")
+    }
   }
 }

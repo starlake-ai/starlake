@@ -11,12 +11,22 @@ import ai.starlake.job.sink.bigquery.{
   BigQueryNativeJob
 }
 import ai.starlake.job.transform.BigQueryAutoTask
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.conversion.{BigQueryNativeSchema, BigQueryUtils}
 import ai.starlake.utils.{IngestionCounters, JobResult, Utils}
 import com.google.cloud.bigquery
-import com.google.cloud.bigquery.{Field, JobInfo, StandardSQLTypeName, TableDefinition, TableId}
+import com.google.cloud.bigquery.{
+  Field,
+  FieldList,
+  JobInfo,
+  StandardSQLTypeName,
+  StandardTableDefinition,
+  TableDefinition,
+  TableId
+}
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.hadoop.fs.Path
 
 import java.time.Duration
 import scala.jdk.CollectionConverters._
@@ -67,6 +77,47 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
       case None => originalTableId
     }
   }
+
+  private lazy val format: Format = mergedMetadata.resolveFormat()
+
+  override protected def requireTwoSteps(schema: SchemaInfo): Boolean =
+    super.requireTwoSteps(schema) || format == Format.PARQUET && (
+      // Local files are uploaded through a single stream per load job: the first step loads
+      // them one by one, since their concatenation is not a Parquet file
+      BigQueryNativeLoader.requiresOneLoadPerFile(format, path) ||
+      // The first step reads every column as nullable, and the second step writes into the
+      // target table, which fails on a null value of a required attribute
+      BigQueryNativeLoader.hasRequiredAttributes(schema.attributes) ||
+      // Run by the second step, as Spark ran them: a load in one step does not
+      schema.presql.nonEmpty || schema.postsql.nonEmpty ||
+      // The first step reads them as strings, that the second step converts. The target table
+      // is not read yet: one of its columns can keep a mapped type even when the mappings are
+      // disabled, so they are applied
+      BigQueryNativeLoader
+        .parquetConversions(
+          BigQueryNativeLoader.firstStepSchema(
+            schema,
+            None,
+            schemaHandler,
+            fromDdlMapping = true,
+            log = false
+          )
+        )
+        .nonEmpty
+    )
+
+  private def firstStepSchema(
+    schema: SchemaInfo,
+    existingTargetSchema: Option[bigquery.Schema],
+    log: Boolean
+  ): bigquery.Schema =
+    BigQueryNativeLoader.firstStepSchema(
+      schema,
+      existingTargetSchema,
+      schemaHandler,
+      settings.appConfig.bigqueryNativeSchemaFromDdlMapping,
+      log
+    )
 
   def run(): Try[List[IngestionCounters]] = {
     Try {
@@ -123,7 +174,7 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                 val firstStepBigqueryJob = new BigQueryNativeJob(firstStepConfig, "")
                 // For POSITION format the first step loads each line as a single VARCHAR
                 // column named `value`; the second step slices it via SUBSTR.
-                val isPosition = mergedMetadata.resolveFormat() == Format.POSITION
+                val isPosition = format == Format.POSITION
                 val toBQSchema: SchemaInfo => bigquery.Schema =
                   if (isPosition)
                     _ =>
@@ -134,25 +185,18 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
                           .build()
                       )
                   else
-                    schema =>
-                      BigQueryNativeSchema.patch(
-                        schema
-                          .bigquerySchemaWithIgnoreAndScript(schemaHandler, withFinalName = false),
-                        // The raw values of the ignored, transformed and scripted attributes are not
-                        // loaded into the target: they keep their derived type, except the decimals
-                        // wider than Spark, whose derived type would not hold them
-                        schema.attributes.filterNot(attribute =>
-                          (attribute
-                            .resolveIgnore() || attribute.transform.isDefined || attribute.script.isDefined) &&
-                          !BigQueryNativeSchema.isWideDecimal(attribute, schemaHandler)
-                        ),
-                        _.name,
-                        existingTargetSchema,
-                        schemaHandler,
-                        settings.appConfig.bigqueryNativeSchemaFromDdlMapping,
-                        // Logged once per load, before the first load job
-                        log = index == 0
-                      )
+                    schema => {
+                      val patched =
+                        firstStepSchema(
+                          schema,
+                          existingTargetSchema,
+                          // Logged once per load, before the first load job
+                          log = index == 0
+                        )
+                      if (format == Format.PARQUET)
+                        BigQueryNativeLoader.parquetFirstStepSchema(patched)
+                      else patched
+                    }
                 val firstStepTableInfo = firstStepBigqueryJob.getTableInfo(
                   firstStepTempTable,
                   toBQSchema
@@ -241,25 +285,41 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
       } else {
         // Single step ingestion
         val bigqueryJob = new BigQueryNativeJob(targetConfig, "")
-        bigqueryJob
-          .loadPathsToBQ(
-            bigqueryJob
-              .getTableInfo(
-                targetTableId,
-                schema =>
-                  BigQueryNativeSchema.patch(
-                    schema.bigquerySchemaWithoutIgnore(schemaHandler, withFinalName = true),
-                    schema.attributes.filterNot(_.resolveIgnore()),
-                    _.getFinalName(),
-                    // A load that replaces the table can change the type of its columns
-                    if (writeDisposition == JobInfo.WriteDisposition.WRITE_TRUNCATE.name()) None
-                    else existingTargetSchema,
-                    schemaHandler,
-                    settings.appConfig.bigqueryNativeSchemaFromDdlMapping
-                  )
+        val tableInfo = bigqueryJob
+          .getTableInfo(
+            targetTableId,
+            schema =>
+              BigQueryNativeSchema.patch(
+                schema.bigquerySchemaWithoutIgnore(schemaHandler, withFinalName = true),
+                schema.attributes.filterNot(_.resolveIgnore()),
+                _.getFinalName(),
+                // A load that replaces the table can change the type of its columns
+                if (writeDisposition == JobInfo.WriteDisposition.WRITE_TRUNCATE.name()) None
+                else existingTargetSchema,
+                schemaHandler,
+                settings.appConfig.bigqueryNativeSchemaFromDdlMapping
               )
           )
-          .map(List(_))
+        // A Parquet load job neither adds nor relaxes columns: the target table gets them first
+        if (
+          format == Format.PARQUET &&
+          writeDisposition == JobInfo.WriteDisposition.WRITE_APPEND.name()
+        )
+          for {
+            existing <- existingTargetSchema
+            incoming <- tableInfo.maybeSchema
+            aligned  <- BigQueryNativeLoader.schemaForParquetAppend(existing, incoming)
+          } {
+            logger.info(s"Adding or relaxing the columns of $targetTableId before the load")
+            val table = bigqueryJob.getTable(targetTableId).get
+            table.toBuilder
+              .setDefinition(
+                table.getDefinition[StandardTableDefinition].toBuilder.setSchema(aligned).build()
+              )
+              .build()
+              .update()
+          }
+        bigqueryJob.loadPathsToBQ(tableInfo).map(List(_))
       }
     }.map {
       case Success(results) =>
@@ -320,28 +380,86 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
       case Success(loadFileResult) =>
         logger.info(s"First step result: ${loadFileResult.map(_.toString).mkString(", ")}")
         val targetBigqueryJob = new BigQueryNativeJob(targetConfig, "")
-        val secondStepResult =
-          targetBigqueryJob.cliConfig.outputTableId
+        val tempTableNames = firstStepTempTable.map(t => BigQueryUtils.tableIdToTableName(t))
+        // The first step of a Parquet load reads every column as nullable: the rows without a
+        // value for a required attribute are rejected by the second step
+        val requiredCondition =
+          if (format == Format.PARQUET)
+            BigQueryNativeLoader.requiredValuesCondition(starlakeSchema.attributes)
+          else None
+        val result = for {
+          rejectedByFile <- requiredCondition
+            .map(condition =>
+              rejectRowsWithoutRequiredValues(targetBigqueryJob, tempTableNames, condition)
+            )
+            .getOrElse(Success(Map.empty[Int, Long]))
+          _ <- targetBigqueryJob.cliConfig.outputTableId
             .map { _ =>
-              applyBigQuerySecondStepSQL(
-                firstStepTempTable.map(t => BigQueryUtils.tableIdToTableName(t)),
-                existingTargetSchema
-              )
+              applyBigQuerySecondStepSQL(tempTableNames, existingTargetSchema, requiredCondition)
             }
             .getOrElse(throw new IllegalStateException("Should never happen"))
-
-        secondStepResult
-          .flatMap { _ =>
-            firstStepResult
-          }
+        } yield BigQueryNativeLoader.withRejectedRows(loadFileResult, rejectedByFile)
+        result
       case res @ Failure(_) =>
         res
     }
   }
 
+  /** @param tempTableNames
+    *   the wildcard name of the temporary tables of the first step, whose suffix is the index of
+    *   their file in the load
+    * @return
+    *   the number of rows of the first step without a value for a required attribute, by index of
+    *   their file. They are rejected as BigQuery rejects the bad records of the other formats, or
+    *   the load fails (see [[BigQueryNativeLoader.rejectedRowsError]]).
+    */
+  private def rejectRowsWithoutRequiredValues(
+    job: BigQueryNativeJob,
+    tempTableNames: List[String],
+    condition: String
+  ): Try[Map[Int, Long]] =
+    job
+      .runBigQueryJob(
+        Some(
+          tempTableNames
+            .map(table =>
+              s"SELECT _TABLE_SUFFIX AS suffix, COUNT(*) AS rejected FROM $table WHERE NOT ($condition) GROUP BY 1"
+            )
+            .mkString(" UNION ALL ")
+        )
+      )
+      .map { result =>
+        val rejectedByFile = result.tableResult.toList
+          .flatMap(_.iterateAll().asScala)
+          .map(row => row.get(0).getStringValue.toInt -> row.get(1).getLongValue)
+          .toMap
+        val rejected = rejectedByFile.values.sum
+        if (rejected > 0) {
+          val files = rejectedByFile.toList.sorted.map { case (index, count) =>
+            s"${path.lift(index).map(_.toString).getOrElse(index.toString)} ($count)"
+          }
+          val message =
+            s"$rejected rows of $targetFullTableName have no value for one of its required attributes (${BigQueryNativeLoader
+                .requiredAttributePaths(starlakeSchema.attributes)
+                .mkString(", ")}), in ${files.take(10).mkString(", ")}${if (files.size > 10)
+                s" and ${files.size - 10} other files"
+              else ""}"
+          BigQueryNativeLoader.rejectedRowsError(
+            rejected,
+            settings.appConfig.rejectAllOnError,
+            settings.appConfig.rejectMaxRecords
+          ) match {
+            case Some(error) => throw new IllegalArgumentException(s"$message. $error")
+            case None        => logger.warn(s"$message. They are rejected")
+          }
+        }
+        rejectedByFile
+      }
+
   private def applyBigQuerySecondStepSQL(
     firstStepTempTableTableNames: List[String],
-    existingTargetSchema: Option[bigquery.Schema]
+    existingTargetSchema: Option[bigquery.Schema],
+    requiredCondition: Option[String]
   ): Try[JobResult] = {
     val incomingSchema = BigQueryNativeSchema.patch(
       starlakeSchema.bigquerySchemaWithoutIgnore(schemaHandler, withFinalName = true),
@@ -353,8 +471,17 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
       // Logged by the first step
       log = false
     )
+    // The values that the first step of a Parquet load reads as strings
+    val conversions =
+      if (format == Format.PARQUET)
+        BigQueryNativeLoader.parquetConversions(
+          firstStepSchema(schemaWithMergedMetadata, existingTargetSchema, log = false)
+        )
+      else Nil
     val task = this.secondStepSQLTask(
-      firstStepTempTableTableNames,
+      firstStepTempTableTableNames.map(
+        BigQueryNativeLoader.withConversions(_, conversions, requiredCondition)
+      ),
       BigQueryNativeSchema.castTypes(incomingSchema, starlakeSchema.attributes, schemaHandler)
     )
     val bqTask = task.asInstanceOf[BigQueryAutoTask]
@@ -366,4 +493,299 @@ class BigQueryNativeLoader(ingestionJob: IngestionJob, accessToken: Option[Strin
     jobResult
   }
 
+}
+
+object BigQueryNativeLoader {
+
+  /** @return
+    *   the schema of the temporary table of the first step, with the source names of the attributes
+    *   and the types of the target columns
+    */
+  def firstStepSchema(
+    schema: SchemaInfo,
+    existingTargetSchema: Option[bigquery.Schema],
+    schemaHandler: SchemaHandler,
+    fromDdlMapping: Boolean,
+    log: Boolean
+  ): bigquery.Schema =
+    BigQueryNativeSchema.patch(
+      schema.bigquerySchemaWithIgnoreAndScript(schemaHandler, withFinalName = false),
+      // The raw values of the ignored, transformed and scripted attributes are not
+      // loaded into the target: they keep their derived type, except the decimals
+      // wider than Spark, whose derived type would not hold them
+      schema.attributes.filterNot(attribute =>
+        (attribute
+          .resolveIgnore() || attribute.transform.isDefined || attribute.script.isDefined) &&
+        !BigQueryNativeSchema.isWideDecimal(attribute, schemaHandler)
+      ),
+      _.name,
+      existingTargetSchema,
+      schemaHandler,
+      fromDdlMapping,
+      log
+    )
+
+  /** @return
+    *   true if each file must be loaded by its own load job: local files are uploaded through a
+    *   single stream per job, and the concatenation of Parquet files is not a Parquet file
+    */
+  def requiresOneLoadPerFile(format: Format, paths: List[Path]): Boolean =
+    // Same test of local files as BigQueryNativeJob.loadPathsToBQ
+    format == Format.PARQUET && paths.size > 1 && paths.exists(_.toString.startsWith("file:"))
+
+  /** @return
+    *   the schema of an existing table, with the fields of the incoming schema that it lacks, at
+    *   any level, and with its required fields that the incoming schema makes nullable relaxed, if
+    *   this changes it. A Parquet load job can neither add nor relax fields: `ALLOW_FIELD_ADDITION`
+    *   and `ignoreUnknownValues` cannot both be set for self-describing formats.
+    */
+  def schemaForParquetAppend(
+    existing: bigquery.Schema,
+    incoming: bigquery.Schema
+  ): Option[bigquery.Schema] = {
+    def key(field: Field): String = field.getName.toLowerCase(java.util.Locale.ROOT)
+    def merge(existing: List[Field], incoming: List[Field]): List[Field] = {
+      val incomingByName = incoming.map(field => key(field) -> field).toMap
+      val existingNames = existing.map(key).toSet
+      existing.map { field =>
+        incomingByName.get(key(field)) match {
+          case Some(incomingField) =>
+            val builder = field.toBuilder
+            if (
+              field.getMode == Field.Mode.REQUIRED && incomingField.getMode != Field.Mode.REQUIRED
+            )
+              builder.setMode(Field.Mode.NULLABLE)
+            (Option(field.getSubFields), Option(incomingField.getSubFields)) match {
+              case (Some(subFields), Some(incomingSubFields)) =>
+                builder.setType(
+                  field.getType.getStandardType,
+                  FieldList.of(
+                    merge(subFields.asScala.toList, incomingSubFields.asScala.toList).asJava
+                  )
+                )
+              case _ =>
+            }
+            builder.build()
+          case None => field
+        }
+      } ++ incoming.filterNot(field => existingNames(key(field))).map { field =>
+        // BigQuery adds no required field to an existing table
+        if (field.getMode == Field.Mode.REQUIRED)
+          field.toBuilder.setMode(Field.Mode.NULLABLE).build()
+        else field
+      }
+    }
+    val aligned = bigquery.Schema.of(
+      merge(
+        Option(existing.getFields).map(_.asScala.toList).getOrElse(Nil),
+        Option(incoming.getFields).map(_.asScala.toList).getOrElse(Nil)
+      ).asJava
+    )
+    if (aligned == existing) None else Some(aligned)
+  }
+
+  /** @return
+    *   true if an attribute is required, at any nesting level
+    */
+  def hasRequiredAttributes(attributes: List[TableAttribute]): Boolean =
+    attributes.exists(attribute =>
+      attribute.resolveRequired() || hasRequiredAttributes(attribute.attributes)
+    )
+
+  /** @return
+    *   the schema of the first step of a Parquet load, whose columns are matched by name with it.
+    *   It is always explicit, so that the types of the YAML schema are kept, where a schema-less
+    *   load would infer them from the files (a `DATETIME` as a `TIMESTAMP`, a `BIGNUMERIC` as a
+    *   `NUMERIC`). Its fields are nullable: a column of the files can be optional while its
+    *   attribute is required. Its top level `JSON`, `INTERVAL` and `RANGE` fields are strings,
+    *   converted by the second step (see [[parquetConversions]]).
+    */
+  def parquetFirstStepSchema(schema: bigquery.Schema): bigquery.Schema = {
+    def nullable(field: Field): Field = {
+      val builder = field.toBuilder
+      if (field.getMode == Field.Mode.REQUIRED)
+        builder.setMode(Field.Mode.NULLABLE)
+      Option(field.getSubFields).foreach { subFields =>
+        builder.setType(
+          field.getType.getStandardType,
+          FieldList.of(subFields.asScala.map(nullable).asJava)
+        )
+      }
+      builder.build()
+    }
+    val converted = parquetConversions(schema).map { case (name, _) => name }.toSet
+    bigquery.Schema.of(
+      schema.getFields.asScala.map { field =>
+        if (converted.contains(field.getName))
+          Field
+            .newBuilder(field.getName, StandardSQLTypeName.STRING)
+            .setMode(Field.Mode.NULLABLE)
+            .setDescription(field.getDescription)
+            .build()
+        else nullable(field)
+      }.asJava
+    )
+  }
+
+  /** @return
+    *   the top level, non repeated fields of the first step schema that a Parquet load reads as
+    *   strings, with the SQL that converts their value: `EXPORT DATA` does not export `JSON` and
+    *   `INTERVAL` columns to Parquet, so they are exported as strings, and BigQuery documents no
+    *   conversion to these types in Parquet loads. An invalid value fails the second step.
+    */
+  def parquetConversions(schema: bigquery.Schema): List[(String, String)] =
+    schema.getFields.asScala.toList
+      .filter(_.getMode != Field.Mode.REPEATED)
+      .flatMap { field =>
+        val column = s"`${field.getName}`"
+        Option(field.getType.getStandardType).collect {
+          case StandardSQLTypeName.JSON =>
+            field.getName -> s"PARSE_JSON($column)"
+          case StandardSQLTypeName.INTERVAL =>
+            field.getName -> s"CAST($column AS INTERVAL)"
+          case StandardSQLTypeName.RANGE if field.getRangeElementType != null =>
+            field.getName -> BigQueryNativeSchema.rangeFromText(
+              column,
+              field.getRangeElementType.getType,
+              safe = false
+            )
+        }
+      }
+
+  /** @return
+    *   the paths of the nested or repeated `JSON`, `INTERVAL` and `RANGE` fields of the first step
+    *   schema: a Parquet load does not convert them from strings, and BigQuery may not read them
+    *   from Parquet files
+    */
+  def unconvertedParquetFields(schema: bigquery.Schema): List[String] = {
+    def unconverted(field: Field): Boolean =
+      Option(field.getType.getStandardType).exists(
+        Set(StandardSQLTypeName.JSON, StandardSQLTypeName.INTERVAL, StandardSQLTypeName.RANGE)
+      )
+    def subFields(field: Field, path: String): List[String] =
+      Option(field.getSubFields).toList.flatMap(_.asScala).flatMap { subField =>
+        val subPath = s"$path.${subField.getName}"
+        (if (unconverted(subField)) List(subPath) else Nil) ++ subFields(subField, subPath)
+      }
+    schema.getFields.asScala.toList.flatMap { field =>
+      (if (field.getMode == Field.Mode.REPEATED && unconverted(field)) List(field.getName)
+       else Nil) ++ subFields(field, field.getName)
+    }
+  }
+
+  /** @return
+    *   the temporary table of the first step, with the values that it holds as strings converted to
+    *   the type of their column, so that the scripts, transforms and filter of the second step see
+    *   them as in the other formats
+    */
+  def withConversions(
+    table: String,
+    conversions: List[(String, String)],
+    condition: Option[String] = None
+  ): String =
+    if (conversions.isEmpty && condition.isEmpty) table
+    else {
+      val replace =
+        if (conversions.isEmpty) ""
+        else
+          conversions
+            .map { case (name, sql) => s"$sql AS `$name`" }
+            .mkString(" REPLACE (", ", ", ")")
+      s"(SELECT *$replace FROM $table${condition.map(" WHERE " + _).getOrElse("")})"
+    }
+
+  /** @return
+    *   why the load fails with these rejected rows, if it does: as BigQuery with the bad records of
+    *   the other formats, when every record is rejected on error (`rejectAllOnError`), or when
+    *   there are more than `rejectMaxRecords` of them, over the files of the load
+    */
+  def rejectedRowsError(
+    rejected: Long,
+    rejectAllOnError: Boolean,
+    rejectMaxRecords: Int
+  ): Option[String] =
+    if (rejected == 0) None
+    else if (rejectAllOnError) Some("No row is loaded: rejectAllOnError is true")
+    else if (rejected > rejectMaxRecords)
+      Some(s"No row is loaded: rejectMaxRecords is $rejectMaxRecords")
+    else None
+
+  /** @param rejectedByFile
+    *   the number of rejected rows by index of their file, the index of its load info
+    * @return
+    *   the load infos of the files, with their rejected rows counted as rejected instead of
+    *   accepted
+    */
+  def withRejectedRows(
+    loadInfos: List[BqLoadInfo],
+    rejectedByFile: Map[Int, Long]
+  ): List[BqLoadInfo] = {
+    rejectedByFile.keys.find(index => !loadInfos.indices.contains(index)).foreach { index =>
+      throw new IllegalStateException(
+        s"Rejected rows counted for the file $index of a load of ${loadInfos.size} files"
+      )
+    }
+    loadInfos.zipWithIndex.map { case (loadInfo, index) =>
+      val rejected = rejectedByFile.getOrElse(index, 0L)
+      loadInfo.copy(
+        totalAcceptedRows = loadInfo.totalAcceptedRows - rejected,
+        totalRejectedRows = loadInfo.totalRejectedRows + rejected
+      )
+    }
+  }
+
+  /** @return
+    *   the paths of the required attributes that a load checks, at every level: neither ignored nor
+    *   scripted, and not repeated, since a repeated field cannot be null
+    */
+  def requiredAttributePaths(attributes: List[TableAttribute], prefix: String = ""): List[String] =
+    attributes.filterNot(a => a.resolveIgnore() || a.script.nonEmpty).flatMap { attribute =>
+      val path = prefix + attribute.name
+      (if (attribute.resolveRequired() && !attribute.resolveArray()) List(path) else Nil) ++
+      requiredAttributePaths(attribute.attributes, path + ".")
+    }
+
+  /** @return
+    *   the SQL condition, on the columns of the first step, of the rows with a value for every
+    *   required attribute, at any level, if any: a required field of a null record has no value to
+    *   check, and every element of a repeated record is checked. Ignored attributes are not loaded,
+    *   and scripted ones are not in the files.
+    */
+  def requiredValuesCondition(attributes: List[TableAttribute]): Option[String] = {
+    // The conditions on the attributes of `parent`, the SQL of a record, or of the row if None
+    def conditions(
+      attributes: List[TableAttribute],
+      parent: Option[String],
+      depth: Int
+    ): List[String] =
+      attributes.filterNot(a => a.resolveIgnore() || a.script.nonEmpty).flatMap { attribute =>
+        val column = parent.map(_ + ".").getOrElse("") + s"`${attribute.name}`"
+        val own =
+          if (attribute.resolveRequired() && !attribute.resolveArray())
+            List(
+              parent
+                .map(p => s"($p IS NULL OR $column IS NOT NULL)")
+                .getOrElse(s"$column IS NOT NULL")
+            )
+          else Nil
+        val nested =
+          if (attribute.attributes.isEmpty) Nil
+          else if (attribute.resolveArray()) {
+            val element = s"sl_element_$depth"
+            conditions(attribute.attributes, Some(element), depth + 1) match {
+              case Nil => Nil
+              case elementConditions =>
+                List(
+                  s"NOT EXISTS (SELECT 1 FROM UNNEST($column) AS $element WHERE NOT (${elementConditions
+                      .mkString(" AND ")}))"
+                )
+            }
+          } else conditions(attribute.attributes, Some(column), depth + 1)
+        own ++ nested
+      }
+    conditions(attributes, None, 0) match {
+      case Nil        => None
+      case conditions => Some(conditions.mkString(" AND "))
+    }
+  }
 }

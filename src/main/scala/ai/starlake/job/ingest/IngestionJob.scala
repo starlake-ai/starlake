@@ -163,24 +163,16 @@ trait IngestionJob
     loader
   }
 
-  private val nativeSupportedFormats: Map[String, Set[Format]] = Map(
-    "bigquery"  -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT, Format.POSITION),
-    "duckdb"    -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT),
-    "snowflake" -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT, Format.XML, Format.PARQUET),
-    "redshift"  -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
-  )
-
   private def isNativeCandidate(dbName: String): Boolean = {
     val isNative = mergedMetadata.loader
       .orElse(mergedMetadata.getSinkConnection().loader)
       .getOrElse(settings.appConfig.loader)
       .equalsIgnoreCase("native")
-    isNative && {
-      val format = mergedMetadata.resolveFormat()
-      // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
-      val arrayOk = dbName != "bigquery" || !mergedMetadata.resolveArray()
-      nativeSupportedFormats.get(dbName).exists(_.contains(format)) && arrayOk
-    } && {
+    isNative && IngestionJob.isNativelySupported(
+      dbName,
+      mergedMetadata.resolveFormat(),
+      mergedMetadata.resolveArray()
+    ) && {
       // The native loaders only apply SQL privacy, computed by the SQL of the load
       val privacyAttributes = IngestionJob.nonSqlPrivacyAttributes(schema.attributes)
       if (privacyAttributes.nonEmpty)
@@ -197,6 +189,33 @@ trait IngestionJob
               .mkString(", ")} from the encoding of their type. Its scripts, SQL privacy and filter run as Spark SQL"
         )
       binaryAttributes.isEmpty
+    } && {
+      // Parquet tables were loaded with Spark before the native BigQuery loader read Parquet: they
+      // keep doing so when it would load them differently
+      val unsupported =
+        if (dbName == "bigquery" && mergedMetadata.resolveFormat() == Format.PARQUET)
+          IngestionJob.parquetFeaturesNotLoadedByBigQuery(
+            mergedMetadata,
+            schema.attributes,
+            path,
+            // With the mappings, which a column of the target table may keep
+            BigQueryNativeLoader.unconvertedParquetFields(
+              BigQueryNativeLoader.firstStepSchema(
+                schema,
+                None,
+                schemaHandler,
+                fromDdlMapping = true,
+                log = false
+              )
+            )
+          )
+        else Nil
+      if (unsupported.nonEmpty)
+        logger.warn(
+          s"Loading $targetTableName with Spark instead of the native bigquery loader, which does not load Parquet files with ${unsupported
+              .mkString(", ")}. Its scripts, SQL privacy and filter run as Spark SQL"
+        )
+      unsupported.isEmpty
     }
   }
 
@@ -244,7 +263,7 @@ trait IngestionJob
     if (wideDecimals.nonEmpty)
       throw new IllegalArgumentException(
         s"$targetTableName cannot be loaded with $loader, whose decimals have a precision of ${PrimitiveType.decimal.maxSparkPrecision} at most: the precision of ${wideDecimals
-            .mkString(", ")} is above. Only the native BigQuery loader loads such a decimal, into a BIGNUMERIC column, from DSV, JSON or POSITION files: use a decimal type of precision ${PrimitiveType.decimal.maxSparkPrecision} at most for other loads"
+            .mkString(", ")} is above. Only the native BigQuery loader loads such a decimal, into a BIGNUMERIC column, from DSV, JSON, POSITION or Parquet files: use a decimal type of precision ${PrimitiveType.decimal.maxSparkPrecision} at most for other loads"
       )
   }
 
@@ -265,7 +284,8 @@ trait IngestionJob
   }
 
   def run(): Try[JobResult] = {
-    val jobResult = selectLoader() match {
+    // A failure to select the loader is logged in the audit, as a failure to load
+    val jobResult = Try(selectLoader()).flatMap {
       case "bigquery" => new BigQueryNativeLoader(this, accessToken).run()
       case "snowflake" =>
         withoutWideDecimals("the native Snowflake loader")(new SnowflakeNativeLoader(this).run())
@@ -370,6 +390,102 @@ trait IngestionJob
 }
 
 object IngestionJob {
+  private val nativeSupportedFormats: Map[String, Set[Format]] = Map(
+    "bigquery"  -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT, Format.POSITION, Format.PARQUET),
+    "duckdb"    -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT),
+    "snowflake" -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT, Format.XML, Format.PARQUET),
+    "redshift"  -> Set(Format.DSV, Format.JSON, Format.JSON_FLAT)
+  )
+
+  /** @param array
+    *   true if the files are JSON arrays (the `array` metadata), which does not apply to Parquet
+    *   files
+    * @return
+    *   true if the native loader of the datawarehouse can load files of this format
+    */
+  def isNativelySupported(dbName: String, format: Format, array: Boolean): Boolean = {
+    // BigQuery load jobs read newline-delimited JSON, not JSON arrays
+    // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-json
+    val arrayOk = dbName != "bigquery" || format == Format.PARQUET || !array
+    nativeSupportedFormats.get(dbName).exists(_.contains(format)) && arrayOk
+  }
+
+  /** @return
+    *   the features of a Parquet table that a BigQuery load job would not apply as the Spark loader
+    *   does, with the attributes they concern, if any:
+    *   - Spark read options (`options`): Spark reads the files with them, in another format (ORC,
+    *     Avro...) for `format`, while a load job ignores them;
+    *   - array attributes in local files: they are uploaded without the Parquet options, so list
+    *     inference does not read the Parquet `LIST` columns as repeated fields;
+    *   - a rename below the top level: the second step only renames top level columns;
+    *   - `default` and `trim`, which no native loader applies;
+    *   - nested or repeated `JSON`, `INTERVAL` and `RANGE` fields, that the second step does not
+    *     convert from strings.
+    * @param unconvertedFields
+    *   the nested or repeated `JSON`, `INTERVAL` and `RANGE` fields of the first step schema
+    */
+  def parquetFeaturesNotLoadedByBigQuery(
+    metadata: Metadata,
+    attributes: List[TableAttribute],
+    paths: List[Path],
+    unconvertedFields: List[String]
+  ): List[String] = {
+    // Every attribute, at every nesting level, with its path
+    def withPaths(
+      attributes: List[TableAttribute],
+      prefix: String
+    ): List[(String, TableAttribute)] =
+      attributes.flatMap { attribute =>
+        val path = prefix + attribute.name
+        (path, attribute) :: withPaths(attribute.attributes, path + ".")
+      }
+    // Scripted attributes are computed by the second step, ignored ones are not loaded
+    val loaded = withPaths(
+      attributes.filterNot(attribute => attribute.resolveIgnore() || attribute.script.nonEmpty),
+      ""
+    )
+    def feature(name: String, paths: List[String]): Option[String] =
+      if (paths.isEmpty) None else Some(s"$name (${paths.mkString(", ")})")
+    // Same test of local files as BigQueryNativeJob.loadPathsToBQ
+    val localFiles = paths.exists(_.toString.startsWith("file:"))
+    List(
+      feature(
+        "Spark read options",
+        metadata.getOptions().toList.sorted.collect {
+          case ("format", format) if !format.equalsIgnoreCase("parquet") => s"format $format"
+          case (option, _) if option != "format"                         => option
+        }
+      ),
+      feature(
+        "array attributes in local files",
+        if (localFiles)
+          // Ignored attributes are in the files: they are loaded into the temporary table
+          withPaths(attributes.filterNot(_.script.nonEmpty), "").collect {
+            case (path, attribute) if attribute.resolveArray() => path
+          }
+        else Nil
+      ),
+      feature(
+        "nested renames",
+        loaded.collect {
+          case (path, attribute)
+              if path.contains('.') && attribute.getFinalName() != attribute.name =>
+            path
+        }
+      ),
+      feature(
+        "default values",
+        loaded.collect { case (path, attribute) if attribute.default.nonEmpty => path }
+      ),
+      feature(
+        "trim",
+        loaded.collect {
+          case (path, attribute) if attribute.trim.exists(_ != Trim.NONE) => path
+        }
+      ),
+      feature("nested or repeated JSON, INTERVAL or RANGE fields", unconvertedFields)
+    ).flatten
+  }
 
   /** @return
     *   the paths of the loaded leaf attributes, at every nesting level, scripted ones included, of
