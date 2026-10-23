@@ -317,7 +317,22 @@ case class TableAttribute(
           val ddlMapping = tpe.ddlMapping.flatMap { mapping => mapping.get(datawarehouse) }
           ddlMapping match {
             case None =>
-              schemaHandler.types().find(_.primitiveType == tpe.primitiveType) match {
+              val sameTypes = schemaHandler.types().filter(_.primitiveType == tpe.primitiveType)
+              // The built-in types of the newer primitive types come after the project types: the
+              // first type of the same primitive type with a mapping
+              val newPrimitiveTypes: Set[PrimitiveType] =
+                Set(PrimitiveType.datetime, PrimitiveType.time, PrimitiveType.binary)
+              val fallbackType =
+                if (newPrimitiveTypes.contains(tpe.primitiveType))
+                  sameTypes.find(_.ddlMapping.exists(_.contains(datawarehouse)))
+                else sameTypes.headOption
+              if (PrimitiveType.decimal.isWide(tpe))
+                fallbackType.foreach { defaultType =>
+                  logger.warn(
+                    s"The decimal type ${tpe.name} of $name is wider than ${PrimitiveType.decimal.maxSparkPrecision} digits and has no mapping for $datawarehouse: its column takes the one of ${defaultType.name}, which may not hold its values"
+                  )
+                }
+              fallbackType match {
                 case None =>
                   throw new Exception(
                     s"No mapping found for ${tpe.name} with primitive type " +
@@ -375,7 +390,7 @@ case class TableAttribute(
                  |"$name": {
                  |  "type": "$typeMapping"
                  |}""".stripMargin
-            case PrimitiveType.timestamp =>
+            case PrimitiveType.timestamp | PrimitiveType.datetime =>
               val format = tpe.pattern match {
                 case "epoch_milli"  => Some("epoch_millis")
                 case "epoch_second" => Some("epoch_second")

@@ -37,10 +37,9 @@ trait IngestionJob
   val scheduledDate: Option[String]
   private def loadGenericValidator(validatorClass: String): GenericRowValidator = {
     val validatorClassName = loader.toLowerCase() match {
-      case "native" =>
-        logger.warn(s"Unexpected '$loader' loader !!!")
-        validatorClass
-      case "spark" => validatorClass
+      // A table configured with the native loader is loaded with Spark when its engine, format or
+      // attributes cannot be loaded natively
+      case "native" | "spark" => validatorClass
       case _ =>
         throw new Exception(s"Unexpected '$loader' loader !!!")
     }
@@ -146,25 +145,58 @@ trait IngestionJob
     }
   }
 
-  private def selectLoader(): String = IngestionJob.selectLoader(mergedMetadata)
+  private[ingest] def selectLoader(): String =
+    IngestionJob.selectLoader(
+      mergedMetadata,
+      schema.attributes,
+      targetTableName,
+      schemaHandler.types()
+    )
+
+  /** Spark, DuckDB and Snowflake decimals have a precision of 38 at most: a wider decimal would
+    * lose digits
+    */
+  private def withoutWideDecimals(loader: String)(
+    load: => Try[List[IngestionCounters]]
+  ): Try[List[IngestionCounters]] =
+    Try(requireNoWideDecimals(loader)).flatMap(_ => load)
+
+  private def requireNoWideDecimals(loader: String): Unit = {
+    val wideDecimals = IngestionJob.wideDecimalAttributes(schema.attributes, schemaHandler)
+    if (wideDecimals.nonEmpty)
+      throw new IllegalArgumentException(
+        s"$targetTableName cannot be loaded with $loader, whose decimals have a precision of ${PrimitiveType.decimal.maxSparkPrecision} at most: the precision of ${wideDecimals
+            .mkString(", ")} is above. Only the native BigQuery loader loads such a decimal, into a BIGNUMERIC column, from DSV, JSON or POSITION files: use a decimal type of precision ${PrimitiveType.decimal.maxSparkPrecision} at most for other loads"
+      )
+  }
 
   def buildListOfSQLStatementsAsMap(orchestrator: String): Map[String, Object] = {
     require(
       orchestrator == "snowflake",
       s"buildListOfSQLStatementsAsMap only supports snowflake, got $orchestrator"
     )
+    requireNoWideDecimals(s"the $orchestrator orchestrator")
+    // The SQL runs in the orchestrator, where Spark cannot apply the privacy instead
+    val privacyAttributes = IngestionJob.nonSqlPrivacyAttributes(schema.attributes)
+    if (privacyAttributes.nonEmpty)
+      throw new IllegalArgumentException(
+        s"$targetTableName cannot be loaded by the $orchestrator orchestrator, which only applies SQL privacy, because of the privacy of ${privacyAttributes
+            .mkString(", ")}. Use a SQL privacy (privacy: \"SQL: ...\") or another orchestrator template"
+      )
     new NativeLoader(this, None).buildSQLStatements()
   }
 
   def run(): Try[JobResult] = {
     val jobResult = selectLoader() match {
-      case "bigquery"  => new BigQueryNativeLoader(this, accessToken).run()
-      case "snowflake" => new SnowflakeNativeLoader(this).run()
-      case "duckdb"    => new DuckDbNativeLoader(this).run()
-      case "spark"     => ingestWithSpark()
+      case "bigquery" => new BigQueryNativeLoader(this, accessToken).run()
+      case "snowflake" =>
+        withoutWideDecimals("the native Snowflake loader")(new SnowflakeNativeLoader(this).run())
+      case "duckdb" =>
+        withoutWideDecimals("the native DuckDB loader")(new DuckDbNativeLoader(this).run())
+      case "spark" => withoutWideDecimals("Spark")(ingestWithSpark())
       case other =>
         logger.warn(s"Unsupported engine $other, falling back to spark")
-        ingestWithSpark()
+        withoutWideDecimals("Spark")(ingestWithSpark())
     }
     jobResult
       .recoverWith { case exception =>
@@ -286,10 +318,16 @@ object IngestionJob extends LazyLogging {
   /** Loader effectively used to ingest a table with this merged metadata: "bigquery", "snowflake"
     * or "duckdb" for warehouse-native loads, "spark" otherwise.
     */
-  def selectLoader(mergedMetadata: Metadata)(implicit settings: Settings): String = {
+  def selectLoader(
+    mergedMetadata: Metadata,
+    attributes: List[TableAttribute],
+    tableName: String,
+    types: List[Type]
+  )(implicit settings: Settings): String = {
     val sinkConn = mergedMetadata.getSinkConnection()
     val dbName = sinkConn.targetDatawareHouse()
-    val nativeCandidate: Boolean = isNativeCandidate(mergedMetadata, dbName)
+    val nativeCandidate: Boolean =
+      isNativeCandidate(mergedMetadata, attributes, tableName, types, dbName)
     logger.info(s"Native candidate: $nativeCandidate")
 
     val loader =
@@ -312,11 +350,20 @@ object IngestionJob extends LazyLogging {
   def loadRequiresSpark(domain: DomainInfo, table: SchemaInfo)(implicit
     settings: Settings
   ): Boolean =
-    selectLoader(table.mergedMetadata(domain.metadata)) == "spark"
+    selectLoader(
+      table.mergedMetadata(domain.metadata),
+      table.attributes,
+      domain.finalName + "." + table.finalName,
+      settings.schemaHandler().types()
+    ) == "spark"
 
-  private def isNativeCandidate(mergedMetadata: Metadata, dbName: String)(implicit
-    settings: Settings
-  ): Boolean = {
+  private def isNativeCandidate(
+    mergedMetadata: Metadata,
+    attributes: List[TableAttribute],
+    tableName: String,
+    types: List[Type],
+    dbName: String
+  )(implicit settings: Settings): Boolean = {
     val isNative = mergedMetadata.loader
       .orElse(mergedMetadata.getSinkConnection().loader)
       .getOrElse(settings.appConfig.loader)
@@ -326,6 +373,102 @@ object IngestionJob extends LazyLogging {
       // https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
       val arrayOk = dbName != "bigquery" || !mergedMetadata.resolveArray()
       nativeSupportedFormats.get(dbName).exists(_.contains(format)) && arrayOk
+    } && {
+      // The native loaders only apply SQL privacy, computed by the SQL of the load
+      val privacyAttributes = nonSqlPrivacyAttributes(attributes)
+      if (privacyAttributes.nonEmpty)
+        logger.warn(
+          s"Loading $tableName with Spark instead of the native loader, which does not apply the privacy of ${privacyAttributes
+              .mkString(", ")}. Its scripts, SQL privacy and filter run as Spark SQL"
+        )
+      privacyAttributes.isEmpty
+    } && {
+      val binaryAttributes =
+        binaryAttributesNotDecodedNatively(mergedMetadata, attributes, types, dbName)
+      if (binaryAttributes.nonEmpty)
+        logger.warn(
+          s"Loading $tableName with Spark instead of the native $dbName loader, which would not decode the bytes of ${binaryAttributes
+              .mkString(", ")} from the encoding of their type. Its scripts, SQL privacy and filter run as Spark SQL"
+        )
+      binaryAttributes.isEmpty
     }
   }
+
+  /** @return
+    *   the loaded binary attributes whose text the native loader of the engine does not decode with
+    *   the encoding of their type: it would store other bytes. BigQuery reads base64 in CSV and
+    *   JSON loads, Snowflake reads hex by default, DuckDB reads its own escaped text.
+    */
+  private def binaryAttributesNotDecodedNatively(
+    mergedMetadata: Metadata,
+    attributes: List[TableAttribute],
+    types: List[Type],
+    dbName: String
+  ): List[String] = {
+    val format = mergedMetadata.resolveFormat()
+    // A Parquet file holds the bytes themselves
+    def decodedNatively(encoding: String): Boolean =
+      format == Format.PARQUET ||
+      dbName == "bigquery" && encoding == "base64" && format != Format.POSITION ||
+      dbName == "snowflake" && encoding == "hex"
+    def binaryLeaves(attributes: List[TableAttribute], prefix: String): List[String] =
+      attributes
+        .filterNot(attribute => attribute.resolveIgnore() || attribute.script.isDefined)
+        .flatMap { attribute =>
+          val path = prefix + attribute.getFinalName()
+          if (attribute.attributes.nonEmpty) binaryLeaves(attribute.attributes, path + ".")
+          else
+            types
+              .find(_.name == attribute.`type`)
+              .filter(tpe =>
+                tpe.primitiveType == PrimitiveType.binary &&
+                !decodedNatively(tpe.pattern.toLowerCase(java.util.Locale.ROOT))
+              )
+              .map(_ => path)
+              .toList
+        }
+    binaryLeaves(attributes, "")
+  }
+
+  /** @return
+    *   the paths of the loaded leaf attributes, at every nesting level, scripted ones included, of
+    *   a decimal type whose precision is above the one of Spark decimals
+    */
+  def wideDecimalAttributes(
+    attributes: List[TableAttribute],
+    schemaHandler: SchemaHandler,
+    prefix: String = ""
+  ): List[String] =
+    attributes
+      .filterNot(_.resolveIgnore())
+      .flatMap { attribute =>
+        val path = prefix + attribute.name
+        if (attribute.attributes.nonEmpty)
+          wideDecimalAttributes(attribute.attributes, schemaHandler, path + ".")
+        else
+          attribute
+            .`type`(schemaHandler)
+            .filter(PrimitiveType.decimal.isWide)
+            .map(_ => path)
+            .toList
+      }
+
+  /** @return
+    *   the paths of the loaded leaf attributes, at every nesting level, whose privacy is not SQL.
+    *   Ignored attributes are not loaded, and the privacy of scripted ones is not applied by any
+    *   loader.
+    */
+  def nonSqlPrivacyAttributes(attributes: List[TableAttribute], prefix: String = ""): List[String] =
+    attributes
+      .filterNot(attribute => attribute.resolveIgnore() || attribute.script.nonEmpty)
+      .flatMap { attribute =>
+        val path = prefix + attribute.name
+        val privacy = attribute.resolvePrivacy()
+        if (attribute.attributes.nonEmpty)
+          nonSqlPrivacyAttributes(attribute.attributes, path + ".")
+        else if (privacy != TransformInput.None && !privacy.sql)
+          List(path)
+        else
+          Nil
+      }
 }
