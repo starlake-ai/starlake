@@ -1,6 +1,19 @@
 
 # Release notes
 
+# 1.8.14:
+__Improvement__:
+- **DuckDB JDBC driver upgraded to 2.0.0.0**, along with the installer pin. DuckDB 2.0 changes behavior in ways that reach Starflow projects:
+  - **Database files written by Starflow can no longer be opened by DuckDB 1.x** (CLI, Python package, UI): new databases use storage version 69. Existing files created by 1.x are read and written without being upgraded, so they stay readable by 1.x. To keep a file readable by 1.x tools, set `storage_compatibility_version` (or `STORAGE_VERSION` in `ATTACH`) in the connection `preActions`.
+  - **Arrow lambdas (`x -> x + 1`) are rejected** by default: write `lambda x : x + 1` in transforms run on DuckDB. `SET lambda_syntax = 'enable_single_arrow'` restores the old syntax until DuckDB 2.1.
+  - **Integer division and modulo by zero (`//`, `%`) now fail** instead of returning NULL: wrap them in `TRY(...)` or set `error_on_division_by_zero = false`.
+  - **Axis order sensitive spatial functions** (`ST_Distance_Sphere`, ...) fail until `geometry_always_xy` is set: `false` keeps the 1.x [latitude, longitude] order. `starlake test` sets it to `false` before installing the transpiler macros.
+  - **S3 credentials passed in the URL query string are ignored** and become part of the object key: use secrets.
+
+__Bug Fix__:
+- **DuckDB native loads no longer fail with `Current transaction is aborted`** on a table that does not exist yet: since DuckDB 2.0 any failing statement aborts the open transaction, and the existence check probed the table with a query. DuckDB tables and views are now looked up in `information_schema`.
+- **A failing DuckDB transform reports its own error** instead of `cannot rollback - no transaction is active`: the rollback is now skipped when no transaction is open, and a failing rollback is logged rather than hiding the original error.
+
 # 1.8.13:
 __Improvement__:
 - jsqltranspiler upgraded to 1.15. It still pins jsqlparser 5.4.162, so the SQL parser is unchanged.
